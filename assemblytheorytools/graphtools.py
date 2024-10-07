@@ -1,0 +1,75 @@
+import networkx as nx
+from rdkit import Chem
+from rdkit.Chem import AllChem as Chem
+
+from .moltools import standardize_mol
+
+
+def nx_to_mol(graph):
+    # Create an editable RDKit molecule
+    mol = Chem.RWMol()
+    # Dictionary to map node identifiers to atom indices in the RDKit molecule
+    node_to_idx = {}
+
+    # Add atoms to the molecule
+    for node, data in graph.nodes(data=True):
+        # Get the atomic symbol from the node's 'color' attribute, default to 'C' if not present
+        atom_symbol = data.get('color', 'C')
+        atom = Chem.Atom(atom_symbol)
+        idx = mol.AddAtom(atom)
+        node_to_idx[node] = idx
+
+    # Add bonds to the molecule
+    for u, v, data in graph.edges(data=True):
+        # Get the bond order from the edge's 'color' attribute, default to 1 if not present
+        bond_order = data.get('color', 1)
+        # Map the bond order to RDKit's bond types
+        bond_type = {
+            1: Chem.rdchem.BondType.SINGLE,
+            2: Chem.rdchem.BondType.DOUBLE,
+            3: Chem.rdchem.BondType.TRIPLE,
+        }.get(bond_order, Chem.rdchem.BondType.SINGLE)
+        # Add the bond to the molecule
+        mol.AddBond(node_to_idx[u], node_to_idx[v], bond_type)
+
+    # Sanitize the molecule to generate implicit hydrogens and conformations
+    standardize_mol(mol)
+
+    # Return the immutable Mol object
+    return mol.GetMol()
+
+
+def mol_to_nx(mol):
+    graph = nx.Graph()
+    converter = {Chem.rdchem.BondType.SINGLE: 1,
+                 Chem.rdchem.BondType.DOUBLE: 2,
+                 Chem.rdchem.BondType.TRIPLE: 3,
+                 Chem.rdchem.BondType.AROMATIC: 4}
+
+    for atom in mol.GetAtoms():
+        graph.add_node(atom.GetIdx(),
+                       color=atom.GetSymbol())
+
+    for bond in mol.GetBonds():
+        graph.add_edge(bond.GetBeginAtomIdx(),
+                       bond.GetEndAtomIdx(),
+                       color=converter[bond.GetBondType()])
+    return graph
+
+
+def write_ass_graph_file(graph, file_name="graph_info"):
+    # Get the number of vertices
+    num_vertices = graph.number_of_nodes()
+    # Get the edges
+    edges = list(graph.edges())
+    # Get vertex colors
+    vertex_colors = nx.get_node_attributes(graph, 'color')
+    # Get edge colors
+    edge_colors = nx.get_edge_attributes(graph, 'color')
+    # Write the information to a file
+    with open(file_name, 'w') as f:
+        f.write(f"{graph.name}\n")
+        f.write(f"{num_vertices}\n")
+        f.write(" ".join([f"{e + 1}" for edge in edges for e in edge]) + "\n")
+        f.write(" ".join([f"{color}" for node, color in vertex_colors.items()]) + "\n")
+        f.write(" ".join([f"{color}" for node, color in edge_colors.items()]))
