@@ -3,17 +3,42 @@ from rdkit.Chem import AllChem as Chem
 from rdkit.Chem.MolStandardize import rdMolStandardize
 
 
+# def standardize_mol(mol):
+#     # Standardize the molecule
+#     mol.UpdatePropertyCache(strict=False)
+#     Chem.SetConjugation(mol)
+#     Chem.SetHybridization(mol)
+#     # Normalize the molecule
+#     Chem.SanitizeMol(mol, sanitizeOps=(Chem.SANITIZE_ALL ^ Chem.SANITIZE_CLEANUP ^ Chem.SANITIZE_PROPERTIES), catchErrors=False)
+#     rdMolStandardize.NormalizeInPlace(mol)
+#     # kekulize the molecule
+#     Chem.Kekulize(mol)
+#     Chem.AddHs(mol)
+
 def standardize_mol(mol):
-    # Standardize the molecule
-    mol.UpdatePropertyCache(strict=False)
-    Chem.SetConjugation(mol)
-    Chem.SetHybridization(mol)
-    # Normalize the molecule
-    Chem.SanitizeMol(mol, sanitizeOps=(Chem.SANITIZE_ALL ^ Chem.SANITIZE_CLEANUP ^ Chem.SANITIZE_PROPERTIES))
+    # Sanitise the molecule
+    Chem.SanitizeMol(mol, catchErrors=False)
     rdMolStandardize.NormalizeInPlace(mol)
-    # kekulize the molecule
+    # Update the properties
+    mol.UpdatePropertyCache()
     Chem.Kekulize(mol)
-    Chem.AddHs(mol)
+    # Add hydrogens
+    mol = Chem.AddHs(mol)
+    # Return the molecule
+    return mol
+
+# def standardize_mol(mol):
+#     Chem.SetConjugation(mol)
+#     Chem.SetHybridization(mol)
+#     Chem.SanitizeMol(mol, sanitizeOps=(Chem.SANITIZE_ALL ^ Chem.SANITIZE_CLEANUP ^ Chem.SANITIZE_PROPERTIES))
+#     #Chem.SanitizeMol(mol, catchErrors=False)
+#     # Normalize the molecule
+#     rdMolStandardize.NormalizeInPlace(mol)
+#     mol.UpdatePropertyCache(strict=False)
+#     # kekulize the molecule
+#     # Chem.Kekulize(mol)
+#     # mol = Chem.AddHs(mol)
+#     return mol
 
 
 def smi_to_mol(smi):

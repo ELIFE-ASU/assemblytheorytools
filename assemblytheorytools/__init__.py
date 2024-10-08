@@ -10,7 +10,8 @@ from .complexityscores import (molecular_weight,
                                kirchhoff_index)
 from .graphtools import (nx_to_mol,
                          mol_to_nx,
-                         write_ass_graph_file)
+                         write_ass_graph_file,
+                         is_graph_isomorphic)
 from .moltools import (standardize_mol,
                        smi_to_mol,
                        inchi_to_mol,
