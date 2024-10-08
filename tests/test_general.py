@@ -60,9 +60,9 @@ def test_joint_ass_mol():
     # Calculate the assembly index
     ai, path = att.calculate_assembly_index(mol)
     # Compare to the hand calculated value
-
+    out_mol = Chem.MolToInchi(att.split_mols(mol)[0])
     assert ai == 11
-    # assert att.split_mols(mol) == path["file_graph"][0]
+    assert out_mol== path["file_graph"][0]
 
 def test_joint_ass_graph():
     import networkx as nx

@@ -3,7 +3,7 @@ from networkx.algorithms.isomorphism import GraphMatcher
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 
-from .moltools import standardize_mol
+from .moltools import safe_standardize_mol
 
 
 def nx_to_mol(graph):
@@ -34,10 +34,7 @@ def nx_to_mol(graph):
         mol.AddBond(node_to_idx[u], node_to_idx[v], bond_type)
 
     # Sanitize the molecule to generate implicit hydrogens and conformations
-    standardize_mol(mol)
-
-    # Return the immutable Mol object
-    return mol.GetMol()
+    return safe_standardize_mol(mol)
 
 
 def mol_to_nx(mol):

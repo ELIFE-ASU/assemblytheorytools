@@ -17,7 +17,8 @@ from .moltools import (standardize_mol,
                        inchi_to_mol,
                        molfile_to_mol,
                        combine_mols,
-                       write_v2k_mol_file)
+                       write_v2k_mol_file,
+                       split_mols)
 from .pathway import (create_graphs_from_data,
                       get_pathway_to_inchi)
 from .plotting import (plot_mol_graph,

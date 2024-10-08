@@ -3,17 +3,20 @@ from rdkit.Chem import AllChem as Chem
 from rdkit.Chem.MolStandardize import rdMolStandardize
 
 
-# def standardize_mol(mol):
-#     # Standardize the molecule
-#     mol.UpdatePropertyCache(strict=False)
-#     Chem.SetConjugation(mol)
-#     Chem.SetHybridization(mol)
-#     # Normalize the molecule
-#     Chem.SanitizeMol(mol, sanitizeOps=(Chem.SANITIZE_ALL ^ Chem.SANITIZE_CLEANUP ^ Chem.SANITIZE_PROPERTIES), catchErrors=False)
-#     rdMolStandardize.NormalizeInPlace(mol)
-#     # kekulize the molecule
-#     Chem.Kekulize(mol)
-#     Chem.AddHs(mol)
+def safe_standardize_mol(mol):
+    # Standardize the molecule
+    mol.UpdatePropertyCache(strict=False)
+    Chem.SetConjugation(mol)
+    Chem.SetHybridization(mol)
+    # Normalize the molecule
+    Chem.SanitizeMol(mol, sanitizeOps=(Chem.SANITIZE_ALL ^ Chem.SANITIZE_CLEANUP ^ Chem.SANITIZE_PROPERTIES),
+                     catchErrors=False)
+    rdMolStandardize.NormalizeInPlace(mol)
+    # kekulize the molecule
+    Chem.Kekulize(mol)
+    mol = Chem.AddHs(mol)
+    return mol
+
 
 def standardize_mol(mol):
     # Sanitise the molecule
@@ -26,19 +29,6 @@ def standardize_mol(mol):
     mol = Chem.AddHs(mol)
     # Return the molecule
     return mol
-
-# def standardize_mol(mol):
-#     Chem.SetConjugation(mol)
-#     Chem.SetHybridization(mol)
-#     Chem.SanitizeMol(mol, sanitizeOps=(Chem.SANITIZE_ALL ^ Chem.SANITIZE_CLEANUP ^ Chem.SANITIZE_PROPERTIES))
-#     #Chem.SanitizeMol(mol, catchErrors=False)
-#     # Normalize the molecule
-#     rdMolStandardize.NormalizeInPlace(mol)
-#     mol.UpdatePropertyCache(strict=False)
-#     # kekulize the molecule
-#     # Chem.Kekulize(mol)
-#     # mol = Chem.AddHs(mol)
-#     return mol
 
 
 def smi_to_mol(smi):
@@ -68,8 +58,10 @@ def combine_mols(mols):
     else:
         return mols
 
+
 def split_mols(mol):
     return Chem.GetMolFrags(mol, asMols=True)
+
 
 def write_v2k_mol_file(mol, file_path):
     # Need to force rdkit to use V2k mol block format
