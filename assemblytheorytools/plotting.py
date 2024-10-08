@@ -70,6 +70,17 @@ def n_plot(xlab, ylab, xs=14, ys=14):
     return None
 
 
+def ax_plot(fig, ax, xlab, ylab, xs=14, ys=14):
+    ax.minorticks_on()
+    ax.tick_params(axis='both', which='major', labelsize=ys - 2, direction='in', length=6, width=2)
+    ax.tick_params(axis='both', which='minor', labelsize=ys - 2, direction='in', length=4, width=2)
+    ax.tick_params(axis='both', which='both', top=True, right=True)
+    ax.set_xlabel(xlab, fontsize=xs)
+    ax.set_ylabel(ylab, fontsize=ys)
+    fig.tight_layout()
+    return None
+
+
 def os_plot_show():
     # check if the OS is windows
     if os.name == 'nt':
