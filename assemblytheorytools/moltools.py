@@ -20,7 +20,7 @@ def standardize_mol(mol):
     Chem.SanitizeMol(mol, catchErrors=False)
     rdMolStandardize.NormalizeInPlace(mol)
     # Update the properties
-    mol.UpdatePropertyCache()
+    mol.UpdatePropertyCache(strict=False)
     Chem.Kekulize(mol)
     # Add hydrogens
     mol = Chem.AddHs(mol)
@@ -60,11 +60,16 @@ def molfile_to_mol(mol):
 
 
 def combine_mols(mols):
-    combined_mol = Chem.RWMol()
-    for mol in mols:
-        combined_mol = Chem.CombineMols(combined_mol, mol)
-    return combined_mol
+    if isinstance(mols, list):
+        combined_mol = Chem.RWMol()
+        for mol in mols:
+            combined_mol = Chem.CombineMols(combined_mol, mol)
+        return combined_mol
+    else:
+        return mols
 
+def split_mols(mol):
+    return Chem.GetMolFrags(mol, asMols=True)
 
 def write_v2k_mol_file(mol, file_path):
     # Need to force rdkit to use V2k mol block format

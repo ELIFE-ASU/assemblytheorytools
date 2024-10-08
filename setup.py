@@ -22,4 +22,10 @@ setup(
         'networkx',
         'rdkit',
     ],
+    extras_require={
+        'dev': [
+            'pytest',
+            'pytest-cov',
+        ],
+    },
 )

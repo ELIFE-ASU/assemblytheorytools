@@ -1,4 +1,5 @@
 import networkx as nx
+from networkx.algorithms.isomorphism import GraphMatcher
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 
@@ -73,3 +74,7 @@ def write_ass_graph_file(graph, file_name="graph_info"):
         f.write(" ".join([f"{e + 1}" for edge in edges for e in edge]) + "\n")
         f.write(" ".join([f"{color}" for node, color in vertex_colors.items()]) + "\n")
         f.write(" ".join([f"{color}" for node, color in edge_colors.items()]))
+
+
+def is_graph_isomorphic(g1, g2):
+    return GraphMatcher(g1, g2).is_isomorphic()
