@@ -1,9 +1,6 @@
 import pytest
 import assemblytheorytools as att
 
-
-
-
 def test_version():
     assert att.__version__ == '0.0.01'
 
@@ -27,26 +24,6 @@ def test_ass_mol():
     # Compare to the hand calculated value
     assert ai == 2
     assert Chem.MolToInchi(mol) == path["file_graph"][0]
-
-
-# def test_joint_ass_mol():
-#     from rdkit import Chem
-#     from rdkit.Chem import AllChem as Chem
-#     # Calculating the joint MA using mol approach
-#     molecules = "[H]C#C[H].[H][C]([H])([H])[C]([H])([H])[H].[H]C([H])([H])([H]).[H]O([H]).[H]N([H])([H]).[H][N+]([H])([H])([H]).[S-]([H]).[H][H]"
-#     ps = Chem.SmilesParserParams()
-#     ps.removeHs = False
-#     combined_mol = Chem.MolFromSmiles(molecules, ps)
-#     # Chem.Kekulize(combined_mol)
-#
-#     # Calculate the assembly index
-#     ai, path = att.calculate_assembly_index(combined_mol)
-#     print(f"Assembly index: {ai}", flush=True)
-#     print(f"Pathway: {path}", flush=True)
-#     # Compare to the hand calculated value
-#     assert ai == 11
-
-
 
 def test_joint_ass_mol():
     import networkx as nx
