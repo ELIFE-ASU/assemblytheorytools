@@ -27,48 +27,6 @@ def test_ass_graph():
     assert att.is_graph_isomorphic(graph, path["file_graph"][0])
 
 
-def test_ass_mol():
-    # Convert all the smile to mol
-    mol = att.smi_to_mol("[H]C#C[H]")
-    # Calculate the assembly index
-    ai, path = att.calculate_assembly_index(mol)
-    # Compare to the hand calculated value
-    assert ai == 2
-    assert Chem.MolToInchi(mol) == path["file_graph"][0]
-
-
-def test_joint_ass_mol():
-    molecules = "[H]C#C[H].[H][C]([H])([H])[C]([H])([H])[H].[H]C([H])([H])([H]).[H]O([H]).[H]N([H])([H]).[H][N+]([H])([H])([H]).[S-]([H]).[H][H]"
-    molecules = molecules.split(".")
-    # Convert all the smile to mol
-    mols = [att.smi_to_mol(smile) for smile in molecules]
-    mol = att.combine_mols(mols)
-
-    # Calculate the assembly index
-    ai, path = att.calculate_assembly_index(mol)
-    # Compare to the hand calculated value
-    out_mol = Chem.MolToInchi(att.split_mols(mol)[0])
-    assert ai == 11
-    assert out_mol == path["file_graph"][0]
-
-
-def test_joint_ass_graph():
-    molecules = "[H]C#C[H].[H][C]([H])([H])[C]([H])([H])[H].[H]C([H])([H])([H]).[H]O([H]).[H]N([H])([H]).[H][N+]([H])([H])([H]).[S-]([H]).[H][H]"
-    molecules = molecules.split(".")
-    # Convert all the smile to mol
-    mols = [att.smi_to_mol(smile) for smile in molecules]
-    # Convert the system into graphs
-    graphs = [att.mol_to_nx(mol) for mol in mols]
-    # Join the graphs
-    graphs_joint = nx.disjoint_union_all(graphs)
-    # Calculate the assembly index
-    ai, path = att.calculate_assembly_index(graphs_joint)
-    # Compare to the hand calculated value
-    out_graph = nx.disjoint_union_all(path["file_graph"])
-    assert ai == 11
-    assert att.is_graph_isomorphic(graphs_joint, out_graph)
-
-
 def test_ass_mol_file():
     # Convert all the smile to mol
     mol = att.smi_to_mol("[H]C#C[H]")
@@ -90,6 +48,16 @@ def test_ass_mol_file():
     os.remove(tmp_file + "Pathway")
 
 
+def test_ass_mol():
+    # Convert all the smile to mol
+    mol = att.smi_to_mol("[H]C#C[H]")
+    # Calculate the assembly index
+    ai, path = att.calculate_assembly_index(mol)
+    # Compare to the hand calculated value
+    assert ai == 2
+    assert Chem.MolToInchi(mol) == Chem.MolToInchi(path["file_graph"][0])
+
+
 def test_ass_mol_debug():
     # Convert all the smile to mol
     mol = att.smi_to_mol("[H]C#C[H]")
@@ -99,7 +67,39 @@ def test_ass_mol_debug():
     dir_list = list_subdirs(os.getcwd())
     # Compare to the hand calculated value
     assert ai == 2
-    assert Chem.MolToInchi(mol) == path["file_graph"][0]
+    assert Chem.MolToInchi(mol) == Chem.MolToInchi(path["file_graph"][0])
     assert len(dir_list) == 1
     # Clean up
     shutil.rmtree(dir_list[0])
+
+
+def test_joint_ass_mol():
+    molecules = "[H]C#C[H].[H][C]([H])([H])[C]([H])([H])[H].[H]C([H])([H])([H]).[H]O([H]).[H]N([H])([H]).[H][N+]([H])([H])([H]).[S-]([H]).[H][H]"
+    molecules = molecules.split(".")
+    # Convert all the smile to mol
+    mols = [att.smi_to_mol(smile) for smile in molecules]
+    mol = att.combine_mols(mols)
+
+    # Calculate the assembly index
+    ai, path = att.calculate_assembly_index(mol)
+    # Compare to the hand calculated value
+    out_mol = Chem.MolToInchi(att.split_mols(mol)[0])
+    assert ai == 11
+    assert out_mol == Chem.MolToInchi(path["file_graph"][0])
+
+
+def test_joint_ass_graph():
+    molecules = "[H]C#C[H].[H][C]([H])([H])[C]([H])([H])[H].[H]C([H])([H])([H]).[H]O([H]).[H]N([H])([H]).[H][N+]([H])([H])([H]).[S-]([H]).[H][H]"
+    molecules = molecules.split(".")
+    # Convert all the smile to mol
+    mols = [att.smi_to_mol(smile) for smile in molecules]
+    # Convert the system into graphs
+    graphs = [att.mol_to_nx(mol) for mol in mols]
+    # Join the graphs
+    graphs_joint = nx.disjoint_union_all(graphs)
+    # Calculate the assembly index
+    ai, path = att.calculate_assembly_index(graphs_joint)
+    # Compare to the hand calculated value
+    out_graph = nx.disjoint_union_all(path["file_graph"])
+    assert ai == 11
+    assert att.is_graph_isomorphic(graphs_joint, out_graph)

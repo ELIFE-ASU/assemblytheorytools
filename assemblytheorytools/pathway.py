@@ -64,7 +64,7 @@ def extract_duplicates(edges, vert_col_dict, edge_col_dict):
     return list(verts), verts_c, edges, edges_c
 
 
-def create_graphs_from_data(file_path):
+def get_pathway_to_graph(file_path):
     # Load data from the JSON file
     with open(os.path.abspath(file_path), 'r') as file:
         data = json.load(file)
@@ -104,8 +104,18 @@ def create_graphs_from_data(file_path):
     return graphs
 
 
+def get_pathway_to_mol(file_path):
+    graphs = get_pathway_to_graph(file_path)
+    out_dict = {}
+    # Convert each section to inchi and store in out_dict
+    for key in ['file_graph', 'remnant', 'duplicates', 'removed_edges']:
+        if key in graphs:
+            out_dict[key] = [nx_to_mol(g) for g in graphs[key]]
+    return out_dict
+
+
 def get_pathway_to_inchi(file_path):
-    graphs = create_graphs_from_data(file_path)
+    graphs = get_pathway_to_graph(file_path)
     out_dict = {}
     # Convert each section to inchi and store in out_dict
     for key in ['file_graph', 'remnant', 'duplicates', 'removed_edges']:

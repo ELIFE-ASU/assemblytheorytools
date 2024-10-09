@@ -8,6 +8,7 @@ from .complexityscores import (molecular_weight,
                                balaban_index,
                                randic_index,
                                kirchhoff_index)
+from .find_other_paths import (all_shortest_paths)
 from .graphtools import (nx_to_mol,
                          mol_to_nx,
                          write_ass_graph_file,
@@ -19,11 +20,12 @@ from .moltools import (standardize_mol,
                        combine_mols,
                        write_v2k_mol_file,
                        split_mols)
-from .pathway import (create_graphs_from_data,
+from .pathway import (get_pathway_to_graph,
+                      get_pathway_to_mol,
                       get_pathway_to_inchi)
 from .plotting import (plot_mol_graph,
                        plot_interactive_graph,
                        plot_residue_graph,
                        plot_graphs_in_subplots)
-from .find_other_paths import (all_shortest_paths)
+
 __version__ = "0.0.01"

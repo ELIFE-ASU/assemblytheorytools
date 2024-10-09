@@ -9,7 +9,7 @@ from rdkit.Chem import AllChem as Chem
 
 from .graphtools import write_ass_graph_file
 from .moltools import write_v2k_mol_file
-from .pathway import create_graphs_from_data, get_pathway_to_inchi
+from .pathway import get_pathway_to_graph, get_pathway_to_mol, get_pathway_to_inchi
 
 
 def load_assembly_output(file_path):
@@ -117,10 +117,10 @@ def calculate_assembly_index(mol, dir_code=None, timeout=100.0, debug=False):
             # Check the pathway file exits
             if os.path.isfile(file_path_pathway):
                 if isinstance(mol, nx.Graph):
-                    path = create_graphs_from_data(file_path_pathway)
+                    path = get_pathway_to_graph(file_path_pathway)
                 elif isinstance(mol, Chem.Mol):
                     # Load the pathway data
-                    path = get_pathway_to_inchi(file_path_pathway)
+                    path = get_pathway_to_mol(file_path_pathway)
                 elif ".mol" in mol:
                     # Load the pathway data
                     path = get_pathway_to_inchi(file_path_pathway)
