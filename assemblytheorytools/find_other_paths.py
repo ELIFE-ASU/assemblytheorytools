@@ -1,17 +1,14 @@
 import os
 import random
 
+import matplotlib.pyplot as plt
 import numpy as np
 from rdkit.Chem import AllChem as Chem
 from rdkit.Chem import Draw
 
-from .pathway import get_pathway_to_inchi
 from .assembly import calculate_assembly_index
+from .pathway import get_pathway_to_inchi
 from .plotting import n_plot
-
-import matplotlib.pyplot as plt
-
-plt.rcParams['axes.linewidth'] = 2.0
 
 
 def get_atom_order(mol):
@@ -233,6 +230,7 @@ def all_shortest_paths(mol, f_graph_care=False):
 
 
 if __name__ == "__main__":
+    plt.rcParams['axes.linewidth'] = 2.0
     print("Program started", flush=True)
     # ala arg asp asn cys gln glu gly his ile leu lys met phe pro ser thr trp tyr val
     smiles = ["N[C@]([H])(C)C(=O)N[C@]([H])(CC(C)C)C(=O)N[C@]([H])(C)C(=O)O",  # ala

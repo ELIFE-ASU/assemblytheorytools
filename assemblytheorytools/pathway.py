@@ -9,17 +9,47 @@ from .graphtools import nx_to_mol
 
 
 def get_disconnected_subgraphs(graph):
-    # Return subgraphs of connected components without copying if not necessary
+    """
+    Return subgraphs of connected components without copying if not necessary.
+
+    Args:
+        graph (networkx.Graph): The input graph.
+
+    Returns:
+        list: A list of subgraphs, each representing a connected component.
+    """
     return [graph.subgraph(c) for c in nx.connected_components(graph)]
 
 
 def convert_edge_color(edge_color):
+    """
+    Convert an edge color descriptor to its corresponding numerical value.
+
+    Args:
+        edge_color (str): The descriptor of the edge color (e.g., 'single', 'double', 'triple').
+
+    Returns:
+        int: The numerical value corresponding to the edge color.
+    """
     # Use the predefined edge_color_map
     edge_color_map = {"single": 1, "double": 2, "triple": 3}
     return edge_color_map[edge_color]
 
 
 def add_nodes_edges(graph, vertices, vertex_colors, edges, edge_colors):
+    """
+    Add nodes and edges to a NetworkX graph with specified colors.
+
+    Args:
+        graph (networkx.Graph): The graph to which nodes and edges will be added.
+        vertices (list): A list of vertices to be added to the graph.
+        vertex_colors (list): A list of colors corresponding to each vertex.
+        edges (list): A list of edges to be added to the graph.
+        edge_colors (list): A list of colors corresponding to each edge.
+
+    Returns:
+        None
+    """
     # Use zip to iterate over vertices and their colors
     for node, color in zip(vertices, vertex_colors):
         graph.add_node(node, color=color)
@@ -30,6 +60,15 @@ def add_nodes_edges(graph, vertices, vertex_colors, edges, edge_colors):
 
 
 def add_graph(graph_data):
+    """
+    Create a NetworkX graph from the provided graph data and return its connected subgraphs.
+
+    Args:
+        graph_data (dict): A dictionary containing the graph data with keys 'Vertices', 'VertexColours', 'Edges', and 'EdgeColours'.
+
+    Returns:
+        list: A list of subgraphs, each representing a connected component.
+    """
     graph = nx.Graph()
     # Add nodes and edges to the graph
     add_nodes_edges(
@@ -44,6 +83,17 @@ def add_graph(graph_data):
 
 
 def get_conversion_dict(data):
+    """
+    Extract vertex and edge color mappings from the provided graph data.
+
+    Args:
+        data (dict): A dictionary containing the graph data with a key 'file_graph'.
+
+    Returns:
+        tuple: A tuple containing two dictionaries:
+            - vert_col_dict (dict): A dictionary mapping vertices to their colors.
+            - edge_col_dict (dict): A dictionary mapping edges (as tuples) to their colors.
+    """
     # Extract data from the 'file_graph' key
     graph_data = data['file_graph'][0]
     # Create a dictionary mapping vertices to their colors
@@ -54,6 +104,21 @@ def get_conversion_dict(data):
 
 
 def extract_duplicates(edges, vert_col_dict, edge_col_dict):
+    """
+    Extract unique vertices and their colors, and get the colors of the edges.
+
+    Args:
+        edges (list): A list of edges, where each edge is represented as a tuple of vertices.
+        vert_col_dict (dict): A dictionary mapping vertices to their colors.
+        edge_col_dict (dict): A dictionary mapping edges (as tuples) to their colors.
+
+    Returns:
+        tuple: A tuple containing:
+            - list: A list of unique vertices.
+            - list: A list of colors corresponding to the unique vertices.
+            - list: The original list of edges.
+            - list: A list of colors corresponding to the edges.
+    """
     # Extract unique vertices
     verts = {v for edge in edges for v in edge}
     verts_c = [vert_col_dict[v] for v in verts]
@@ -65,6 +130,15 @@ def extract_duplicates(edges, vert_col_dict, edge_col_dict):
 
 
 def get_pathway_to_graph(file_path):
+    """
+    Load graph data from a JSON file and create NetworkX graphs for different sections.
+
+    Args:
+        file_path (str): The path to the JSON file containing the graph data.
+
+    Returns:
+        dict: A dictionary containing NetworkX graphs for different sections such as 'file_graph', 'remnant', 'duplicates', and 'removed_edges'.
+    """
     # Load data from the JSON file
     with open(os.path.abspath(file_path), 'r') as file:
         data = json.load(file)
@@ -105,9 +179,18 @@ def get_pathway_to_graph(file_path):
 
 
 def get_pathway_to_mol(file_path):
+    """
+    Convert graph data from a JSON file to RDKit molecule objects.
+
+    Args:
+        file_path (str): The path to the JSON file containing the graph data.
+
+    Returns:
+        dict: A dictionary containing RDKit molecule objects for different sections such as 'file_graph', 'remnant', 'duplicates', and 'removed_edges'.
+    """
     graphs = get_pathway_to_graph(file_path)
     out_dict = {}
-    # Convert each section to inchi and store in out_dict
+    # Convert each section to RDKit molecule objects and store in out_dict
     for key in ['file_graph', 'remnant', 'duplicates', 'removed_edges']:
         if key in graphs:
             out_dict[key] = [nx_to_mol(g) for g in graphs[key]]
@@ -115,9 +198,18 @@ def get_pathway_to_mol(file_path):
 
 
 def get_pathway_to_inchi(file_path):
+    """
+    Convert graph data from a JSON file to InChI strings.
+
+    Args:
+        file_path (str): The path to the JSON file containing the graph data.
+
+    Returns:
+        dict: A dictionary containing InChI strings for different sections such as 'file_graph', 'remnant', 'duplicates', and 'removed_edges'.
+    """
     graphs = get_pathway_to_graph(file_path)
     out_dict = {}
-    # Convert each section to inchi and store in out_dict
+    # Convert each section to InChI and store in out_dict
     for key in ['file_graph', 'remnant', 'duplicates', 'removed_edges']:
         if key in graphs:
             out_dict[key] = [Chem.MolToInchi(nx_to_mol(g)) for g in graphs[key]]

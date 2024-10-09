@@ -9,11 +9,24 @@ from pyvis.network import Network
 
 
 def plot_mol_graph(graph, filename, layout="spring"):
+    """
+    Plot a molecular graph using NetworkX and Matplotlib.
+
+    Args:
+        graph (networkx.Graph): The molecular graph to be plotted.
+        filename (str): The name of the file where the plot will be saved.
+        layout (str, optional): The layout algorithm to use for positioning the nodes.
+                                Options are 'spring' or 'kamada_kawai'. Default is 'spring'.
+
+    Returns:
+        None
+    """
     cols_conv = {"C": "grey", "O": "red", "N": "blue", "S": "green", "H": "white", "Cl": "pink", "P": "purple"}
     color_dict_edge = {1.0: "black", 2.0: "green", 3.0: "red", 4.0: "orange"}
     graph_colors = [cols_conv.get(graph.nodes[idx]['color']) for idx in graph.nodes()]
     edge_colors = [color_dict_edge.get(graph.edges[idx]['color']) for idx in graph.edges()]
-    # position the nodes
+
+    # Position the nodes
     if layout == "spring":
         pos = nx.spring_layout(graph)
     else:
@@ -33,16 +46,27 @@ def plot_mol_graph(graph, filename, layout="spring"):
 
 
 def plot_interactive_graph(graph, show=False, filename="interactive_graph.html"):
-    # color each node based on its degree
+    """
+    Plot an interactive graph using PyVis and display it in a Jupyter notebook or save it as an HTML file.
+
+    Args:
+        graph (networkx.Graph): The graph to be plotted.
+        show (bool, optional): Whether to display the graph in a Jupyter notebook. Default is False.
+        filename (str, optional): The name of the file where the graph will be saved if not displayed. Default is "interactive_graph.html".
+
+    Returns:
+        pyvis.network.Network: The PyVis network object representing the graph.
+    """
+    # Color each node based on its degree
     max_nbr = len(max(graph.adj.values(), key=lambda x: len(x)))
     blues = colormaps.get_cmap("Blues")
     for n, d in graph.nodes(data=True):
         n_neighbors = len(graph.adj[n])
-        # show the smaller domain in red and the larger one in blue
+        # Show the smaller domain in red and the larger one in blue
         palette = blues
         d["color"] = colors.to_hex(palette(n_neighbors / max_nbr))
 
-    # convert to pyvis network
+    # Convert to PyVis network
     width, height = (900, 900)
     net = Network(width=f"{width}px", height=f"{height}px", notebook=True, heading="")
     net.from_nx(graph)
@@ -54,12 +78,24 @@ def plot_interactive_graph(graph, show=False, filename="interactive_graph.html")
         )
         HTML(iframe.format(html_doc=escape(html_doc)))
     else:
-        # save the graph
+        # Save the graph
         net.show(filename)
     return net
 
 
 def n_plot(xlab, ylab, xs=14, ys=14):
+    """
+    Configure and style the plot with specified labels and tick parameters.
+
+    Args:
+        xlab (str): The label for the x-axis.
+        ylab (str): The label for the y-axis.
+        xs (int, optional): Font size for the x-axis label. Default is 14.
+        ys (int, optional): Font size for the y-axis label. Default is 14.
+
+    Returns:
+        None
+    """
     plt.minorticks_on()
     plt.tick_params(axis='both', which='major', labelsize=ys - 2, direction='in', length=6, width=2)
     plt.tick_params(axis='both', which='minor', labelsize=ys - 2, direction='in', length=4, width=2)
@@ -71,6 +107,20 @@ def n_plot(xlab, ylab, xs=14, ys=14):
 
 
 def ax_plot(fig, ax, xlab, ylab, xs=14, ys=14):
+    """
+    Configure and style the plot with specified labels and tick parameters for a given axis.
+
+    Args:
+        fig (matplotlib.figure.Figure): The figure object containing the plot.
+        ax (matplotlib.axes.Axes): The axes object to be styled.
+        xlab (str): The label for the x-axis.
+        ylab (str): The label for the y-axis.
+        xs (int, optional): Font size for the x-axis label. Default is 14.
+        ys (int, optional): Font size for the y-axis label. Default is 14.
+
+    Returns:
+        None
+    """
     ax.minorticks_on()
     ax.tick_params(axis='both', which='major', labelsize=ys - 2, direction='in', length=6, width=2)
     ax.tick_params(axis='both', which='minor', labelsize=ys - 2, direction='in', length=4, width=2)
@@ -82,6 +132,18 @@ def ax_plot(fig, ax, xlab, ylab, xs=14, ys=14):
 
 
 def os_plot_show():
+    """
+    Display or close the plot based on the operating system.
+
+    If the operating system is Windows, the plot will be displayed using plt.show().
+    Otherwise, the plot will be closed using plt.close().
+
+    Args:
+        None
+
+    Returns:
+        None
+    """
     # check if the OS is windows
     if os.name == 'nt':
         plt.show()
@@ -91,6 +153,17 @@ def os_plot_show():
 
 
 def plot_residue_graph(graph, f_labs=False, filename="res_graphs"):
+    """
+    Plot a residue graph using NetworkX and Matplotlib.
+
+    Args:
+        graph (networkx.Graph): The residue graph to be plotted.
+        f_labs (bool, optional): Whether to display labels on the nodes. Default is False.
+        filename (str, optional): The base name of the file where the plot will be saved. Default is "res_graphs".
+
+    Returns:
+        None
+    """
     cols_conv = {
         "ALA": "cyan",
         "ARG": "blue",
@@ -122,7 +195,7 @@ def plot_residue_graph(graph, f_labs=False, filename="res_graphs"):
     # Get the colours
     graph_colors = [cols_conv.get(graph.nodes[idx]['color']) for idx in graph.nodes()]
 
-    # get the position
+    # Get the position
     pos = nx.kamada_kawai_layout(graph)
 
     # Draw the graph
@@ -140,6 +213,17 @@ def plot_residue_graph(graph, f_labs=False, filename="res_graphs"):
 
 
 def plot_graphs_in_subplots(graph_dict, f_labs=False, filename="fragment_graphs"):
+    """
+    Plot multiple graphs in subplots using NetworkX and Matplotlib.
+
+    Args:
+        graph_dict (dict): A dictionary where keys are labels and values are lists of NetworkX graphs.
+        f_labs (bool, optional): Whether to display labels on the nodes. Default is False.
+        filename (str, optional): The base name of the file where the plot will be saved. Default is "fragment_graphs".
+
+    Returns:
+        None
+    """
     # Find the maximum number of graphs in the lists (i.e., the maximum number of columns)
     max_columns = max(len(graphs) for graphs in graph_dict.values())
     num_rows = len(graph_dict)  # The number of dictionary keys determines the number of rows
@@ -190,7 +274,7 @@ def plot_graphs_in_subplots(graph_dict, f_labs=False, filename="fragment_graphs"
                 graph = graph_list[col_idx]
                 graph_colors = [cols_conv.get(graph.nodes[idx]['color']) for idx in graph.nodes()]
                 if col_idx == 0:
-                    ax.set_title(f"{key.replace("_", " ")} {col_idx + 1}")
+                    ax.set_title(f"{key.replace('_', ' ')} {col_idx + 1}")
                 else:
                     ax.set_title(f"{col_idx + 1}")
                 pos = nx.kamada_kawai_layout(graph)

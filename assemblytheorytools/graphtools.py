@@ -7,6 +7,15 @@ from .moltools import safe_standardize_mol
 
 
 def nx_to_mol(graph):
+    """
+    Convert a NetworkX graph to an RDKit molecule.
+
+    Args:
+        graph (nx.Graph): The input NetworkX graph where nodes represent atoms and edges represent bonds.
+
+    Returns:
+        Chem.Mol: The resulting RDKit molecule.
+    """
     # Create an editable RDKit molecule
     mol = Chem.RWMol()
     # Dictionary to map node identifiers to atom indices in the RDKit molecule
@@ -38,6 +47,15 @@ def nx_to_mol(graph):
 
 
 def mol_to_nx(mol):
+    """
+    Convert an RDKit molecule to a NetworkX graph.
+
+    Args:
+        mol (Chem.Mol): The input RDKit molecule.
+
+    Returns:
+        nx.Graph: The resulting NetworkX graph where nodes represent atoms and edges represent bonds.
+    """
     graph = nx.Graph()
     converter = {Chem.rdchem.BondType.SINGLE: 1,
                  Chem.rdchem.BondType.DOUBLE: 2,
@@ -56,6 +74,16 @@ def mol_to_nx(mol):
 
 
 def write_ass_graph_file(graph, file_name="graph_info"):
+    """
+    Write the graph information to a file.
+
+    Args:
+        graph (nx.Graph): The input NetworkX graph where nodes represent atoms and edges represent bonds.
+        file_name (str, optional): The name of the file to write the graph information to. Defaults to "graph_info".
+
+    Writes:
+        A file containing the graph's name, number of vertices, edges, vertex colors, and edge colors.
+    """
     # Get the number of vertices
     num_vertices = graph.number_of_nodes()
     # Get the edges
@@ -74,4 +102,14 @@ def write_ass_graph_file(graph, file_name="graph_info"):
 
 
 def is_graph_isomorphic(g1, g2):
+    """
+    Check if two graphs are isomorphic.
+
+    Args:
+        g1 (nx.Graph): The first input graph.
+        g2 (nx.Graph): The second input graph.
+
+    Returns:
+        bool: True if the graphs are isomorphic, False otherwise.
+    """
     return GraphMatcher(g1, g2).is_isomorphic()
