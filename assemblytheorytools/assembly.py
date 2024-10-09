@@ -1,6 +1,7 @@
 import os
 import subprocess
 import tempfile
+from datetime import datetime
 
 import networkx as nx
 from rdkit import Chem
@@ -57,26 +58,39 @@ def joint_correction(mol, ass_index):
     return ass_index - max(0, num_fragments - 1)
 
 
-def calculate_assembly_index(mol, dir_code=None, timeout=100.0):
+def calculate_assembly_index(mol, dir_code=None, timeout=100.0, debug=False):
     if dir_code is None:
         dir_code = os.environ.get("ASS_PATH")
     # Check if the input is a rdkit mol
     if isinstance(mol, nx.Graph):
-        # Make the temp directory
-        temp_dir = tempfile.mkdtemp()
+        # Make the directory
+        if debug:
+            # Define the directory name with the timestamp
+            temp_dir = f"folder_{datetime.now().strftime("%H_%M_%f")}"
+            os.makedirs(temp_dir)
+        else:
+            temp_dir = tempfile.mkdtemp()
         # Make the in file
         file_path_in = os.path.join(temp_dir, f"graph_in")
         # Write the input graph file
         write_ass_graph_file(mol, file_name=file_path_in)
     elif isinstance(mol, Chem.Mol):
-        # Make the temp directory
-        temp_dir = tempfile.mkdtemp()
+        # Make the directory
+        if debug:
+            # Define the directory name with the timestamp
+            temp_dir = f"folder_{datetime.now().strftime("%H_%M_%f")}"
+            os.makedirs(temp_dir)
+        else:
+            temp_dir = tempfile.mkdtemp()
         # Write the mol file
         mol_file = os.path.join(temp_dir, f"tmp.mol")
         # Write the input mol file
         write_v2k_mol_file(mol, mol_file)
         # Get the infile
         file_path_in = os.path.splitext(mol_file)[0]
+    elif ".mol" in mol:
+        # Get the infile
+        file_path_in = os.path.splitext(mol)[0]
     else:
         file_path_in = mol
         ValueError("Input not supported")
