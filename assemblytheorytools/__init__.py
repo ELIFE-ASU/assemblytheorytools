@@ -25,5 +25,5 @@ from .plotting import (plot_mol_graph,
                        plot_interactive_graph,
                        plot_residue_graph,
                        plot_graphs_in_subplots)
-
+from .find_other_paths import (all_shortest_paths)
 __version__ = "0.0.01"
