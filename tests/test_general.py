@@ -1,8 +1,19 @@
-import pytest
+import os
+import shutil
+
+import networkx as nx
+from rdkit.Chem import AllChem as Chem
+
 import assemblytheorytools as att
+
+
+def list_subdirs(directory, target="ai_calc"):
+    return [d for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d)) and d.startswith(target)]
+
 
 def test_version():
     assert att.__version__ == '0.0.01'
+
 
 def test_ass_graph():
     # Convert all the smile to mol
@@ -15,8 +26,8 @@ def test_ass_graph():
     assert ai == 2
     assert att.is_graph_isomorphic(graph, path["file_graph"][0])
 
+
 def test_ass_mol():
-    from rdkit.Chem import AllChem as Chem
     # Convert all the smile to mol
     mol = att.smi_to_mol("[H]C#C[H]")
     # Calculate the assembly index
@@ -25,9 +36,8 @@ def test_ass_mol():
     assert ai == 2
     assert Chem.MolToInchi(mol) == path["file_graph"][0]
 
+
 def test_joint_ass_mol():
-    import networkx as nx
-    from rdkit.Chem import AllChem as Chem
     molecules = "[H]C#C[H].[H][C]([H])([H])[C]([H])([H])[H].[H]C([H])([H])([H]).[H]O([H]).[H]N([H])([H]).[H][N+]([H])([H])([H]).[S-]([H]).[H][H]"
     molecules = molecules.split(".")
     # Convert all the smile to mol
@@ -39,10 +49,10 @@ def test_joint_ass_mol():
     # Compare to the hand calculated value
     out_mol = Chem.MolToInchi(att.split_mols(mol)[0])
     assert ai == 11
-    assert out_mol== path["file_graph"][0]
+    assert out_mol == path["file_graph"][0]
+
 
 def test_joint_ass_graph():
-    import networkx as nx
     molecules = "[H]C#C[H].[H][C]([H])([H])[C]([H])([H])[H].[H]C([H])([H])([H]).[H]O([H]).[H]N([H])([H]).[H][N+]([H])([H])([H]).[S-]([H]).[H][H]"
     molecules = molecules.split(".")
     # Convert all the smile to mol
@@ -57,3 +67,39 @@ def test_joint_ass_graph():
     out_graph = nx.disjoint_union_all(path["file_graph"])
     assert ai == 11
     assert att.is_graph_isomorphic(graphs_joint, out_graph)
+
+
+def test_ass_mol_file():
+    # Convert all the smile to mol
+    mol = att.smi_to_mol("[H]C#C[H]")
+    # write the mol file
+    mol_file = "tmp.mol"
+    att.write_v2k_mol_file(mol, mol_file)
+    # Calculate the assembly index
+    ai, path = att.calculate_assembly_index(mol_file)
+    # Compare to the hand calculated value
+    assert ai == 2
+    assert Chem.MolToInchi(mol) == path["file_graph"][0]
+
+    # Remove the files
+    tmp_file = os.path.splitext(mol_file)[0]
+    os.remove(tmp_file + ".mol")
+    os.remove(tmp_file + ".err")
+    os.remove(tmp_file + ".out")
+    os.remove(tmp_file + "Out")
+    os.remove(tmp_file + "Pathway")
+
+
+def test_ass_mol_debug():
+    # Convert all the smile to mol
+    mol = att.smi_to_mol("[H]C#C[H]")
+    # Calculate the assembly index
+    ai, path = att.calculate_assembly_index(mol, debug=True)
+    # Get the path of the created file
+    dir_list = list_subdirs(os.getcwd())
+    # Compare to the hand calculated value
+    assert ai == 2
+    assert Chem.MolToInchi(mol) == path["file_graph"][0]
+    assert len(dir_list) == 1
+    # Clean up
+    shutil.rmtree(dir_list[0])

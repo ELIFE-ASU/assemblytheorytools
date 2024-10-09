@@ -51,6 +51,8 @@ def joint_correction(mol, ass_index):
         num_fragments = nx.number_connected_components(mol)
     elif isinstance(mol, Chem.Mol):
         num_fragments = len(Chem.rdmolops.GetMolFrags(mol=Chem.Mol(mol)))
+    elif ".mol" in mol:
+        num_fragments = len(Chem.rdmolops.GetMolFrags(mol=Chem.MolFromMolFile(mol)))
     else:
         num_fragments = None
         ValueError("Input not supported")
@@ -66,7 +68,7 @@ def calculate_assembly_index(mol, dir_code=None, timeout=100.0, debug=False):
         # Make the directory
         if debug:
             # Define the directory name with the timestamp
-            temp_dir = f"folder_{datetime.now().strftime("%H_%M_%f")}"
+            temp_dir = f"ai_calc_{datetime.now().strftime("%H_%M_%f")}"
             os.makedirs(temp_dir)
         else:
             temp_dir = tempfile.mkdtemp()
@@ -78,7 +80,7 @@ def calculate_assembly_index(mol, dir_code=None, timeout=100.0, debug=False):
         # Make the directory
         if debug:
             # Define the directory name with the timestamp
-            temp_dir = f"folder_{datetime.now().strftime("%H_%M_%f")}"
+            temp_dir = f"ai_calc_{datetime.now().strftime("%H_%M_%f")}"
             os.makedirs(temp_dir)
         else:
             temp_dir = tempfile.mkdtemp()
@@ -117,6 +119,9 @@ def calculate_assembly_index(mol, dir_code=None, timeout=100.0, debug=False):
                 if isinstance(mol, nx.Graph):
                     path = create_graphs_from_data(file_path_pathway)
                 elif isinstance(mol, Chem.Mol):
+                    # Load the pathway data
+                    path = get_pathway_to_inchi(file_path_pathway)
+                elif ".mol" in mol:
                     # Load the pathway data
                     path = get_pathway_to_inchi(file_path_pathway)
                 else:
