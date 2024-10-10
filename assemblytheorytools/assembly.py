@@ -115,7 +115,7 @@ def calculate_assembly_index(mol, dir_code=None, timeout=100.0, debug=False):
         # Make the directory
         if debug:
             # Define the directory name with the timestamp
-            temp_dir = f"ai_calc_{datetime.now().strftime("%H_%M_%f")}"
+            temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}"
             os.makedirs(temp_dir)
         else:
             temp_dir = tempfile.mkdtemp()
@@ -127,7 +127,7 @@ def calculate_assembly_index(mol, dir_code=None, timeout=100.0, debug=False):
         # Make the directory
         if debug:
             # Define the directory name with the timestamp
-            temp_dir = f"ai_calc_{datetime.now().strftime("%H_%M_%f")}"
+            temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}"
             os.makedirs(temp_dir)
         else:
             temp_dir = tempfile.mkdtemp()
