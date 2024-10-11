@@ -22,7 +22,7 @@ Open a virtual environment (for example, using Pycharm)
 `pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git`
 
 When asked for a password, you will need your GitHub username AND 'personal access token' (found in developer settings in your GitHub settings).
-
+See `https://stackoverflow.com/questions/2505096/clone-a-private-repository-github`
 
 # For your SOL:
 
@@ -32,7 +32,7 @@ When asked for a password, you will need your GitHub username AND 'personal acce
 
 `source activate myEnv`
 
-`mamba update -n myEnv`
+`mamba update --all -y`
 
 `pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git`
 
