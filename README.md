@@ -11,7 +11,8 @@ Make sure to load your conda environment. I would install them in this order:
 # Install instructions
 `pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git`
 
-#For Local Install:
+
+# For Local Install:
 
 Open a virtual environment (for example, using pycharm)
 
@@ -20,7 +21,7 @@ Open a virtual environment (for example, using pycharm)
 you will need your github username AND 'personal access token' when asked for password (found in developer settings in your github settings).
 
 
-#For your SOL:
+# For your SOL:
 
 'unset SSH_ASKPASS'
 
