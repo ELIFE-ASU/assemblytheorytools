@@ -1,6 +1,8 @@
 # assemblytheorytools
 A centralised set of tools for doing assembly theory calculations.
 
+The code needs a compiled assemblyCPP in your path, put `export ASS_PATH=/data/grp_swalke10/asscpp/v5/asscpp_v5_recursive` in your submission script or in your `.bashrc`.
+
 # Requirements
 Make sure to load your conda environment. I would install them in this order:
 - numpy `conda install numpy`
