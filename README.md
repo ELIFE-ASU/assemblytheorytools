@@ -9,6 +9,7 @@ Make sure to load your conda environment. I would install them in this order:
 - matplotlib `conda install matplotlib`
 - network x `pip install networkx[default]`
 - rdkit `conda install -c conda-forge rdkit`
+- pyvis `pip install pyvis`
 
 # Install instructions
 `pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git`
@@ -30,6 +31,8 @@ When asked for a password, you will need your GitHub username AND 'personal acce
 `module load mamba/latest`
 
 `source activate myEnv`
+
+`mamba update -n myEnv`
 
 `pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git`
 
