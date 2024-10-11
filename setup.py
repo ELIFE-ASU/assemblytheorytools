@@ -21,6 +21,8 @@ setup(
         'matplotlib',
         'networkx',
         'rdkit',
+        'IPython',
+        'pyvis',
     ],
     extras_require={
         'dev': [
