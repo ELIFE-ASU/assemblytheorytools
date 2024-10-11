@@ -1,11 +1,8 @@
 import os
-from html import escape
 
 import matplotlib.pyplot as plt
 import networkx as nx
-from IPython.display import HTML
 from matplotlib import colormaps, colors
-from pyvis.network import Network
 
 
 def plot_mol_graph(graph, filename, layout="spring"):
@@ -52,11 +49,15 @@ def plot_interactive_graph(graph, show=False, filename="interactive_graph.html")
     Args:
         graph (networkx.Graph): The graph to be plotted.
         show (bool, optional): Whether to display the graph in a Jupyter notebook. Default is False.
-        filename (str, optional): The name of the file where the graph will be saved if not displayed. Default is "interactive_graph.html".
+        filename (str, optional): The name of the file where the graph will be saved if not displayed.
+        Default is "interactive_graph.html".
 
     Returns:
         pyvis.network.Network: The PyVis network object representing the graph.
     """
+    from IPython.display import HTML
+    from pyvis.network import Network
+    from html import escape
     # Color each node based on its degree
     max_nbr = len(max(graph.adj.values(), key=lambda x: len(x)))
     blues = colormaps.get_cmap("Blues")
@@ -289,4 +290,21 @@ def plot_graphs_in_subplots(graph_dict, f_labs=False, filename="fragment_graphs"
     plt.savefig(filename + ".png", dpi=600)
     plt.savefig(filename + ".pdf")
     plt.close()
+    return None
+
+
+def plot_graph(graph, f_labs=False):
+    # get the position
+    pos = nx.kamada_kawai_layout(graph)
+
+    # Draw the graph
+    nx.draw(graph,
+            pos=pos,
+            with_labels=f_labs,
+            edge_color='grey',
+            node_size=50
+            )
+    plt.savefig("graph.png", dpi=600)
+    plt.savefig("graph.pdf")
+    os_plot_show()
     return None
