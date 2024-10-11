@@ -27,6 +27,8 @@ you will need your github username AND 'personal access token' when asked for pa
 
 `module load mamba/latest`
 
+`source activate myEnv`
+
 `pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git`
 
 Once again you will need your username AND 'personal access token' entered as your password
