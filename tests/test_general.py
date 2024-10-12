@@ -16,15 +16,20 @@ def test_version():
 
 
 def test_ass_graph():
+    smi_in = "[H]C#C[H]"
     # Convert all the smile to mol
-    mol = att.smi_to_mol("[H]C#C[H]")
+    mol = att.smi_to_mol(smi_in)
     # Convert the system into graphs
     graph = att.mol_to_nx(mol)
     # Calculate the assembly index
     ai, path = att.calculate_assembly_index(graph)
+    # Get the input graph from the output dict
+    input_graph = path["file_graph"][0]
+    smi_out = Chem.MolToSmiles(att.nx_to_mol(input_graph))
     # Compare to the hand calculated value
-    assert ai == 2
-    assert att.is_graph_isomorphic(graph, path["file_graph"][0])
+    assert ai == 2 # Check the assembly index
+    assert att.is_graph_isomorphic(graph, input_graph) # Check the output graph is the same as the input
+    assert smi_in == smi_out # Check the graph conversion to and from RDKit
 
 
 def test_ass_mol_file():
