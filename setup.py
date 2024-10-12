@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='assemblytheorytools',
-    version='0.0.1',
+    version='0.1.0',
     author='Louie Slocombe',
     author_email='louies@hotmail.co.uk',
     description='A centralised set of tools for doing assembly theory calculations.',
@@ -15,7 +15,7 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
     ],
-    python_requires='>=3.8',
+    python_requires='>=3.12',
     install_requires=[
         'numpy',
         'matplotlib',

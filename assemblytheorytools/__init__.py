@@ -29,7 +29,7 @@ from .plotting import (plot_mol_graph,
                        plot_graphs_in_subplots,
                        plot_graph)
 
-__version__ = "0.0.01"
+__version__ = "0.1.00"
 
 """
 This module provides various tools and functions for assembly theory analysis, molecular complexity scores, 
