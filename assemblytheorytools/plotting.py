@@ -294,6 +294,16 @@ def plot_graphs_in_subplots(graph_dict, f_labs=False, filename="fragment_graphs"
 
 
 def plot_graph(graph, f_labs=False):
+    """
+    Plot a graph using NetworkX and Matplotlib.
+
+    Args:
+        graph (networkx.Graph): The graph to be plotted.
+        f_labs (bool, optional): Whether to display labels on the nodes. Default is False.
+
+    Returns:
+        None
+    """
     # get the position
     pos = nx.kamada_kawai_layout(graph)
 

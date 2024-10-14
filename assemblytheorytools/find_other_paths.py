@@ -40,6 +40,15 @@ def get_atom_order(mol):
 
 
 def mol_with_atom_index(mol):
+    """
+    Add atom indices as atom map numbers to the molecule.
+
+    Args:
+        mol (rdkit.Chem.Mol): The RDKit molecule object.
+
+    Returns:
+        rdkit.Chem.Mol: The molecule with atom indices set as atom map numbers.
+    """
     for atom in mol.GetAtoms():
         atom.SetAtomMapNum(atom.GetIdx())
     return mol
@@ -174,6 +183,19 @@ def ensure_equal_length(l1, l2, l3, max_length=None):
 
 
 def plot_fragments(dup_frags, rem_frags, ree_frags, outfile="fragments.png", image_size=(600, 600)):
+    """
+    Plot fragments in a grid image and save to a file.
+
+    Args:
+        dup_frags (list): List of duplicate fragments in InChI format.
+        rem_frags (list): List of remnant fragments in InChI format.
+        ree_frags (list): List of removed-edges fragments in InChI format.
+        outfile (str, optional): The name of the output file. Default is "fragments.png".
+        image_size (tuple, optional): The size of each sub-image in the grid. Default is (600, 600).
+
+    Returns:
+        None
+    """
     im_mat = ensure_equal_length(dup_frags, rem_frags, ree_frags)
     max_length = get_max_list_lengths(im_mat)
     mols_mat = [[Chem.MolFromInchi(inchi) for inchi in row] for row in im_mat]
@@ -185,13 +207,43 @@ def plot_fragments(dup_frags, rem_frags, ree_frags, outfile="fragments.png", ima
 
 
 def plot_simple_idx_compare(mol_list, labels=None, outfile="allpath_indexes.png", image_size=(600, 600)):
+    """
+    Plot a grid image of molecules with atom indices and save to a file.
+
+    Args:
+        mol_list (list): List of RDKit molecule objects.
+        labels (list, optional): List of labels for each molecule. If None, default labels are generated. Default is None.
+        outfile (str, optional): The name of the output file. Default is "allpath_indexes.png".
+        image_size (tuple, optional): The size of each sub-image in the grid. Default is (600, 600).
+
+    Returns:
+        None
+    """
     if labels is None:
         labels = [f"Path {i + 1}" for i in range(len(mol_list))]
-    # , legendsMatrix=labels
     Draw.MolsToGridImage([mol_with_atom_index(mol) for mol in mol_list], subImgSize=image_size).save(outfile)
 
 
 def all_shortest_paths(mol, f_graph_care=False):
+    """
+    Generate all shortest paths in a molecule by scrambling atom orders and renumbering atoms.
+
+    Args:
+        mol (rdkit.Chem.Mol): The RDKit molecule object.
+        f_graph_care (bool, optional): Whether to kekulize the molecule. Default is False.
+
+    Returns:
+        list: A list of unique InChI strings representing the fragments found in the molecule.
+
+    The function works as follows:
+    1. It gets the canonical atom order of the molecule.
+    2. It sets the number of attempts to four times the number of bonds in the molecule.
+    3. For each attempt, it scrambles the atom order and renumbers the atoms.
+    4. It creates a directory for each attempt and saves the renumbered molecule as a mol file.
+    5. If `f_graph_care` is True, it kekulizes the molecule.
+    6. It calculates the assembly index and gets the pathway fragments.
+    7. It combines the fragments and adds unique InChI strings to the list.
+    """
     m_order = get_atom_order(mol)
     inchi_list = []
     # Set the number of attempts to the number of bonds in the molecule
