@@ -1,3 +1,5 @@
+import random
+
 import networkx as nx
 from networkx.algorithms.isomorphism import GraphMatcher
 from rdkit import Chem
@@ -39,6 +41,7 @@ def nx_to_mol(graph, add_hydrogens=True):
             1: Chem.rdchem.BondType.SINGLE,
             2: Chem.rdchem.BondType.DOUBLE,
             3: Chem.rdchem.BondType.TRIPLE,
+            4: Chem.rdchem.BondType.AROMATIC,
         }.get(bond_order, Chem.rdchem.BondType.SINGLE)
         # Add the bond to the molecule
         mol.AddBond(node_to_idx[u], node_to_idx[v], bond_type)
@@ -114,3 +117,25 @@ def is_graph_isomorphic(g1, g2):
         bool: True if the graphs are isomorphic, False otherwise.
     """
     return GraphMatcher(g1, g2).is_isomorphic()
+
+
+def scramble_node_indices(graph):
+    """
+    Randomly scramble the node indices of a NetworkX graph.
+
+    Args:
+        graph (networkx.Graph): The input graph whose node indices will be scrambled.
+
+    Returns:
+        networkx.Graph: A new graph with scrambled node indices.
+    """
+    # Create a copy of the original graph to avoid modifying it
+    scrambled_graph = graph.copy()
+    # Get the list of original node indices
+    nodes = list(scrambled_graph.nodes())
+    # Create a list of new node indices by shuffling the original indices
+    random.shuffle(nodes)
+    # Create a mapping from original node indices to new node indices
+    mapping = dict(zip(scrambled_graph.nodes(), nodes))
+    # Relabel the nodes in the graph using the mapping
+    return nx.relabel_nodes(scrambled_graph, mapping)
