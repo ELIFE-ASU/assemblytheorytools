@@ -5,85 +5,6 @@ import networkx as nx
 from matplotlib import colormaps, colors
 
 
-def plot_mol_graph(graph, filename, layout="spring"):
-    """
-    Plot a molecular graph using NetworkX and Matplotlib.
-
-    Args:
-        graph (networkx.Graph): The molecular graph to be plotted.
-        filename (str): The name of the file where the plot will be saved.
-        layout (str, optional): The layout algorithm to use for positioning the nodes.
-                                Options are 'spring' or 'kamada_kawai'. Default is 'spring'.
-
-    Returns:
-        None
-    """
-    cols_conv = {"C": "grey", "O": "red", "N": "blue", "S": "green", "H": "white", "Cl": "pink", "P": "purple"}
-    color_dict_edge = {1.0: "black", 2.0: "green", 3.0: "red", 4.0: "orange"}
-    graph_colors = [cols_conv.get(graph.nodes[idx]['color']) for idx in graph.nodes()]
-    edge_colors = [color_dict_edge.get(graph.edges[idx]['color']) for idx in graph.edges()]
-
-    # Position the nodes
-    if layout == "spring":
-        pos = nx.spring_layout(graph)
-    else:
-        pos = nx.kamada_kawai_layout(graph)
-
-    # Draw the graph
-    nx.draw(graph,
-            pos=pos,
-            with_labels=False,
-            node_size=100,
-            edge_color=edge_colors,
-            node_color=graph_colors,
-            width=2)
-    plt.savefig(filename, dpi=600)
-    plt.close()
-    return None
-
-
-def plot_interactive_graph(graph, show=False, filename="interactive_graph.html"):
-    """
-    Plot an interactive graph using PyVis and display it in a Jupyter notebook or save it as an HTML file.
-
-    Args:
-        graph (networkx.Graph): The graph to be plotted.
-        show (bool, optional): Whether to display the graph in a Jupyter notebook. Default is False.
-        filename (str, optional): The name of the file where the graph will be saved if not displayed.
-        Default is "interactive_graph.html".
-
-    Returns:
-        pyvis.network.Network: The PyVis network object representing the graph.
-    """
-    from IPython.display import HTML
-    from pyvis.network import Network
-    from html import escape
-    # Color each node based on its degree
-    max_nbr = len(max(graph.adj.values(), key=lambda x: len(x)))
-    blues = colormaps.get_cmap("Blues")
-    for n, d in graph.nodes(data=True):
-        n_neighbors = len(graph.adj[n])
-        # Show the smaller domain in red and the larger one in blue
-        palette = blues
-        d["color"] = colors.to_hex(palette(n_neighbors / max_nbr))
-
-    # Convert to PyVis network
-    width, height = (900, 900)
-    net = Network(width=f"{width}px", height=f"{height}px", notebook=True, heading="")
-    net.from_nx(graph)
-    if show:
-        html_doc = net.generate_html(notebook=True)
-        iframe = (
-            f'<iframe width="{width + 25}px" height="{height + 25}px" frameborder="0" '
-            'srcdoc="{html_doc}"></iframe>'
-        )
-        HTML(iframe.format(html_doc=escape(html_doc)))
-    else:
-        # Save the graph
-        net.show(filename)
-    return net
-
-
 def n_plot(xlab, ylab, xs=14, ys=14):
     """
     Configure and style the plot with specified labels and tick parameters.
@@ -153,12 +74,152 @@ def os_plot_show():
     return None
 
 
+def plot_graph(graph, f_labs=False, filename="graph"):
+    """
+    Plot a graph using NetworkX and Matplotlib.
+
+    Args:
+        graph (networkx.Graph): The graph to be plotted.
+        f_labs (bool, optional): Whether to display labels on the nodes. Default is False.
+        filename (str, optional): The base name of the file where the plot will be saved. Default is "graph".
+
+    Returns:
+        None
+    """
+    # Get the position of the nodes
+    pos = nx.kamada_kawai_layout(graph)
+
+    # Draw the graph
+    nx.draw(graph,
+            pos=pos,
+            with_labels=f_labs,
+            edge_color='grey',
+            node_size=300,
+            edgecolors="black",
+            width=2,
+            linewidths=2,
+            )
+    # Save the plot as PNG and PDF
+    plt.savefig(f"{filename}.png", dpi=600)
+    plt.savefig(f"{filename}.pdf")
+    # Display or close the plot based on the operating system
+    os_plot_show()
+    return None
+
+
+def plot_mol_graph(graph, f_labs=False, filename="atom_graphs"):
+    """
+    Plot a molecular graph using NetworkX and Matplotlib.
+
+    Args:
+        graph (networkx.Graph): The graph to be plotted where nodes represent atoms and edges represent bonds.
+        f_labs (bool, optional): Whether to display labels on the nodes. Default is False.
+        filename (str, optional): The base name of the file where the plot will be saved. Default is "atom_graphs".
+
+    Returns:
+        None
+    """
+    cols_conv = {
+        'H': 'white',  # Hydrogen
+        'C': 'darkgray',  # Carbon
+        'O': 'red',  # Oxygen
+        'N': 'blue',  # Nitrogen
+        'S': 'yellow',  # Sulfur
+        'P': 'orange',  # Phosphorus
+        'Cl': 'green',  # Chlorine
+        'F': 'lightgreen',  # Fluorine
+        'Br': 'brown',  # Bromine
+        'I': 'purple',  # Iodine
+        'Fe': 'darkorange',  # Iron
+        'Ca': 'gold',  # Calcium
+        'Na': 'lightblue',  # Sodium
+        'K': 'violet',  # Potassium
+        'Mg': 'darkgreen',  # Magnesium
+        'Cu': 'peru',  # Copper
+        'Zn': 'gray',  # Zinc
+        'Au': 'gold',  # Gold
+        'Ag': 'silver',  # Silver
+        'Pt': 'lightgray'  # Platinum
+    }
+
+    color_dict_edge = {1.0: "black",
+                       2.0: "green",
+                       3.0: "red",
+                       4.0: "orange"}
+    # Get the colors for the nodes
+    graph_colors = [cols_conv.get(graph.nodes[idx]['color']) for idx in graph.nodes()]
+    # Get the colors for the edges
+    edge_colors = [color_dict_edge.get(graph.edges[idx]['color']) for idx in graph.edges()]
+
+    # Get the position of the nodes
+    pos = nx.kamada_kawai_layout(graph)
+
+    # Draw the graph
+    nx.draw(graph,
+            pos=pos,
+            with_labels=f_labs,
+            node_size=300,
+            edge_color=edge_colors,
+            node_color=graph_colors,
+            edgecolors="black",
+            width=2,
+            linewidths=2)
+    # Save the plot as PNG and PDF
+    plt.savefig(f"{filename}.png", dpi=600)
+    plt.savefig(f"{filename}.pdf")
+    # Display or close the plot based on the operating system
+    os_plot_show()
+    return None
+
+
+def plot_interactive_graph(graph, show=False, filename="interactive_graph.html"):
+    """
+    Plot an interactive graph using PyVis and display it in a Jupyter notebook or save it as an HTML file.
+
+    Args:
+        graph (networkx.Graph): The graph to be plotted.
+        show (bool, optional): Whether to display the graph in a Jupyter notebook. Default is False.
+        filename (str, optional): The name of the file where the graph will be saved if not displayed.
+        Default is "interactive_graph.html".
+
+    Returns:
+        pyvis.network.Network: The PyVis network object representing the graph.
+    """
+    from IPython.display import HTML
+    from pyvis.network import Network
+    from html import escape
+    # Color each node based on its degree
+    max_nbr = len(max(graph.adj.values(), key=lambda x: len(x)))
+    blues = colormaps.get_cmap("Blues")
+    for n, d in graph.nodes(data=True):
+        n_neighbors = len(graph.adj[n])
+        # Show the smaller domain in red and the larger one in blue
+        palette = blues
+        d["color"] = colors.to_hex(palette(n_neighbors / max_nbr))
+
+    # Convert to PyVis network
+    width, height = (900, 900)
+    net = Network(width=f"{width}px", height=f"{height}px", notebook=True, heading="")
+    net.from_nx(graph)
+    if show:
+        html_doc = net.generate_html(notebook=True)
+        iframe = (
+            f'<iframe width="{width + 25}px" height="{height + 25}px" frameborder="0" '
+            'srcdoc="{html_doc}"></iframe>'
+        )
+        HTML(iframe.format(html_doc=escape(html_doc)))
+    else:
+        # Save the graph
+        net.show(filename)
+    return net
+
+
 def plot_residue_graph(graph, f_labs=False, filename="res_graphs"):
     """
     Plot a residue graph using NetworkX and Matplotlib.
 
     Args:
-        graph (networkx.Graph): The residue graph to be plotted.
+        graph (networkx.Graph): The graph to be plotted where nodes represent residues.
         f_labs (bool, optional): Whether to display labels on the nodes. Default is False.
         filename (str, optional): The base name of the file where the plot will be saved. Default is "res_graphs".
 
@@ -205,11 +266,14 @@ def plot_residue_graph(graph, f_labs=False, filename="res_graphs"):
             with_labels=f_labs,
             edge_color='grey',
             node_color=graph_colors,
-            node_size=50
+            node_size=300,
+            edgecolors="black",
+            width=2,
+            linewidths=2
             )
-    plt.savefig(filename + ".png", dpi=600)
-    plt.savefig(filename + ".pdf")
-    plt.close()
+    plt.savefig(f"{filename}.png", dpi=600)
+    plt.savefig(f"{filename}.pdf")
+    os_plot_show()
     return None
 
 
@@ -287,34 +351,7 @@ def plot_graphs_in_subplots(graph_dict, f_labs=False, filename="fragment_graphs"
 
     # Adjust layout to prevent overlap
     plt.tight_layout()
-    plt.savefig(filename + ".png", dpi=600)
-    plt.savefig(filename + ".pdf")
-    plt.close()
-    return None
-
-
-def plot_graph(graph, f_labs=False):
-    """
-    Plot a graph using NetworkX and Matplotlib.
-
-    Args:
-        graph (networkx.Graph): The graph to be plotted.
-        f_labs (bool, optional): Whether to display labels on the nodes. Default is False.
-
-    Returns:
-        None
-    """
-    # get the position
-    pos = nx.kamada_kawai_layout(graph)
-
-    # Draw the graph
-    nx.draw(graph,
-            pos=pos,
-            with_labels=f_labs,
-            edge_color='grey',
-            node_size=50
-            )
-    plt.savefig("graph.png", dpi=600)
-    plt.savefig("graph.pdf")
+    plt.savefig(f"{filename}.png", dpi=600)
+    plt.savefig(f"{filename}.pdf")
     os_plot_show()
     return None
