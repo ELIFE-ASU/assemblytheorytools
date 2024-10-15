@@ -92,7 +92,10 @@ def joint_correction(mol, ass_index):
         num_fragments = None
         ValueError("Input not supported")
     # Return the number of fragments minus 1
-    return ass_index - max(0, num_fragments - 1)
+    correction = max(0, num_fragments - 1)
+    if correction < 0:
+        correction = 0
+    return ass_index - correction
 
 
 def calculate_assembly_index(mol, dir_code=None, timeout=100.0, debug=False):
