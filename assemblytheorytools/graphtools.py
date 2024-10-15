@@ -6,15 +6,16 @@ from rdkit.Chem import AllChem as Chem
 from .moltools import safe_standardize_mol
 
 
-def nx_to_mol(graph):
+def nx_to_mol(graph, add_hydrogens=True):
     """
     Convert a NetworkX graph to an RDKit molecule.
 
     Args:
         graph (nx.Graph): The input NetworkX graph where nodes represent atoms and edges represent bonds.
+        add_hydrogens (bool, optional): Whether to add hydrogens to the molecule. Default is True.
 
     Returns:
-        Chem.Mol: The resulting RDKit molecule.
+        rdkit.Chem.Mol: The resulting RDKit molecule.
     """
     # Create an editable RDKit molecule
     mol = Chem.RWMol()
@@ -43,7 +44,7 @@ def nx_to_mol(graph):
         mol.AddBond(node_to_idx[u], node_to_idx[v], bond_type)
 
     # Sanitize the molecule to generate implicit hydrogens and conformations
-    return safe_standardize_mol(mol)
+    return safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
 
 
 def mol_to_nx(mol):

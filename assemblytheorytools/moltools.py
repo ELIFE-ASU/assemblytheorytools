@@ -3,15 +3,16 @@ from rdkit.Chem import AllChem as Chem
 from rdkit.Chem.MolStandardize import rdMolStandardize
 
 
-def safe_standardize_mol(mol):
+def safe_standardize_mol(mol, add_hydrogens=True):
     """
-    Standardize the given RDKit molecule.
+    Standardize the given RDKit molecule with additional safety checks.
 
     Args:
-        mol (Chem.Mol): The input RDKit molecule to be standardized.
+        mol (rdkit.Chem.Mol): The input RDKit molecule to be standardized.
+        add_hydrogens (bool, optional): Whether to add hydrogens to the molecule. Default is True.
 
     Returns:
-        Chem.Mol: The standardized RDKit molecule.
+        rdkit.Chem.Mol: The standardized RDKit molecule.
     """
     # Update the molecule's property cache without strict checking
     mol.UpdatePropertyCache(strict=False)
@@ -25,29 +26,34 @@ def safe_standardize_mol(mol):
     rdMolStandardize.NormalizeInPlace(mol)
     # Kekulize the molecule (convert aromatic bonds to alternating single and double bonds)
     Chem.Kekulize(mol)
-    # Add explicit hydrogens to the molecule
-    mol = Chem.AddHs(mol)
+    if add_hydrogens:
+        # Add hydrogens
+        mol = Chem.AddHs(mol)
     return mol
 
 
-def standardize_mol(mol):
+def standardize_mol(mol, add_hydrogens=True):
     """
     Standardize the given RDKit molecule.
 
     Args:
         mol (Chem.Mol): The input RDKit molecule to be standardized.
+        add_hydrogens (bool, optional): Whether to add hydrogens to the molecule. Default is True.
 
     Returns:
         Chem.Mol: The standardized RDKit molecule.
     """
     # Sanitise the molecule
     Chem.SanitizeMol(mol, catchErrors=False)
+    # Normalize the molecule in place using RDKit's MolStandardize
     rdMolStandardize.NormalizeInPlace(mol)
-    # Update the properties
+    # Update the molecule's property cache without strict checking
     mol.UpdatePropertyCache(strict=False)
+    # Kekulize the molecule (convert aromatic bonds to alternating single and double bonds)
     Chem.Kekulize(mol)
-    # Add hydrogens
-    mol = Chem.AddHs(mol)
+    if add_hydrogens:
+        # Add hydrogens
+        mol = Chem.AddHs(mol)
     # Return the molecule
     return mol
 
