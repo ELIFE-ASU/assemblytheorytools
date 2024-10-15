@@ -1,10 +1,11 @@
 import os
 import shutil
-
-import networkx as nx
 from rdkit.Chem import AllChem as Chem
 
 import assemblytheorytools as att
+
+import networkx as nx
+
 
 
 def list_subdirs(directory, target="ai_calc"):
@@ -108,3 +109,28 @@ def test_joint_ass_graph():
     out_graph = nx.disjoint_union_all(path["file_graph"])
     assert ai == 11
     assert att.is_graph_isomorphic(graphs_joint, out_graph)
+
+def test_node_scramble():
+    smi_in = "[H]OC(=O)C([H])(N([H])C(=O)C([H])([H])N([H])[H])C([H])([H])C([H])(C([H])([H])[H])C([H])([H])[H]"
+    # smi_in = "CCC"
+    # Convert all the smile to mol
+    mol = att.smi_to_mol(smi_in)
+    # Convert the system into graphs
+    graph = att.mol_to_nx(mol, add_hydrogens=False)
+    # Calculate the assembly index
+    ai, path = att.calculate_assembly_index(graph)
+    # Get the input graph from the output dict
+    input_graph = path["file_graph"][0]
+    att.plot_mol_graph(input_graph, f_labs=True, filename="graph")
+    smi_out = Chem.MolToSmiles(att.nx_to_mol(input_graph))
+
+    graph_sc = att.scramble_node_indices(graph)
+    # Calculate the assembly index
+    ai_sc, path_sc = att.calculate_assembly_index(graph_sc)
+    # Get the input graph from the output dict
+    input_graph = path_sc["file_graph"][0]
+    att.plot_mol_graph(input_graph, f_labs=True, filename="scrambled")
+    smi_out_sc = Chem.MolToSmiles(att.nx_to_mol(input_graph))
+
+    # assert ai == ai_sc
+    assert smi_out == smi_out_sc # Check the graph conversion to and from RDKit
