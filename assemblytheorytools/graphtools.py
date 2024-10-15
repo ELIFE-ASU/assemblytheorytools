@@ -50,16 +50,7 @@ def nx_to_mol(graph, add_hydrogens=True):
     return safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
 
 
-def mol_to_nx(mol):
-    """
-    Convert an RDKit molecule to a NetworkX graph.
-
-    Args:
-        mol (Chem.Mol): The input RDKit molecule.
-
-    Returns:
-        nx.Graph: The resulting NetworkX graph where nodes represent atoms and edges represent bonds.
-    """
+def mol_to_nx(mol, add_hydrogens=True):
     graph = nx.Graph()
     converter = {Chem.rdchem.BondType.SINGLE: 1,
                  Chem.rdchem.BondType.DOUBLE: 2,
@@ -74,8 +65,17 @@ def mol_to_nx(mol):
         graph.add_edge(bond.GetBeginAtomIdx(),
                        bond.GetEndAtomIdx(),
                        color=converter[bond.GetBondType()])
+    # Remove the nodes with hydrogen as the color
+    if add_hydrogens is False:
+        graph = remove_hydrogen_from_graph(graph)
     return graph
 
+def remove_hydrogen_from_graph(graph):
+    nodes = list(graph.nodes())
+    for node in nodes:
+        if graph.nodes[node]["color"] == "H":
+            graph.remove_node(node)
+    return graph
 
 def write_ass_graph_file(graph, file_name="graph_info"):
     """
@@ -119,23 +119,30 @@ def is_graph_isomorphic(g1, g2):
     return GraphMatcher(g1, g2).is_isomorphic()
 
 
-def scramble_node_indices(graph):
+def scramble_node_indices(graph, seed=None):
     """
-    Randomly scramble the node indices of a NetworkX graph.
+    Returns a new graph with randomly scrambled node labels.
 
-    Args:
-        graph (networkx.Graph): The input graph whose node indices will be scrambled.
+    Parameters:
+    - graph (networkx.Graph): The input graph to be scrambled.
+    - seed (int, optional): Seed for the random number generator for reproducibility.
 
     Returns:
-        networkx.Graph: A new graph with scrambled node indices.
+    - networkx.Graph: A new graph with scrambled node labels.
     """
-    # Create a copy of the original graph to avoid modifying it
-    scrambled_graph = graph.copy()
-    # Get the list of original node indices
-    nodes = list(scrambled_graph.nodes())
-    # Create a list of new node indices by shuffling the original indices
-    random.shuffle(nodes)
-    # Create a mapping from original node indices to new node indices
-    mapping = dict(zip(scrambled_graph.nodes(), nodes))
-    # Relabel the nodes in the graph using the mapping
-    return nx.relabel_nodes(scrambled_graph, mapping)
+    # Set the random seed if provided for reproducibility
+    if seed is not None:
+        random.seed(seed)
+
+    # Get the list of nodes and create a shuffled copy
+    nodes = list(graph.nodes())
+    new_labels = nodes.copy()
+    random.shuffle(new_labels)
+
+    # Create a mapping from old labels to new labels
+    mapping = dict(zip(nodes, new_labels))
+
+    # Relabel the nodes using the mapping
+    graph_scrambled = nx.relabel_nodes(graph, mapping, copy=True)
+
+    return graph_scrambled
