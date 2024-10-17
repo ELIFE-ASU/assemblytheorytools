@@ -70,12 +70,14 @@ def mol_to_nx(mol, add_hydrogens=True):
         graph = remove_hydrogen_from_graph(graph)
     return graph
 
+
 def remove_hydrogen_from_graph(graph):
     nodes = list(graph.nodes())
     for node in nodes:
         if graph.nodes[node]["color"] == "H":
             graph.remove_node(node)
     return graph
+
 
 def write_ass_graph_file(graph, file_name="graph_info"):
     """
@@ -146,3 +148,16 @@ def scramble_node_indices(graph, seed=None):
     graph_scrambled = nx.relabel_nodes(graph, mapping, copy=True)
 
     return graph_scrambled
+
+
+def get_disconnected_subgraphs(graph):
+    """
+    Return subgraphs of connected components without copying if not necessary.
+
+    Args:
+        graph (networkx.Graph): The input graph.
+
+    Returns:
+        list: A list of subgraphs, each representing a connected component.
+    """
+    return [graph.subgraph(c) for c in nx.connected_components(graph)]

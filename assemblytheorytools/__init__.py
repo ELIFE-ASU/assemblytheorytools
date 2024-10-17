@@ -17,7 +17,8 @@ from .graphtools import (nx_to_mol,
                          write_ass_graph_file,
                          is_graph_isomorphic,
                          scramble_node_indices,
-                         remove_hydrogen_from_graph)
+                         remove_hydrogen_from_graph,
+                         get_disconnected_subgraphs)
 
 from .moltools import (standardize_mol,
                        smi_to_mol,

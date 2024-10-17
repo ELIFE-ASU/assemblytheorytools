@@ -5,20 +5,7 @@ import networkx as nx
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 
-from .graphtools import nx_to_mol
-
-
-def get_disconnected_subgraphs(graph):
-    """
-    Return subgraphs of connected components without copying if not necessary.
-
-    Args:
-        graph (networkx.Graph): The input graph.
-
-    Returns:
-        list: A list of subgraphs, each representing a connected component.
-    """
-    return [graph.subgraph(c) for c in nx.connected_components(graph)]
+from .graphtools import nx_to_mol, get_disconnected_subgraphs
 
 
 def convert_edge_color(edge_color):
