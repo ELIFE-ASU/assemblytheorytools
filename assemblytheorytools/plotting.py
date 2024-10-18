@@ -74,30 +74,43 @@ def os_plot_show():
     return None
 
 
-def plot_graph(graph, f_labs=False, filename="graph"):
-    """
-    Plot a graph using NetworkX and Matplotlib.
-
-    Args:
-        graph (networkx.Graph): The graph to be plotted.
-        f_labs (bool, optional): Whether to display labels on the nodes. Default is False.
-        filename (str, optional): The base name of the file where the plot will be saved. Default is "graph".
-
-    Returns:
-        None
-    """
+def plot_graph(graph,
+               layout='kawai',
+               f_labs=False,
+               edge_color='grey',
+               node_size = 300,
+               edgecolors="black",
+               width = 2,
+               linewidths = 2,
+               filename="graph",
+               ):
     # Get the position of the nodes
-    pos = nx.kamada_kawai_layout(graph)
+    if layout == 'kawai':
+        pos = nx.kamada_kawai_layout(graph)
+    elif layout == 'spring':
+        pos = nx.spring_layout(graph)
+    elif layout == 'circular':
+        pos = nx.circular_layout(graph)
+    elif layout == 'shell':
+        pos = nx.shell_layout(graph)
+    elif layout == 'spectral':
+        pos = nx.spectral_layout(graph)
+    elif layout == 'spiral':
+        pos = nx.spiral_layout(graph)
+    elif layout == 'arf':
+        pos = nx.arf_layout(graph)
+    else:
+        pos = nx.kamada_kawai_layout(graph)
 
     # Draw the graph
     nx.draw(graph,
             pos=pos,
             with_labels=f_labs,
-            edge_color='grey',
-            node_size=300,
-            edgecolors="black",
-            width=2,
-            linewidths=2,
+            edge_color=edge_color,
+            node_size=node_size,
+            edgecolors=edgecolors,
+            width=width,
+            linewidths=linewidths,
             )
     # Save the plot as PNG and PDF
     plt.savefig(f"{filename}.png", dpi=600)
