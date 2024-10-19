@@ -183,3 +183,38 @@ def calculate_assembly_index(mol, dir_code=None, timeout=100.0, debug=False):
         except Exception as e:
             print(f"Failed to load assembly output: {file_path_out}, Error: {e}", flush=True)
             return -1, None
+
+
+def compile_assembly_code():
+    """
+    # Get the assembly code
+    git clone git@gitlab.com:croningroup/cheminformatics/assemblycpp.git
+    or download the .tar.gz
+    tar -xvzf assemblycpp-main.tar.gz
+    rm assemblycpp-main.tar.gz
+
+    # Update the system packages
+    which g++ || sudo apt-get install g++ -y
+    sudo apt-get update && sudo apt-get upgrade -y
+    # Install g++
+    which g++ || sudo apt-get install g++ -y
+
+    # Get the boost code
+    wget 'https://archives.boost.io/release/1.66.0/source/boost_1_66_0.tar.gz'
+    tar -xvzf boost_1_66_0.tar.gz
+    rm boost_1_66_0.tar.gz
+
+    cd /$HOME/assemblycpp-main/v5_boost_linux/
+    g++ main.cpp -O3 -o asscpp_v5_boost -I/$HOME/boost_1_66_0/
+    export ASS_PATH=$HOME/asscpp/v5_boost/asscpp_v5_boost_recursive
+
+    """
+    c_assembly_pull = "git clone git@gitlab.com:croningroup/cheminformatics/assemblycpp.git"
+    c_assembly_extract = "tar -xvzf assemblycpp-main.tar.gz"
+    c_assembly_remove = "rm assemblycpp-main.tar.gz"
+
+
+    # Get the assembly code
+    subprocess.run(c_assembly_pull)
+    subprocess.run(c_assembly_extract)
+    return None
