@@ -38,6 +38,8 @@ from .plotting import (plot_mol_graph,
                        plot_graphs_in_subplots,
                        plot_graph)
 
+from .stringtools import (load_fasta)
+
 __version__ = "0.1.00"
 
 """
