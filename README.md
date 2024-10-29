@@ -1,7 +1,7 @@
 # assemblytheorytools
 A centralised set of tools for doing assembly theory calculations.
 
-The code needs a compiled assemblyCPP in your path, put `export ASS_PATH=/data/grp_swalke10/asscpp/v5/asscpp_v5_recursive` in your submission script or in your `.bashrc`.
+The code needs a compiled assemblyCPP in your path. Put `export ASS_PATH=/data/grp_swalke10/asscpp/v5_boost/asscpp_v5_boost_recursive` in your submission script or in your `.bashrc`.
 
 # Requirements
 Make sure to load your conda environment. I would install them in this order:
@@ -39,4 +39,4 @@ See `https://stackoverflow.com/questions/2505096/clone-a-private-repository-gith
 
 Once again, you will need your username AND 'personal access token' entered as your password.
 
-Using SOL is still new, so if any issues are encountered, please let us know~!
+I suggest running Python using the absolute path to the directory `srun $HOME/.conda/envs/myEnv/bin/python3`
