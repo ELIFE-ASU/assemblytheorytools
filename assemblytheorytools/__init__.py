@@ -30,7 +30,10 @@ from .moltools import (standardize_mol,
 
 from .pathway import (get_pathway_to_graph,
                       get_pathway_to_mol,
-                      get_pathway_to_inchi)
+                      get_pathway_to_inchi,
+                      get_pathway_to_smi,
+                      get_mol_pathway_to_inchi,
+                      get_mol_pathway_to_smi)
 
 from .plotting import (plot_mol_graph,
                        plot_interactive_graph,
