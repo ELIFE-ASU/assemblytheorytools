@@ -26,7 +26,7 @@ def load_assembly_output(file_path):
         return next(int(line.split(":")[-1]) for line in f if "assembly index" in line)
 
 
-def run_command(command, output_file="output.out", error_file="error.err", timeout=100.0, verbose=False):
+def run_command(command, output_file="output.out", error_file="error.err", timeout=10000.0, verbose=False):
     """
     Run a command in the subprocess with specified output and error files, and a timeout.
 
@@ -212,7 +212,6 @@ def compile_assembly_code():
     c_assembly_pull = "git clone git@gitlab.com:croningroup/cheminformatics/assemblycpp.git"
     c_assembly_extract = "tar -xvzf assemblycpp-main.tar.gz"
     c_assembly_remove = "rm assemblycpp-main.tar.gz"
-
 
     # Get the assembly code
     subprocess.run(c_assembly_pull)
