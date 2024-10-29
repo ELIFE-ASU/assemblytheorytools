@@ -221,30 +221,47 @@ def plot_simple_idx_compare(mol_list, labels=None, outfile="allpath_indexes.png"
     Draw.MolsToGridImage([mol_with_atom_index(mol) for mol in mol_list], subImgSize=image_size).save(outfile)
 
 
-def all_shortest_paths(mol, f_graph_care=False):
-    # Force the input to be an RDKit molecule object
+def all_shortest_paths(mol, f_graph_care=False, max_attempts=3):
+    """
+    Generate all unique shortest paths of a molecule by scrambling atom indices.
+
+    Args:
+        mol (rdkit.Chem.Mol): The input RDKit molecule object.
+        f_graph_care (bool, optional): Whether to kekulize the molecule. Default is False.
+        max_attempts (int, optional): Maximum number of consecutive attempts without finding new InChI strings.
+
+    Returns:
+        list: A list of unique InChI strings representing the shortest paths.
+    """
     if not isinstance(mol, Chem.Mol):
         raise ValueError("Input must be an RDKit molecule object.")
-    # Get the atom order
+
     m_order = get_atom_order(mol)
     out_list = []
-    # Set the number of attempts to the number of bonds in the molecule
     n_attempts = int(mol.GetNumBonds() * 4)
+    no_new_inchi_count = 0
+
     for ii in range(n_attempts):
-        # Create the new order
+        if no_new_inchi_count >= max_attempts:
+            break
+
         mol_renum = Chem.RenumberAtoms(mol, scramble_list(m_order))
-        # Check if the graph is cared for
         if f_graph_care:
             Chem.Kekulize(mol_renum)
-        # Calculate the assembly index
+
         ai, path = calculate_assembly_index(mol_renum)
-        # Convert the path to a dict of InChI strings
         path = get_mol_pathway_to_inchi(path)
-        # Flatten the dict to a list of InChI strings
         path = convert_pathway_dict_to_list(path)
-        # Check if the inchi is not already in the list
+
+        new_inchi_found = False
         for inchi in path:
-            # check if the inchi is not already in the list
             if inchi not in out_list:
                 out_list.append(inchi)
+                new_inchi_found = True
+
+        if new_inchi_found:
+            no_new_inchi_count = 0
+        else:
+            no_new_inchi_count += 1
+
     return list(set(out_list))
