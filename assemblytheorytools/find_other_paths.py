@@ -4,7 +4,8 @@ import numpy as np
 from rdkit.Chem import AllChem as Chem
 from rdkit.Chem import Draw
 
-from .assembly import calculate_assembly_index, get_mol_pathway_to_inchi, convert_pathway_dict_to_list
+from .assembly import calculate_assembly_index
+from .pathway import get_mol_pathway_to_inchi, convert_pathway_dict_to_list
 
 
 def get_atom_order(mol):
