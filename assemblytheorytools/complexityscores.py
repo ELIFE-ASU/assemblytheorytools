@@ -119,3 +119,16 @@ def kirchhoff_index(mol):
             kirchhoff_sum += (diagonal_elements[i] + diagonal_elements[j] - 2 * pseudo_inverse_laplacian[i, j])
 
     return kirchhoff_sum
+
+def spacial_score(mol, normalize=False):
+    """
+    Calculates the spacial score of a molecule. https://github.com/frog2000/Spacial-Score
+
+    Spacial score is a descriptor that quantifies the spatial arrangement
+    of atoms in a molecule. It can be used to predict various molecular properties.
+
+    :param mol: An RDKit molecule object.
+    :param normalize: A boolean indicating whether to normalize the score.
+    :return: The spacial score of the molecule.
+    """
+    return rdkit.Chem.SpacialScore.SPS(mol, normalize)
