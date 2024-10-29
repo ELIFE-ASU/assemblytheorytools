@@ -20,7 +20,8 @@ from .graphtools import (nx_to_mol,
                          remove_hydrogen_from_graph,
                          get_disconnected_subgraphs)
 
-from .moltools import (standardize_mol,
+from .moltools import (safe_standardize_mol,
+                       standardize_mol,
                        smi_to_mol,
                        inchi_to_mol,
                        molfile_to_mol,
