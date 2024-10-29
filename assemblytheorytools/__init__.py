@@ -34,7 +34,8 @@ from .pathway import (get_pathway_to_graph,
                       get_pathway_to_inchi,
                       get_pathway_to_smi,
                       get_mol_pathway_to_inchi,
-                      get_mol_pathway_to_smi)
+                      get_mol_pathway_to_smi,
+                      convert_pathway_dict_to_list)
 
 from .plotting import (plot_mol_graph,
                        plot_interactive_graph,

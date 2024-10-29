@@ -239,6 +239,7 @@ def get_mol_pathway_to_inchi(pathway):
             out_dict[key] = [Chem.MolToInchi(g) for g in pathway[key]]
     return out_dict
 
+
 def get_mol_pathway_to_smi(pathway):
     """
     Convert a pathway of RDKit molecule objects to SMILES strings.
@@ -255,3 +256,10 @@ def get_mol_pathway_to_smi(pathway):
         if key in pathway:
             out_dict[key] = [Chem.MolToSmiles(g) for g in pathway[key]]
     return out_dict
+
+
+def convert_pathway_dict_to_list(in_dict):
+    in_list = []
+    for key in in_dict:
+        in_list.extend(in_dict[key])
+    return in_list
