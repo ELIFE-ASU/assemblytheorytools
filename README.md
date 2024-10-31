@@ -7,7 +7,7 @@ The code needs a compiled assemblyCPP in your path. Put `export ASS_PATH=/data/g
 Make sure to load your conda environment. I would install them in this order:
 - numpy `conda install numpy`
 - matplotlib `conda install matplotlib`
-- networkx `pip install anaconda::networkx`
+- networkx `conda install anaconda::networkx`
 - rdkit `conda install conda-forge::rdkit`
 - pyvis `conda install conda-forge::pyvis`
 
