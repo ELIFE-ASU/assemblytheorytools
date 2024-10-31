@@ -1,10 +1,8 @@
 import os
 import subprocess
-import sys
 import tempfile
 from datetime import datetime
 
-sys.path.extend(['/home/louie/skunkworks/CFG'])
 import CFG
 import networkx as nx
 from rdkit import Chem
