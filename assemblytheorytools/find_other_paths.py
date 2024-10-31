@@ -1,14 +1,11 @@
-import os
 import random
 
-import matplotlib.pyplot as plt
 import numpy as np
 from rdkit.Chem import AllChem as Chem
 from rdkit.Chem import Draw
 
 from .assembly import calculate_assembly_index
-from .pathway import get_pathway_to_inchi
-from .plotting import n_plot
+from .pathway import get_mol_pathway_to_inchi, convert_pathway_dict_to_list
 
 
 def get_atom_order(mol):
@@ -224,148 +221,47 @@ def plot_simple_idx_compare(mol_list, labels=None, outfile="allpath_indexes.png"
     Draw.MolsToGridImage([mol_with_atom_index(mol) for mol in mol_list], subImgSize=image_size).save(outfile)
 
 
-def all_shortest_paths(mol, f_graph_care=False):
+def all_shortest_paths(mol, f_graph_care=False, max_attempts=3):
     """
-    Generate all shortest paths in a molecule by scrambling atom orders and renumbering atoms.
+    Generate all unique shortest paths of a molecule by scrambling atom indices.
 
     Args:
-        mol (rdkit.Chem.Mol): The RDKit molecule object.
+        mol (rdkit.Chem.Mol): The input RDKit molecule object.
         f_graph_care (bool, optional): Whether to kekulize the molecule. Default is False.
+        max_attempts (int, optional): Maximum number of consecutive attempts without finding new InChI strings.
 
     Returns:
-        list: A list of unique InChI strings representing the fragments found in the molecule.
-
-    The function works as follows:
-    1. It gets the canonical atom order of the molecule.
-    2. It sets the number of attempts to four times the number of bonds in the molecule.
-    3. For each attempt, it scrambles the atom order and renumbers the atoms.
-    4. It creates a directory for each attempt and saves the renumbered molecule as a mol file.
-    5. If `f_graph_care` is True, it kekulizes the molecule.
-    6. It calculates the assembly index and gets the pathway fragments.
-    7. It combines the fragments and adds unique InChI strings to the list.
+        list: A list of unique InChI strings representing the shortest paths.
     """
+    if not isinstance(mol, Chem.Mol):
+        raise ValueError("Input must be an RDKit molecule object.")
+
     m_order = get_atom_order(mol)
-    inchi_list = []
-    # Set the number of attempts to the number of bonds in the molecule
-    n_bonds = mol.GetNumBonds()
-    print(f"Number of bonds: {n_bonds}", flush=True)
+    out_list = []
     n_attempts = int(mol.GetNumBonds() * 4)
-    print(f"Number of attempts: {n_attempts}", flush=True)
+    no_new_inchi_count = 0
+
     for ii in range(n_attempts):
-        # print(f"Attempt {ii}", flush=True)
-        idx_neworder = scramble_list(m_order)
-        m_renum = Chem.RenumberAtoms(mol, idx_neworder)
-        dir_path = os.path.join(os.getcwd(), f"path_{ii}")
-        # Check if the directory exists if not create it
-        os.makedirs(dir_path, exist_ok=True)
+        if no_new_inchi_count >= max_attempts:
+            break
 
-        # Check if the graph is cared for
+        mol_renum = Chem.RenumberAtoms(mol, scramble_list(m_order))
         if f_graph_care:
-            Chem.Kekulize(m_renum)
+            Chem.Kekulize(mol_renum)
 
-        # Write the molecule to a mol file
-        Chem.MolToMolFile(m_renum, os.path.join(dir_path, f"path_{ii}.mol"))
-        # Calculate the assembly index
-        calculate_assembly_index(os.path.join(dir_path, f"path_{ii}.mol"))
-        # Get the pathway
-        dup_frags, rem_frags, ree_frags = get_pathway_to_inchi(os.path.join(dir_path, f"path_{ii}Pathway"))
-        # print("duplicate_fragments", dup_frags, flush=True)
-        # print("remnant_fragments", rem_frags, flush=True)
-        # print("removed_edges_fragments", ree_frags, flush=True)
-        combined = dup_frags + rem_frags + ree_frags
-        for inchi in combined:
-            # check if the inchi is not already in the list
-            if inchi not in inchi_list:
-                inchi_list.append(inchi)
+        ai, path = calculate_assembly_index(mol_renum)
+        path = get_mol_pathway_to_inchi(path)
+        path = convert_pathway_dict_to_list(path)
 
-    return inchi_list
+        new_inchi_found = False
+        for inchi in path:
+            if inchi not in out_list:
+                out_list.append(inchi)
+                new_inchi_found = True
 
+        if new_inchi_found:
+            no_new_inchi_count = 0
+        else:
+            no_new_inchi_count += 1
 
-if __name__ == "__main__":
-    plt.rcParams['axes.linewidth'] = 2.0
-    print("Program started", flush=True)
-    # ala arg asp asn cys gln glu gly his ile leu lys met phe pro ser thr trp tyr val
-    smiles = ["N[C@]([H])(C)C(=O)N[C@]([H])(CC(C)C)C(=O)N[C@]([H])(C)C(=O)O",  # ala
-              "N[C@]([H])(C)C(=O)N[C@]([H])(CCCNC(=N)N)C(=O)NCC(=O)O",  # arg
-              "N[C@]([H])(C)C(=O)N[C@]([H])(CO)C(=O)N1[C@]([H])(CCC1)C(=O)O",  # asp
-              "N[C@]([H])(C)C(=O)N[C@]([H])(CO)C(=O)N[C@]([H])(CC(=O)N)C(=O)O"  # asn
-              "N[C@]([H])(C)C(=O)N[C@]([H])(CS)C(=O)N[C@]([H])(CC(=O)N)C(=O)O",  # cys
-              "NCC(=O)N[C@]([H])(CC(C)C)C(=O)N[C@]([H])(CC(=O)N)C(=O)O",  # gln
-              "NCC(=O)N[C@]([H])(CC(C)C)C(=O)O",  # glu
-              "NCC(=O)N[C@]([H])(CC(C)C)C(=O)N[C@]([H])(Cc1ccc(O)cc1)C(=O)O",  # gly
-              "N[C@]([H])(CC1=CN=C-N1)C(=O)N[C@]([H])([C@@]([H])(CC)C)C(=O)N[C@]([H])(CO)C(=O)O",  # his
-              "N[C@]([H])([C@@]([H])(CC)C)C(=O)N[C@]([H])(CC(C)C)C(=O)N[C@]([H])(CCC(=O)O)C(=O)O",  # ile
-              "N[C@]([H])(CC(C)C)C(=O)N[C@]([H])(CCC(=O)O)C(=O)O",  # leu
-              "N[C@]([H])(CC(C)C)C(=O)N[C@]([H])(Cc1ccc(O)cc1)C(=O)N[C@]([H])(CO)C(=O)O",  # lys
-              "N[C@]([H])(CCSC)C(=O)N[C@]([H])(CCC(=O)O)C(=O)N[C@]([H])([C@@]([H])(O)C)C(=O)O",  # met
-              "N1[C@]([H])(CCC1)C(=O)N[C@]([H])(CC1=CN=C-N1)C(=O)N[C@]([H])(CCC(=O)O)C(=O)O",  # phe
-              "N[C@]([H])(CO)C(=O)N[C@]([H])(CCC(=O)O)C(=O)N[C@]([H])(CCCNC(=N)N)C(=O)O",  # ser
-              "N[C@]([H])([C@@]([H])(O)C)C(=O)N[C@]([H])(CC1=CN=C-N1)C(=O)N[C@]([H])(CCCNC(=N)N)C(=O)O",  # thr
-              "N[C@]([H])([C@@]([H])(O)C)C(=O)N[C@]([H])(CCCNC(=N)N)C(=O)N1[C@]([H])(CCC1)C(=O)O",  # trp
-              "N[C@]([H])([C@@]([H])(O)C)C(=O)N[C@]([H])(Cc1ccc(O)cc1)C(=O)N[C@]([H])(CCCNC(=N)N)C(=O)O",  # tyr
-              "N[C@]([H])(C(C)C)C(=O)N[C@]([H])(C)C(=O)N[C@]([H])(CC(C)C)C(=O)O"  # val
-              ]
-
-    n_paths = np.zeros(len(smiles))
-    n_bonds = np.zeros(len(smiles))
-    for i, s in enumerate(smiles):
-        m = Chem.MolFromSmiles(s)
-        n_bonds[i] = m.GetNumBonds()
-        n_paths[i] = len(all_shortest_paths(m))
-        print("Number of unique paths: ", n_paths[i], flush=True)
-
-    plt.scatter(n_bonds, n_paths)
-    n_plot("Number of Bonds", "Number of Unique virtual objects")
-    plt.savefig("unique_objects.png", dpi=600)
-    plt.savefig("unique_objects.pdf")
-    plt.close()
-
-    # m = Chem.MolFromSmiles("c1([C@H](C)CC)cccc2ccccc12")
-    # n = all_shortest_paths(m)
-    # print("Number of unique paths: ", n, flush=True)
-
-    print("Program ended", flush=True)
-
-    # n_attempts = 10
-    # # Create a molecule
-    # m = Chem.MolFromSmiles("c1([C@H](C)CC)cccc2ccccc12")
-    # m = Chem.MolFromSmiles("C1CC2=C3C(=CC=C2)C(=CN3C1)[C@H]4[C@@H](C(=O)NC4=O)C5=CNC6=CC=CC=C65")
-    # # m = Chem.MolFromSmiles("CCCCCCCCCCCCOS(=O)([O-])=O.[Na+]")
-    # m_order = get_atom_order(m)
-    # mol_list = []
-    # print("Original atom order: ", m_order)
-    # for i in range(n_attempts):
-    #     ii = i + 1
-    #     print(f"Attempt {ii}")
-    #     idx_neworder = scramble_list(m_order)  # swap_random_elements_list(m_order)
-    #     m_renum = Chem.RenumberAtoms(m, idx_neworder)
-    #     print("New atom order: ", get_atom_order(m_renum))
-    #     dir_path = os.path.join(os.getcwd(), f"path_{ii}")
-    #     # Check if the directory exists if not create it
-    #     os.makedirs(dir_path, exist_ok=True)
-    #     # Chem.Kekulize(m_renum)
-    #     # MolStandardize.rdMolStandardize.FragmentParent(m_renum)
-    #     # Write the molecule to a mol file
-    #     Chem.MolToMolFile(m_renum, os.path.join(dir_path, f"path_{ii}.mol"))
-    #
-    #     # Load the molecule
-    #     mol_list.append(Chem.MolFromMolFile(os.path.join(dir_path, f"path_{ii}.mol")))
-    #
-    #     # Calculate the assembly index
-    #     u.calculate_assembly(os.path.join(dir_path, f"path_{ii}.mol"))
-    #     # Get the pathway
-    #     inchi_list = pti.pathway_to_inchi_list(os.path.join(dir_path, f"path_{ii}Pathway"))
-    #     print(inchi_list)
-    #     mol_list = [Chem.MolFromInchi(inchi) for inchi in inchi_list]
-    #     Draw.MolsToGridImage(mol_list).save(f"allpath_{ii}.png")
-    #     dup_frags, rem_frags, ree_frags = pti.pathway_to_inchi_sublist(os.path.join(dir_path, f"path_{ii}Pathway"))
-    #     print("duplicate_fragments", dup_frags)
-    #     print("remnant_fragments", rem_frags)
-    #     print("removed_edges_fragments", ree_frags)
-    #     plot_fragments(dup_frags, rem_frags, ree_frags, outfile=f"fragments_{ii}.png")
-    #
-    # # Add atom indices to the molecules
-    # mol_list = [u.addAtomIndices(mol) for mol in mol_list]
-    # Draw.MolsToGridImage((u.addAtomIndices(mol_list[0]), u.addAtomIndices(mol_list[1]))).save(f"allpath_indexes.png")
-    # Draw.MolsToGridImage(mol_list).save(f"allpath_indexes.png")
-    # plot_simple_idx_compare(mol_list)
+    return list(set(out_list))

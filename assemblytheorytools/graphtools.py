@@ -1,3 +1,4 @@
+import os
 import random
 
 import networkx as nx
@@ -161,3 +162,31 @@ def get_disconnected_subgraphs(graph):
         list: A list of subgraphs, each representing a connected component.
     """
     return [graph.subgraph(c) for c in nx.connected_components(graph)]
+
+
+def write_graph(graph, file_name="graph.graphml"):
+    """
+    Writes a NetworkX graph to a GraphML file.
+
+    Parameters:
+    graph (networkx.Graph): The graph to be written to the file.
+    file_name (str): The path to the file where the graph will be saved.
+
+    Returns:
+    None
+    """
+    nx.write_graphml_lxml(graph, os.path.abspath(file_name))
+    return None
+
+
+def read_graph(file_name="graph.graphml"):
+    """
+    Reads a NetworkX graph from a GraphML file.
+
+    Parameters:
+    file_name (str): The path to the file from which the graph will be read.
+
+    Returns:
+    networkx.Graph: The graph read from the file.
+    """
+    return nx.read_graphml(os.path.abspath(file_name))

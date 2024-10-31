@@ -201,3 +201,65 @@ def get_pathway_to_inchi(file_path):
         if key in graphs:
             out_dict[key] = [Chem.MolToInchi(nx_to_mol(g)) for g in graphs[key]]
     return out_dict
+
+
+def get_pathway_to_smi(file_path):
+    """
+    Convert graph data from a JSON file to SMILES strings.
+
+    Args:
+        file_path (str): The path to the JSON file containing the graph data.
+
+    Returns:
+        dict: A dictionary containing SMILES strings for different sections such as 'file_graph', 'remnant', 'duplicates', and 'removed_edges'.
+    """
+    graphs = get_pathway_to_graph(file_path)
+    out_dict = {}
+    # Convert each section and store in out_dict
+    for key in ['file_graph', 'remnant', 'duplicates', 'removed_edges']:
+        if key in graphs:
+            out_dict[key] = [Chem.MolToSmiles(nx_to_mol(g)) for g in graphs[key]]
+    return out_dict
+
+
+def get_mol_pathway_to_inchi(pathway):
+    """
+    Convert a pathway of RDKit molecule objects to InChI strings.
+
+    Args:
+        pathway (dict): A dictionary containing RDKit molecule objects for different sections such as 'file_graph', 'remnant', 'duplicates', and 'removed_edges'.
+
+    Returns:
+        dict: A dictionary containing InChI strings for different sections such as 'file_graph', 'remnant', 'duplicates', and 'removed_edges'.
+    """
+    out_dict = {}
+    # Convert each section to InChI and store in out_dict
+    for key in ['file_graph', 'remnant', 'duplicates', 'removed_edges']:
+        if key in pathway:
+            out_dict[key] = [Chem.MolToInchi(g) for g in pathway[key]]
+    return out_dict
+
+
+def get_mol_pathway_to_smi(pathway):
+    """
+    Convert a pathway of RDKit molecule objects to SMILES strings.
+
+    Args:
+        pathway (dict): A dictionary containing RDKit molecule objects for different sections such as 'file_graph', 'remnant', 'duplicates', and 'removed_edges'.
+
+    Returns:
+        dict: A dictionary containing SMILES strings for different sections such as 'file_graph', 'remnant', 'duplicates', and 'removed_edges'.
+    """
+    out_dict = {}
+    # Convert each section and store in out_dict
+    for key in ['file_graph', 'remnant', 'duplicates', 'removed_edges']:
+        if key in pathway:
+            out_dict[key] = [Chem.MolToSmiles(g) for g in pathway[key]]
+    return out_dict
+
+
+def convert_pathway_dict_to_list(in_dict):
+    in_list = []
+    for key in in_dict:
+        in_list.extend(in_dict[key])
+    return in_list

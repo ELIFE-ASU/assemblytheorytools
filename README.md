@@ -1,23 +1,22 @@
 # assemblytheorytools
 A centralised set of tools for doing assembly theory calculations.
 
-The code needs a compiled assemblyCPP in your path, put `export ASS_PATH=/data/grp_swalke10/asscpp/v5/asscpp_v5_recursive` in your submission script or in your `.bashrc`.
+The code needs a compiled assemblyCPP in your path. Put `export ASS_PATH=/data/grp_swalke10/asscpp/v5_boost/asscpp_v5_boost_recursive` in your submission script or in your `.bashrc`.
 
 # Requirements
 Make sure to load your conda environment. I would install them in this order:
 - numpy `conda install numpy`
 - matplotlib `conda install matplotlib`
-- network x `pip install networkx[default]`
-- rdkit `conda install -c conda-forge rdkit`
-- pyvis `pip install pyvis`
-
-# Install instructions
-`pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git`
-
+- networkx `pip install anaconda::networkx`
+- rdkit `conda install conda-forge::rdkit`
+- pyvis `conda install conda-forge::pyvis`
 
 # For Local Install:
+Install the requirements above (conda recommended). In one go:
 
-Open a virtual environment (for example, using Pycharm)
+`conda install numpy matplotlib anaconda::networkx conda-forge::rdkit conda-forge::pyvis`
+
+Then install assemblytheorytools:
 
 `pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git`
 
@@ -32,10 +31,12 @@ See `https://stackoverflow.com/questions/2505096/clone-a-private-repository-gith
 
 `source activate myEnv`
 
+`mamba install numpy matplotlib anaconda::networkx conda-forge::rdkit conda-forge::pyvis`
+
 `mamba update --all -y`
 
 `pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git`
 
 Once again, you will need your username AND 'personal access token' entered as your password.
 
-Using SOL is still new, so if any issues are encountered, please let us know~!
+I suggest running Python using the absolute path to the directory `srun $HOME/.conda/envs/myEnv/bin/python3`

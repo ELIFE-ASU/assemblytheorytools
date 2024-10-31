@@ -20,7 +20,8 @@ from .graphtools import (nx_to_mol,
                          remove_hydrogen_from_graph,
                          get_disconnected_subgraphs)
 
-from .moltools import (standardize_mol,
+from .moltools import (safe_standardize_mol,
+                       standardize_mol,
                        smi_to_mol,
                        inchi_to_mol,
                        molfile_to_mol,
@@ -30,7 +31,11 @@ from .moltools import (standardize_mol,
 
 from .pathway import (get_pathway_to_graph,
                       get_pathway_to_mol,
-                      get_pathway_to_inchi)
+                      get_pathway_to_inchi,
+                      get_pathway_to_smi,
+                      get_mol_pathway_to_inchi,
+                      get_mol_pathway_to_smi,
+                      convert_pathway_dict_to_list)
 
 from .plotting import (plot_mol_graph,
                        plot_interactive_graph,
