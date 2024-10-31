@@ -109,7 +109,7 @@ def test_joint_ass_graph():
     assert ai == 11
     assert att.is_graph_isomorphic(graphs_joint, out_graph)
 
-
+    
 def test_all_paths_simple():
     mol = att.smi_to_mol("C#CCC=C")
     paths = att.all_shortest_paths(mol, f_graph_care=False)
@@ -121,7 +121,7 @@ def test_all_paths_simple():
                 'InChI=1S/C5H6/c1-3-5-4-2/h1,4H,2,5H2']
     for p in paths:
         assert p in expected
-
+        
 
 def test_node_scramble():
     smi_in = "[H]OC(=O)C([H])(N([H])C(=O)C([H])([H])N([H])[H])C([H])([H])C([H])(C([H])([H])[H])C([H])([H])[H]"
@@ -149,6 +149,12 @@ def test_node_scramble():
     assert smi_out == smi_out_sc  # Check the graph conversion to and from RDKit
 
 
+def test_str_ass():
+    s_inpt = "abracadabra"
+    ai, _ = att.calculate_assembly_index(s_inpt)
+    ai_ref = 7
+    assert ai == ai_ref
+
 def test_hand_graph():
     # Create a ring graph with 8 nodes
     G = nx.cycle_graph(8)
@@ -168,7 +174,3 @@ def test_hand_graph():
         print(flush=True)
 
     assert ai == 3
-
-
-if __name__ == "__main__":
-    test_hand_graph()

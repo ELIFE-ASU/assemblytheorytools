@@ -23,6 +23,7 @@ setup(
         'rdkit',
         'ipython',
         'pyvis',
+        'CFG @ git+https://github.com/ELIFE-ASU/CFG.git',
     ],
     extras_require={
         'dev': [

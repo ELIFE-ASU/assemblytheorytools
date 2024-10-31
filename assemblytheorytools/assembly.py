@@ -3,6 +3,7 @@ import subprocess
 import tempfile
 from datetime import datetime
 
+import CFG
 import networkx as nx
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
@@ -111,78 +112,82 @@ def calculate_assembly_index(mol, dir_code=None, timeout=100.0, debug=False):
     Returns:
         tuple: A tuple containing the corrected assembly index (int) and the pathway (varies based on input type).
     """
-    if dir_code is None:
-        dir_code = os.environ.get("ASS_PATH")
-    # Check if the input is a rdkit mol
-    if isinstance(mol, nx.Graph):
-        # Make the directory
-        if debug:
-            # Define the directory name with the timestamp
-            temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}"
-            os.makedirs(temp_dir)
-        else:
-            temp_dir = tempfile.mkdtemp()
-        # Make the in file
-        file_path_in = os.path.join(temp_dir, f"graph_in")
-        # Write the input graph file
-        write_ass_graph_file(mol, file_name=file_path_in)
-    elif isinstance(mol, Chem.Mol):
-        # Make the directory
-        if debug:
-            # Define the directory name with the timestamp
-            temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}"
-            os.makedirs(temp_dir)
-        else:
-            temp_dir = tempfile.mkdtemp()
-        # Write the mol file
-        mol_file = os.path.join(temp_dir, f"tmp.mol")
-        # Write the input mol file
-        write_v2k_mol_file(mol, mol_file)
-        # Get the infile
-        file_path_in = os.path.splitext(mol_file)[0]
-    elif ".mol" in mol:
-        # Get the infile
-        file_path_in = os.path.splitext(mol)[0]
+    if isinstance(mol, str):
+        ai, path = CFG.ai_upper_with_pathways(mol, f_print=False)
+        return ai, path
     else:
-        file_path_in = mol
-        ValueError("Input not supported")
-    # Get the output file
-    file_path_out = os.path.join(file_path_in + "Out")
-    file_path_pathway = os.path.join(file_path_in + "Pathway")
+        if dir_code is None:
+            dir_code = os.environ.get("ASS_PATH")
+        # Check if the input is a rdkit mol
+        if isinstance(mol, nx.Graph):
+            # Make the directory
+            if debug:
+                # Define the directory name with the timestamp
+                temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}"
+                os.makedirs(temp_dir)
+            else:
+                temp_dir = tempfile.mkdtemp()
+            # Make the in file
+            file_path_in = os.path.join(temp_dir, f"graph_in")
+            # Write the input graph file
+            write_ass_graph_file(mol, file_name=file_path_in)
+        elif isinstance(mol, Chem.Mol):
+            # Make the directory
+            if debug:
+                # Define the directory name with the timestamp
+                temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}"
+                os.makedirs(temp_dir)
+            else:
+                temp_dir = tempfile.mkdtemp()
+            # Write the mol file
+            mol_file = os.path.join(temp_dir, f"tmp.mol")
+            # Write the input mol file
+            write_v2k_mol_file(mol, mol_file)
+            # Get the infile
+            file_path_in = os.path.splitext(mol_file)[0]
+        elif ".mol" in mol:
+            # Get the infile
+            file_path_in = os.path.splitext(mol)[0]
+        else:
+            file_path_in = mol
+            ValueError("Input not supported")
+        # Get the output file
+        file_path_out = os.path.join(file_path_in + "Out")
+        file_path_pathway = os.path.join(file_path_in + "Pathway")
 
-    # Run the assembly code
-    outcome = run_command([dir_code, file_path_in],
-                          output_file=f"{file_path_in}.out",
-                          error_file=f"{file_path_in}.err",
-                          timeout=timeout)
+        # Run the assembly code
+        outcome = run_command([dir_code, file_path_in],
+                              output_file=f"{file_path_in}.out",
+                              error_file=f"{file_path_in}.err",
+                              timeout=timeout)
 
-    # Get the output
-    if not outcome:
-        # If the assembly code failed return -1
-        return -1, None
-    else:
-        try:
-            # Load the assembly output
-            value = load_assembly_output(file_path_out)
-            # Check the pathway file exits
-            if os.path.isfile(file_path_pathway):
-                if isinstance(mol, nx.Graph):
-                    path = get_pathway_to_graph(file_path_pathway)
-                elif isinstance(mol, Chem.Mol):
-                    # Load the pathway data
-                    path = get_pathway_to_mol(file_path_pathway)
-                elif ".mol" in mol:
-                    # Load the pathway data
-                    path = get_pathway_to_inchi(file_path_pathway)
+        # Get the output
+        if not outcome:
+            # If the assembly code failed return -1
+            return -1, None
+        else:
+            try:
+                # Load the assembly output
+                value = load_assembly_output(file_path_out)
+                # Check the pathway file exits
+                if os.path.isfile(file_path_pathway):
+                    if isinstance(mol, nx.Graph):
+                        path = get_pathway_to_graph(file_path_pathway)
+                    elif isinstance(mol, Chem.Mol):
+                        # Load the pathway data
+                        path = get_pathway_to_mol(file_path_pathway)
+                    elif ".mol" in mol:
+                        # Load the pathway data
+                        path = get_pathway_to_inchi(file_path_pathway)
+                    else:
+                        path = None
+                        ValueError("Input not supported")
                 else:
                     path = None
-                    ValueError("Input not supported")
-            else:
-                path = None
-            return joint_correction(mol, value), path
-        except Exception as e:
-            print(f"Failed to load assembly output: {file_path_out}, Error: {e}", flush=True)
-            return -1, None
+                return joint_correction(mol, value), path
+            except Exception as e:
+                print(f"Failed to load assembly output: {file_path_out}, Error: {e}", flush=True)
+                return -1, None
 
 
 def compile_assembly_code():
