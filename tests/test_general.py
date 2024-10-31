@@ -149,5 +149,26 @@ def test_node_scramble():
     assert smi_out == smi_out_sc  # Check the graph conversion to and from RDKit
 
 
+def test_hand_graph():
+    # Create a ring graph with 8 nodes
+    G = nx.cycle_graph(8)
+    # Set the labels of the nodes to be "C" - a carbon atom
+    nx.set_node_attributes(G, "C", "color")
+    # Set the edge labels to be "1" - a single bond
+    nx.set_edge_attributes(G, 1, "color")
+
+    ai, path = att.calculate_assembly_index(G)
+    # convert the dict to a list
+    path = att.convert_pathway_dict_to_list(path)
+    print(f"ass index = {ai}", flush=True)
+    for i, p in enumerate(path):
+        print(f"object = {i}", flush=True)
+        for line in nx.generate_edgelist(p): # generate_edgelist generate_adjlist
+            print(line)
+        print(flush=True)
+
+    assert ai == 3
+
+
 if __name__ == "__main__":
-    test_all_paths_simple()
+    test_hand_graph()
