@@ -109,7 +109,7 @@ def test_joint_ass_graph():
     assert ai == 11
     assert att.is_graph_isomorphic(graphs_joint, out_graph)
 
-    
+
 def test_all_paths_simple():
     mol = att.smi_to_mol("C#CCC=C")
     paths = att.all_shortest_paths(mol, f_graph_care=False)
@@ -121,7 +121,7 @@ def test_all_paths_simple():
                 'InChI=1S/C5H6/c1-3-5-4-2/h1,4H,2,5H2']
     for p in paths:
         assert p in expected
-        
+
 
 def test_node_scramble():
     smi_in = "[H]OC(=O)C([H])(N([H])C(=O)C([H])([H])N([H])[H])C([H])([H])C([H])(C([H])([H])[H])C([H])([H])[H]"
@@ -155,6 +155,17 @@ def test_str_ass():
     ai_ref = 7
     assert ai == ai_ref
 
+
+def print_graph_details(graph):
+    print("{", flush=True)
+    for node in graph.nodes(data=True):
+        node_index = node[0]
+        node_color = node[1].get('color', 'No color')
+        edge_connections = list(graph.edges(node_index))
+        print(f"({node_index}, {node_color}): {edge_connections}", flush=True)
+    print("}", flush=True)
+
+
 def test_hand_graph():
     # Create a ring graph with 8 nodes
     G = nx.cycle_graph(8)
@@ -162,15 +173,21 @@ def test_hand_graph():
     nx.set_node_attributes(G, "C", "color")
     # Set the edge labels to be "1" - a single bond
     nx.set_edge_attributes(G, 1, "color")
+    print("input", flush=True)
+    print_graph_details(G)
 
     ai, path = att.calculate_assembly_index(G)
-    # convert the dict to a list
+    # Convert the dict to a list
     path = att.convert_pathway_dict_to_list(path)
-    print(f"ass index = {ai}", flush=True)
+    print("output", flush=True)
+    print(f"Ass index = {ai}", flush=True)
+    # Remove the first pathway
+    path.pop(0)
     for i, p in enumerate(path):
-        print(f"object = {i}", flush=True)
-        for line in nx.generate_edgelist(p): # generate_edgelist generate_adjlist
-            print(line)
-        print(flush=True)
+        print(f"Pathway object = {i}", flush=True)
+        print_graph_details(p)
 
     assert ai == 3
+
+
+test_hand_graph()
