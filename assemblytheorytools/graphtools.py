@@ -6,7 +6,7 @@ from networkx.algorithms.isomorphism import GraphMatcher
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 
-from .moltools import safe_standardize_mol
+from .moltools import safe_standardize_mol,smi_to_mol
 
 
 def nx_to_mol(graph, add_hydrogens=True):
@@ -42,7 +42,7 @@ def nx_to_mol(graph, add_hydrogens=True):
             1: Chem.rdchem.BondType.SINGLE,
             2: Chem.rdchem.BondType.DOUBLE,
             3: Chem.rdchem.BondType.TRIPLE,
-            4: Chem.rdchem.BondType.AROMATIC,
+            4: Chem.rdchem.BondType.IONIC,
         }.get(bond_order, Chem.rdchem.BondType.SINGLE)
         # Add the bond to the molecule
         mol.AddBond(node_to_idx[u], node_to_idx[v], bond_type)
@@ -56,7 +56,7 @@ def mol_to_nx(mol, add_hydrogens=True):
     converter = {Chem.rdchem.BondType.SINGLE: 1,
                  Chem.rdchem.BondType.DOUBLE: 2,
                  Chem.rdchem.BondType.TRIPLE: 3,
-                 Chem.rdchem.BondType.AROMATIC: 4}
+                 Chem.rdchem.BondType.IONIC: 4}
 
     for atom in mol.GetAtoms():
         graph.add_node(atom.GetIdx(),
@@ -190,3 +190,24 @@ def read_graph(file_name="graph.graphml"):
     networkx.Graph: The graph read from the file.
     """
     return nx.read_graphml(os.path.abspath(file_name))
+
+def create_ionic_molecule(smiles):
+    """Create a combined graph for an ionic molecule from dot-separated SMILES"""
+    # Split the SMILES at the dot
+    parts = smiles.split('.')
+
+    # Convert each part to a molecule and graph
+    mols = [smi_to_mol(part) for part in parts]
+    graphs = [mol_to_nx(mol) for mol in mols]
+
+    # Combine the graphs
+    combined = nx.disjoint_union_all(graphs)
+
+    # Find the last node in the first graph and the first node in the second graph
+    last_node_first_graph = list(graphs[0].nodes())[-1]
+    first_node_second_graph = list(graphs[1].nodes())[0]
+
+    # Add ionic bond between the selected nodes
+    combined.add_edge(last_node_first_graph, first_node_second_graph, color=4)
+
+    return combined, mols

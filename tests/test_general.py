@@ -190,4 +190,4 @@ def test_hand_graph():
     assert ai == 3
 
 
-test_hand_graph()
+test_ass_mol()
