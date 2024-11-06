@@ -163,6 +163,7 @@ def test_str_ass():
 
 
 def test_hand_graph():
+    print("This is a hand construction graph test", flush=True)
     # Create a ring graph with 8 nodes
     G = nx.cycle_graph(8)
     # Set the labels of the nodes to be "C" - a carbon atom
