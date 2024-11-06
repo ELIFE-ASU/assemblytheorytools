@@ -5,12 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="77de8b7d-d8e8-47f2-8a19-5f31d63f2940" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/assemblytheorytools.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/assemblytheorytools.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/assemblytheorytools/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/assemblytheorytools/__init__.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/assemblytheorytools/graphtools.py" beforeDir="false" afterPath="$PROJECT_DIR$/assemblytheorytools/graphtools.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/tests/test_general.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_general.py" afterDir="false" />
     </list>
@@ -90,7 +86,7 @@
       <option name="presentableId" value="Default" />
       <updated>1730763101718</updated>
       <workItem from="1730763104340" duration="291000" />
-      <workItem from="1730835046474" duration="2111000" />
+      <workItem from="1730835046474" duration="10351000" />
     </task>
     <servers />
   </component>
@@ -98,6 +94,6 @@
     <option name="version" value="3" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/assemblytheorytools$test_general.coverage" NAME="test_general Coverage Results" MODIFIED="1730835572296" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/assemblytheorytools$test_general.coverage" NAME="test_general Coverage Results" MODIFIED="1730917649170" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
   </component>
 </project>

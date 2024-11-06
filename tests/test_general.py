@@ -1,4 +1,6 @@
 import os
+os.environ["ASS_PATH"]="/Users/ejanin/Desktop/assemblycpp/assemblyCpp_linux_v5_recursive"
+
 import shutil
 
 import networkx as nx
@@ -191,3 +193,12 @@ def test_hand_graph():
 
 
 test_ass_mol()
+test_hand_graph()
+test_str_ass()
+test_ass_graph()
+test_ass_mol_debug()
+test_all_paths_simple()
+test_joint_ass_graph()
+test_joint_ass_mol()
+
+#test_ass_mol_file()

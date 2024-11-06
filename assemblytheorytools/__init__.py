@@ -19,7 +19,9 @@ from .graphtools import (nx_to_mol,
                          scramble_node_indices,
                          remove_hydrogen_from_graph,
                          get_disconnected_subgraphs,
-                         create_ionic_molecule)
+                         create_ionic_molecule,
+                         get_bond_smiles,
+                         graph_to_smiles)
 
 from .moltools import (safe_standardize_mol,
                        standardize_mol,
