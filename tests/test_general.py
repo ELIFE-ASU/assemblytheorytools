@@ -11,8 +11,14 @@ def list_subdirs(directory, target="ai_calc"):
     return [d for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d)) and d.startswith(target)]
 
 
-def test_version():
-    assert att.__version__ == '0.0.01'
+def print_graph_details(graph):
+    print("{", flush=True)
+    for node in graph.nodes(data=True):
+        node_index = node[0]
+        node_color = node[1].get('color', 'No color')
+        edge_connections = list(graph.edges(node_index))
+        print(f"({node_index}, {node_color}): {edge_connections}", flush=True)
+    print("}", flush=True)
 
 
 def test_ass_graph():
@@ -156,16 +162,6 @@ def test_str_ass():
     assert ai == ai_ref
 
 
-def print_graph_details(graph):
-    print("{", flush=True)
-    for node in graph.nodes(data=True):
-        node_index = node[0]
-        node_color = node[1].get('color', 'No color')
-        edge_connections = list(graph.edges(node_index))
-        print(f"({node_index}, {node_color}): {edge_connections}", flush=True)
-    print("}", flush=True)
-
-
 def test_hand_graph():
     # Create a ring graph with 8 nodes
     G = nx.cycle_graph(8)
@@ -190,4 +186,14 @@ def test_hand_graph():
     assert ai == 3
 
 
-test_hand_graph()
+if __name__ == "__main__":
+    test_ass_graph()
+    test_ass_mol_file()
+    test_ass_mol()
+    test_ass_mol_debug()
+    test_joint_ass_mol()
+    test_joint_ass_graph()
+    test_all_paths_simple()
+    # test_node_scramble() << fails
+    test_str_ass()
+    test_hand_graph()
