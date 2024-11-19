@@ -3,11 +3,11 @@ import subprocess
 import tempfile
 from datetime import datetime
 
-import CFG
 import networkx as nx
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 
+import CFG
 from .graphtools import write_ass_graph_file
 from .moltools import write_v2k_mol_file
 from .pathway import get_pathway_to_graph, get_pathway_to_mol, get_pathway_to_inchi
@@ -112,7 +112,7 @@ def calculate_assembly_index(mol, dir_code=None, timeout=100.0, debug=False):
     Returns:
         tuple: A tuple containing the corrected assembly index (int) and the pathway (varies based on input type).
     """
-    if isinstance(mol, str):
+    if isinstance(mol, str) and not mol.endswith(".mol"):
         ai, path = CFG.ai_upper_with_pathways(mol, f_print=False)
         return ai, path
     else:
@@ -145,7 +145,7 @@ def calculate_assembly_index(mol, dir_code=None, timeout=100.0, debug=False):
             write_v2k_mol_file(mol, mol_file)
             # Get the infile
             file_path_in = os.path.splitext(mol_file)[0]
-        elif ".mol" in mol:
+        elif mol.endswith(".mol"):
             # Get the infile
             file_path_in = os.path.splitext(mol)[0]
         else:
