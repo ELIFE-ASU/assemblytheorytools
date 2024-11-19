@@ -1,4 +1,6 @@
 import os
+os.environ["ASS_PATH"]="/Users/ejanin/Desktop/assemblycpp/assemblyCpp_linux_v5_recursive"
+
 import shutil
 
 import networkx as nx

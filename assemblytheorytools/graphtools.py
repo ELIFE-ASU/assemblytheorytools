@@ -6,7 +6,7 @@ from networkx.algorithms.isomorphism import GraphMatcher
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 
-from .moltools import safe_standardize_mol
+from .moltools import safe_standardize_mol, smi_to_mol
 
 
 def nx_to_mol(graph, add_hydrogens=True):
@@ -42,7 +42,7 @@ def nx_to_mol(graph, add_hydrogens=True):
             1: Chem.rdchem.BondType.SINGLE,
             2: Chem.rdchem.BondType.DOUBLE,
             3: Chem.rdchem.BondType.TRIPLE,
-            4: Chem.rdchem.BondType.AROMATIC,
+            4: Chem.rdchem.BondType.IONIC,
         }.get(bond_order, Chem.rdchem.BondType.SINGLE)
         # Add the bond to the molecule
         mol.AddBond(node_to_idx[u], node_to_idx[v], bond_type)
@@ -56,7 +56,7 @@ def mol_to_nx(mol, add_hydrogens=True):
     converter = {Chem.rdchem.BondType.SINGLE: 1,
                  Chem.rdchem.BondType.DOUBLE: 2,
                  Chem.rdchem.BondType.TRIPLE: 3,
-                 Chem.rdchem.BondType.AROMATIC: 4}
+                 Chem.rdchem.BondType.IONIC: 4}
 
     for atom in mol.GetAtoms():
         graph.add_node(atom.GetIdx(),
@@ -190,3 +190,66 @@ def read_graph(file_name="graph.graphml"):
     networkx.Graph: The graph read from the file.
     """
     return nx.read_graphml(os.path.abspath(file_name))
+
+
+def get_bond_smiles(mol):
+    """Get the list of bonds of the system in SMILES format"""
+    bond_smiles = set()
+    for bond in mol.GetBonds():
+        atom1 = mol.GetAtomWithIdx(bond.GetBeginAtomIdx())
+        atom2 = mol.GetAtomWithIdx(bond.GetEndAtomIdx())
+        symbol1 = atom1.GetSymbol()
+        symbol2 = atom2.GetSymbol()
+        bond_type = bond.GetBondType()
+
+        if bond_type == Chem.BondType.SINGLE:
+            bond_symbol = '-'
+        elif bond_type == Chem.BondType.DOUBLE:
+            bond_symbol = '='
+        elif bond_type == Chem.BondType.TRIPLE:
+            bond_symbol = '#'
+        else:
+            bond_symbol = '~'  # For other bond types
+
+        # Create bond SMILES in alphabetical order
+        if symbol1 <= symbol2:
+            bond_smiles.add(f"{symbol1}{bond_symbol}{symbol2}")
+        else:
+            bond_smiles.add(f"{symbol2}{bond_symbol}{symbol1}")
+
+    return bond_smiles
+
+
+def graph_to_smiles(graph):
+    mol = nx_to_mol(graph)
+    return Chem.MolToSmiles(mol)
+
+
+def create_ionic_molecule(smiles):
+    """Create a combined graph for an ionic molecule from dot-separated SMILES."""
+    # Split the SMILES at the dot
+    parts = smiles.split('.')
+
+    # Convert each part to a molecule and graph
+    mols = [smi_to_mol(part) for part in parts]
+    graphs = [mol_to_nx(mol) for mol in mols]
+
+    # Start with the first graph
+    combined = graphs[0]
+    offset = combined.number_of_nodes()  # Starting node index offset for the next molecule
+
+    # Combine graphs, linking last node of previous graph to first of current
+    for i, graph in enumerate(graphs[1:], start=1):
+        # Add the graph to the combined graph
+        combined = nx.disjoint_union(combined, graph)
+
+        # Add an ionic bond between the last node of the previous graph and the first node of the current graph
+        last_node_prev_graph = offset - 1  # Last node index of the previous graph
+        first_node_current_graph = offset  # First node index of the current graph
+
+        combined.add_edge(last_node_prev_graph, first_node_current_graph, bond_type='ionic')
+
+        # Update offset for the next graph
+        offset += graph.number_of_nodes()
+
+    return combined, mols  # Return combined graph and both molecules
