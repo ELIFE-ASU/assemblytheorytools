@@ -120,6 +120,7 @@ def kirchhoff_index(mol):
 
     return kirchhoff_sum
 
+
 def spacial_score(mol, normalize=False):
     """
     Calculates the spacial score of a molecule. https://github.com/frog2000/Spacial-Score

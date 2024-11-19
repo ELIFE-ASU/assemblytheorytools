@@ -3,11 +3,11 @@ import subprocess
 import tempfile
 from datetime import datetime
 
-import CFG
 import networkx as nx
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 
+import CFG
 from .graphtools import write_ass_graph_file
 from .moltools import write_v2k_mol_file
 from .pathway import get_pathway_to_graph, get_pathway_to_mol, get_pathway_to_inchi
