@@ -1,7 +1,6 @@
+import networkx as nx
 import os
 import random
-
-import networkx as nx
 from networkx.algorithms.isomorphism import GraphMatcher
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem

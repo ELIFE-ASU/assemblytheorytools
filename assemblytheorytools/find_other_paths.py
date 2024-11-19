@@ -1,6 +1,5 @@
-import random
-
 import numpy as np
+import random
 from rdkit.Chem import AllChem as Chem
 from rdkit.Chem import Draw
 

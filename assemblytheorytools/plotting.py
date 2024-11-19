@@ -1,7 +1,6 @@
-import os
-
 import matplotlib.pyplot as plt
 import networkx as nx
+import os
 from matplotlib import colormaps, colors
 
 
@@ -78,10 +77,10 @@ def plot_graph(graph,
                layout='kawai',
                f_labs=False,
                edge_color='grey',
-               node_size = 300,
+               node_size=300,
                edgecolors="black",
-               width = 2,
-               linewidths = 2,
+               width=2,
+               linewidths=2,
                filename="graph",
                ):
     # Get the position of the nodes
