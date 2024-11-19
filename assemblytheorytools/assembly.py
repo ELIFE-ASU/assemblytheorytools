@@ -1,9 +1,10 @@
-import CFG
-import networkx as nx
 import os
 import subprocess
 import tempfile
 from datetime import datetime
+
+import CFG
+import networkx as nx
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 

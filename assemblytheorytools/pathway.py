@@ -1,6 +1,7 @@
 import json
-import networkx as nx
 import os
+
+import networkx as nx
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 
