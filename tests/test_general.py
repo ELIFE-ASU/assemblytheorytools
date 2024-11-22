@@ -188,6 +188,14 @@ def test_hand_graph():
 
     assert ai == 3
 
+def test_path_vis_strings():
+    # COMPLETE ME
+    pass
+
+def test_path_vis_mols():
+    # COMPLETE ME
+    pass
+
 
 if __name__ == "__main__":
     test_ass_graph()

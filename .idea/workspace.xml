@@ -5,11 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="77de8b7d-d8e8-47f2-8a19-5f31d63f2940" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/assemblytheorytools/assembly_pathv3.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/assemblytheorytools/log_parsing.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/assemblytheorytools/path_db_parsing.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/assemblytheorytools/pathway_tools.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/assemblytheorytools/string_pathway.py" beforeDir="false" afterPath="$PROJECT_DIR$/assemblytheorytools/string_pathway.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/assemblytheorytools/stringtools.py" beforeDir="false" afterPath="$PROJECT_DIR$/assemblytheorytools/stringtools.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/test_general.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_general.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -90,7 +87,7 @@
       <updated>1730763101718</updated>
       <workItem from="1730763104340" duration="291000" />
       <workItem from="1730835046474" duration="10436000" />
-      <workItem from="1732289221336" duration="3703000" />
+      <workItem from="1732289221336" duration="4032000" />
     </task>
     <servers />
   </component>
