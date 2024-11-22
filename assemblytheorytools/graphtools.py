@@ -52,6 +52,16 @@ def nx_to_mol(graph, add_hydrogens=True):
 
 
 def mol_to_nx(mol, add_hydrogens=True):
+    """
+    Convert an RDKit molecule to a NetworkX graph.
+
+    Args:
+        mol (rdkit.Chem.Mol): The RDKit molecule to convert.
+        add_hydrogens (bool, optional): Whether to keep hydrogen atoms in the graph. Default is True.
+
+    Returns:
+        networkx.Graph: The resulting NetworkX graph where nodes represent atoms and edges represent bonds.
+    """
     graph = nx.Graph()
     converter = {Chem.rdchem.BondType.SINGLE: 1,
                  Chem.rdchem.BondType.DOUBLE: 2,
@@ -73,6 +83,15 @@ def mol_to_nx(mol, add_hydrogens=True):
 
 
 def remove_hydrogen_from_graph(graph):
+    """
+    Remove all hydrogen atoms from a NetworkX graph.
+
+    Args:
+        graph (nx.Graph): The input NetworkX graph where nodes represent atoms.
+
+    Returns:
+        nx.Graph: The modified graph with all hydrogen atoms removed.
+    """
     nodes = list(graph.nodes())
     for node in nodes:
         if graph.nodes[node]["color"] == "H":
