@@ -193,7 +193,15 @@ def read_graph(file_name="graph.graphml"):
 
 
 def get_bond_smiles(mol):
-    """Get the list of bonds of the system in SMILES format"""
+    """
+    Get the list of bonds of the system in SMILES format.
+
+    Args:
+        mol (rdkit.Chem.Mol): The RDKit molecule object.
+
+    Returns:
+        set: A set of strings representing the bonds in SMILES format.
+    """
     bond_smiles = set()
     for bond in mol.GetBonds():
         atom1 = mol.GetAtomWithIdx(bond.GetBeginAtomIdx())
@@ -221,12 +229,29 @@ def get_bond_smiles(mol):
 
 
 def graph_to_smiles(graph):
+    """
+    Convert a NetworkX graph to a SMILES string.
+
+    Args:
+        graph (nx.Graph): The input NetworkX graph where nodes represent atoms and edges represent bonds.
+
+    Returns:
+        str: The SMILES string representation of the molecule.
+    """
     mol = nx_to_mol(graph)
     return Chem.MolToSmiles(mol)
 
 
 def create_ionic_molecule(smiles):
-    """Create a combined graph for an ionic molecule from dot-separated SMILES."""
+    """
+    Create a combined graph for an ionic molecule from dot-separated SMILES.
+
+    Args:
+        smiles (str): The SMILES string representing the ionic molecule, with parts separated by dots.
+
+    Returns:
+        tuple: A tuple containing the combined NetworkX graph and a list of RDKit molecule objects.
+    """
     # Split the SMILES at the dot
     parts = smiles.split('.')
 
