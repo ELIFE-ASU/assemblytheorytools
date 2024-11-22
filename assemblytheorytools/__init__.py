@@ -21,7 +21,9 @@ from .graphtools import (nx_to_mol,
                          get_disconnected_subgraphs,
                          create_ionic_molecule,
                          get_bond_smiles,
-                         graph_to_smiles)
+                         graph_to_smiles,
+                         write_graph,
+                         read_graph)
 
 from .moltools import (safe_standardize_mol,
                        standardize_mol,
@@ -46,7 +48,7 @@ from .plotting import (plot_mol_graph,
                        plot_graphs_in_subplots,
                        plot_graph)
 
-from .stringtools import (load_fasta)
+from .stringtools import (load_fasta, prep_joint_string_ai, get_unique_char)
 
 __version__ = "0.1.00"
 
