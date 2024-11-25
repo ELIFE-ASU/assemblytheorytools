@@ -160,7 +160,7 @@ def plot_mol_graph(graph, f_labs=False, filename="atom_graphs"):
                        3.0: "red",
                        4.0: "orange"}
     # Get the colors for the nodes
-    graph_colors = [cols_conv.get(graph.nodes[idx]['color']) for idx in graph.nodes()]
+    graph_colors = [cols_conv.get(graph.nodes[idx]['color'], 'black') for idx in graph.nodes()]
     # Get the colors for the edges
     edge_colors = [color_dict_edge.get(graph.edges[idx]['color']) for idx in graph.edges()]
 
