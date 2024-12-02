@@ -50,7 +50,7 @@ from .plotting import (plot_mol_graph,
 
 from .stringtools import (load_fasta, prep_joint_string_ai, get_unique_char)
 
-__version__ = "0.1.00"
+__version__ = "0.2.0"
 
 """
 This module provides various tools and functions for assembly theory analysis, molecular complexity scores, 
