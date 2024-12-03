@@ -1,7 +1,13 @@
 # assemblytheorytools
 A centralised set of tools for doing assembly theory calculations.
 
-The code needs a compiled assemblyCPP in your path. Put `export ASS_PATH=/data/grp_swalke10/asscpp/v5_boost/asscpp_v5_boost_recursive` in your submission script or in your `.bashrc`.
+The code needs a compiled assemblyCPP in your path with the `ASS_PATH` environmental variable accessible by Python. For example, put `export ASS_PATH=/data/grp_swalke10/asscpp/v5_boost/asscpp_v5_boost_recursive` in your submission script or your `.bashrc`.
+
+Currently supports
+- Molecules
+- Strings
+- Minerals (WORK IN PROGRESS)
+- For Proteins see `https://github.com/ELIFE-ASU/ProteinAssembly`
 
 # Requirements
 Make sure to load your conda environment. I would install them in this order:
