@@ -6,8 +6,6 @@
   <component name="ChangeListManager">
     <list default="true" id="77de8b7d-d8e8-47f2-8a19-5f31d63f2940" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/assemblytheorytools/graphtools.py" beforeDir="false" afterPath="$PROJECT_DIR$/assemblytheorytools/graphtools.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/assemblytheorytools/stringtools.py" beforeDir="false" afterPath="$PROJECT_DIR$/assemblytheorytools/stringtools.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -32,6 +30,7 @@
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
     &quot;last_opened_file_path&quot;: &quot;//wsl.localhost/Ubuntu/home/louie/skunkworks/CFG&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
@@ -91,6 +90,7 @@
       <workItem from="1730763104340" duration="291000" />
       <workItem from="1730835046474" duration="10436000" />
       <workItem from="1732289221336" duration="3038000" />
+      <workItem from="1733246125824" duration="1440000" />
     </task>
     <servers />
   </component>

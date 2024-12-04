@@ -1,5 +1,6 @@
 import networkx as nx
 import numpy as np
+import rdkit
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 from rdkit.Chem import Descriptors
