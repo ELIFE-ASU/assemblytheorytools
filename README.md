@@ -9,7 +9,7 @@ Currently supports and connects to:
 - Molecules, including ionic bonded structures.
 - Strings [https://github.com/ELIFE-ASU/CFG](https://github.com/ELIFE-ASU/CFG).
 - Minerals see [https://github.com/ELIFE-ASU/ProteinAssembly](https://github.com/ELIFE-ASU/Mineral-evo).
-- For Proteins see [`https://github.com/ELIFE-ASU/ProteinAssembly`](https://github.com/ELIFE-ASU/ProteinAssembly).
+- For Proteins see [https://github.com/ELIFE-ASU/ProteinAssembly](https://github.com/ELIFE-ASU/ProteinAssembly).
 
 # Requirements
 Make sure to load your conda environment. I would install them in this order:
@@ -24,7 +24,7 @@ Install the requirements above (conda recommended). In one go:
 
 `conda install numpy matplotlib anaconda::networkx conda-forge::rdkit conda-forge::pyvis`
 
-Then install assemblytheorytools:
+Then install AssemblyTheoryTools:
 
 `pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git`
 
