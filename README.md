@@ -1,5 +1,5 @@
 # AssemblyTheoryTools
-A centralised set of tools for doing assembly theory calculations.
+A centralised set of tools for doing assembly theory calculations. To use this package, it is strongly suggested that you use the Linux subsystem if you are using Windows.
 
 The code needs a compiled assemblyCPP in your path with the `ASS_PATH` environmental variable accessible by Python. 
 
@@ -7,8 +7,9 @@ For example, put `export ASS_PATH=/data/grp_swalke10/asscpp/v5_boost/asscpp_v5_b
 
 Currently supports and connects to:
 - Molecules, including ionic bonded structures.
+- Approximate fast methods [https://github.com/ELIFE-ASU/CFGgraph](https://github.com/ELIFE-ASU/CFGgraph).
 - Strings [https://github.com/ELIFE-ASU/CFG](https://github.com/ELIFE-ASU/CFG).
-- Minerals see [https://github.com/ELIFE-ASU/ProteinAssembly](https://github.com/ELIFE-ASU/Mineral-evo).
+- Minerals see [[https://github.com/ELIFE-ASU/ProteinAssembly](https://github.com/ELIFE-ASU/Mineral-evo)](https://github.com/ELIFE-ASU/Mineral-evo).
 - For Proteins see [https://github.com/ELIFE-ASU/ProteinAssembly](https://github.com/ELIFE-ASU/ProteinAssembly).
 
 # Requirements
