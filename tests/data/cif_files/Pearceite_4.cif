@@ -1,0 +1,97 @@
+
+##########################################################################
+#               Crystallographic Information Format file
+#               Produced by PyCifRW module
+#
+#  This is a CIF file.  CIF has been adopted by the International
+#  Union of Crystallography as the standard for data archiving and
+#  transmission.
+#
+#  For information on this file format, follow the CIF links at
+#  http://www.iucr.org
+##########################################################################
+
+data_global
+
+_chemical_name_mineral                  Pearceite
+loop_
+  _publ_author_name
+         'Bindi L'           
+         'Evain M'           
+         'Menchetti S' 
+_journal_name_full                      'Acta Crystallographica, Section B'
+_journal_volume                         62
+_journal_year                           2006
+_journal_page_first                     212
+_journal_page_last                      219
+_publ_section_title                     
+;
+ Temperature dependence of the silver distribution in the
+ crystal structure of natural pearceite, (Ag,Cu)16(As,Sb)2S11
+ Sample: T = 120 K
+;
+_database_code_amcsd                    0009934
+_chemical_compound_source               'Clara mine, Black Forest, Germany'
+_chemical_formula_sum                   '(As1.179 Sb.821) Ag13.646 Cu2.966 S11'
+_cell_length_a                          7.3721
+_cell_length_b                          7.3721
+_cell_length_c                          11.8104
+_cell_angle_alpha                       90
+_cell_angle_beta                        90
+_cell_angle_gamma                       120
+_cell_volume                            555.876
+_exptl_crystal_density_diffrn           6.576
+_symmetry_space_group_name_H-M          'P -3 m 1'
+loop_
+  _space_group_symop_operation_xyz
+         'x,y,z'   
+         '-y,-x,z'           
+         'y,-x+y,-z'         
+         '-x,-x+y,-z'        
+         '-x+y,-x,z'         
+         '-x+y,y,z'          
+         '-x,-y,-z'          
+         'y,x,-z'  
+         '-y,x-y,z'          
+         'x,x-y,z'           
+         'x-y,x,-z'          
+         'x-y,-y,-z' 
+loop_
+  _atom_site_label
+  _atom_site_fract_x
+  _atom_site_fract_y
+  _atom_site_fract_z
+  _atom_site_occupancy
+  _atom_site_u_iso_or_equiv
+         As        0.33333   0.66667   0.40833   0.58960   0.01518   
+         Sb        0.33333   0.66667   0.40833   0.41040   0.01518   
+         Ag        0.29992   0.14996   0.38548   0.67240   0.03610   
+         Cu        0.29992   0.14996   0.38548   0.32760   0.03610   
+         Ag        0.35670   0.22600   0.12401   0.32400   0.26300   
+         Ag        0.28570   0.37450   0.11600   0.37600   0.06740   
+         Ag        0.45380   -0.09200  0.11370   0.10100   0.08300   
+         Cu        0.00000   0.00000   0.00000   1.00000   0.01910   
+         S         0.00000   0.00000   0.18297   1.00000   0.01920   
+         S         0.01678   0.50839   0.31254   1.00000   0.01910   
+         S         0.66667   0.33333   0.02060   1.00000   0.03460   
+         S         0.08530   0.00000   0.50000   0.16667   0.01790 
+loop_
+  _atom_site_aniso_label
+  _atom_site_aniso_U_11
+  _atom_site_aniso_U_22
+  _atom_site_aniso_U_33
+  _atom_site_aniso_U_12
+  _atom_site_aniso_U_13
+  _atom_site_aniso_U_23
+         As        0.01564   0.01564   0.01420   0.00782   0.00000   0.00000   
+         Sb        0.01564   0.01564   0.01420   0.00782   0.00000   0.00000   
+         Ag1       0.04930   0.02740   0.03870   0.02470   -0.01560  -0.00780  
+         Cu1       0.04930   0.02740   0.03870   0.02470   -0.01560  -0.00780  
+         Ag2       0.02240   0.50000   0.02300   -0.05500  0.00210   -0.00300  
+         Ag3       0.10600   0.03150   0.03100   0.00920   -0.02490  -0.00070  
+         Ag4       0.10500   0.13000   0.02100   0.06500   -0.01000  -0.02000  
+         Cu2       0.02430   0.02430   0.00860   0.01216   0.00000   0.00000   
+         S1        0.02410   0.02410   0.00950   0.01200   0.00000   0.00000   
+         S2        0.01590   0.01860   0.02190   0.00796   0.00320   0.00161   
+         S3        0.03780   0.03780   0.02820   0.01890   0.00000   0.00000   
+         S4        0.01380   0.02900   0.01620   0.01440   -0.00180  -0.00350 

@@ -5,6 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="77de8b7d-d8e8-47f2-8a19-5f31d63f2940" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/assemblytheorytools.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/assemblytheorytools.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -26,6 +27,7 @@
   </component>
   <component name="PropertiesComponent">{
   &quot;keyToString&quot;: {
+    &quot;Python.simple_string_example.executor&quot;: &quot;Run&quot;,
     &quot;Python.test_general.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
@@ -41,7 +43,30 @@
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
-  <component name="RunManager">
+  <component name="RunManager" selected="Python.simple_string_example">
+    <configuration name="simple_string_example" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="assemblytheorytools" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/examples" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/examples/simple_string_example.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration name="test_general" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="assemblytheorytools" />
       <option name="ENV_FILES" value="" />
@@ -67,6 +92,7 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.simple_string_example" />
         <item itemvalue="Python.test_general" />
       </list>
     </recent_temporary>
@@ -91,6 +117,9 @@
       <workItem from="1730835046474" duration="10436000" />
       <workItem from="1732289221336" duration="3038000" />
       <workItem from="1733246125824" duration="1440000" />
+      <workItem from="1733324931814" duration="338000" />
+      <workItem from="1733425527733" duration="760000" />
+      <workItem from="1733602134472" duration="706000" />
     </task>
     <servers />
   </component>
@@ -99,5 +128,6 @@
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/assemblytheorytools$test_general.coverage" NAME="test_general Coverage Results" MODIFIED="1730917649170" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/assemblytheorytools$simple_string_example.coverage" NAME="simple_string_example Coverage Results" MODIFIED="1733425597962" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/examples" />
   </component>
 </project>

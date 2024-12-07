@@ -1,0 +1,70 @@
+
+##########################################################################
+#               Crystallographic Information Format file
+#               Produced by PyCifRW module
+#
+#  This is a CIF file.  CIF has been adopted by the International
+#  Union of Crystallography as the standard for data archiving and
+#  transmission.
+#
+#  For information on this file format, follow the CIF links at
+#  http://www.iucr.org
+##########################################################################
+
+data_global
+
+_chemical_name_mineral                  Carlinite
+loop_
+  _publ_author_name
+         'Giester G'         
+         'Lengauer C L'      
+         'Tillmanns E'       
+         'Zemann J' 
+_journal_name_full                      'Journal of Solid State Chemistry'
+_journal_volume                         168
+_journal_year                           2002
+_journal_page_first                     322
+_journal_page_last                      330
+_publ_section_title                     
+;
+ Tl2S: Re-determination of crystal structure and stereochemical discussion
+ Sample: hypothetical idealized structure
+;
+_database_code_amcsd                    0014030
+_chemical_formula_sum                   'Tl2 S'
+_cell_length_a                          12.150
+_cell_length_b                          12.150
+_cell_length_c                          18.190
+_cell_angle_alpha                       90
+_cell_angle_beta                        90
+_cell_angle_gamma                       120
+_cell_volume                            2325.498
+_exptl_crystal_density_diffrn           8.499
+_symmetry_space_group_name_H-M          'R 3'
+loop_
+  _space_group_symop_operation_xyz
+         'x,y,z'   
+         '2/3+x,1/3+y,1/3+z'           
+         '1/3+x,2/3+y,2/3+z'           
+         '-y,x-y,z'          
+         '2/3-y,1/3+x-y,1/3+z'         
+         '1/3-y,2/3+x-y,2/3+z'         
+         '-x+y,-x,z'         
+         '2/3-x+y,1/3-x,1/3+z'         
+         '1/3-x+y,2/3-x,2/3+z' 
+loop_
+  _atom_site_label
+  _atom_site_fract_x
+  _atom_site_fract_y
+  _atom_site_fract_z
+         Tl        0.11111   0.22222   -0.09140  
+         Tl        0.44444   0.88889   -0.09140  
+         Tl        0.77778   0.55556   -0.09140  
+         Tl        0.22222   0.11111   0.09140   
+         Tl        0.55556   0.77778   0.09140   
+         Tl        0.88889   0.44444   0.09140   
+         S         0.00000   0.00000   0.00000   
+         S         0.33333   0.66667   0.00000   
+         S         0.66667   0.33333   0.00000   
+         S         0.00000   0.66667   0.00000   
+         S         0.00000   0.33333   0.00000 
