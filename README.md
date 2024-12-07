@@ -1,13 +1,15 @@
-# assemblytheorytools
+# AssemblyTheoryTools
 A centralised set of tools for doing assembly theory calculations.
 
-The code needs a compiled assemblyCPP in your path with the `ASS_PATH` environmental variable accessible by Python. For example, put `export ASS_PATH=/data/grp_swalke10/asscpp/v5_boost/asscpp_v5_boost_recursive` in your submission script or your `.bashrc`.
+The code needs a compiled assemblyCPP in your path with the `ASS_PATH` environmental variable accessible by Python. 
 
-Currently supports
-- Molecules
-- Strings
-- Minerals (WORK IN PROGRESS)
-- For Proteins see `https://github.com/ELIFE-ASU/ProteinAssembly`
+For example, put `export ASS_PATH=/data/grp_swalke10/asscpp/v5_boost/asscpp_v5_boost_recursive` in your submission script or your `.bashrc`.
+
+Currently supports and connects to:
+- Molecules, including ionic bonded structures.
+- Strings [https://github.com/ELIFE-ASU/CFG](https://github.com/ELIFE-ASU/CFG).
+- Minerals see [https://github.com/ELIFE-ASU/ProteinAssembly](https://github.com/ELIFE-ASU/Mineral-evo).
+- For Proteins see [https://github.com/ELIFE-ASU/ProteinAssembly](https://github.com/ELIFE-ASU/ProteinAssembly).
 
 # Requirements
 Make sure to load your conda environment. I would install them in this order:
@@ -22,7 +24,7 @@ Install the requirements above (conda recommended). In one go:
 
 `conda install numpy matplotlib anaconda::networkx conda-forge::rdkit conda-forge::pyvis`
 
-Then install assemblytheorytools:
+Then install AssemblyTheoryTools:
 
 `pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git`
 
