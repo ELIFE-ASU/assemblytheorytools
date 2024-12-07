@@ -9,7 +9,7 @@ Currently supports and connects to:
 - Molecules, including ionic bonded structures.
 - Approximate fast methods [https://github.com/ELIFE-ASU/CFGgraph](https://github.com/ELIFE-ASU/CFGgraph).
 - Strings [https://github.com/ELIFE-ASU/CFG](https://github.com/ELIFE-ASU/CFG).
-- Minerals see [[https://github.com/ELIFE-ASU/ProteinAssembly](https://github.com/ELIFE-ASU/Mineral-evo)](https://github.com/ELIFE-ASU/Mineral-evo).
+- Minerals see [https://github.com/ELIFE-ASU/Mineral-evo](https://github.com/ELIFE-ASU/Mineral-evo).
 - For Proteins see [https://github.com/ELIFE-ASU/ProteinAssembly](https://github.com/ELIFE-ASU/ProteinAssembly).
 
 # Requirements
