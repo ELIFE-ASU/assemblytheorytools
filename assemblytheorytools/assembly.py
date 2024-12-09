@@ -99,7 +99,7 @@ def joint_correction(mol, ass_index):
     return ass_index - correction
 
 
-def calculate_assembly_index(mol, dir_code=None, timeout=100.0, debug=False):
+def calculate_assembly_index(mol, dir_code=None, timeout=100.0, debug=False, joint_corr=True):
     """
     Calculate the assembly index for a given molecule.
 
@@ -108,6 +108,7 @@ def calculate_assembly_index(mol, dir_code=None, timeout=100.0, debug=False):
         dir_code (str, optional): The directory code for the assembly tool. Defaults to None.
         timeout (float, optional): The maximum time in seconds to allow the command to run. Defaults to 100.0 seconds.
         debug (bool, optional): If True, create a directory with a timestamp for debugging. Defaults to False.
+        joint_corr (bool, optional): If True, corrects the joint assembly calculation to account for disjointed graphs. Defaults to True.
 
     Returns:
         tuple: A tuple containing the corrected assembly index (int) and the pathway (varies based on input type).
@@ -184,7 +185,10 @@ def calculate_assembly_index(mol, dir_code=None, timeout=100.0, debug=False):
                         ValueError("Input not supported")
                 else:
                     path = None
-                return joint_correction(mol, value), path
+                if joint_corr:
+                    return joint_correction(mol, value), path
+                else:
+                    return value, path
             except Exception as e:
                 print(f"Failed to load assembly output: {file_path_out}, Error: {e}", flush=True)
                 return -1, None
