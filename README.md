@@ -20,7 +20,7 @@ Make sure to load your conda environment. I would install them in this order:
 - rdkit `conda install conda-forge::rdkit`
 - pyvis `conda install conda-forge::pyvis`
 
-# For Local Install:
+# For Local Installation 
 Install the requirements above (conda recommended). In one go:
 
 `conda install numpy matplotlib anaconda::networkx conda-forge::rdkit conda-forge::pyvis`
@@ -32,9 +32,15 @@ Then install AssemblyTheoryTools:
 When asked for a password, you will need your GitHub username AND 'personal access token' (found in developer settings in your GitHub settings).
 See `https://stackoverflow.com/questions/2505096/clone-a-private-repository-github`
 
-# For your SOL:
+# For HPC (SOL) Installation
+
+Set up GitHub SHH keys.
+
+Or use GitHub access tokens.
 
 `unset SSH_ASKPASS`
+
+Then do the following:
 
 `module load mamba/latest`
 
@@ -48,4 +54,4 @@ See `https://stackoverflow.com/questions/2505096/clone-a-private-repository-gith
 
 Once again, you will need your username AND 'personal access token' entered as your password.
 
-I suggest running Python using the absolute path to the directory `srun $HOME/.conda/envs/myEnv/bin/python3`
+When running on an HPC you should run Python using the absolute path to the directory, for example: `srun $HOME/.conda/envs/myEnv/bin/python3`
