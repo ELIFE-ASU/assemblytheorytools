@@ -113,7 +113,7 @@ def calculate_assembly_index(mol, dir_code=None, timeout=100.0, debug=False):
         tuple: A tuple containing the corrected assembly index (int) and the pathway (varies based on input type).
     """
     if isinstance(mol, str) and not mol.endswith(".mol"):
-        ai, path = CFG.ai_upper_with_pathways(mol, f_print=False)
+        ai, virt_obj, path = CFG.ai_with_pathways(mol, f_print=False)
         return ai, path
     else:
         if dir_code is None:
