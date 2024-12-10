@@ -2,6 +2,8 @@ import os
 import shutil
 
 import networkx as nx
+import numpy as np
+import ase.io
 from rdkit.Chem import AllChem as Chem
 
 import assemblytheorytools as att
@@ -254,3 +256,31 @@ def test_hand_graph():
         print_graph_details(p)
 
     assert ai == 3
+
+
+def test_cif_loading():
+    print(flush=True)
+    target_dir = "data/cif_files/"
+
+    dirs = att.file_list_all(os.path.expanduser(target_dir))
+    print(dirs)
+    for file in dirs:
+        print(file,flush=True)
+        if file in ['data/cif_files/Attakolite_0.cif', 'data/cif_files/Wodginite_3.cif']:
+            # Attakolite_0 invalid spacegroup C 1 2/m 1
+            # Wodginite_3 invalid spacegroup C 1 2/c 1
+            continue
+        # input mol file
+        atoms = att.read_cif_file(file)
+        # view(atoms)
+        tmp_file = file.split('.')[0] + ".mol"
+        att.atoms_to_mol_file(atoms, fname=tmp_file)
+        atoms2 = ase.io.read(tmp_file)
+        # view(atoms2)
+        os.remove(tmp_file)
+        # check that the atoms are the same
+        assert np.allclose(atoms.get_positions(), atoms2.get_positions(), rtol=1e-04, atol=1e-04)
+        assert np.allclose(atoms.get_atomic_numbers(), atoms2.get_atomic_numbers())
+
+        # ai, path = att.calculate_assembly_index(tmp_file)
+        # print(f"AI = {ai}", flush=True)
