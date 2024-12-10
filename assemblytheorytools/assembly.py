@@ -1,3 +1,4 @@
+import shutil
 import os
 import subprocess
 import tempfile
@@ -8,7 +9,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 
 import CFG
-from .graphtools import write_ass_graph_file
+from .graphtools import write_ass_graph_file, remove_hydrogen_from_graph
 from .moltools import write_v2k_mol_file
 from .pathway import get_pathway_to_graph, get_pathway_to_mol, get_pathway_to_inchi
 
@@ -99,7 +100,12 @@ def joint_correction(mol, ass_index):
     return ass_index - correction
 
 
-def calculate_assembly_index(mol, dir_code=None, timeout=100.0, debug=False, joint_corr=True):
+def calculate_assembly_index(mol,
+                             dir_code=None,
+                             timeout=100.0,
+                             debug=False,
+                             joint_corr=True,
+                             strip_hydrogen=False):
     """
     Calculate the assembly index for a given molecule.
 
@@ -109,48 +115,66 @@ def calculate_assembly_index(mol, dir_code=None, timeout=100.0, debug=False, joi
         timeout (float, optional): The maximum time in seconds to allow the command to run. Defaults to 100.0 seconds.
         debug (bool, optional): If True, create a directory with a timestamp for debugging. Defaults to False.
         joint_corr (bool, optional): If True, corrects the joint assembly calculation to account for disjointed graphs. Defaults to True.
+        strip_hydrogen (bool, optional): If True, removes hydrogen atoms from the molecule before calculation. Defaults to False.
 
     Returns:
         tuple: A tuple containing the corrected assembly index (int) and the pathway (varies based on input type).
     """
+    file_path_in = None
     if isinstance(mol, str) and not mol.endswith(".mol"):
         ai, virt_obj, path = CFG.ai_with_pathways(mol, f_print=False)
         return ai, path
     else:
+        # Get the assembly code directory
         if dir_code is None:
             dir_code = os.environ.get("ASS_PATH")
+
+        # Make the directory
+        if debug:
+            # Define the directory name with the timestamp
+            temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}"
+            os.makedirs(temp_dir)
+        else:
+            temp_dir = tempfile.mkdtemp()
+
         # Check if the input is a rdkit mol
         if isinstance(mol, nx.Graph):
-            # Make the directory
-            if debug:
-                # Define the directory name with the timestamp
-                temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}"
-                os.makedirs(temp_dir)
-            else:
-                temp_dir = tempfile.mkdtemp()
+            # Check if we need to strip hydrogen
+            if strip_hydrogen:
+                mol = remove_hydrogen_from_graph(mol)
             # Make the in file
             file_path_in = os.path.join(temp_dir, f"graph_in")
             # Write the input graph file
             write_ass_graph_file(mol, file_name=file_path_in)
+
         elif isinstance(mol, Chem.Mol):
-            # Make the directory
-            if debug:
-                # Define the directory name with the timestamp
-                temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}"
-                os.makedirs(temp_dir)
-            else:
-                temp_dir = tempfile.mkdtemp()
+            # Check if we need to strip hydrogen
+            if strip_hydrogen:
+                mol = Chem.RemoveHs(mol)
+
             # Write the mol file
             mol_file = os.path.join(temp_dir, f"tmp.mol")
             # Write the input mol file
             write_v2k_mol_file(mol, mol_file)
             # Get the infile
             file_path_in = os.path.splitext(mol_file)[0]
+
         elif mol.endswith(".mol"):
+            if strip_hydrogen:
+                # Load the mol file
+                mol_ob = Chem.MolFromMolFile(mol, sanitize=False, removeHs=True)
+                # Make a temp dir to prevent overwriting
+                mol = os.path.join(temp_dir, "tmp.mol")
+                # Make a new mol file
+                Chem.MolToMolFile(mol_ob, mol)
+            else:
+                # Copy the mol file into the temp directory
+                shutil.copy(mol, os.path.join(temp_dir, "tmp.mol"))
+                mol = os.path.join(temp_dir, "tmp.mol")
+
             # Get the infile
             file_path_in = os.path.splitext(mol)[0]
         else:
-            file_path_in = mol
             ValueError("Input not supported")
         # Get the output file
         file_path_out = os.path.join(file_path_in + "Out")
