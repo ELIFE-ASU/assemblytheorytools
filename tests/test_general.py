@@ -39,16 +39,14 @@ def test_ass_graph():
 
 
 def test_ass_mol_file():
+    smi_in = "[H]C#C[H]"
     # Convert all the smile to mol
-    mol = att.smi_to_mol("[H]C#C[H]")
+    mol = att.smi_to_mol(smi_in)
     # write the mol file
     mol_file = "tmp.mol"
     att.write_v2k_mol_file(mol, mol_file)
     # Calculate the assembly index
     ai, path = att.calculate_assembly_index(mol_file)
-    # Compare to the hand calculated value
-    assert ai == 2
-    assert Chem.MolToInchi(mol) == path["file_graph"][0]
 
     # Remove the files
     tmp_file = os.path.splitext(mol_file)[0]
@@ -58,15 +56,88 @@ def test_ass_mol_file():
     os.remove(tmp_file + "Out")
     os.remove(tmp_file + "Pathway")
 
+    # Compare to the hand calculated value
+    assert ai == 2
+    assert Chem.MolToInchi(mol) == path["file_graph"][0]
+
 
 def test_ass_mol():
+    smi_in = "[H]C#C[H]"
     # Convert all the smile to mol
-    mol = att.smi_to_mol("[H]C#C[H]")
+    mol = att.smi_to_mol(smi_in)
     # Calculate the assembly index
     ai, path = att.calculate_assembly_index(mol)
     # Compare to the hand calculated value
     assert ai == 2
     assert Chem.MolToInchi(mol) == Chem.MolToInchi(path["file_graph"][0])
+
+
+def test_compare_ass_graph_mol_file_mol():
+    smis = ["c1ccccc1", "[BH-]1-[NH+]=[BH-]-[NH+]=[BH-]-[NH+]=1"]
+    for smi_in in smis:
+        # Convert all the smile to mol
+        mol = att.smi_to_mol(smi_in)
+        # Convert the system into graphs
+        graph = att.mol_to_nx(mol)
+        # write the mol file
+        mol_file = "tmp.mol"
+        att.write_v2k_mol_file(mol, mol_file)
+
+        # Graph
+        ai_graph, _ = att.calculate_assembly_index(graph)
+        # Mol file
+        ai_mol_file, _ = att.calculate_assembly_index(mol_file)
+        # Mol
+        ai_mol, _ = att.calculate_assembly_index(mol)
+
+        # Remove the files
+        tmp_file = os.path.splitext(mol_file)[0]
+        os.remove(tmp_file + ".mol")
+        os.remove(tmp_file + ".err")
+        os.remove(tmp_file + ".out")
+        os.remove(tmp_file + "Out")
+        os.remove(tmp_file + "Pathway")
+
+        assert ai_graph == ai_mol_file == ai_mol
+
+
+def test_big_chungus():
+    mol_file = os.path.abspath("data/mol_files/big_chungus.mol")
+    # Get the mol object
+    mol = att.molfile_to_mol(mol_file)
+    # Convert the system into graphs
+    graph = att.mol_to_nx(mol)
+
+    # Graph
+    ai_graph, _ = att.calculate_assembly_index(graph)
+    # Mol file
+    ai_mol_file, _ = att.calculate_assembly_index(mol_file)
+    # Mol
+    ai_mol, _ = att.calculate_assembly_index(mol)
+
+    # Remove the files
+    tmp_file = os.path.splitext(mol_file)[0]
+    os.remove(tmp_file + ".err")
+    os.remove(tmp_file + ".out")
+    os.remove(tmp_file + "Out")
+    os.remove(tmp_file + "Pathway")
+
+    assert ai_graph == ai_mol_file == ai_mol == 8
+
+
+def test_taxol_file():
+    mol_file = os.path.abspath("data/mol_files/taxol.mol")
+    # Mol file
+    ai_mol_file, _ = att.calculate_assembly_index(mol_file, timeout=1000.0)
+
+    # Remove the files
+    tmp_file = os.path.splitext(mol_file)[0]
+    os.remove(tmp_file + ".err")
+    os.remove(tmp_file + ".out")
+    os.remove(tmp_file + "Out")
+    os.remove(tmp_file + "Pathway")
+
+    assert ai_mol_file == 23
 
 
 def test_ass_mol_debug():
