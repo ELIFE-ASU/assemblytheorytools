@@ -48,14 +48,6 @@ def test_ass_mol_file():
     # Calculate the assembly index
     ai, path = att.calculate_assembly_index(mol_file)
 
-    # Remove the files
-    tmp_file = os.path.splitext(mol_file)[0]
-    os.remove(tmp_file + ".mol")
-    os.remove(tmp_file + ".err")
-    os.remove(tmp_file + ".out")
-    os.remove(tmp_file + "Out")
-    os.remove(tmp_file + "Pathway")
-
     # Compare to the hand calculated value
     assert ai == 2
     assert Chem.MolToInchi(mol) == path["file_graph"][0]
@@ -90,14 +82,6 @@ def test_compare_ass_graph_mol_file_mol():
         # Mol
         ai_mol, _ = att.calculate_assembly_index(mol)
 
-        # Remove the files
-        tmp_file = os.path.splitext(mol_file)[0]
-        os.remove(tmp_file + ".mol")
-        os.remove(tmp_file + ".err")
-        os.remove(tmp_file + ".out")
-        os.remove(tmp_file + "Out")
-        os.remove(tmp_file + "Pathway")
-
         assert ai_graph == ai_mol_file == ai_mol
 
 
@@ -115,13 +99,6 @@ def test_big_chungus():
     # Mol
     ai_mol, _ = att.calculate_assembly_index(mol, timeout=1000.0)
 
-    # Remove the files
-    tmp_file = os.path.splitext(mol_file)[0]
-    os.remove(tmp_file + ".err")
-    os.remove(tmp_file + ".out")
-    os.remove(tmp_file + "Out")
-    os.remove(tmp_file + "Pathway")
-
     assert ai_graph == ai_mol_file == ai_mol == 8
 
 
@@ -129,13 +106,6 @@ def test_taxol_file():
     mol_file = os.path.abspath("data/mol_files/taxol.mol")
     # Mol file
     ai_mol_file, _ = att.calculate_assembly_index(mol_file, timeout=1000.0)
-
-    # Remove the files
-    tmp_file = os.path.splitext(mol_file)[0]
-    os.remove(tmp_file + ".err")
-    os.remove(tmp_file + ".out")
-    os.remove(tmp_file + "Out")
-    os.remove(tmp_file + "Pathway")
 
     assert ai_mol_file == 23
 
@@ -148,20 +118,22 @@ def test_hydrogen_stripping():
 
     # Convert the system into graphs
     graph = att.mol_to_nx(mol)
-    graph = att.remove_hydrogen_from_graph(graph)
     # Graph
-    ai_graph, _ = att.calculate_assembly_index(graph)
+    ai_graph, _ = att.calculate_assembly_index(att.remove_hydrogen_from_graph(graph))
     # Mol file
     ai_mol_file, _ = att.calculate_assembly_index(mol_file)
     # Mol
     ai_mol, _ = att.calculate_assembly_index(Chem.RemoveHs(mol))
 
-    # Remove the files
-    tmp_file = os.path.splitext(mol_file)[0]
-    os.remove(tmp_file + ".err")
-    os.remove(tmp_file + ".out")
-    os.remove(tmp_file + "Out")
-    os.remove(tmp_file + "Pathway")
+    assert ai_graph == ai_mol_file == ai_mol == 4
+
+    # Test the manual case
+    # Graph
+    ai_graph, _ = att.calculate_assembly_index(graph, strip_hydrogen=True)
+    # Mol file
+    ai_mol_file, _ = att.calculate_assembly_index(mol_file, strip_hydrogen=True)
+    # Mol
+    ai_mol, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
 
     assert ai_graph == ai_mol_file == ai_mol == 4
 
@@ -282,16 +254,3 @@ def test_hand_graph():
         print_graph_details(p)
 
     assert ai == 3
-
-
-if __name__ == "__main__":
-    test_ass_graph()
-    test_ass_mol_file()
-    test_ass_mol()
-    test_ass_mol_debug()
-    test_joint_ass_mol()
-    test_joint_ass_graph()
-    test_all_paths_simple()
-    # test_node_scramble() << fails
-    test_str_ass()
-    test_hand_graph()
