@@ -10,7 +10,7 @@ from .complexityscores import (molecular_weight,
                                randic_index,
                                kirchhoff_index)
 
-from .find_other_paths import (all_shortest_paths)
+from .findotherpaths import (all_shortest_paths)
 
 from .graphtools import (nx_to_mol,
                          mol_to_nx,
@@ -33,6 +33,8 @@ from .moltools import (safe_standardize_mol,
                        combine_mols,
                        write_v2k_mol_file,
                        split_mols)
+
+from .filetools import (file_list_all)
 
 from .pathway import (get_pathway_to_graph,
                       get_pathway_to_mol,

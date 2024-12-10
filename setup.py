@@ -17,6 +17,7 @@ setup(
     ],
     python_requires='>=3.12',
     install_requires=[
+        'ase',
         'numpy',
         'matplotlib',
         'networkx',
