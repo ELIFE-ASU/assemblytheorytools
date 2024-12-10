@@ -1,4 +1,4 @@
-import numpy as np
+import networkx as nx
 from ase.io import read
 from ase.neighborlist import NeighborList, natural_cutoffs
 
@@ -56,7 +56,7 @@ def atoms_to_mol_file(atoms, fname="mol.mol"):
 
     # Write the bonds block
     for bond in bond_pairs:
-        out_str += str(bond[0]).rjust(3) + str(bond[1]).rjust(3) + "  1  0\n"
+        out_str += str(bond[0] + 1).rjust(3) + str(bond[1] + 1).rjust(3) + "  1  0  0  0  0\n"
     out_str += "M  END\n"
 
     # Write the molecule to a file
@@ -83,3 +83,30 @@ def get_bonding_config(atoms):
         for idx in indices[indices != i]:
             bond_pairs.append([i, idx])
     return bond_pairs
+
+
+def atoms_to_nx(atoms):
+    """
+    Convert an ASE atoms object to a NetworkX graph.
+
+    Args:
+        atoms (ase.Atoms): The input set of atoms.
+
+    Returns:
+        networkx.Graph: A graph where nodes are atoms and edges are bonds.
+    """
+    # Get the bonding configuration
+    bond_pairs = get_bonding_config(atoms)
+
+    # Create a graph
+    G = nx.Graph()
+
+    # Add nodes with atom indices and elements as attributes
+    for i, atom in enumerate(atoms):
+        G.add_node(i, color=atom.symbol)
+
+    # Add edges based on bond pairs
+    for bond in bond_pairs:
+        G.add_edge(bond[0], bond[1], color='1')
+
+    return G

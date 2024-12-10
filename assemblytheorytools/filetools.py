@@ -18,5 +18,5 @@ def file_list_all(mypath=None):
     for dirpath, dirnames, filenames in os.walk(mypath):
         for filename in filenames:
             # os.path.join joins one or more path components intelligently
-            files.append(os.path.join(dirpath, filename))
+            files.append(os.path.expanduser(os.path.join(dirpath, filename)))
     return files
