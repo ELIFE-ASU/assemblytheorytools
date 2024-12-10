@@ -109,11 +109,11 @@ def test_big_chungus():
     graph = att.mol_to_nx(mol)
 
     # Graph
-    ai_graph, _ = att.calculate_assembly_index(graph)
+    ai_graph, _ = att.calculate_assembly_index(graph, timeout=1000.0)
     # Mol file
-    ai_mol_file, _ = att.calculate_assembly_index(mol_file)
+    ai_mol_file, _ = att.calculate_assembly_index(mol_file, timeout=1000.0)
     # Mol
-    ai_mol, _ = att.calculate_assembly_index(mol)
+    ai_mol, _ = att.calculate_assembly_index(mol, timeout=1000.0)
 
     # Remove the files
     tmp_file = os.path.splitext(mol_file)[0]
@@ -138,6 +138,32 @@ def test_taxol_file():
     os.remove(tmp_file + "Pathway")
 
     assert ai_mol_file == 23
+
+
+def test_hydrogen_stripping():
+    mol_file = os.path.abspath("data/mol_files/alanine.mol")
+    # Get the mol object
+    mol = att.molfile_to_mol(mol_file)
+    mol = att.smi_to_mol("C[C@@H](C(=O)O)N")
+
+    # Convert the system into graphs
+    graph = att.mol_to_nx(mol)
+    graph = att.remove_hydrogen_from_graph(graph)
+    # Graph
+    ai_graph, _ = att.calculate_assembly_index(graph)
+    # Mol file
+    ai_mol_file, _ = att.calculate_assembly_index(mol_file)
+    # Mol
+    ai_mol, _ = att.calculate_assembly_index(Chem.RemoveHs(mol))
+
+    # Remove the files
+    tmp_file = os.path.splitext(mol_file)[0]
+    os.remove(tmp_file + ".err")
+    os.remove(tmp_file + ".out")
+    os.remove(tmp_file + "Out")
+    os.remove(tmp_file + "Pathway")
+
+    assert ai_graph == ai_mol_file == ai_mol == 4
 
 
 def test_ass_mol_debug():
