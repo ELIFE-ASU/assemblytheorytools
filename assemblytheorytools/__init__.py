@@ -36,7 +36,7 @@ from .moltools import (safe_standardize_mol,
 
 from .filetools import (file_list_all)
 
-from .celltools import (read_cif_file, atoms_to_mol_file)
+from .celltools import (read_cif_file, atoms_to_mol_file, atoms_to_nx)
 
 from .pathway import (get_pathway_to_graph,
                       get_pathway_to_mol,
