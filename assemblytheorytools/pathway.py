@@ -13,14 +13,23 @@ def convert_edge_color(edge_color):
     Convert an edge color descriptor to its corresponding numerical value.
 
     Args:
-        edge_color (str): The descriptor of the edge color (e.g., 'single', 'double', 'triple').
+        edge_color (str or int): The descriptor of the edge color (e.g., 'single', ....) or an integer value.
 
     Returns:
         int: The numerical value corresponding to the edge color.
     """
-    # Use the predefined edge_color_map
-    edge_color_map = {"single": 1, "double": 2, "triple": 3}
-    return edge_color_map[edge_color]
+    edge_color_map = {
+        "single": 1,
+        "double": 2,
+        "triple": 3,
+        "quadruple": 4,
+        "quintuple": 5
+    }
+
+    if edge_color in edge_color_map:
+        return edge_color_map[edge_color]
+    else:
+        return int(edge_color)
 
 
 def add_nodes_edges(graph, vertices, vertex_colors, edges, edge_colors):
