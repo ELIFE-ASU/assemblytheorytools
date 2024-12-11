@@ -6,7 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="77de8b7d-d8e8-47f2-8a19-5f31d63f2940" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/assemblytheorytools/pathway.py" beforeDir="false" afterPath="$PROJECT_DIR$/assemblytheorytools/pathway.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/assemblytheorytools/assembly.py" beforeDir="false" afterPath="$PROJECT_DIR$/assemblytheorytools/assembly.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -32,33 +32,33 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python tests.Python tests for test_general.test_ass_graph.executor": "Run",
-    "Python tests.Python tests for test_general.test_big_chungus.executor": "Run",
-    "Python tests.Python tests for test_general.test_cif_ai.executor": "Run",
-    "Python tests.Python tests for test_general.test_cif_loading.executor": "Run",
-    "Python tests.Python tests for test_general.test_compare_ass_graph_mol_file_mol.executor": "Run",
-    "Python tests.Python tests for test_general.test_graph_to_mol.executor": "Run",
-    "Python tests.Python tests for test_general.test_hydrogen_stripping.executor": "Run",
-    "Python tests.Python tests for test_general.test_if_same.executor": "Run",
-    "Python tests.Python tests for test_general.test_taxol_file.executor": "Run",
-    "Python.simple_string_example.executor": "Run",
-    "Python.test_general.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "main",
-    "ignore.virus.scanning.warn.message": "true",
-    "last_opened_file_path": "//wsl.localhost/Ubuntu/home/louie/skunkworks/CFG",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python tests.Python tests for test_general.test_ass_graph.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests for test_general.test_big_chungus.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests for test_general.test_cif_ai.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests for test_general.test_cif_loading.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests for test_general.test_compare_ass_graph_mol_file_mol.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests for test_general.test_graph_to_mol.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests for test_general.test_hydrogen_stripping.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests for test_general.test_if_same.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests for test_general.test_taxol_file.executor&quot;: &quot;Run&quot;,
+    &quot;Python.simple_string_example.executor&quot;: &quot;Run&quot;,
+    &quot;Python.test_general.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;//wsl.localhost/Ubuntu/home/louie/skunkworks/CFG&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager" selected="Python tests.Python tests for test_general.test_graph_to_mol">
     <configuration name="Python tests for test_general.test_ass_graph" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
       <module name="assemblytheorytools" />
@@ -177,7 +177,8 @@
       <workItem from="1733791374397" duration="654000" />
       <workItem from="1733848756834" duration="4279000" />
       <workItem from="1733854154436" duration="7834000" />
-      <workItem from="1733865280231" duration="11406000" />
+      <workItem from="1733865280231" duration="11604000" />
+      <workItem from="1733933471175" duration="3332000" />
     </task>
     <servers />
   </component>

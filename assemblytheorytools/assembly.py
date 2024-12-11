@@ -233,12 +233,13 @@ def compile_assembly_code():
     which g++ || sudo apt-get install g++ -y
 
     # Get the boost code
-    wget 'https://archives.boost.io/release/1.66.0/source/boost_1_66_0.tar.gz'
-    tar -xvzf boost_1_66_0.tar.gz
-    rm boost_1_66_0.tar.gz
+    wget 'https://archives.boost.io/release/1.86.0/source/boost_1_86_0.tar.gz'
+
+    tar -xvzf boost_1_86_0.tar.gz
+    rm boost_1_86_0.tar.gz
 
     cd /$HOME/assemblycpp-main/v5_boost_linux/
-    g++ main.cpp -O3 -o asscpp_v5_boost -I/$HOME/boost_1_66_0/
+    g++ main.cpp -static -O3 -o asscpp_v5 -I/$HOME/boost_1_86_0/
     export ASS_PATH=$HOME/asscpp/v5_boost/asscpp_v5_boost_recursive
 
     """
