@@ -19,15 +19,29 @@ def print_graph_details(graph):
         node_index = node[0]
         node_color = node[1].get('color', 'No color')
         edge_connections = list(graph.edges(node_index))
-        print(f"({node_index}, {node_color}): {edge_connections}", flush=True)
+        edge_colors = [graph.get_edge_data(*edge)['color'] for edge in edge_connections]
+        print(f"({node_index}, {node_color}): {edge_connections}, {edge_colors}", flush=True)
     print("}", flush=True)
+
+
+def test_graph_to_mol():
+    print(flush=True)
+    smi_in = "[Mo](Cl)(Cl)(C#N)(C=O)-[Mo](Cl)(Cl)(C#N)(C=O)"
+    # Convert the smile to mol
+    mol = att.smi_to_mol(smi_in)
+    # Convert the system into graph
+    graph = att.mol_to_nx(mol)
+    # Convert the graph back to mol
+    mol_out = att.nx_to_mol(graph)
+    # Check the conversion
+    assert att.is_graph_isomorphic(graph, att.mol_to_nx(mol_out))
 
 
 def test_ass_graph():
     smi_in = "[H]C#C[H]"
-    # Convert all the smile to mol
+    # Convert the smile to mol
     mol = att.smi_to_mol(smi_in)
-    # Convert the system into graphs
+    # Convert the system into graph
     graph = att.mol_to_nx(mol)
     # Calculate the assembly index
     ai, path = att.calculate_assembly_index(graph)
