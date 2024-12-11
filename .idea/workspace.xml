@@ -6,7 +6,7 @@
   <component name="ChangeListManager">
     <list default="true" id="77de8b7d-d8e8-47f2-8a19-5f31d63f2940" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/assemblytheorytools/assembly.py" beforeDir="false" afterPath="$PROJECT_DIR$/assemblytheorytools/assembly.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/assemblytheorytools/precompiled/asscpp_v5" beforeDir="false" afterPath="$PROJECT_DIR$/assemblytheorytools/precompiled/asscpp_v5" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -35,6 +35,7 @@
   <component name="PropertiesComponent">{
   &quot;keyToString&quot;: {
     &quot;Python tests.Python tests for test_general.test_ass_graph.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests for test_general.test_ass_mol.executor&quot;: &quot;Run&quot;,
     &quot;Python tests.Python tests for test_general.test_big_chungus.executor&quot;: &quot;Run&quot;,
     &quot;Python tests.Python tests for test_general.test_cif_ai.executor&quot;: &quot;Run&quot;,
     &quot;Python tests.Python tests for test_general.test_cif_loading.executor&quot;: &quot;Run&quot;,
@@ -59,7 +60,7 @@
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
-  <component name="RunManager" selected="Python tests.Python tests for test_general.test_graph_to_mol">
+  <component name="RunManager" selected="Python tests.Python tests for test_general.test_ass_mol">
     <configuration name="Python tests for test_general.test_ass_graph" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
       <module name="assemblytheorytools" />
       <option name="ENV_FILES" value="" />
@@ -73,6 +74,22 @@
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
       <option name="_new_additionalArguments" value="&quot;&quot;" />
       <option name="_new_target" value="&quot;test_general.test_ass_graph&quot;" />
+      <option name="_new_targetType" value="&quot;PYTHON&quot;" />
+      <method v="2" />
+    </configuration>
+    <configuration name="Python tests for test_general.test_ass_mol" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
+      <module name="assemblytheorytools" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/tests" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="_new_additionalArguments" value="&quot;&quot;" />
+      <option name="_new_target" value="&quot;test_general.test_ass_mol&quot;" />
       <option name="_new_targetType" value="&quot;PYTHON&quot;" />
       <method v="2" />
     </configuration>
@@ -124,29 +141,13 @@
       <option name="_new_targetType" value="&quot;PYTHON&quot;" />
       <method v="2" />
     </configuration>
-    <configuration name="Python tests for test_general.test_if_same" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
-      <module name="assemblytheorytools" />
-      <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/tests" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="_new_additionalArguments" value="&quot;&quot;" />
-      <option name="_new_target" value="&quot;test_general.test_if_same&quot;" />
-      <option name="_new_targetType" value="&quot;PYTHON&quot;" />
-      <method v="2" />
-    </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python tests.Python tests for test_general.test_ass_mol" />
         <item itemvalue="Python tests.Python tests for test_general.test_graph_to_mol" />
         <item itemvalue="Python tests.Python tests for test_general.test_ass_graph" />
         <item itemvalue="Python tests.Python tests for test_general.test_cif_ai" />
         <item itemvalue="Python tests.Python tests for test_general.test_cif_loading" />
-        <item itemvalue="Python tests.Python tests for test_general.test_if_same" />
       </list>
     </recent_temporary>
   </component>
@@ -179,6 +180,8 @@
       <workItem from="1733854154436" duration="7834000" />
       <workItem from="1733865280231" duration="11604000" />
       <workItem from="1733933471175" duration="3332000" />
+      <workItem from="1733938807748" duration="1350000" />
+      <workItem from="1733942096658" duration="661000" />
     </task>
     <servers />
   </component>
@@ -186,7 +189,7 @@
     <option name="version" value="3" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/assemblytheorytools$.coverage" NAME=" Coverage Results" MODIFIED="1733875430979" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/assemblytheorytools$.coverage" NAME=" Coverage Results" MODIFIED="1733939103562" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/assemblytheorytools$test_general.coverage" NAME="test_general Coverage Results" MODIFIED="1730917649170" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/assemblytheorytools$simple_string_example.coverage" NAME="simple_string_example Coverage Results" MODIFIED="1733425597962" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/examples" />
   </component>
