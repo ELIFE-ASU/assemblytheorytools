@@ -25,6 +25,16 @@ def nx_to_mol(graph, add_hydrogens=True):
     # Dictionary to map node identifiers to atom indices in the RDKit molecule
     node_to_idx = {}
 
+    # Define the bond converter dictionary
+    converter = {
+            1: Chem.rdchem.BondType.SINGLE,
+            2: Chem.rdchem.BondType.DOUBLE,
+            3: Chem.rdchem.BondType.TRIPLE,
+            4: Chem.rdchem.BondType.QUADRUPLE,
+            5: Chem.rdchem.BondType.QUINTUPLE,
+            6: Chem.rdchem.BondType.IONIC,
+        }
+
     # Add atoms to the molecule
     for node, data in graph.nodes(data=True):
         # Get the atomic symbol from the node's 'color' attribute, default to 'C' if not present
@@ -38,12 +48,7 @@ def nx_to_mol(graph, add_hydrogens=True):
         # Get the bond order from the edge's 'color' attribute, default to 1 if not present
         bond_order = data.get('color', 1)
         # Map the bond order to RDKit's bond types
-        bond_type = {
-            1: Chem.rdchem.BondType.SINGLE,
-            2: Chem.rdchem.BondType.DOUBLE,
-            3: Chem.rdchem.BondType.TRIPLE,
-            4: Chem.rdchem.BondType.IONIC,
-        }.get(bond_order, Chem.rdchem.BondType.SINGLE)
+        bond_type = converter.get(bond_order, Chem.rdchem.BondType.SINGLE)
         # Add the bond to the molecule
         mol.AddBond(node_to_idx[u], node_to_idx[v], bond_type)
 
@@ -66,16 +71,21 @@ def mol_to_nx(mol, add_hydrogens=True):
     converter = {Chem.rdchem.BondType.SINGLE: 1,
                  Chem.rdchem.BondType.DOUBLE: 2,
                  Chem.rdchem.BondType.TRIPLE: 3,
-                 Chem.rdchem.BondType.IONIC: 4}
+                 Chem.rdchem.BondType.QUADRUPLE: 4,
+                 Chem.rdchem.BondType.QUINTUPLE: 5,
+                 Chem.rdchem.BondType.IONIC: 6}
 
     for atom in mol.GetAtoms():
         graph.add_node(atom.GetIdx(),
                        color=atom.GetSymbol())
 
     for bond in mol.GetBonds():
+        # Map the bond order to RDKit's bond types
+        bond_type = converter.get(bond.GetBondType(), 1)
+        # Add the bond to the graph
         graph.add_edge(bond.GetBeginAtomIdx(),
                        bond.GetEndAtomIdx(),
-                       color=converter[bond.GetBondType()])
+                       color=bond_type)
     # Remove the nodes with hydrogen as the color
     if add_hydrogens is False:
         graph = remove_hydrogen_from_graph(graph)
