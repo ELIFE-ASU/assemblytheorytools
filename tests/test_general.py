@@ -3,7 +3,8 @@ import shutil
 
 import networkx as nx
 import numpy as np
-import ase.io
+from ase.io import read
+from ase.visualize import view
 from rdkit.Chem import AllChem as Chem
 
 import assemblytheorytools as att
@@ -275,8 +276,8 @@ def test_hand_graph():
 def test_cif_loading():
     print(flush=True)
     target_dir = "data/cif_files/"
-
     dirs = att.file_list_all(os.path.expanduser(target_dir))
+    dirs.sort()
     print(dirs)
     for file in dirs:
         print(file, flush=True)
@@ -286,13 +287,26 @@ def test_cif_loading():
             continue
         # input mol file
         atoms = att.read_cif_file(file)
+        import ase.geometry
+        # tmp = ase.geometry.minkowski_reduce(atoms)
+        # print(tmp)
+
+        import ase.build
+        #ase.build.niggli_reduce(atoms)
+        ase.build.tools.niggli_reduce(atoms)
+        ase.build.tools.reduce_lattice(atoms)
+
+        view(atoms)
         tmp_file = file.split('.')[0] + ".mol"
         att.atoms_to_mol_file(atoms, fname=tmp_file)
-        atoms2 = ase.io.read(tmp_file)
-        os.remove(tmp_file)
+        atoms2 = read(tmp_file)
+        view(atoms2)
+        # os.remove(tmp_file)
         # check that the atoms are the same
         assert np.allclose(atoms.get_positions(), atoms2.get_positions(), rtol=1e-04, atol=1e-04)
         assert np.allclose(atoms.get_atomic_numbers(), atoms2.get_atomic_numbers())
+        exit()
+        # input("Press Enter to continue...")
 
 
 def test_cif_ai():

@@ -6,7 +6,8 @@
   <component name="ChangeListManager">
     <list default="true" id="77de8b7d-d8e8-47f2-8a19-5f31d63f2940" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/assemblytheorytools/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/assemblytheorytools/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/assemblytheorytools/celltools.py" beforeDir="false" afterPath="$PROJECT_DIR$/assemblytheorytools/celltools.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/test_general.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_general.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -60,7 +61,7 @@
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
-  <component name="RunManager" selected="Python tests.Python tests for test_general.test_ass_mol">
+  <component name="RunManager" selected="Python tests.Python tests for test_general.test_cif_loading">
     <configuration name="Python tests for test_general.test_ass_graph" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
       <module name="assemblytheorytools" />
       <option name="ENV_FILES" value="" />
@@ -143,11 +144,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python tests.Python tests for test_general.test_cif_loading" />
         <item itemvalue="Python tests.Python tests for test_general.test_ass_mol" />
         <item itemvalue="Python tests.Python tests for test_general.test_graph_to_mol" />
         <item itemvalue="Python tests.Python tests for test_general.test_ass_graph" />
         <item itemvalue="Python tests.Python tests for test_general.test_cif_ai" />
-        <item itemvalue="Python tests.Python tests for test_general.test_cif_loading" />
       </list>
     </recent_temporary>
   </component>
@@ -184,6 +185,7 @@
       <workItem from="1733942096658" duration="661000" />
       <workItem from="1733956551052" duration="872000" />
       <workItem from="1734111253413" duration="1244000" />
+      <workItem from="1734120222850" duration="5326000" />
     </task>
     <servers />
   </component>
@@ -191,7 +193,7 @@
     <option name="version" value="3" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/assemblytheorytools$.coverage" NAME=" Coverage Results" MODIFIED="1733939103562" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
+    <SUITE FILE_PATH="coverage/assemblytheorytools$.coverage" NAME=" Coverage Results" MODIFIED="1734126129196" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/assemblytheorytools$test_general.coverage" NAME="test_general Coverage Results" MODIFIED="1730917649170" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tests" />
     <SUITE FILE_PATH="coverage/assemblytheorytools$simple_string_example.coverage" NAME="simple_string_example Coverage Results" MODIFIED="1733425597962" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/examples" />
   </component>

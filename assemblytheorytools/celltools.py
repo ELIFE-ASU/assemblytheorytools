@@ -1,5 +1,5 @@
 import networkx as nx
-from ase.io import read
+from ase.io import read, cif
 from ase.neighborlist import NeighborList, natural_cutoffs
 
 
@@ -8,6 +8,7 @@ def read_cif_file(cif_file):
     look in to using
     https://github.com/MaterSim/PyXtal
     https://github.com/GKieslich/crystIT
+    https://github.com/torbjornbjorkman/cif2cell/tree/master
     Read in a CIF file and return the atoms object.
 
     Args:
@@ -17,7 +18,8 @@ def read_cif_file(cif_file):
         ase.Atoms: The atoms object.
     """
     # Read in the CIF file
-    atoms = read(cif_file)
+    #atoms = read(cif_file)
+    atoms = cif.read_cif(cif_file, primitive_cell=True, subtrans_included=False)
     return atoms
 
 
@@ -75,6 +77,8 @@ def get_bonding_config(atoms):
     Returns:
         list: A list of bond pairs, where each pair is represented as a list of two atom indices.
     """
+    atoms.set_pbc([False, False, False])
+    atoms.cell = [0, 0, 0]
     nl = NeighborList(natural_cutoffs(atoms))
     nl.update(atoms)
     bond_pairs = []
