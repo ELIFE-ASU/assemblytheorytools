@@ -49,8 +49,6 @@ from .pathway import (get_pathway_to_graph,
 
 from .plotting import (plot_mol_graph,
                        plot_interactive_graph,
-                       plot_residue_graph,
-                       plot_graphs_in_subplots,
                        plot_graph)
 
 from .stringtools import (load_fasta, prep_joint_string_ai, get_unique_char)
