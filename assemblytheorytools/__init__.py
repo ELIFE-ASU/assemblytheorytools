@@ -2,7 +2,9 @@ from .assembly import (calculate_assembly_index,
                        joint_correction,
                        load_assembly_output,
                        run_command,
-                       calculate_assembly_semi_metric)
+                       calculate_assembly_semi_metric,
+                       run_command_simple,
+                       compile_assembly_code)
 
 from .complexityscores import (molecular_weight,
                                bertz_complexity,

@@ -292,7 +292,7 @@ def test_cif_loading():
         # print(tmp)
 
         import ase.build
-        #ase.build.niggli_reduce(atoms)
+        # ase.build.niggli_reduce(atoms)
         ase.build.tools.niggli_reduce(atoms)
         ase.build.tools.reduce_lattice(atoms)
 
@@ -345,3 +345,9 @@ def test_semi_metric():
     out_graph = nx.disjoint_union_all(path["file_graph"])
     assert ai == 11
     assert att.is_graph_isomorphic(graphs_joint, out_graph)
+
+
+def test_auto_compile():
+    print()
+    att.compile_assembly_code()
+    print(att.run_command_simple("ls -l"))

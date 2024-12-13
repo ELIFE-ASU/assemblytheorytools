@@ -253,8 +253,19 @@ def calculate_assembly_semi_metric(graph, dir_code=None, timeout=100.0, debug=Fa
     return jai - result
 
 
+def run_command_simple(command):
+    result = subprocess.run(command.split())
+    return result.stdout
+
+
 def compile_assembly_code():
     """
+    Set up the keys
+    go to gitlab website
+    click your profile icon
+    go to ssh keys
+
+    ssh-agent $(ssh-add rsa-key-20240430; git clone git@gitlab.com:croningroup/cheminformatics/assemblycpp.git)
     # Get the assembly code
     git clone git@gitlab.com:croningroup/cheminformatics/assemblycpp.git
     or download the .tar.gz
@@ -269,20 +280,27 @@ def compile_assembly_code():
 
     # Get the boost code
     wget 'https://archives.boost.io/release/1.86.0/source/boost_1_86_0.tar.gz'
-
+    # Unzip the boost code
     tar -xvzf boost_1_86_0.tar.gz
+    # Remove the boost zip file
     rm boost_1_86_0.tar.gz
 
-    cd /$HOME/assemblycpp-main/v5_boost_linux/
-    g++ main.cpp -static -O3 -o asscpp_v5 -I/$HOME/boost_1_86_0/
+    g++ main.cpp -O3 -o asscpp_v5 -I/boost_1_86_0/
     export ASS_PATH=$HOME/asscpp/v5_boost/asscpp_v5_boost_recursive
 
-    """
-    c_assembly_pull = "git clone git@gitlab.com:croningroup/cheminformatics/assemblycpp.git"
-    c_assembly_extract = "tar -xvzf assemblycpp-main.tar.gz"
-    c_assembly_remove = "rm assemblycpp-main.tar.gz"
+    # Remove the boost folder
+    rm -r
 
+    """
+    boost_dir = os.path.abspath(os.path.expanduser(os.path.join(os.getcwd(), "/boost_1_86_0")))
     # Get the assembly code
-    subprocess.run(c_assembly_pull)
-    subprocess.run(c_assembly_extract)
+    # run_command_simple("git clone git@gitlab.com:croningroup/cheminformatics/assemblycpp.git")
+
+    # run_command_simple("tar -xvzf assemblycpp-main.tar.gz")
+    # run_command_simple("rm assemblycpp-main.tar.gz")
+    # run_command_simple("wget https://archives.boost.io/release/1.86.0/source/boost_1_86_0.tar.gz")
+    # run_command_simple("tar -xvzf boost_1_86_0.tar.gz")
+    # run_command_simple("rm boost_1_86_0.tar.gz")
+    # run_command_simple(f"g++ assemblycpp-main/v5_combined_linux/main.cpp -O3 -o asscpp_v5 -I {boost_dir}")
+    # run_command_simple("rm -r")
     return None
