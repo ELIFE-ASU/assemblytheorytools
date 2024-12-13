@@ -313,3 +313,21 @@ def test_cif_ai():
     ai_graph, _ = att.calculate_assembly_index(graph, joint_corr=False)
 
     assert ai_mol == ai_graph == 4
+
+
+def test_semi_metric():
+    # PLEASE UPDATE
+    molecules = "[H]C#C[H].[H][C]([H])([H])[C]([H])([H])[H].[H]C([H])([H])([H]).[H]O([H]).[H]N([H])([H]).[H][N+]([H])([H])([H]).[S-]([H]).[H][H]"
+    molecules = molecules.split(".")
+    # Convert all the smile to mol
+    mols = [att.smi_to_mol(smile) for smile in molecules]
+    # Convert the system into graphs
+    graphs = [att.mol_to_nx(mol) for mol in mols]
+    # Join the graphs
+    graphs_joint = nx.disjoint_union_all(graphs)
+    # Calculate the assembly index
+    ai, path = att.calculate_assembly_index(graphs_joint)
+    # Compare to the hand calculated value
+    out_graph = nx.disjoint_union_all(path["file_graph"])
+    assert ai == 11
+    assert att.is_graph_isomorphic(graphs_joint, out_graph)
