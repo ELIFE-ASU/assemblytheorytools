@@ -6,7 +6,6 @@
   <component name="ChangeListManager">
     <list default="true" id="77de8b7d-d8e8-47f2-8a19-5f31d63f2940" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/assemblytheorytools/precompiled/asscpp_v5" beforeDir="false" afterPath="$PROJECT_DIR$/assemblytheorytools/precompiled/asscpp_v5" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -182,6 +181,7 @@
       <workItem from="1733933471175" duration="3332000" />
       <workItem from="1733938807748" duration="1350000" />
       <workItem from="1733942096658" duration="661000" />
+      <workItem from="1733956551052" duration="872000" />
     </task>
     <servers />
   </component>

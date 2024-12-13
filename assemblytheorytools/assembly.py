@@ -9,7 +9,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 
 import CFG
-from .graphtools import write_ass_graph_file, remove_hydrogen_from_graph
+from .graphtools import write_ass_graph_file, remove_hydrogen_from_graph, get_disconnected_subgraphs
 from .moltools import write_v2k_mol_file
 from .pathway import get_pathway_to_graph, get_pathway_to_mol, get_pathway_to_inchi
 
@@ -216,6 +216,41 @@ def calculate_assembly_index(mol,
             except Exception as e:
                 print(f"Failed to load assembly output: {file_path_out}, Error: {e}", flush=True)
                 return -1, None
+
+
+def calculate_assembly_semi_metric(graph, dir_code=None, timeout=100.0, debug=False, strip_hydrogen=False):
+    """
+    Calculate the assembly semi-metric for a given graph.
+
+    Args:
+        graph (nx.Graph): The input molecule as a NetworkX graph.
+        dir_code (str, optional): The directory code for the assembly tool. Defaults to None.
+        timeout (float, optional): The maximum time in seconds to allow the command to run. Defaults to 100.0 seconds.
+        debug (bool, optional): If True, create a directory with a timestamp for debugging. Defaults to False.
+        strip_hydrogen (bool, optional): If True, removes hydrogen atoms from the molecule before calculation. Defaults to False.
+
+    Returns:
+        int: The difference between the joint assembly index and the sum of the assembly indices of the disconnected subgraphs.
+    """
+    # Here we have to assume it is in graph format to make sure we can split the system easily
+    assert isinstance(graph, nx.Graph), "Input must be a NetworkX graph"
+
+    # Calculate the joint assembly index
+    jai, _ = calculate_assembly_index(graph, dir_code=dir_code, timeout=timeout, debug=debug,
+                                      strip_hydrogen=strip_hydrogen)
+
+    # Get the disconnected subgraphs
+    subgraphs = get_disconnected_subgraphs(graph)
+
+    # Calculate the assembly index for each subgraph
+    result = 0
+    for graph in subgraphs:
+        ai, _ = calculate_assembly_index(graph, dir_code=dir_code, timeout=timeout, debug=debug,
+                                         strip_hydrogen=strip_hydrogen)
+        result += ai
+
+    # Return the difference
+    return jai - result
 
 
 def compile_assembly_code():
