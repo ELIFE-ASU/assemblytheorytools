@@ -6,7 +6,7 @@ from networkx.algorithms.isomorphism import GraphMatcher
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 
-from .moltools import safe_standardize_mol, smi_to_mol
+from .mol_tools import safe_standardize_mol, smi_to_mol
 
 
 def nx_to_mol(graph, add_hydrogens=True):

@@ -5,7 +5,7 @@ import networkx as nx
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 
-from .graphtools import nx_to_mol, get_disconnected_subgraphs
+from .graph_tools import nx_to_mol, get_disconnected_subgraphs
 
 
 def convert_edge_color(edge_color):
