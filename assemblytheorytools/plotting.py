@@ -82,8 +82,24 @@ def plot_graph(graph,
                edgecolors="black",
                width=2,
                linewidths=2,
-               filename="graph",
-               ):
+               filename="graph"):
+    """
+    Plot a graph using NetworkX and Matplotlib with various layout options.
+
+    Args:
+        graph (networkx.Graph): The graph to be plotted.
+        layout (str, optional): The layout algorithm to use for positioning nodes. Default is 'kawai'.
+        f_labs (bool, optional): Whether to display labels on the nodes. Default is False.
+        edge_color (str, optional): The color of the edges. Default is 'grey'.
+        node_size (int, optional): The size of the nodes. Default is 300.
+        edgecolors (str, optional): The color of the node borders. Default is 'black'.
+        width (int, optional): The width of the edges. Default is 2.
+        linewidths (int, optional): The width of the node borders. Default is 2.
+        filename (str, optional): The base name of the file where the plot will be saved. Default is 'graph'.
+
+    Returns:
+        None
+    """
     # Get the position of the nodes
     if layout == 'kawai':
         pos = nx.kamada_kawai_layout(graph)
@@ -110,8 +126,7 @@ def plot_graph(graph,
             node_size=node_size,
             edgecolors=edgecolors,
             width=width,
-            linewidths=linewidths,
-            )
+            linewidths=linewidths)
     # Save the plot as PNG and PDF
     plt.savefig(f"{filename}.png", dpi=600)
     plt.savefig(f"{filename}.pdf")

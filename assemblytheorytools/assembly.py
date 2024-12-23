@@ -254,6 +254,15 @@ def calculate_assembly_semi_metric(graph, dir_code=None, timeout=100.0, debug=Fa
 
 
 def run_command_simple(command):
+    """
+    Run a simple command in the subprocess.
+
+    Args:
+        command (str): The command to run as a string.
+
+    Returns:
+        bytes: The standard output of the command.
+    """
     result = subprocess.run(command.split())
     return result.stdout
 
