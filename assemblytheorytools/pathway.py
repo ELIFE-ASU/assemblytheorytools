@@ -23,7 +23,8 @@ def convert_edge_color(edge_color):
         "double": 2,
         "triple": 3,
         "quadruple": 4,
-        "quintuple": 5
+        "quintuple": 5,
+        "ionic": 6,
     }
 
     if edge_color in edge_color_map:
