@@ -269,6 +269,15 @@ def get_mol_pathway_to_smi(pathway):
 
 
 def convert_pathway_dict_to_list(in_dict):
+    """
+    Convert a dictionary of pathways to a list.
+
+    Args:
+        in_dict (dict): A dictionary where keys are section names and values are lists of pathways.
+
+    Returns:
+        list: A list containing all pathways from the input dictionary.
+    """
     in_list = []
     for key in in_dict:
         in_list.extend(in_dict[key])

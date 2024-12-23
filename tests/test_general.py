@@ -11,10 +11,29 @@ import assemblytheorytools as att
 
 
 def list_subdirs(directory, target="ai_calc"):
+    """
+    List subdirectories in a given directory that start with a specific target string.
+
+    Args:
+        directory (str): The path to the directory to search within.
+        target (str, optional): The prefix string that subdirectories must start with. Defaults to "ai_calc".
+
+    Returns:
+        list: A list of subdirectory names that start with the target string.
+    """
     return [d for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d)) and d.startswith(target)]
 
 
 def print_graph_details(graph):
+    """
+    Print the details of a graph, including node indices, node colors, edge connections, and edge colors.
+
+    Args:
+        graph (networkx.Graph): The graph whose details are to be printed.
+
+    Returns:
+        None
+    """
     print("{", flush=True)
     for node in graph.nodes(data=True):
         node_index = node[0]
@@ -287,7 +306,6 @@ def test_cif_loading():
             continue
         # input mol file
         atoms = att.read_cif_file(file)
-        import ase.geometry
         # tmp = ase.geometry.minkowski_reduce(atoms)
         # print(tmp)
 
