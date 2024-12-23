@@ -1,5 +1,5 @@
 import networkx as nx
-from ase.io import read, cif
+from ase.io import cif
 from ase.neighborlist import NeighborList, natural_cutoffs
 
 
@@ -18,7 +18,7 @@ def read_cif_file(cif_file):
         ase.Atoms: The atoms object.
     """
     # Read in the CIF file
-    #atoms = read(cif_file)
+    # atoms = read(cif_file)
     atoms = cif.read_cif(cif_file, primitive_cell=True, subtrans_included=False)
     return atoms
 

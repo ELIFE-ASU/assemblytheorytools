@@ -27,13 +27,13 @@ def nx_to_mol(graph, add_hydrogens=True):
 
     # Define the bond converter dictionary
     converter = {
-            1: Chem.rdchem.BondType.SINGLE,
-            2: Chem.rdchem.BondType.DOUBLE,
-            3: Chem.rdchem.BondType.TRIPLE,
-            4: Chem.rdchem.BondType.QUADRUPLE,
-            5: Chem.rdchem.BondType.QUINTUPLE,
-            6: Chem.rdchem.BondType.IONIC,
-        }
+        1: Chem.rdchem.BondType.SINGLE,
+        2: Chem.rdchem.BondType.DOUBLE,
+        3: Chem.rdchem.BondType.TRIPLE,
+        4: Chem.rdchem.BondType.QUADRUPLE,
+        5: Chem.rdchem.BondType.QUINTUPLE,
+        6: Chem.rdchem.BondType.IONIC,
+    }
 
     # Add atoms to the molecule
     for node, data in graph.nodes(data=True):
