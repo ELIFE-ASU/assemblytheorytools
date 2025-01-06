@@ -4,7 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="77de8b7d-d8e8-47f2-8a19-5f31d63f2940" name="Changes" comment="" />
+    <list default="true" id="77de8b7d-d8e8-47f2-8a19-5f31d63f2940" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/assemblytheorytools/assembly.py" beforeDir="false" afterPath="$PROJECT_DIR$/assemblytheorytools/assembly.py" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -199,6 +201,7 @@
       <workItem from="1734454021614" duration="1011000" />
       <workItem from="1734458666154" duration="634000" />
       <workItem from="1734993405597" duration="1119000" />
+      <workItem from="1736183687002" duration="543000" />
     </task>
     <servers />
   </component>

@@ -137,7 +137,7 @@ def calculate_assembly_index(mol,
         else:
             temp_dir = tempfile.mkdtemp()
 
-        # Check if the input is a rdkit mol
+        # Assuming a NetworkX graph
         if isinstance(mol, nx.Graph):
             # Check if we need to strip hydrogen
             if strip_hydrogen:
@@ -146,7 +146,7 @@ def calculate_assembly_index(mol,
             file_path_in = os.path.join(temp_dir, f"graph_in")
             # Write the input graph file
             write_ass_graph_file(mol, file_name=file_path_in)
-
+        # Check if the input is a rdkit mol
         elif isinstance(mol, Chem.Mol):
             # Check if we need to strip hydrogen
             if strip_hydrogen:
