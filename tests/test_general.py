@@ -189,6 +189,18 @@ def test_ass_mol_debug():
     shutil.rmtree(dir_list[0])
 
 
+def test_joint_ass():
+    molecules = ["NCC(O)=O","CC(N)C(O)=O"]
+    # Convert all the smile to mol
+    mols = [att.smi_to_mol(smile) for smile in molecules]
+    mol = att.combine_mols(mols)
+
+    # Calculate the assembly index
+    ai, path = att.calculate_assembly_index(mol, strip_hydrogen=True)
+
+    assert ai == 4
+
+
 def test_joint_ass_mol():
     molecules = "[H]C#C[H].[H][C]([H])([H])[C]([H])([H])[H].[H]C([H])([H])([H]).[H]O([H]).[H]N([H])([H]).[H][N+]([H])([H])([H]).[S-]([H]).[H][H]"
     molecules = molecules.split(".")
@@ -348,21 +360,14 @@ def test_cif_ai():
 
 
 def test_semi_metric():
-    # PLEASE UPDATE
-    molecules = "[H]C#C[H].[H][C]([H])([H])[C]([H])([H])[H].[H]C([H])([H])([H]).[H]O([H]).[H]N([H])([H]).[H][N+]([H])([H])([H]).[S-]([H]).[H][H]"
-    molecules = molecules.split(".")
+    molecules = ["NCC(O)=O","CC(N)C(O)=O"]
     # Convert all the smile to mol
     mols = [att.smi_to_mol(smile) for smile in molecules]
     # Convert the system into graphs
     graphs = [att.mol_to_nx(mol) for mol in mols]
-    # Join the graphs
-    graphs_joint = nx.disjoint_union_all(graphs)
-    # Calculate the assembly index
-    ai, path = att.calculate_assembly_index(graphs_joint)
-    # Compare to the hand calculated value
-    out_graph = nx.disjoint_union_all(path["file_graph"])
-    assert ai == 11
-    assert att.is_graph_isomorphic(graphs_joint, out_graph)
+
+    distance = att.calculate_assembly_semi_metric(graphs[0], graphs[1], dir_code=None, timeout=100.0, debug=True, strip_hydrogen=True)
+    assert distance == 1
 
 
 def test_auto_compile():

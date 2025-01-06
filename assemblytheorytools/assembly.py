@@ -9,8 +9,8 @@ from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 
 import CFG
-from .graph_tools import write_ass_graph_file, remove_hydrogen_from_graph, get_disconnected_subgraphs
-from .mol_tools import write_v2k_mol_file
+from .graph_tools import write_ass_graph_file, remove_hydrogen_from_graph, get_disconnected_subgraphs, nx_to_mol
+from .mol_tools import write_v2k_mol_file, combine_mols
 from .pathway import get_pathway_to_graph, get_pathway_to_mol, get_pathway_to_inchi
 
 
@@ -218,12 +218,13 @@ def calculate_assembly_index(mol,
                 return -1, None
 
 
-def calculate_assembly_semi_metric(graph, dir_code=None, timeout=100.0, debug=False, strip_hydrogen=False):
+def calculate_assembly_semi_metric(graph1, graph2, dir_code=None, timeout=100.0, debug=False, strip_hydrogen=False):
     """
-    Calculate the assembly semi-metric for a given graph.
+    Calculate the assembly semi-metric distance between a pair of molecular graphs. 
 
     Args:
-        graph (nx.Graph): The input molecule as a NetworkX graph.
+        graph1 (nx.Graph): First input molecule as a NetworkX graph.
+        graph2 (nx.Graph): Second input molecule as a NetworkX graph.
         dir_code (str, optional): The directory code for the assembly tool. Defaults to None.
         timeout (float, optional): The maximum time in seconds to allow the command to run. Defaults to 100.0 seconds.
         debug (bool, optional): If True, create a directory with a timestamp for debugging. Defaults to False.
@@ -233,24 +234,33 @@ def calculate_assembly_semi_metric(graph, dir_code=None, timeout=100.0, debug=Fa
         int: The difference between the joint assembly index and the sum of the assembly indices of the disconnected subgraphs.
     """
     # Here we have to assume it is in graph format to make sure we can split the system easily
-    assert isinstance(graph, nx.Graph), "Input must be a NetworkX graph"
+    assert isinstance(graph1, nx.Graph), "Input must be a NetworkX graph"
+    assert isinstance(graph2, nx.Graph), "Input must be a NetworkX graph"
+
+    # # Get the disconnected subgraphs
+    # subgraphs = get_disconnected_subgraphs(graph)
+    # assert len(subgraphs) == 2, "Semimetric distance is between exactly two molecular graphs."
+
+    # Combine the graphs into a single graph with 2 disjoint components
+    mols = [nx_to_mol(graph1), nx_to_mol(graph2)]
+    mol = combine_mols(mols)
 
     # Calculate the joint assembly index
-    jai, _ = calculate_assembly_index(graph, dir_code=dir_code, timeout=timeout, debug=debug,
+    jai, _ = calculate_assembly_index(mol, dir_code=dir_code, timeout=timeout, debug=debug,
                                       strip_hydrogen=strip_hydrogen)
-
-    # Get the disconnected subgraphs
-    subgraphs = get_disconnected_subgraphs(graph)
-
+    if debug:
+        print(f"Joint Assembly Index: {jai}", flush=True)
     # Calculate the assembly index for each subgraph
     result = 0
-    for graph in subgraphs:
-        ai, _ = calculate_assembly_index(graph, dir_code=dir_code, timeout=timeout, debug=debug,
+    for subgraph in [graph1, graph2]:
+        ai, _ = calculate_assembly_index(subgraph, dir_code=dir_code, timeout=timeout, debug=debug,
                                          strip_hydrogen=strip_hydrogen)
+        if debug:
+            print(f"Assembly Index: {ai}", flush=True)
         result += ai
 
-    # Return the difference
-    return jai - result
+    # Calculate the semimetric distance
+    return 2 * jai - result
 
 
 def run_command_simple(command):
@@ -313,3 +323,4 @@ def compile_assembly_code():
     # run_command_simple(f"g++ assemblycpp-main/v5_combined_linux/main.cpp -O3 -o asscpp_v5 -I {boost_dir}")
     # run_command_simple("rm -r")
     return None
+
