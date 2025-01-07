@@ -1,5 +1,5 @@
 import numpy as np
-
+import networkx as nx
 
 def load_fasta(file_path):
     """
@@ -63,3 +63,53 @@ def get_unique_char(input_str):
         char = chr(i)
         if char not in input_str:
             return char
+
+
+def get_dirstr_molecule(dir_str):
+    """
+    Make a molecule that corresponds to a directed string. The string will have the same assembly index
+    as the molecular graph, and the paths will correspond as well.
+
+    Args:
+        dir_str (str): The directed string.
+
+    Returns:
+        graph: A networkx graph of the corresponding molecule.
+    """
+    
+    graph = nx.Graph()
+    graph.add_node(0, label=0)
+    graph.add_node(1,label=0)
+    graph.add_edge(0,1,label=dir_str[0])
+    for i in range(1, len(dir_str)):
+        graph.add_node(i+1, label=0)
+        graph.add_edge(i, i+1,label=dir_str[i])
+
+    return graph
+
+
+def get_undir_str_molecule(undir_str):
+    """
+    Make a molecule that corresponds to an undirected string. The string will have the same assembly index
+    as the molecular graph, and the paths will correspond as well.
+
+    Args:
+        undir_str (str): The undirected string.
+
+    Returns:
+        graph: A networkx graph of the corresponding molecule.
+    """
+    blank = get_unique_char(undir_str)
+    graph = nx.Graph()
+    graph.add_node(0, label=blank)
+    graph.add_node(1, label=undir_str[0])
+    graph.add_node(2, label=blank)
+    graph.add_edge(0, 1)
+    graph.add_edge(1, 2)
+    for i in range(1, len(undir_str)):
+        graph.add_node(2*i+1, label=undir_str[i])
+        graph.add_edge(2*i, 2*i+1)
+        graph.add_node(2*i+2, label=blank)
+        graph.add_edge(2*i+1, 2*i+2)
+
+    return graph
