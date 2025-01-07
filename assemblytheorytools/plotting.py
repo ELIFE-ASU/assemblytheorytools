@@ -9,6 +9,9 @@ def n_plot(xlab, ylab, xs=14, ys=14):
     """
     Configure and style the plot with specified labels and tick parameters.
 
+    Use with
+    plt.rcParams['axes.linewidth'] = 2.0
+
     Args:
         xlab (str): The label for the x-axis.
         ylab (str): The label for the y-axis.
@@ -31,6 +34,9 @@ def n_plot(xlab, ylab, xs=14, ys=14):
 def ax_plot(fig, ax, xlab, ylab, xs=14, ys=14):
     """
     Configure and style the plot with specified labels and tick parameters for a given axis.
+
+    Use with
+    plt.rcParams['axes.linewidth'] = 2.0
 
     Args:
         fig (matplotlib.figure.Figure): The figure object containing the plot.

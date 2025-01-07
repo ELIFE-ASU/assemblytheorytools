@@ -5,7 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="77de8b7d-d8e8-47f2-8a19-5f31d63f2940" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/assemblytheorytools/assembly.py" beforeDir="false" afterPath="$PROJECT_DIR$/assemblytheorytools/assembly.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/assemblytheorytools/plotting.py" beforeDir="false" afterPath="$PROJECT_DIR$/assemblytheorytools/plotting.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -202,6 +203,7 @@
       <workItem from="1734458666154" duration="634000" />
       <workItem from="1734993405597" duration="1119000" />
       <workItem from="1736183687002" duration="543000" />
+      <workItem from="1736278995083" duration="477000" />
     </task>
     <servers />
   </component>
