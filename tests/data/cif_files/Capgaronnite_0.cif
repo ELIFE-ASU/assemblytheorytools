@@ -1,0 +1,59 @@
+
+##########################################################################
+#               Crystallographic Information Format file
+#               Produced by PyCifRW module
+#
+#  This is a CIF file.  CIF has been adopted by the International
+#  Union of Crystallography as the standard for data archiving and
+#  transmission.
+#
+#  For information on this file format, follow the CIF links at
+#  http://www.iucr.org
+##########################################################################
+
+data_global
+
+_chemical_name_mineral                  Capgaronnite
+loop_
+  _publ_author_name
+         'Mason B'           
+         'Mumme W G'         
+         'Sarp H' 
+_journal_name_full                      'American Mineralogist'
+_journal_volume                         77
+_journal_year                           1992
+_journal_page_first                     197
+_journal_page_last                      200
+_publ_section_title                     
+;
+ Capgaronnite, HgSAg(Cl,Br,I), a new sulfide-halide mineral from Var, France
+;
+_database_code_amcsd                    0001444
+_chemical_formula_sum                   'Hg Ag S (Cl.82 Br.18)'
+_cell_length_a                          6.803
+_cell_length_b                          12.87
+_cell_length_c                          4.528
+_cell_angle_alpha                       90
+_cell_angle_beta                        90
+_cell_angle_gamma                       90
+_cell_volume                            396.447
+_exptl_crystal_density_diffrn           6.433
+_symmetry_space_group_name_H-M          'P 21 21 2'
+loop_
+  _space_group_symop_operation_xyz
+         'x,y,z'   
+         '1/2-x,1/2+y,-z'    
+         '1/2+x,1/2-y,-z'    
+         '-x,-y,z' 
+loop_
+  _atom_site_label
+  _atom_site_fract_x
+  _atom_site_fract_y
+  _atom_site_fract_z
+  _atom_site_occupancy
+  _atom_site_u_iso_or_equiv
+         Hg        0.13400   0.25300   0.46400   1.00000   0.03500   
+         Ag        0.29100   0.04400   -0.01000  1.00000   0.11000   
+         S         0.39000   0.11400   0.46800   1.00000   0.03800   
+         Cl        0.38300   0.35500   0.03100   0.82000   0.11000   
+         Br        0.38300   0.35500   0.03100   0.18000   0.11000 

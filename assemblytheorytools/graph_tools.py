@@ -6,7 +6,7 @@ from networkx.algorithms.isomorphism import GraphMatcher
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 
-from .moltools import safe_standardize_mol, smi_to_mol
+from .mol_tools import safe_standardize_mol, smi_to_mol
 
 
 def nx_to_mol(graph, add_hydrogens=True):
@@ -25,6 +25,16 @@ def nx_to_mol(graph, add_hydrogens=True):
     # Dictionary to map node identifiers to atom indices in the RDKit molecule
     node_to_idx = {}
 
+    # Define the bond converter dictionary
+    converter = {
+        1: Chem.rdchem.BondType.SINGLE,
+        2: Chem.rdchem.BondType.DOUBLE,
+        3: Chem.rdchem.BondType.TRIPLE,
+        4: Chem.rdchem.BondType.QUADRUPLE,
+        5: Chem.rdchem.BondType.QUINTUPLE,
+        6: Chem.rdchem.BondType.IONIC,
+    }
+
     # Add atoms to the molecule
     for node, data in graph.nodes(data=True):
         # Get the atomic symbol from the node's 'color' attribute, default to 'C' if not present
@@ -38,12 +48,7 @@ def nx_to_mol(graph, add_hydrogens=True):
         # Get the bond order from the edge's 'color' attribute, default to 1 if not present
         bond_order = data.get('color', 1)
         # Map the bond order to RDKit's bond types
-        bond_type = {
-            1: Chem.rdchem.BondType.SINGLE,
-            2: Chem.rdchem.BondType.DOUBLE,
-            3: Chem.rdchem.BondType.TRIPLE,
-            4: Chem.rdchem.BondType.IONIC,
-        }.get(bond_order, Chem.rdchem.BondType.SINGLE)
+        bond_type = converter.get(bond_order, Chem.rdchem.BondType.SINGLE)
         # Add the bond to the molecule
         mol.AddBond(node_to_idx[u], node_to_idx[v], bond_type)
 
@@ -52,20 +57,35 @@ def nx_to_mol(graph, add_hydrogens=True):
 
 
 def mol_to_nx(mol, add_hydrogens=True):
+    """
+    Convert an RDKit molecule to a NetworkX graph.
+
+    Args:
+        mol (rdkit.Chem.Mol): The RDKit molecule to convert.
+        add_hydrogens (bool, optional): Whether to keep hydrogen atoms in the graph. Default is True.
+
+    Returns:
+        networkx.Graph: The resulting NetworkX graph where nodes represent atoms and edges represent bonds.
+    """
     graph = nx.Graph()
     converter = {Chem.rdchem.BondType.SINGLE: 1,
                  Chem.rdchem.BondType.DOUBLE: 2,
                  Chem.rdchem.BondType.TRIPLE: 3,
-                 Chem.rdchem.BondType.IONIC: 4}
+                 Chem.rdchem.BondType.QUADRUPLE: 4,
+                 Chem.rdchem.BondType.QUINTUPLE: 5,
+                 Chem.rdchem.BondType.IONIC: 6}
 
     for atom in mol.GetAtoms():
         graph.add_node(atom.GetIdx(),
                        color=atom.GetSymbol())
 
     for bond in mol.GetBonds():
+        # Map the bond order to RDKit's bond types
+        bond_type = converter.get(bond.GetBondType(), 1)
+        # Add the bond to the graph
         graph.add_edge(bond.GetBeginAtomIdx(),
                        bond.GetEndAtomIdx(),
-                       color=converter[bond.GetBondType()])
+                       color=bond_type)
     # Remove the nodes with hydrogen as the color
     if add_hydrogens is False:
         graph = remove_hydrogen_from_graph(graph)
@@ -73,6 +93,15 @@ def mol_to_nx(mol, add_hydrogens=True):
 
 
 def remove_hydrogen_from_graph(graph):
+    """
+    Remove all hydrogen atoms from a NetworkX graph.
+
+    Args:
+        graph (nx.Graph): The input NetworkX graph where nodes represent atoms.
+
+    Returns:
+        nx.Graph: The modified graph with all hydrogen atoms removed.
+    """
     nodes = list(graph.nodes())
     for node in nodes:
         if graph.nodes[node]["color"] == "H":
@@ -193,7 +222,15 @@ def read_graph(file_name="graph.graphml"):
 
 
 def get_bond_smiles(mol):
-    """Get the list of bonds of the system in SMILES format"""
+    """
+    Get the list of bonds of the system in SMILES format.
+
+    Args:
+        mol (rdkit.Chem.Mol): The RDKit molecule object.
+
+    Returns:
+        set: A set of strings representing the bonds in SMILES format.
+    """
     bond_smiles = set()
     for bond in mol.GetBonds():
         atom1 = mol.GetAtomWithIdx(bond.GetBeginAtomIdx())
@@ -221,12 +258,29 @@ def get_bond_smiles(mol):
 
 
 def graph_to_smiles(graph):
+    """
+    Convert a NetworkX graph to a SMILES string.
+
+    Args:
+        graph (nx.Graph): The input NetworkX graph where nodes represent atoms and edges represent bonds.
+
+    Returns:
+        str: The SMILES string representation of the molecule.
+    """
     mol = nx_to_mol(graph)
     return Chem.MolToSmiles(mol)
 
 
 def create_ionic_molecule(smiles):
-    """Create a combined graph for an ionic molecule from dot-separated SMILES."""
+    """
+    Create a combined graph for an ionic molecule from dot-separated SMILES.
+
+    Args:
+        smiles (str): The SMILES string representing the ionic molecule, with parts separated by dots.
+
+    Returns:
+        tuple: A tuple containing the combined NetworkX graph and a list of RDKit molecule objects.
+    """
     # Split the SMILES at the dot
     parts = smiles.split('.')
 

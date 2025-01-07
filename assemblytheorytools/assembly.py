@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 import tempfile
 from datetime import datetime
@@ -8,8 +9,8 @@ from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 
 import CFG
-from .graphtools import write_ass_graph_file
-from .moltools import write_v2k_mol_file
+from .graph_tools import write_ass_graph_file, remove_hydrogen_from_graph, get_disconnected_subgraphs, nx_to_mol
+from .mol_tools import write_v2k_mol_file, combine_mols
 from .pathway import get_pathway_to_graph, get_pathway_to_mol, get_pathway_to_inchi
 
 
@@ -99,7 +100,12 @@ def joint_correction(mol, ass_index):
     return ass_index - correction
 
 
-def calculate_assembly_index(mol, dir_code=None, timeout=100.0, debug=False):
+def calculate_assembly_index(mol,
+                             dir_code=None,
+                             timeout=100.0,
+                             debug=False,
+                             joint_corr=True,
+                             strip_hydrogen=False):
     """
     Calculate the assembly index for a given molecule.
 
@@ -108,48 +114,67 @@ def calculate_assembly_index(mol, dir_code=None, timeout=100.0, debug=False):
         dir_code (str, optional): The directory code for the assembly tool. Defaults to None.
         timeout (float, optional): The maximum time in seconds to allow the command to run. Defaults to 100.0 seconds.
         debug (bool, optional): If True, create a directory with a timestamp for debugging. Defaults to False.
+        joint_corr (bool, optional): If True, corrects the joint assembly calculation to account for disjointed graphs. Defaults to True.
+        strip_hydrogen (bool, optional): If True, removes hydrogen atoms from the molecule before calculation. Defaults to False.
 
     Returns:
         tuple: A tuple containing the corrected assembly index (int) and the pathway (varies based on input type).
     """
+    file_path_in = None
     if isinstance(mol, str) and not mol.endswith(".mol"):
-        ai, path = CFG.ai_upper_with_pathways(mol, f_print=False)
+        ai, virt_obj, path = CFG.ai_with_pathways(mol, f_print=False)
         return ai, path
     else:
+        # Get the assembly code directory
         if dir_code is None:
             dir_code = os.environ.get("ASS_PATH")
-        # Check if the input is a rdkit mol
+
+        # Make the directory
+        if debug:
+            # Define the directory name with the timestamp
+            temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}"
+            os.makedirs(temp_dir)
+        else:
+            temp_dir = tempfile.mkdtemp()
+
+        # Assuming a NetworkX graph
         if isinstance(mol, nx.Graph):
-            # Make the directory
-            if debug:
-                # Define the directory name with the timestamp
-                temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}"
-                os.makedirs(temp_dir)
-            else:
-                temp_dir = tempfile.mkdtemp()
+            # Check if we need to strip hydrogen
+            if strip_hydrogen:
+                mol = remove_hydrogen_from_graph(mol)
             # Make the in file
             file_path_in = os.path.join(temp_dir, f"graph_in")
             # Write the input graph file
             write_ass_graph_file(mol, file_name=file_path_in)
+        # Check if the input is a rdkit mol
         elif isinstance(mol, Chem.Mol):
-            # Make the directory
-            if debug:
-                # Define the directory name with the timestamp
-                temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}"
-                os.makedirs(temp_dir)
-            else:
-                temp_dir = tempfile.mkdtemp()
+            # Check if we need to strip hydrogen
+            if strip_hydrogen:
+                mol = Chem.RemoveHs(mol)
+
             # Write the mol file
             mol_file = os.path.join(temp_dir, f"tmp.mol")
             # Write the input mol file
             write_v2k_mol_file(mol, mol_file)
             # Get the infile
             file_path_in = os.path.splitext(mol_file)[0]
+
         elif mol.endswith(".mol"):
+            if strip_hydrogen:
+                # Load the mol file
+                mol_ob = Chem.MolFromMolFile(mol, sanitize=False, removeHs=True)
+                # Make a temp dir to prevent overwriting
+                mol = os.path.join(temp_dir, "tmp.mol")
+                # Make a new mol file
+                Chem.MolToMolFile(mol_ob, mol)
+            else:
+                # Copy the mol file into the temp directory
+                shutil.copy(mol, os.path.join(temp_dir, "tmp.mol"))
+                mol = os.path.join(temp_dir, "tmp.mol")
+
             # Get the infile
             file_path_in = os.path.splitext(mol)[0]
         else:
-            file_path_in = mol
             ValueError("Input not supported")
         # Get the output file
         file_path_out = os.path.join(file_path_in + "Out")
@@ -184,14 +209,82 @@ def calculate_assembly_index(mol, dir_code=None, timeout=100.0, debug=False):
                         ValueError("Input not supported")
                 else:
                     path = None
-                return joint_correction(mol, value), path
+                if joint_corr:
+                    return joint_correction(mol, value), path
+                else:
+                    return value, path
             except Exception as e:
                 print(f"Failed to load assembly output: {file_path_out}, Error: {e}", flush=True)
                 return -1, None
 
 
+def calculate_assembly_semi_metric(graph1, graph2, dir_code=None, timeout=100.0, debug=False, strip_hydrogen=False):
+    """
+    Calculate the assembly semi-metric distance between a pair of molecular graphs. 
+
+    Args:
+        graph1 (nx.Graph): First input molecule as a NetworkX graph.
+        graph2 (nx.Graph): Second input molecule as a NetworkX graph.
+        dir_code (str, optional): The directory code for the assembly tool. Defaults to None.
+        timeout (float, optional): The maximum time in seconds to allow the command to run. Defaults to 100.0 seconds.
+        debug (bool, optional): If True, create a directory with a timestamp for debugging. Defaults to False.
+        strip_hydrogen (bool, optional): If True, removes hydrogen atoms from the molecule before calculation. Defaults to False.
+
+    Returns:
+        int: The difference between the joint assembly index and the sum of the assembly indices of the disconnected subgraphs.
+    """
+    # Here we have to assume it is in graph format to make sure we can split the system easily
+    assert isinstance(graph1, nx.Graph), "Input must be a NetworkX graph"
+    assert isinstance(graph2, nx.Graph), "Input must be a NetworkX graph"
+
+    # # Get the disconnected subgraphs
+    # subgraphs = get_disconnected_subgraphs(graph)
+    # assert len(subgraphs) == 2, "Semimetric distance is between exactly two molecular graphs."
+
+    # Combine the graphs into a single graph with 2 disjoint components
+    mols = [nx_to_mol(graph1), nx_to_mol(graph2)]
+    mol = combine_mols(mols)
+
+    # Calculate the joint assembly index
+    jai, _ = calculate_assembly_index(mol, dir_code=dir_code, timeout=timeout, debug=debug,
+                                      strip_hydrogen=strip_hydrogen)
+    if debug:
+        print(f"Joint Assembly Index: {jai}", flush=True)
+    # Calculate the assembly index for each subgraph
+    result = 0
+    for subgraph in [graph1, graph2]:
+        ai, _ = calculate_assembly_index(subgraph, dir_code=dir_code, timeout=timeout, debug=debug,
+                                         strip_hydrogen=strip_hydrogen)
+        if debug:
+            print(f"Assembly Index: {ai}", flush=True)
+        result += ai
+
+    # Calculate the semimetric distance
+    return 2 * jai - result
+
+
+def run_command_simple(command):
+    """
+    Run a simple command in the subprocess.
+
+    Args:
+        command (str): The command to run as a string.
+
+    Returns:
+        bytes: The standard output of the command.
+    """
+    result = subprocess.run(command.split())
+    return result.stdout
+
+
 def compile_assembly_code():
     """
+    Set up the keys
+    go to gitlab website
+    click your profile icon
+    go to ssh keys
+
+    ssh-agent $(ssh-add rsa-key-20240430; git clone git@gitlab.com:croningroup/cheminformatics/assemblycpp.git)
     # Get the assembly code
     git clone git@gitlab.com:croningroup/cheminformatics/assemblycpp.git
     or download the .tar.gz
@@ -205,20 +298,29 @@ def compile_assembly_code():
     which g++ || sudo apt-get install g++ -y
 
     # Get the boost code
-    wget 'https://archives.boost.io/release/1.66.0/source/boost_1_66_0.tar.gz'
-    tar -xvzf boost_1_66_0.tar.gz
-    rm boost_1_66_0.tar.gz
+    wget 'https://archives.boost.io/release/1.86.0/source/boost_1_86_0.tar.gz'
+    # Unzip the boost code
+    tar -xvzf boost_1_86_0.tar.gz
+    # Remove the boost zip file
+    rm boost_1_86_0.tar.gz
 
-    cd /$HOME/assemblycpp-main/v5_boost_linux/
-    g++ main.cpp -O3 -o asscpp_v5_boost -I/$HOME/boost_1_66_0/
+    g++ main.cpp -O3 -o asscpp_v5 -I/boost_1_86_0/
     export ASS_PATH=$HOME/asscpp/v5_boost/asscpp_v5_boost_recursive
 
-    """
-    c_assembly_pull = "git clone git@gitlab.com:croningroup/cheminformatics/assemblycpp.git"
-    c_assembly_extract = "tar -xvzf assemblycpp-main.tar.gz"
-    c_assembly_remove = "rm assemblycpp-main.tar.gz"
+    # Remove the boost folder
+    rm -r
 
+    """
+    boost_dir = os.path.abspath(os.path.expanduser(os.path.join(os.getcwd(), "/boost_1_86_0")))
     # Get the assembly code
-    subprocess.run(c_assembly_pull)
-    subprocess.run(c_assembly_extract)
+    # run_command_simple("git clone git@gitlab.com:croningroup/cheminformatics/assemblycpp.git")
+
+    # run_command_simple("tar -xvzf assemblycpp-main.tar.gz")
+    # run_command_simple("rm assemblycpp-main.tar.gz")
+    # run_command_simple("wget https://archives.boost.io/release/1.86.0/source/boost_1_86_0.tar.gz")
+    # run_command_simple("tar -xvzf boost_1_86_0.tar.gz")
+    # run_command_simple("rm boost_1_86_0.tar.gz")
+    # run_command_simple(f"g++ assemblycpp-main/v5_combined_linux/main.cpp -O3 -o asscpp_v5 -I {boost_dir}")
+    # run_command_simple("rm -r")
     return None
+

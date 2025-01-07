@@ -5,7 +5,7 @@ import networkx as nx
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 
-from .graphtools import nx_to_mol, get_disconnected_subgraphs
+from .graph_tools import nx_to_mol, get_disconnected_subgraphs
 
 
 def convert_edge_color(edge_color):
@@ -13,14 +13,24 @@ def convert_edge_color(edge_color):
     Convert an edge color descriptor to its corresponding numerical value.
 
     Args:
-        edge_color (str): The descriptor of the edge color (e.g., 'single', 'double', 'triple').
+        edge_color (str or int): The descriptor of the edge color (e.g., 'single', ....) or an integer value.
 
     Returns:
         int: The numerical value corresponding to the edge color.
     """
-    # Use the predefined edge_color_map
-    edge_color_map = {"single": 1, "double": 2, "triple": 3}
-    return edge_color_map[edge_color]
+    edge_color_map = {
+        "single": 1,
+        "double": 2,
+        "triple": 3,
+        "quadruple": 4,
+        "quintuple": 5,
+        "ionic": 6,
+    }
+
+    if edge_color in edge_color_map:
+        return edge_color_map[edge_color]
+    else:
+        return int(edge_color)
 
 
 def add_nodes_edges(graph, vertices, vertex_colors, edges, edge_colors):
@@ -259,6 +269,15 @@ def get_mol_pathway_to_smi(pathway):
 
 
 def convert_pathway_dict_to_list(in_dict):
+    """
+    Convert a dictionary of pathways to a list.
+
+    Args:
+        in_dict (dict): A dictionary where keys are section names and values are lists of pathways.
+
+    Returns:
+        list: A list containing all pathways from the input dictionary.
+    """
     in_list = []
     for key in in_dict:
         in_list.extend(in_dict[key])
