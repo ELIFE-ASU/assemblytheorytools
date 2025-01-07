@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="assembly" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="mol_comp_linux" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="assembly" project-jdk-type="Python SDK" />
 </project>

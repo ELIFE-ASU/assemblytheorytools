@@ -304,6 +304,33 @@ def test_hand_graph():
     assert ai == 3
 
 
+def test_create_ionic_molecule():
+    smiles = "[NH4+].[SH-]"
+    # Create the ionic molecule
+    combined, mols = att.create_ionic_molecule(smiles)
+
+    # Check that the combined graph has the correct number of nodes and edges
+    assert combined.number_of_nodes() == sum(mol.GetNumAtoms() for mol in mols)
+    assert combined.number_of_edges() == sum(mol.GetNumBonds() for mol in mols) + len(mols) - 1
+
+    # Check that the combined graph contains the ionic bond
+    ionic_bond_found = False
+    for u, v, data in combined.edges(data=True):
+        if data.get('bond_type') == 'ionic':
+            ionic_bond_found = True
+            break
+    assert ionic_bond_found
+
+    # Check that the assembly index is 3
+    ai, _ = att.calculate_assembly_index(combined)
+
+    # Subtract 1 from assembly index for ionic molecules
+    if '.' in smiles:
+        ai -= 1
+
+    assert ai == 3
+
+
 def test_cif_loading():
     print(flush=True)
     target_dir = "data/cif_files/"
