@@ -3,7 +3,7 @@ import shutil
 import subprocess
 import tempfile
 from datetime import datetime
-
+from typing import Union, List
 import networkx as nx
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
@@ -12,6 +12,7 @@ import CFG
 from .graph_tools import write_ass_graph_file, remove_hydrogen_from_graph, nx_to_mol
 from .mol_tools import write_v2k_mol_file, combine_mols
 from .pathway import get_pathway_to_graph, get_pathway_to_mol, get_pathway_to_inchi
+from .string_tools import prep_joint_string_ai, get_dirstr_molecule, get_undir_str_molecule
 
 
 def load_assembly_output(file_path):
@@ -331,6 +332,43 @@ def compile_assembly_code():
     # run_command_simple(f"g++ assemblycpp-main/v5_combined_linux/main.cpp -O3 -o asscpp_v5 -I {boost_dir}")
     # run_command_simple("rm -r")
     return None
+
+
+def calculate_string_assembly_index(input_data: Union[str, List[str]], dir_code=None, timeout=100.0, debug=False, directed=False):
+    """
+    Calculate the assembly index of a string or a set of strings. 
+    This function uses the molecular assembly calculator by constructing molecular graphs which correspond to the strings.
+
+    Args:
+        input_data (Union[str, List[str]]): The input data, which can be a single string or a list of strings.
+        dir_code (str, optional): The directory code for the assembly tool. Defaults to None.
+        timeout (float, optional): The maximum time in seconds to allow the command to run. Defaults to 100.0 seconds.
+        debug (bool, optional): If True, create a directory with a timestamp for debugging. Defaults to False.
+        directed (bool, optional): If True, treat strings as directed. Defaults to False, treating strings as undirected.
+    """
+    if isinstance(input_data, str):
+        # Handle the case where input_data is a single string
+        string = input_data
+        delimiters = []
+    elif isinstance(input_data, list):
+        # Handle joint assembly case
+        string, delimiters = prep_joint_string_ai(input_data)
+    else:
+        raise ValueError("Input must be either a single string or a list of strings")
+
+    if directed:
+        graph = get_dirstr_molecule(string)
+    else:
+        graph = get_undir_str_molecule(string)
+    
+    graph_ai, graph_path = calculate_assembly_index(graph, dir_code=dir_code, timeout=timeout, debug=debug, joint_corr=False, strip_hydrogen=False)
+
+    if directed:
+        # Convert to (joint) assembly index of directed strings
+        return graph_ai - 2 * len(delimiters), None # Path parsing still needs to be added
+    else:
+        # Convert to (joint) assembly index of undirected strings
+        return graph_ai - len(set(string)) - 2 * len(delimiters), None # Path parsing still needs to be added
 
 
 def assembly_dry_run(mol, temp_dir=None, strip_hydrogen=False):
