@@ -323,4 +323,3 @@ def compile_assembly_code():
     # run_command_simple(f"g++ assemblycpp-main/v5_combined_linux/main.cpp -O3 -o asscpp_v5 -I {boost_dir}")
     # run_command_simple("rm -r")
     return None
-

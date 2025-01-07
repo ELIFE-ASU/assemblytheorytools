@@ -190,7 +190,7 @@ def test_ass_mol_debug():
 
 
 def test_joint_ass():
-    molecules = ["NCC(O)=O","CC(N)C(O)=O"]
+    molecules = ["NCC(O)=O", "CC(N)C(O)=O"]
     # Convert all the smile to mol
     mols = [att.smi_to_mol(smile) for smile in molecules]
     mol = att.combine_mols(mols)
@@ -387,13 +387,18 @@ def test_cif_ai():
 
 
 def test_semi_metric():
-    molecules = ["NCC(O)=O","CC(N)C(O)=O"]
+    molecules = ["NCC(O)=O", "CC(N)C(O)=O"]
     # Convert all the smile to mol
     mols = [att.smi_to_mol(smile) for smile in molecules]
     # Convert the system into graphs
     graphs = [att.mol_to_nx(mol) for mol in mols]
 
-    distance = att.calculate_assembly_semi_metric(graphs[0], graphs[1], dir_code=None, timeout=100.0, debug=True, strip_hydrogen=True)
+    distance = att.calculate_assembly_semi_metric(graphs[0],
+                                                  graphs[1],
+                                                  dir_code=None,
+                                                  timeout=100.0,
+                                                  debug=True,
+                                                  strip_hydrogen=True)
     assert distance == 1
 
 
