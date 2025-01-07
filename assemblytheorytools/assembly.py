@@ -334,7 +334,7 @@ def compile_assembly_code():
     return None
 
 
-def calculate_string_assembly_index(input_data: Union[str, List[str]], dir_code=None, timeout=100.0, debug=False, directed=False):
+def calculate_string_assembly_index(input_data: Union[str, List[str]], dir_code=None, timeout=100.0, debug=False, directed=False, mode="mol"):
     """
     Calculate the assembly index of a string or a set of strings. 
     This function uses the molecular assembly calculator by constructing molecular graphs which correspond to the strings.
@@ -345,6 +345,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]], dir_code=
         timeout (float, optional): The maximum time in seconds to allow the command to run. Defaults to 100.0 seconds.
         debug (bool, optional): If True, create a directory with a timestamp for debugging. Defaults to False.
         directed (bool, optional): If True, treat strings as directed. Defaults to False, treating strings as undirected.
+        mode ("mol"/"str"/"cfg",optional): "mol" uses the molecular assembly calculator, "str" uses the string assembly calculator (not yet supported), "cfg" uses the RePair upper bound.
     """
     if isinstance(input_data, str):
         # Handle the case where input_data is a single string
@@ -356,19 +357,32 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]], dir_code=
     else:
         raise ValueError("Input must be either a single string or a list of strings")
 
-    if directed:
-        graph = get_dirstr_molecule(string)
-    else:
-        graph = get_undir_str_molecule(string)
-    
-    graph_ai, graph_path = calculate_assembly_index(graph, dir_code=dir_code, timeout=timeout, debug=debug, joint_corr=False, strip_hydrogen=False)
+    if mode == "mol": # Use the molecular assembly cpp calculator
+        if directed:
+            graph = get_dirstr_molecule(string)
+        else:
+            graph = get_undir_str_molecule(string)
+        
+        graph_ai, graph_path = calculate_assembly_index(graph, dir_code=dir_code, timeout=timeout, debug=debug, joint_corr=False, strip_hydrogen=False)
 
-    if directed:
-        # Convert to (joint) assembly index of directed strings
-        return graph_ai - 2 * len(delimiters), None # Path parsing still needs to be added
-    else:
-        # Convert to (joint) assembly index of undirected strings
-        return graph_ai - len(set(string)) - 2 * len(delimiters), None # Path parsing still needs to be added
+        if directed:
+            # Convert to (joint) assembly index of directed strings
+            return graph_ai - 2 * len(delimiters), None # Path parsing still needs to be added
+        else:
+            # Convert to (joint) assembly index of undirected strings
+            return graph_ai - len(set(string)) - 2 * len(delimiters), None # Path parsing still needs to be added
+    
+    elif mode == "str": # Use the string assembly cpp calculator
+        raise NotImplementedError("String assembly cpp calculator not yet supported.")
+    
+    elif mode == "cfg": # Use the RePair upper bound
+        composite_ai, virt_obj, path = CFG.ai_with_pathways(string, f_print=False)
+        if directed:
+            # Convert to (joint) assembly index of directed strings
+            return composite_ai - 2 * len(delimiters), path
+        else:
+            ValueError("Current CFG code only works for directed strings. Directed string assembly index is an upper bound to undirected string assembly index, so you may still use the directed calculator.")
+        
 
 
 def assembly_dry_run(mol, temp_dir=None, strip_hydrogen=False):
