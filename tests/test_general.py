@@ -200,6 +200,17 @@ def test_joint_ass():
 
     assert ai == 4
 
+def test_big_joint_ass():
+    molecules = "NCC(=O)O.CC(N)C(=O)O.C([C@@H](C(=O)O)N)O.O=C(O)CC(N)C(=O)O.O=C(O)C(N)CS.OC(=O)CCC(N)C(=O)O.C[C@H]([C@@H](C(=O)O)N)O.CC(C)C(N)C(=O)O"
+    molecules += ".NC(=O)CC(N)C(=O)O.O=C(N)CCC(N)C(=O)O.CC(CC)C(N)C(=O)O.CC(C)CC(N)C(=O)O.NC(CCCCN)C(=O)O.O=C(O)C1CCCN1.O=C(O)C(N)CCSC.C(C[C@@H](C(=O)O)N)CN=C(N)N"
+    # Convert all the smile to mol
+    mols = [att.smi_to_mol(smile) for smile in molecules]
+    mol = att.combine_mols(mols)
+
+    # Calculate the assembly index
+    ai, path = att.calculate_assembly_index(mol, strip_hydrogen=True)
+
+    assert ai == 40
 
 def test_joint_ass_mol():
     molecules = "[H]C#C[H].[H][C]([H])([H])[C]([H])([H])[H].[H]C([H])([H])([H]).[H]O([H]).[H]N([H])([H]).[H][N+]([H])([H])([H]).[S-]([H]).[H][H]"
