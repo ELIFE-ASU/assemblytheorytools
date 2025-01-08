@@ -271,6 +271,7 @@ def graph_to_smiles(graph, add_hydrogens=True):
     mol = nx_to_mol(graph, add_hydrogens=add_hydrogens)
     return Chem.MolToSmiles(mol, allHsExplicit=True, kekuleSmiles=True)
 
+
 def graph_to_inchi(graph, add_hydrogens=True):
     """
     Convert a NetworkX graph to an InChI string.
@@ -284,6 +285,7 @@ def graph_to_inchi(graph, add_hydrogens=True):
     """
     mol = nx_to_mol(graph, add_hydrogens=add_hydrogens)
     return Chem.MolToInchi(mol)
+
 
 def create_ionic_molecule(smiles):
     """

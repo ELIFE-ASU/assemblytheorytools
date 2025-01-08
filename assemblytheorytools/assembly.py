@@ -109,6 +109,8 @@ def calculate_assembly_index(mol,
     """
     Calculate the assembly index for a given molecule.
 
+    WARNING it is the responsibility of the user to ensure the mol file has H or not!
+
     Args:
         mol (Union[nx.Graph, Chem.Mol, str]): The molecule, which can be a NetworkX graph, an RDKit molecule, or a file path to a .mol file.
         dir_code (str, optional): The directory code for the assembly tool. Defaults to None.
@@ -123,7 +125,7 @@ def calculate_assembly_index(mol,
     file_path_in = None
     if isinstance(mol, str) and not mol.endswith(".mol"):
         ai, virt_obj, path = CFG.ai_with_pathways(mol, f_print=False)
-        return ai, path
+        return ai, virt_obj, path
     else:
         # Get the assembly code directory
         if dir_code is None:
@@ -146,7 +148,7 @@ def calculate_assembly_index(mol,
             file_path_in = os.path.join(temp_dir, f"graph_in")
             # Write the input graph file
             write_ass_graph_file(mol, file_name=file_path_in)
-        # Check if the input is a rdkit mol
+        # Check if the input is a RDkit mol
         elif isinstance(mol, Chem.Mol):
             # Check if we need to strip hydrogen
             if strip_hydrogen:
@@ -158,8 +160,9 @@ def calculate_assembly_index(mol,
             write_v2k_mol_file(mol, mol_file)
             # Get the infile
             file_path_in = os.path.splitext(mol_file)[0]
-
-        elif mol.endswith(".mol"):
+        # Check if instance is a file path to a .mol file
+        elif isinstance(mol, str) and mol.endswith(".mol"):
+            # WARNING it is the responsibility of the user to ensure the mol file has H or not!
             if strip_hydrogen:
                 # Load the mol file
                 mol_ob = Chem.MolFromMolFile(mol, sanitize=False, removeHs=True)
@@ -189,7 +192,7 @@ def calculate_assembly_index(mol,
         # Get the output
         if not outcome:
             # If the assembly code failed return -1
-            return -1, None
+            return -1, None, None
         else:
             try:
                 # Load the assembly output
@@ -215,7 +218,7 @@ def calculate_assembly_index(mol,
                     return value, path
             except Exception as e:
                 print(f"Failed to load assembly output: {file_path_out}, Error: {e}", flush=True)
-                return -1, None
+                return -1, None, None
 
 
 def calculate_assembly_semi_metric(graph1, graph2, dir_code=None, timeout=100.0, debug=False, strip_hydrogen=False):
