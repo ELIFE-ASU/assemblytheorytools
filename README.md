@@ -14,8 +14,8 @@ Currently supports and connects to:
 
 # Requirements
 Make sure to load your conda environment. I would install them in this order:
-- numpy `conda install numpy`
-- matplotlib `conda install matplotlib`
+- numpy `conda install conda-forge::numpy`
+- matplotlib `conda install conda-forge::matplotlib`
 - networkx `conda install anaconda::networkx`
 - rdkit `conda install conda-forge::rdkit`
 - pyvis `conda install conda-forge::pyvis`
@@ -23,7 +23,7 @@ Make sure to load your conda environment. I would install them in this order:
 # For Local Installation 
 Install the requirements above (conda recommended). In one go:
 
-`conda install numpy matplotlib anaconda::networkx conda-forge::rdkit conda-forge::pyvis`
+`conda install conda-forge::numpy conda-forge::matplotlib anaconda::networkx conda-forge::rdkit conda-forge::pyvis`
 
 Then install AssemblyTheoryTools:
 
@@ -46,7 +46,7 @@ Then do the following:
 
 `source activate myEnv`
 
-`mamba install numpy matplotlib anaconda::networkx conda-forge::rdkit conda-forge::pyvis`
+`mamba install conda-forge::numpy conda-forge::matplotlib anaconda::networkx conda-forge::rdkit conda-forge::pyvis`
 
 `mamba update --all -y`
 
