@@ -257,19 +257,33 @@ def get_bond_smiles(mol):
     return bond_smiles
 
 
-def graph_to_smiles(graph):
+def graph_to_smiles(graph, add_hydrogens=True):
     """
     Convert a NetworkX graph to a SMILES string.
 
     Args:
         graph (nx.Graph): The input NetworkX graph where nodes represent atoms and edges represent bonds.
+        add_hydrogens (bool, optional): Whether to add hydrogens to the molecule. Default is True.
 
     Returns:
         str: The SMILES string representation of the molecule.
     """
-    mol = nx_to_mol(graph)
-    return Chem.MolToSmiles(mol)
+    mol = nx_to_mol(graph, add_hydrogens=add_hydrogens)
+    return Chem.MolToSmiles(mol, allHsExplicit=True, kekuleSmiles=True)
 
+def graph_to_inchi(graph, add_hydrogens=True):
+    """
+    Convert a NetworkX graph to an InChI string.
+
+    Args:
+        graph (nx.Graph): The input NetworkX graph where nodes represent atoms and edges represent bonds.
+        add_hydrogens (bool, optional): Whether to add hydrogens to the molecule. Default is True.
+
+    Returns:
+        str: The InChI string representation of the molecule.
+    """
+    mol = nx_to_mol(graph, add_hydrogens=add_hydrogens)
+    return Chem.MolToInchi(mol)
 
 def create_ionic_molecule(smiles):
     """

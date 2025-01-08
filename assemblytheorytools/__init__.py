@@ -25,6 +25,7 @@ from .graph_tools import (nx_to_mol,
                           create_ionic_molecule,
                           get_bond_smiles,
                           graph_to_smiles,
+                          graph_to_inchi,
                           write_graph,
                           read_graph)
 
@@ -39,7 +40,9 @@ from .mol_tools import (safe_standardize_mol,
 
 from .file_tools import (file_list_all)
 
-from .cell_tools import (read_cif_file, atoms_to_mol_file, atoms_to_nx)
+from .cell_tools import (read_cif_file,
+                         atoms_to_mol_file,
+                         atoms_to_nx)
 
 from .pathway import (get_pathway_to_graph,
                       get_pathway_to_mol,
@@ -53,7 +56,9 @@ from .plotting import (plot_mol_graph,
                        plot_interactive_graph,
                        plot_graph)
 
-from .string_tools import (load_fasta, prep_joint_string_ai, get_unique_char)
+from .string_tools import (load_fasta,
+                           prep_joint_string_ai,
+                           get_unique_char)
 
 __version__ = "0.2.0"
 
