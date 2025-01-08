@@ -9,7 +9,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 
 import CFG
-from .graph_tools import write_ass_graph_file, remove_hydrogen_from_graph, get_disconnected_subgraphs, nx_to_mol
+from .graph_tools import write_ass_graph_file, remove_hydrogen_from_graph, nx_to_mol
 from .mol_tools import write_v2k_mol_file, combine_mols
 from .pathway import get_pathway_to_graph, get_pathway_to_mol, get_pathway_to_inchi
 
@@ -122,7 +122,12 @@ def calculate_assembly_index(mol,
     Returns:
         tuple: A tuple containing the corrected assembly index (int) and the pathway (varies based on input type).
     """
+    # Initialise the variables
+    ai = -1
+    virt_obj = None
+    path = None
     file_path_in = None
+    # Check if the input is a string and not a .mol file
     if isinstance(mol, str) and not mol.endswith(".mol"):
         ai, virt_obj, path = CFG.ai_with_pathways(mol, f_print=False)
         return ai, virt_obj, path
@@ -192,33 +197,33 @@ def calculate_assembly_index(mol,
         # Get the output
         if not outcome:
             # If the assembly code failed return -1
-            return -1, None, None
+            return ai, virt_obj, path
         else:
             try:
                 # Load the assembly output
-                value = load_assembly_output(file_path_out)
+                ai = load_assembly_output(file_path_out)
                 # Check the pathway file exits
                 if os.path.isfile(file_path_pathway):
                     if isinstance(mol, nx.Graph):
-                        path = get_pathway_to_graph(file_path_pathway)
+                        virt_obj = get_pathway_to_graph(file_path_pathway)
                     elif isinstance(mol, Chem.Mol):
                         # Load the pathway data
-                        path = get_pathway_to_mol(file_path_pathway)
+                        virt_obj = get_pathway_to_mol(file_path_pathway)
                     elif ".mol" in mol:
                         # Load the pathway data
-                        path = get_pathway_to_inchi(file_path_pathway)
+                        virt_obj = get_pathway_to_inchi(file_path_pathway)
                     else:
-                        path = None
+                        virt_obj = None
                         ValueError("Input not supported")
                 else:
-                    path = None
+                    virt_obj = None
                 if joint_corr:
-                    return joint_correction(mol, value), path
+                    return joint_correction(mol, ai), virt_obj, path
                 else:
-                    return value, path
+                    return ai, virt_obj, path
             except Exception as e:
                 print(f"Failed to load assembly output: {file_path_out}, Error: {e}", flush=True)
-                return -1, None, None
+                return ai, virt_obj, path
 
 
 def calculate_assembly_semi_metric(graph1, graph2, dir_code=None, timeout=100.0, debug=False, strip_hydrogen=False):
