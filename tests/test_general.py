@@ -58,6 +58,7 @@ def test_graph_to_mol():
 
 
 def test_ass_graph():
+    print(flush=True)
     smi_in = "[H]C#C[H]"
     # Convert the smile to mol
     mol = att.smi_to_mol(smi_in)
@@ -75,6 +76,7 @@ def test_ass_graph():
 
 
 def test_ass_mol_file():
+    print(flush=True)
     smi_in = "[H]C#C[H]"
     # Convert all the smile to mol
     mol = att.smi_to_mol(smi_in)
@@ -90,6 +92,7 @@ def test_ass_mol_file():
 
 
 def test_ass_mol():
+    print(flush=True)
     smi_in = "[H]C#C[H]"
     # Convert all the smile to mol
     mol = att.smi_to_mol(smi_in)
@@ -101,6 +104,7 @@ def test_ass_mol():
 
 
 def test_compare_ass_graph_mol_file_mol():
+    print(flush=True)
     smis = ["c1ccccc1", "[BH-]1-[NH+]=[BH-]-[NH+]=[BH-]-[NH+]=1"]
     for smi_in in smis:
         # Convert all the smile to mol
@@ -122,7 +126,8 @@ def test_compare_ass_graph_mol_file_mol():
 
 
 def test_big_chungus():
-    mol_file = os.path.abspath("data/mol_files/big_chungus.mol")
+    print(flush=True)
+    mol_file = os.path.expanduser(os.path.abspath("data/mol_files/big_chungus.mol"))
     # Get the mol object
     mol = att.molfile_to_mol(mol_file)
     # Convert the system into graphs
@@ -139,7 +144,8 @@ def test_big_chungus():
 
 
 def test_taxol_file():
-    mol_file = os.path.abspath("data/mol_files/taxol.mol")
+    print(flush=True)
+    mol_file = os.path.expanduser(os.path.abspath("data/mol_files/taxol.mol"))
     # Mol file
     ai_mol_file, _ = att.calculate_assembly_index(mol_file, timeout=1000.0)
 
@@ -147,16 +153,19 @@ def test_taxol_file():
 
 
 def test_hydrogen_stripping():
-    mol_file = os.path.abspath("data/mol_files/alanine.mol")
+    print(flush=True)
+    mol_file = os.path.expanduser(os.path.abspath("data/mol_files/alanine.mol"))
     # Get the mol object
-    mol = att.molfile_to_mol(mol_file)
+    mol_1 = att.molfile_to_mol(mol_file)
     mol = att.smi_to_mol("C[C@@H](C(=O)O)N")
+
+    assert att.is_graph_isomorphic(att.mol_to_nx(mol), att.mol_to_nx(mol_1))
 
     # Convert the system into graphs
     graph = att.mol_to_nx(mol)
-    # Graph
+    # Load the mol file, pass it Graph
     ai_graph, _ = att.calculate_assembly_index(att.remove_hydrogen_from_graph(graph))
-    # Mol file
+    # Directly run the mol file
     ai_mol_file, _ = att.calculate_assembly_index(mol_file)
     # Mol
     ai_mol, _ = att.calculate_assembly_index(Chem.RemoveHs(mol))
@@ -175,6 +184,7 @@ def test_hydrogen_stripping():
 
 
 def test_ass_mol_debug():
+    print(flush=True)
     # Convert all the smile to mol
     mol = att.smi_to_mol("[H]C#C[H]")
     # Calculate the assembly index
@@ -190,6 +200,7 @@ def test_ass_mol_debug():
 
 
 def test_joint_ass():
+    print(flush=True)
     molecules = ["NCC(O)=O", "CC(N)C(O)=O"]
     # Convert all the smile to mol
     mols = [att.smi_to_mol(smile) for smile in molecules]
@@ -200,7 +211,9 @@ def test_joint_ass():
 
     assert ai == 4
 
+
 def test_big_joint_ass():
+    print(flush=True)
     molecules = "NCC(=O)O.CC(N)C(=O)O.C([C@@H](C(=O)O)N)O.O=C(O)CC(N)C(=O)O.O=C(O)C(N)CS.OC(=O)CCC(N)C(=O)O.C[C@H]([C@@H](C(=O)O)N)O.CC(C)C(N)C(=O)O"
     molecules += ".NC(=O)CC(N)C(=O)O.O=C(N)CCC(N)C(=O)O.CC(CC)C(N)C(=O)O.CC(C)CC(N)C(=O)O.NC(CCCCN)C(=O)O.O=C(O)C1CCCN1.O=C(O)C(N)CCSC.C(C[C@@H](C(=O)O)N)CN=C(N)N"
     # Convert all the smile to mol
@@ -212,7 +225,9 @@ def test_big_joint_ass():
 
     assert ai == 40
 
+
 def test_joint_ass_mol():
+    print(flush=True)
     molecules = "[H]C#C[H].[H][C]([H])([H])[C]([H])([H])[H].[H]C([H])([H])([H]).[H]O([H]).[H]N([H])([H]).[H][N+]([H])([H])([H]).[S-]([H]).[H][H]"
     molecules = molecules.split(".")
     # Convert all the smile to mol
@@ -228,6 +243,7 @@ def test_joint_ass_mol():
 
 
 def test_joint_ass_graph():
+    print(flush=True)
     molecules = "[H]C#C[H].[H][C]([H])([H])[C]([H])([H])[H].[H]C([H])([H])([H]).[H]O([H]).[H]N([H])([H]).[H][N+]([H])([H])([H]).[S-]([H]).[H][H]"
     molecules = molecules.split(".")
     # Convert all the smile to mol
@@ -245,6 +261,7 @@ def test_joint_ass_graph():
 
 
 def test_all_paths_simple():
+    print(flush=True)
     mol = att.smi_to_mol("C#CCC=C")
     paths = att.all_shortest_paths(mol, f_graph_care=False)
     expected = ['InChI=1S/CH4/h1H4',
@@ -258,6 +275,7 @@ def test_all_paths_simple():
 
 
 def test_node_scramble():
+    print(flush=True)
     smi_in = "[H]OC(=O)C([H])(N([H])C(=O)C([H])([H])N([H])[H])C([H])([H])C([H])(C([H])([H])[H])C([H])([H])[H]"
     # smi_in = "CCC"
     # Convert all the smile to mol
@@ -284,6 +302,7 @@ def test_node_scramble():
 
 
 def test_str_ass():
+    print(flush=True)
     s_inpt = "abracadabra"
     ai, _ = att.calculate_assembly_index(s_inpt)
     ai_ref = 7
@@ -291,6 +310,7 @@ def test_str_ass():
 
 
 def test_hand_graph():
+    print(flush=True)
     print("This is a hand construction graph test", flush=True)
     # Create a ring graph with 8 nodes
     G = nx.cycle_graph(8)
@@ -316,6 +336,7 @@ def test_hand_graph():
 
 
 def test_create_ionic_molecule():
+    print(flush=True)
     smiles = "[NH4+].[SH-]"
     # Create the ionic molecule
     combined, mols = att.create_ionic_molecule(smiles)
@@ -345,14 +366,14 @@ def test_create_ionic_molecule():
 def test_cif_loading():
     print(flush=True)
     target_dir = "data/cif_files/"
-    dirs = att.file_list_all(os.path.expanduser(target_dir))
+    dirs = att.file_list_all(os.path.expanduser(os.path.abspath(target_dir)))
     dirs.sort()
-    print(dirs)
+    print(dirs, flush=True)
     for file in dirs:
         print(file, flush=True)
-        if file in ['data/cif_files/Attakolite_0.cif', 'data/cif_files/Wodginite_3.cif']:
-            # Attakolite_0 invalid spacegroup C 1 2/m 1
-            # Wodginite_3 invalid spacegroup C 1 2/c 1
+        if 'Attakolite_0' in file:  # Attakolite_0 invalid spacegroup C 1 2/m 1
+            continue
+        if 'Wodginite_3' in file:  # Wodginite_3 invalid spacegroup C 1 2/c 1
             continue
         # input mol file
         atoms = att.read_cif_file(file)
@@ -380,7 +401,7 @@ def test_cif_loading():
 def test_cif_ai():
     print(flush=True)
     target_dir = "data/cif_files/"
-    dirs = att.file_list_all(os.path.expanduser(target_dir))
+    dirs = att.file_list_all(os.path.expanduser(os.path.abspath(target_dir)))
     file = dirs[0]
 
     # input mol file
@@ -398,6 +419,7 @@ def test_cif_ai():
 
 
 def test_semi_metric():
+    print(flush=True)
     molecules = ["NCC(O)=O", "CC(N)C(O)=O"]
     # Convert all the smile to mol
     mols = [att.smi_to_mol(smile) for smile in molecules]
@@ -414,6 +436,7 @@ def test_semi_metric():
 
 
 def test_auto_compile():
-    print()
+    print(flush=True)
     att.compile_assembly_code()
-    print(att.run_command_simple("ls -l"))
+    print(att.run_command_simple("ls -l"), flush=True)
+    raise ValueError("This test is not implemented")
