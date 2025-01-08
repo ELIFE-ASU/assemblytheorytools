@@ -65,9 +65,9 @@ def test_ass_graph():
     # Convert the system into graph
     graph = att.mol_to_nx(mol)
     # Calculate the assembly index
-    ai, path = att.calculate_assembly_index(graph)
+    ai, virt_obj, _ = att.calculate_assembly_index(graph)
     # Get the input graph from the output dict
-    input_graph = path["file_graph"][0]
+    input_graph = virt_obj["file_graph"][0]
     smi_out = Chem.MolToSmiles(att.nx_to_mol(input_graph))
     # Compare to the hand calculated value
     assert ai == 2  # Check the assembly index
@@ -84,11 +84,11 @@ def test_ass_mol_file():
     mol_file = "tmp.mol"
     att.write_v2k_mol_file(mol, mol_file)
     # Calculate the assembly index
-    ai, path = att.calculate_assembly_index(mol_file)
+    ai, virt_obj, _ = att.calculate_assembly_index(mol_file)
 
     # Compare to the hand calculated value
     assert ai == 2
-    assert Chem.MolToInchi(mol) == path["file_graph"][0]
+    assert Chem.MolToInchi(mol) == virt_obj["file_graph"][0]
 
 
 def test_ass_mol():
@@ -97,32 +97,34 @@ def test_ass_mol():
     # Convert all the smile to mol
     mol = att.smi_to_mol(smi_in)
     # Calculate the assembly index
-    ai, path = att.calculate_assembly_index(mol)
+    ai, virt_obj, _ = att.calculate_assembly_index(mol)
     # Compare to the hand calculated value
     assert ai == 2
-    assert Chem.MolToInchi(mol) == Chem.MolToInchi(path["file_graph"][0])
+    assert Chem.MolToInchi(mol) == Chem.MolToInchi(virt_obj["file_graph"][0])
 
 
 def test_compare_ass_graph_mol_file_mol():
     print(flush=True)
     smis = ["c1ccccc1", "[BH-]1-[NH+]=[BH-]-[NH+]=[BH-]-[NH+]=1"]
+    mol_file = "tmp.mol"
     for smi_in in smis:
         # Convert all the smile to mol
         mol = att.smi_to_mol(smi_in)
         # Convert the system into graphs
         graph = att.mol_to_nx(mol)
-        # write the mol file
-        mol_file = "tmp.mol"
+        # Write the mol file
         att.write_v2k_mol_file(mol, mol_file)
 
         # Graph
-        ai_graph, _ = att.calculate_assembly_index(graph)
+        ai_graph, _, _ = att.calculate_assembly_index(graph)
         # Mol file
-        ai_mol_file, _ = att.calculate_assembly_index(mol_file)
+        ai_mol_file, _, _ = att.calculate_assembly_index(mol_file)
         # Mol
-        ai_mol, _ = att.calculate_assembly_index(mol)
+        ai_mol, _, _ = att.calculate_assembly_index(mol)
 
         assert ai_graph == ai_mol_file == ai_mol
+    # Remove the tmp mol file
+    os.remove(mol_file)
 
 
 def test_big_chungus():
@@ -134,11 +136,11 @@ def test_big_chungus():
     graph = att.mol_to_nx(mol)
 
     # Graph
-    ai_graph, _ = att.calculate_assembly_index(graph, timeout=1000.0)
+    ai_graph, _, _ = att.calculate_assembly_index(graph, timeout=1000.0)
     # Mol file
-    ai_mol_file, _ = att.calculate_assembly_index(mol_file, timeout=1000.0)
+    ai_mol_file, _, _ = att.calculate_assembly_index(mol_file, timeout=1000.0)
     # Mol
-    ai_mol, _ = att.calculate_assembly_index(mol, timeout=1000.0)
+    ai_mol, _, _ = att.calculate_assembly_index(mol, timeout=1000.0)
 
     assert ai_graph == ai_mol_file == ai_mol == 8
 
@@ -147,7 +149,7 @@ def test_taxol_file():
     print(flush=True)
     mol_file = os.path.expanduser(os.path.abspath("data/mol_files/taxol.mol"))
     # Mol file
-    ai_mol_file, _ = att.calculate_assembly_index(mol_file, timeout=1000.0)
+    ai_mol_file, _, _ = att.calculate_assembly_index(mol_file, timeout=1000.0)
 
     assert ai_mol_file == 23
 
@@ -164,21 +166,21 @@ def test_hydrogen_stripping():
     # Convert the system into graphs
     graph = att.mol_to_nx(mol)
     # Load the mol file, pass it Graph
-    ai_graph, _ = att.calculate_assembly_index(att.remove_hydrogen_from_graph(graph))
+    ai_graph, _, _ = att.calculate_assembly_index(att.remove_hydrogen_from_graph(graph))
     # Directly run the mol file
-    ai_mol_file, _ = att.calculate_assembly_index(mol_file)
-    # Mol
-    ai_mol, _ = att.calculate_assembly_index(Chem.RemoveHs(mol))
+    ai_mol_file, _, _ = att.calculate_assembly_index(mol_file)
+    # RDkit Mol
+    ai_mol, _, _ = att.calculate_assembly_index(Chem.RemoveHs(mol))
 
     assert ai_graph == ai_mol_file == ai_mol == 4
 
     # Test the manual case
     # Graph
-    ai_graph, _ = att.calculate_assembly_index(graph, strip_hydrogen=True)
+    ai_graph, _, _ = att.calculate_assembly_index(graph, strip_hydrogen=True)
     # Mol file
-    ai_mol_file, _ = att.calculate_assembly_index(mol_file, strip_hydrogen=True)
+    ai_mol_file, _, _ = att.calculate_assembly_index(mol_file, strip_hydrogen=True)
     # Mol
-    ai_mol, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
+    ai_mol, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
 
     assert ai_graph == ai_mol_file == ai_mol == 4
 
@@ -188,12 +190,12 @@ def test_ass_mol_debug():
     # Convert all the smile to mol
     mol = att.smi_to_mol("[H]C#C[H]")
     # Calculate the assembly index
-    ai, path = att.calculate_assembly_index(mol, debug=True)
+    ai, virt_obj, _ = att.calculate_assembly_index(mol, debug=True)
     # Get the path of the created file
     dir_list = list_subdirs(os.getcwd())
     # Compare to the hand calculated value
     assert ai == 2
-    assert Chem.MolToInchi(mol) == Chem.MolToInchi(path["file_graph"][0])
+    assert Chem.MolToInchi(mol) == Chem.MolToInchi(virt_obj["file_graph"][0])
     assert len(dir_list) == 1
     # Clean up
     shutil.rmtree(dir_list[0])
@@ -207,7 +209,7 @@ def test_joint_ass():
     mol = att.combine_mols(mols)
 
     # Calculate the assembly index
-    ai, path = att.calculate_assembly_index(mol, strip_hydrogen=True)
+    ai, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
 
     assert ai == 4
 
@@ -221,7 +223,7 @@ def test_big_joint_ass():
     mol = att.combine_mols(mols)
 
     # Calculate the assembly index
-    ai, path = att.calculate_assembly_index(mol, strip_hydrogen=True)
+    ai, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
 
     assert ai == 40
 
@@ -235,11 +237,11 @@ def test_joint_ass_mol():
     mol = att.combine_mols(mols)
 
     # Calculate the assembly index
-    ai, path = att.calculate_assembly_index(mol)
+    ai, virt_obj, _ = att.calculate_assembly_index(mol)
     # Compare to the hand calculated value
     out_mol = Chem.MolToInchi(att.split_mols(mol)[0])
     assert ai == 11
-    assert out_mol == Chem.MolToInchi(path["file_graph"][0])
+    assert out_mol == Chem.MolToInchi(virt_obj["file_graph"][0])
 
 
 def test_joint_ass_graph():
@@ -253,9 +255,9 @@ def test_joint_ass_graph():
     # Join the graphs
     graphs_joint = nx.disjoint_union_all(graphs)
     # Calculate the assembly index
-    ai, path = att.calculate_assembly_index(graphs_joint)
+    ai, virt_obj, _ = att.calculate_assembly_index(graphs_joint)
     # Compare to the hand calculated value
-    out_graph = nx.disjoint_union_all(path["file_graph"])
+    out_graph = nx.disjoint_union_all(virt_obj["file_graph"])
     assert ai == 11
     assert att.is_graph_isomorphic(graphs_joint, out_graph)
 
@@ -283,17 +285,17 @@ def test_node_scramble():
     # Convert the system into graphs
     graph = att.mol_to_nx(mol, add_hydrogens=False)
     # Calculate the assembly index
-    ai, path = att.calculate_assembly_index(graph)
+    ai, virt_obj, _ = att.calculate_assembly_index(graph)
     # Get the input graph from the output dict
-    input_graph = path["file_graph"][0]
+    input_graph = virt_obj["file_graph"][0]
     att.plot_mol_graph(input_graph, f_labs=True, filename="graph")
     smi_out = Chem.MolToSmiles(att.nx_to_mol(input_graph))
 
     graph_sc = att.scramble_node_indices(graph)
     # Calculate the assembly index
-    ai_sc, path_sc = att.calculate_assembly_index(graph_sc)
+    ai_sc, virt_obj_sc, _ = att.calculate_assembly_index(graph_sc)
     # Get the input graph from the output dict
-    input_graph = path_sc["file_graph"][0]
+    input_graph = virt_obj_sc["file_graph"][0]
     att.plot_mol_graph(input_graph, f_labs=True, filename="scrambled")
     smi_out_sc = Chem.MolToSmiles(att.nx_to_mol(input_graph))
 
@@ -304,7 +306,7 @@ def test_node_scramble():
 def test_str_ass():
     print(flush=True)
     s_inpt = "abracadabra"
-    ai, _ = att.calculate_assembly_index(s_inpt)
+    ai, _, _ = att.calculate_assembly_index(s_inpt)
     ai_ref = 7
     assert ai == ai_ref
 
@@ -321,14 +323,14 @@ def test_hand_graph():
     print("input", flush=True)
     print_graph_details(G)
 
-    ai, path = att.calculate_assembly_index(G)
+    ai, virt_obj, _ = att.calculate_assembly_index(G)
     # Convert the dict to a list
-    path = att.convert_pathway_dict_to_list(path)
+    virt_obj = att.convert_pathway_dict_to_list(virt_obj)
     print("output", flush=True)
     print(f"Ass index = {ai}", flush=True)
     # Remove the first pathway
-    path.pop(0)
-    for i, p in enumerate(path):
+    virt_obj.pop(0)
+    for i, p in enumerate(virt_obj):
         print(f"Pathway object = {i}", flush=True)
         print_graph_details(p)
 
@@ -354,7 +356,7 @@ def test_create_ionic_molecule():
     assert ionic_bond_found
 
     # Check that the assembly index is 3
-    ai, _ = att.calculate_assembly_index(combined)
+    ai, _, _ = att.calculate_assembly_index(combined)
 
     # Subtract 1 from assembly index for ionic molecules
     if '.' in smiles:
@@ -408,12 +410,12 @@ def test_cif_ai():
     atoms = att.read_cif_file(file)
     tmp_file = file.split('.')[0] + ".mol"
     att.atoms_to_mol_file(atoms, fname=tmp_file)
-    ai_mol, _ = att.calculate_assembly_index(tmp_file, joint_corr=False)
+    ai_mol, _, _ = att.calculate_assembly_index(tmp_file, joint_corr=False)
 
     os.remove(tmp_file)
 
     graph = att.atoms_to_nx(atoms)
-    ai_graph, _ = att.calculate_assembly_index(graph, joint_corr=False)
+    ai_graph, _, _ = att.calculate_assembly_index(graph, joint_corr=False)
 
     assert ai_mol == ai_graph == 4
 
