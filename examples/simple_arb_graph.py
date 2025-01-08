@@ -22,7 +22,7 @@ if __name__ == "__main__":
     plt.show()
 
     # Calculate the assembly index
-    ai, path = att.calculate_assembly_index(G)
+    ai, virt_obj, path = att.calculate_assembly_index(G)
 
     print(f"Assembly index: {ai}", flush=True)
 
