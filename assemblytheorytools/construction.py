@@ -11,6 +11,21 @@ from rdkit.Chem.rdchem import RWMol
 
 
 def transform_array(array, array_mod, fromm, repa, replace, e):
+    """
+    Transforms the input array by replacing elements based on specified conditions.
+
+    This function iterates over `array_mod` and checks if the elements match the `repa` value.
+    If a match is found, it further checks if a specific pair exists in `e` and then replaces
+    the corresponding elements in the `array`.
+
+    :param array: List of lists to be transformed.
+    :param array_mod: List of lists used for comparison.
+    :param fromm: The value to be checked in the first position of the pairs.
+    :param repa: The value to be replaced if conditions are met.
+    :param replace: The value to replace `repa` with.
+    :param e: List of lists containing pairs to be checked against.
+    :return: Transformed array.
+    """
     for i, edge in enumerate(array_mod):
         if edge[0] == repa:
             if [fromm, edge[1]] in e:
@@ -22,10 +37,11 @@ def transform_array(array, array_mod, fromm, repa, replace, e):
 
 
 def repeated_sizes(repeated):
-    """repeated_sizes takes a list of sorted equivalences [[[[0, 2], [0, 15]], [[1, 3], [1, 16]]],[[[2, 49], [31, 49]], [[3, 50], [37, 50]]] [[[63, 75], [67, 70], [70, 75]], [[49, 50], [50, 53], [52, 53]]]],and returns the set of  lenghts of the equivalence array.
+    """
+    Takes a list of sorted equivalences and returns the set of lengths of the equivalence array.
 
-    :param repeated: [[[[0, 2], [0, 15]], [[1, 3], [1, 16]]],[[[2, 49], [31, 49]], [[3, 50], [37, 50]]] [[[63, 75], [67, 70], [70, 75]], [[49, 50], [50, 53], [52, 53]]]]
-    :return: len of each equivalence [2,3]
+    :param repeated: List of sorted equivalences
+    :return: List of lengths of each equivalence
     """
     rep = list(set([len(rep[1]) for rep in repeated]))
     rep.sort()
@@ -33,11 +49,15 @@ def repeated_sizes(repeated):
 
 
 def equal_two(lista, listb):
-    """equal takes two lists [A,B,C,D] and [A,C,B,D] and test if they contain the same elements, setwise equality
+    """
+    Tests if two lists contain the same elements, setwise equality.
 
-    :param lista: input list [A,B,C,D]
-    :param listb: input list [A,C,B,D]
-    :return: outputs if the two lists are equal or not
+    This function takes two lists and checks if they contain the same elements,
+    regardless of the order of the elements.
+
+    :param lista: Input list, e.g., [A, B, C, D]
+    :param listb: Input list, e.g., [A, C, B, D]
+    :return: True if the two lists are equal setwise, False otherwise
     """
     if set(row for row in lista) == set(row for row in listb):
         return True
@@ -46,11 +66,15 @@ def equal_two(lista, listb):
 
 
 def equal(lista, listb):
-    """equal takes two lists [A,B,C,D] and [A,C,B,D] and test if they contain the same elements, setwise equality
+    """
+    Tests if two lists contain the same elements, setwise equality.
 
-    :param lista: input list [A,B,C,D]
-    :param listb: input list [A,C,B,D]
-    :return: outputs if the two lists are equal or not
+    This function takes two lists and checks if they contain the same elements,
+    regardless of the order of the elements.
+
+    :param lista: Input list, e.g., [A, B, C, D]
+    :param listb: Input list, e.g., [A, C, B, D]
+    :return: True if the two lists are equal setwise, False otherwise
     """
     if set(tuple(row) for row in lista) == set(tuple(row) for row in listb):
         return True
@@ -59,11 +83,15 @@ def equal(lista, listb):
 
 
 def check_edge_in_lista(edges, lista):
-    """check_edge_in_lista takes a list of lists [[A,B,C,D], [A,C,B,D]] and a list [A,C,B,D] and checks if the list is contained in the list of lists
+    """
+    Checks if a list is contained in a list of lists.
 
-    :param lista: input list of lists [[A,B,C,D], [A,C,B,D]]
-    :param edges: input list [A,C,B,D]
-    :return: outputs if the list is contained in the list of lists
+    This function takes a list of lists and a list, and checks if the list is contained
+    in the list of lists using setwise equality.
+
+    :param lista: Input list of lists, e.g., [[A, B, C, D], [A, C, B, D]]
+    :param edges: Input list, e.g., [A, C, B, D]
+    :return: True if the list is contained in the list of lists, False otherwise
     """
     for l in lista:
         if equal(l, edges):
@@ -72,11 +100,15 @@ def check_edge_in_lista(edges, lista):
 
 
 def check_edge_in_list(edges, lista):
-    """check_edge_in_lista takes a list of lists [[A,B,C,D], [A,C,B,D]] and a list [A,C,B,D] and checks if the list is contained in the list of lists
+    """
+    Checks if a list is contained in a list of lists.
 
-    :param lista: input list of lists [[A,B,C,D], [A,C,B,D]]
-    :param edges: input list [A,C,B,D]
-    :return: outputs if the list is contained in the list of lists
+    This function takes a list of lists and a list, and checks if the list is contained
+    in the list of lists using setwise equality.
+
+    :param lista: Input list of lists, e.g., [[A, B, C, D], [A, C, B, D]]
+    :param edges: Input list, e.g., [A, C, B, D]
+    :return: True if the list is contained in the list of lists, False otherwise
     """
     for l in lista:
         if equal_two(l, edges):
@@ -85,11 +117,15 @@ def check_edge_in_list(edges, lista):
 
 
 def equivalence(pieces, equivalences):
-    """equivalence transforms a list of pieces of the remnant graph that can have a label not found in the original graph, to thier equivalent set of pieces all from the original graph
+    """
+    Transforms a list of pieces of the remnant graph to their equivalent set of pieces from the original graph.
 
-    :param pieces: input list [[[9 17]],[[24 25],[25 26],[26 21]],[[28 29] [14 29]]
-    :param equivalences: input list [[17 26],[19 27],[12 28],[18 29]]
-    :return: outputs a relabeled list [[[9 17]],[[24 25],[25 17],[17 21]],[[12 18] [14 18]]
+    This function takes a list of pieces of the remnant graph that can have a label not found in the original graph,
+    and transforms them to their equivalent set of pieces all from the original graph based on the provided equivalences.
+
+    :param pieces: Input list of pieces
+    :param equivalences: List of equivalences
+    :return: Relabeled list of pieces
     """
     pieces_mod = copy.deepcopy(pieces)
     for j, piece in enumerate(pieces_mod):
@@ -106,9 +142,18 @@ def equivalence(pieces, equivalences):
 
 
 def fix_repeated_equiv(er, repeated, equivalences, e):
-    """Sometimes the go_code has some indexing issues, here I try to fix them. However this doesn't solve all the problems. It solves around 95% of the problems. The solution if you
-    encounter a problem in your output is just to try again. This is the case since the go algorithm is distributed, therefore non-deterministic. So if you try it many times, it
-    may find a well formated pathway eventually.
+    """
+    Fixes indexing issues in equivalences by transforming arrays based on specified conditions.
+
+    This function attempts to fix indexing issues in the equivalences array. It iterates over the equivalences,
+    identifies repeated elements, and transforms the arrays accordingly. This process is non-deterministic and
+    may require multiple attempts to achieve a well-formatted pathway.
+
+    :param er: List of edges to be transformed.
+    :param repeated: List of repeated equivalences.
+    :param equivalences: List of equivalences.
+    :param e: List of edges containing pairs to be checked against.
+    :return: Tuple containing the transformed edges, repeated equivalences, and updated equivalences.
     """
     equivalences = np.unique(equivalences, axis=0).tolist()
     equiv_np = np.array(equivalences)
@@ -188,12 +233,14 @@ def fix_repeated_equiv(er, repeated, equivalences, e):
 
 
 def index_set(lists, listb):
-    """index_set takes a list of list of lists [[[1,2],[2,3]],[[3,4],[5,6]]] and a list of lists [[2,3],[1,2]] and returns the first index where the list and the element of the list of list
-        have a set equality
+    """
+    Takes a list of list of lists and a list of lists, and returns the first index where the list and the element of the list of lists have set equality.
 
-    :param lists: input list of list of lists [[[1,2],[2,3]],[[3,4],[5,6]]]
-    :param listb: input list [[2,3],[1,2]]
-    :return: outputs the first index for which the list  of lists appears in the list of list of lists in set equality
+    This function iterates over a list of list of lists and checks if any of the lists within it have set equality with the provided list of lists.
+
+    :param lists: Input list of list of lists, e.g., [[[1, 2], [2, 3]], [[3, 4], [5, 6]]]
+    :param listb: Input list of lists, e.g., [[2, 3], [1, 2]]
+    :return: The first index where the list of lists appears in the list of list of lists with set equality, or None if not found.
     """
     for i, lista in enumerate(lists):
         if set(tuple(row) for row in listb) == set(tuple(row) for row in lista):
@@ -201,15 +248,25 @@ def index_set(lists, listb):
 
 
 def select_length(e):
-    """select_length takes a dictionary and return the entry for the 'len' entry
+    """
+    Takes a dictionary and returns the entry for the 'len' key.
 
-    :param e: dictionary of arrays lengths and indexes
-    :return: entry for e['len']
+    :param e: Dictionary containing arrays lengths and indexes.
+    :return: Entry for e['len'].
     """
     return e["len"]
 
 
 def transform_bond_float(bond):
+    """
+    Converts a bond type from string to float representation.
+
+    This function takes a bond type as a string and returns its corresponding float value.
+    If the bond type is not recognized, it returns an error string.
+
+    :param bond: Bond type as a string, e.g., "single", "double", "triple"
+    :return: Float representation of the bond type, e.g., 1.0 for "single", 2.0 for "double", 3.0 for "triple", or "error" if the bond type is not recognized
+    """
     if bond == "single":
         return 1.0
     if bond == "double":
@@ -220,6 +277,15 @@ def transform_bond_float(bond):
 
 
 def transform_bond(bond):
+    """
+    Converts a bond type from float to RDKit bond type.
+
+    This function takes a bond type as a float and returns its corresponding RDKit bond type.
+    If the bond type is not recognized, it returns an error string.
+
+    :param bond: Bond type as a float, e.g., 1.0 for single, 2.0 for double, 3.0 for triple
+    :return: RDKit bond type, e.g., Chem.rdchem.BondType.SINGLE for 1.0, Chem.rdchem.BondType.DOUBLE for 2.0, Chem.rdchem.BondType.TRIPLE for 3.0, or "error" if the bond type is not recognized
+    """
     if bond == 1.0:
         return Chem.rdchem.BondType.SINGLE
     if bond == 2.0:
@@ -230,6 +296,17 @@ def transform_bond(bond):
 
 
 def tables2mol(tables):
+    """
+    Converts atom and bond information into an RDKit molecule object.
+
+    This function takes a tuple containing atom information and bond information,
+    creates an RDKit molecule object, adds atoms and bonds to it, and returns the molecule.
+
+    :param tables: A tuple containing two lists:
+                   - atoms_info: List of tuples, where each tuple contains atom index and atom type.
+                   - bonds_info: List of tuples, where each tuple contains bond start index, bond end index, and bond type.
+    :return: An RDKit molecule object constructed from the provided atom and bond information.
+    """
     atoms_info, bonds_info = tables
     emol = RWMol()
     for v in atoms_info:
