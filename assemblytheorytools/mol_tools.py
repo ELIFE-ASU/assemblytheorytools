@@ -58,49 +58,53 @@ def standardize_mol(mol, add_hydrogens=True):
     return mol
 
 
-def smi_to_mol(smi):
+def smi_to_mol(smi, add_hydrogens=True):
     """
     Convert a SMILES string to a standardized RDKit molecule.
 
     Args:
         smi (str): The SMILES string representing the molecule.
+        add_hydrogens (bool, optional): Whether to add hydrogens to the molecule. Default is True.
 
     Returns:
         Chem.Mol: The standardized RDKit molecule.
     """
     mol = Chem.MolFromSmiles(smi)
     # Sanitise the molecule
-    return standardize_mol(mol)
+    return standardize_mol(mol, add_hydrogens=add_hydrogens)
 
 
-def inchi_to_mol(inchi):
+def inchi_to_mol(inchi, add_hydrogens=True):
     """
     Convert an InChI string to a standardized RDKit molecule.
 
     Args:
         inchi (str): The InChI string representing the molecule.
+        add_hydrogens (bool, optional): Whether to add hydrogens to the molecule. Default is True.
 
     Returns:
         Chem.Mol: The standardized RDKit molecule.
     """
     mol = Chem.MolFromInchi(inchi)
     # Sanitise the molecule
-    return standardize_mol(mol)
+    return standardize_mol(mol, add_hydrogens=add_hydrogens)
 
 
-def molfile_to_mol(mol):
+def molfile_to_mol(mol, add_hydrogens=True):
     """
     Convert a Molfile to a standardized RDKit molecule.
 
     Args:
         mol (str): The path to the Molfile representing the molecule.
+        add_hydrogens (bool, optional): Whether to add hydrogens to the molecule. Default is True.
 
     Returns:
         Chem.Mol: The standardized RDKit molecule.
     """
+    # Convert the Molfile to an RDKit molecule
     mol = Chem.MolFromMolFile(mol)
-    # Sanitise the molecule
-    return standardize_mol(mol)
+    # Standardize the molecule
+    return standardize_mol(mol, add_hydrogens=add_hydrogens)
 
 
 def combine_mols(mols):
