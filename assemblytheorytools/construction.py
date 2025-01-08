@@ -238,8 +238,8 @@ def index_set(lists, listb):
 
     This function iterates over a list of list of lists and checks if any of the lists within it have set equality with the provided list of lists.
 
-    :param lists: Input list of list of lists, e.g., [[[1, 2], [2, 3]], [[3, 4], [5, 6]]]
-    :param listb: Input list of lists, e.g., [[2, 3], [1, 2]]
+    :param lists: Input list of list of lists
+    :param listb: Input list of lists
     :return: The first index where the list of lists appears in the list of list of lists with set equality, or None if not found.
     """
     for i, lista in enumerate(lists):
@@ -264,8 +264,8 @@ def transform_bond_float(bond):
     This function takes a bond type as a string and returns its corresponding float value.
     If the bond type is not recognized, it returns an error string.
 
-    :param bond: Bond type as a string, e.g., "single", "double", "triple"
-    :return: Float representation of the bond type, e.g., 1.0 for "single", 2.0 for "double", 3.0 for "triple", or "error" if the bond type is not recognized
+    :param bond: Bond type as a string
+    :return: Float representation of the bond type
     """
     if bond == "single":
         return 1.0
@@ -283,8 +283,8 @@ def transform_bond(bond):
     This function takes a bond type as a float and returns its corresponding RDKit bond type.
     If the bond type is not recognized, it returns an error string.
 
-    :param bond: Bond type as a float, e.g., 1.0 for single, 2.0 for double, 3.0 for triple
-    :return: RDKit bond type, e.g., Chem.rdchem.BondType.SINGLE for 1.0, Chem.rdchem.BondType.DOUBLE for 2.0, Chem.rdchem.BondType.TRIPLE for 3.0, or "error" if the bond type is not recognized
+    :param bond: Bond type as a float
+    :return: RDKit bond type
     """
     if bond == 1.0:
         return Chem.rdchem.BondType.SINGLE
@@ -333,7 +333,6 @@ class assemblyConstruction:
         atoms_list_indx = []
         atoms_pre = []
         full_atoms_list = []
-        full_atoms_list = []
         for i, bond in enumerate(e):
             atom_list = [[v_l[bond[0]], v_l[bond[1]]], e_l[i]]
             atom_list_indx = [bond[0], bond[1]]
@@ -358,7 +357,7 @@ class assemblyConstruction:
         :param pieces_mod: The current starting piece of edges [[[18 25],[25 17]],[[12 18],[14 18],[18 17]],[[14 26]]](modified by equivalence up to the current step)
         :param steps_mod: the current list of steps to construct all the pieces(modified by equivalence up to the current step)
         :param repeated_mo1_cp: Is the original copy of the duplicate edges before the recursive_join was performed
-        :param step: the number of joins so far i.e. assembly index(up to the to the current step)
+        :param step: the number of joins so far i.e. assembly index(up to the current step)
         :param digraph: list atom0-> step1,atom1-> step1, step1-> step2,atom1-> step2, atom0-> step3,atom0-> step3
         :param indexes: from the repeated array, at each entry is the index of the steps_mod
         :return pieces_mod: The finishing piece of edges, [[[18 25],[25 17]],[[12 18],[14 26],[14 18],[18 17]]]
@@ -544,12 +543,12 @@ class assemblyConstruction:
         return pieces_mod, steps_mod, sorted_repeated_mod1_cp, step, digraph, indexes
 
     def generate_pathway(self):
-        ## Construct Remant Graph
-        # The Remnant Graph are usually are usually disjoing pieces
+        ## Construct Remnant Graph
+        # The Remnant Graph are usually disjoint pieces
         step = 0
         # The digraph contains the information of the assembly path
         digraph = []
-        # The steps contains all the the new assembled pieces at each step
+        # The steps contains all the new assembled pieces at each step
         steps = []
         # We construct each piece of the remnant graph one edge at a time
         pieces = [[edge] for edge in self.remnant_e]
