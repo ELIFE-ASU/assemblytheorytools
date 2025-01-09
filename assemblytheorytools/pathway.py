@@ -242,11 +242,18 @@ def get_mol_pathway_to_inchi(pathway):
     Returns:
         dict: A dictionary containing InChI strings for different sections such as 'file_graph', 'remnant', 'duplicates', and 'removed_edges'.
     """
+
+    # Detect the file_graph data type
+    dtype = type(pathway['file_graph'][0])
+
     out_dict = {}
     # Convert each section to InChI and store in out_dict
     for key in ['file_graph', 'remnant', 'duplicates', 'removed_edges']:
         if key in pathway:
-            out_dict[key] = [Chem.MolToInchi(g) for g in pathway[key]]
+            if dtype == nx.Graph:
+                out_dict[key] = [Chem.MolToInchi(nx_to_mol(g)) for g in pathway[key]]
+            else:
+                out_dict[key] = [Chem.MolToInchi(g) for g in pathway[key]]
     return out_dict
 
 
@@ -260,11 +267,17 @@ def get_mol_pathway_to_smi(pathway):
     Returns:
         dict: A dictionary containing SMILES strings for different sections such as 'file_graph', 'remnant', 'duplicates', and 'removed_edges'.
     """
+    # Detect the file_graph data type
+    dtype = type(pathway['file_graph'][0])
+
     out_dict = {}
     # Convert each section and store in out_dict
     for key in ['file_graph', 'remnant', 'duplicates', 'removed_edges']:
         if key in pathway:
-            out_dict[key] = [Chem.MolToSmiles(g) for g in pathway[key]]
+            if dtype == nx.Graph:
+                out_dict[key] = [Chem.MolToSmiles(nx_to_mol(g)) for g in pathway[key]]
+            else:
+                out_dict[key] = [Chem.MolToSmiles(g) for g in pathway[key]]
     return out_dict
 
 
