@@ -1,6 +1,6 @@
 import os
 import shutil
-
+import pytest
 import networkx as nx
 import numpy as np
 from ase.io import read
@@ -204,7 +204,7 @@ def test_compare_ass_graph_mol_file_mol():
     # Remove the temporary mol file
     os.remove(mol_file)
 
-
+@pytest.mark.slow
 def test_big_chungus():
     """
     Test the calculation of the assembly index for a large molecule.
@@ -234,7 +234,7 @@ def test_big_chungus():
 
     assert ai_graph == ai_mol_file == ai_mol == 8
 
-
+@pytest.mark.slow
 def test_taxol_file():
     """
     Test the calculation of the assembly index for the molecule in the taxol mol file.
@@ -553,7 +553,7 @@ def test_str_ass():
     """
     print(flush=True)
     s_inpt = "abracadabra"
-    ai, _, _ = att.calculate_assembly_index(s_inpt)
+    ai, _ = att.calculate_string_assembly_index(s_inpt, directed=True)
     ai_ref = 7
     assert ai == ai_ref
 
