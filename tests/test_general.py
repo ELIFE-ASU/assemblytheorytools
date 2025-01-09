@@ -89,6 +89,8 @@ def test_ass_mol_file():
     # Compare to the hand calculated value
     assert ai == 2
     assert Chem.MolToInchi(mol) == virt_obj["file_graph"][0]
+    # remove the temp file
+    os.remove(mol_file)
 
 
 def test_ass_mol():
