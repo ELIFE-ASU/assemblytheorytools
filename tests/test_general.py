@@ -45,60 +45,121 @@ def print_graph_details(graph):
 
 
 def test_graph_to_mol():
+    """
+    Test the conversion of a SMILES string to a molecular graph and back to a molecule.
+
+    This function performs the following steps:
+    1. Converts a SMILES string to a molecule object.
+    2. Converts the molecule object to a NetworkX graph.
+    3. Converts the NetworkX graph back to a molecule object.
+    4. Checks if the original graph and the graph obtained from the converted molecule are isomorphic.
+
+    Asserts:
+        - The graph obtained from the converted molecule is isomorphic to the original graph.
+    """
     print(flush=True)
     smi_in = "[Mo](Cl)(Cl)(C#N)(C=O)-[Mo](Cl)(Cl)(C#N)(C=O)"
-    # Convert the smile to mol
+    # Convert the SMILES string to a molecule object
     mol = att.smi_to_mol(smi_in)
-    # Convert the system into graph
+    # Convert the molecule object to a NetworkX graph
     graph = att.mol_to_nx(mol)
-    # Convert the graph back to mol
+    # Convert the NetworkX graph back to a molecule object
     mol_out = att.nx_to_mol(graph)
-    # Check the conversion
+    # Check if the original graph and the graph obtained from the converted molecule are isomorphic
     assert att.is_graph_isomorphic(graph, att.mol_to_nx(mol_out))
 
 
 def test_ass_graph():
+    """
+    Test the calculation of the assembly index for a molecular graph.
+
+    This function performs the following steps:
+    1. Converts a SMILES string to a molecule object.
+    2. Converts the molecule object to a NetworkX graph.
+    3. Calculates the assembly index of the graph.
+    4. Retrieves the input graph from the output dictionary.
+    5. Converts the input graph back to a SMILES string.
+    6. Compares the calculated assembly index to the expected value.
+    7. Checks if the original graph and the input graph are isomorphic.
+    8. Verifies that the original SMILES string matches the converted SMILES string.
+
+    Asserts:
+        - The calculated assembly index is equal to 2.
+        - The original graph and the input graph are isomorphic.
+        - The original SMILES string matches the converted SMILES string.
+    """
     print(flush=True)
     smi_in = "[H]C#C[H]"
-    # Convert the smile to mol
+    # Convert the SMILES string to a molecule object
     mol = att.smi_to_mol(smi_in)
-    # Convert the system into graph
+    # Convert the molecule object to a NetworkX graph
     graph = att.mol_to_nx(mol)
-    # Calculate the assembly index
+    # Calculate the assembly index of the graph
     ai, virt_obj, _ = att.calculate_assembly_index(graph)
-    # Get the input graph from the output dict
+    # Get the input graph from the output dictionary
     input_graph = virt_obj["file_graph"][0]
+    # Convert the input graph back to a SMILES string
     smi_out = Chem.MolToSmiles(att.nx_to_mol(input_graph))
-    # Compare to the hand calculated value
-    assert ai == 2  # Check the assembly index
-    assert att.is_graph_isomorphic(graph, input_graph)  # Check the output graph is the same as the input
-    assert smi_in == smi_out  # Check the graph conversion to and from RDKit
+    # Check the assembly index
+    assert ai == 2
+    # Check the output graph is the same as the input
+    assert att.is_graph_isomorphic(graph, input_graph)
+    # Check the graph conversion to and from RDKit
+    assert smi_in == smi_out
 
 
 def test_ass_mol_file():
+    """
+    Test the calculation of the assembly index for a molecule from a file.
+
+    This function performs the following steps:
+    1. Converts a SMILES string to a molecule object.
+    2. Writes the molecule object to a mol file.
+    3. Calculates the assembly index of the molecule from the mol file.
+    4. Compares the calculated assembly index to the expected value.
+    5. Verifies that the InChI of the molecule matches the InChI from the output dictionary.
+    6. Removes the temporary mol file.
+
+    Asserts:
+        - The calculated assembly index is equal to 2.
+        - The InChI of the molecule matches the InChI from the output dictionary.
+    """
     print(flush=True)
     smi_in = "[H]C#C[H]"
-    # Convert all the smile to mol
+    # Convert the SMILES string to a molecule object
     mol = att.smi_to_mol(smi_in)
-    # write the mol file
+    # Write the molecule object to a mol file
     mol_file = "tmp.mol"
     att.write_v2k_mol_file(mol, mol_file)
-    # Calculate the assembly index
+    # Calculate the assembly index of the molecule from the mol file
     ai, virt_obj, _ = att.calculate_assembly_index(mol_file)
 
     # Compare to the hand calculated value
     assert ai == 2
     assert Chem.MolToInchi(mol) == virt_obj["file_graph"][0]
-    # remove the temp file
+    # Remove the temporary mol file
     os.remove(mol_file)
 
 
 def test_ass_mol():
+    """
+    Test the calculation of the assembly index for a molecule.
+
+    This function performs the following steps:
+    1. Converts a SMILES string to a molecule object.
+    2. Calculates the assembly index of the molecule.
+    3. Compares the calculated assembly index to the expected value.
+    4. Verifies that the InChI of the molecule matches the InChI from the output dictionary.
+
+    Asserts:
+        - The calculated assembly index is equal to 2.
+        - The InChI of the molecule matches the InChI from the output dictionary.
+    """
     print(flush=True)
     smi_in = "[H]C#C[H]"
-    # Convert all the smile to mol
+    # Convert the SMILES string to a molecule object
     mol = att.smi_to_mol(smi_in)
-    # Calculate the assembly index
+    # Calculate the assembly index of the molecule
     ai, virt_obj, _ = att.calculate_assembly_index(mol)
     # Compare to the hand calculated value
     assert ai == 2
@@ -106,30 +167,57 @@ def test_ass_mol():
 
 
 def test_compare_ass_graph_mol_file_mol():
+    """
+    Test the consistency of the assembly index calculation across different representations of molecules.
+
+    This function performs the following steps:
+    1. Converts SMILES strings to molecule objects.
+    2. Converts the molecule objects to NetworkX graphs.
+    3. Writes the molecule objects to mol files.
+    4. Calculates the assembly index for the graph, mol file, and molecule object.
+    5. Asserts that the assembly index is the same for all representations.
+    6. Removes the temporary mol file.
+
+    Asserts:
+        - The assembly index calculated from the graph, mol file, and molecule object are equal.
+    """
     print(flush=True)
     smis = ["c1ccccc1", "[BH-]1-[NH+]=[BH-]-[NH+]=[BH-]-[NH+]=1"]
     mol_file = "tmp.mol"
     for smi_in in smis:
-        # Convert all the smile to mol
+        # Convert the SMILES string to a molecule object
         mol = att.smi_to_mol(smi_in)
-        # Convert the system into graphs
+        # Convert the molecule object to a NetworkX graph
         graph = att.mol_to_nx(mol)
-        # Write the mol file
+        # Write the molecule object to a mol file
         att.write_v2k_mol_file(mol, mol_file)
 
-        # Graph
+        # Calculate the assembly index for the graph
         ai_graph, _, _ = att.calculate_assembly_index(graph)
-        # Mol file
+        # Calculate the assembly index for the mol file
         ai_mol_file, _, _ = att.calculate_assembly_index(mol_file)
-        # Mol
+        # Calculate the assembly index for the molecule object
         ai_mol, _, _ = att.calculate_assembly_index(mol)
 
+        # Assert that the assembly index is the same for all representations
         assert ai_graph == ai_mol_file == ai_mol
-    # Remove the tmp mol file
+    # Remove the temporary mol file
     os.remove(mol_file)
 
 
 def test_big_chungus():
+    """
+    Test the calculation of the assembly index for a large molecule.
+
+    This function performs the following steps:
+    1. Loads a molecule from a mol file.
+    2. Converts the molecule to a NetworkX graph.
+    3. Calculates the assembly index for the graph, mol file, and molecule object.
+    4. Asserts that the assembly index is the same for all representations.
+
+    Asserts:
+        - The assembly index calculated from the graph, mol file, and molecule object are equal to 8.
+    """
     print(flush=True)
     mol_file = os.path.expanduser(os.path.abspath("data/mol_files/big_chungus.mol"))
     # Get the mol object
@@ -148,6 +236,17 @@ def test_big_chungus():
 
 
 def test_taxol_file():
+    """
+    Test the calculation of the assembly index for the molecule in the taxol mol file.
+
+    This function performs the following steps:
+    1. Loads the taxol molecule from a mol file.
+    2. Calculates the assembly index for the molecule.
+    3. Asserts that the calculated assembly index is equal to 23.
+
+    Asserts:
+        - The calculated assembly index is equal to 23.
+    """
     print(flush=True)
     mol_file = os.path.expanduser(os.path.abspath("data/mol_files/taxol.mol"))
     # Mol file
@@ -157,6 +256,26 @@ def test_taxol_file():
 
 
 def test_hydrogen_stripping():
+    """
+    Test the calculation of the assembly index for a molecule with and without hydrogen stripping.
+
+    This function performs the following steps:
+    1. Loads a molecule from a mol file.
+    2. Converts a SMILES string to a molecule object.
+    3. Asserts that the graph representations of the two molecules are isomorphic.
+    4. Converts the molecule object to a NetworkX graph.
+    5. Calculates the assembly index for the graph with hydrogen stripped.
+    6. Calculates the assembly index for the mol file.
+    7. Calculates the assembly index for the molecule object with hydrogen stripped.
+    8. Asserts that the assembly index is the same for all representations.
+    9. Calculates the assembly index for the graph, mol file, and molecule object with the strip_hydrogen flag set to True.
+    10. Asserts that the assembly index is the same for all representations with the strip_hydrogen flag.
+
+    Asserts:
+        - The graph representations of the two molecules are isomorphic.
+        - The assembly index calculated from the graph, mol file, and molecule object are equal to 4.
+        - The assembly index calculated from the graph, mol file, and molecule object with the strip_hydrogen flag are equal to 4.
+    """
     print(flush=True)
     mol_file = os.path.expanduser(os.path.abspath("data/mol_files/alanine.mol"))
     # Get the mol object
@@ -188,6 +307,23 @@ def test_hydrogen_stripping():
 
 
 def test_ass_mol_debug():
+    """
+    Test the calculation of the assembly index for a molecule with debug information.
+
+    This function performs the following steps:
+    1. Converts a SMILES string to a molecule object.
+    2. Calculates the assembly index of the molecule with debug information.
+    3. Retrieves the path of the created file.
+    4. Compares the calculated assembly index to the expected value.
+    5. Verifies that the InChI of the molecule matches the InChI from the output dictionary.
+    6. Asserts that only one directory was created.
+    7. Cleans up by removing the created directory.
+
+    Asserts:
+        - The calculated assembly index is equal to 2.
+        - The InChI of the molecule matches the InChI from the output dictionary.
+        - Only one directory was created.
+    """
     print(flush=True)
     # Convert all the smile to mol
     mol = att.smi_to_mol("[H]C#C[H]")
@@ -204,37 +340,82 @@ def test_ass_mol_debug():
 
 
 def test_joint_ass():
+    """
+    Test the calculation of the assembly index for a combined molecule.
+
+    This function performs the following steps:
+    1. Converts SMILES strings to molecule objects.
+    2. Combines the molecule objects into a single molecule.
+    3. Calculates the assembly index of the combined molecule with hydrogen stripping.
+    4. Asserts that the calculated assembly index is equal to 4.
+
+    Asserts:
+        - The calculated assembly index is equal to 4.
+    """
     print(flush=True)
     molecules = ["NCC(O)=O", "CC(N)C(O)=O"]
-    # Convert all the smile to mol
+    # Convert all the SMILES strings to molecule objects
     mols = [att.smi_to_mol(smile) for smile in molecules]
+    # Combine the molecule objects into a single molecule
     mol = att.combine_mols(mols)
 
     # Calculate the assembly index
     ai, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
 
+    # Assert that the calculated assembly index is equal to 4
     assert ai == 4
 
 
 def test_big_joint_ass():
+    """
+    Test the calculation of the assembly index for a large combined molecule.
+
+    This function performs the following steps:
+    1. Defines a string of SMILES representations for multiple molecules.
+    2. Converts the SMILES strings to molecule objects.
+    3. Combines the molecule objects into a single molecule.
+    4. Calculates the assembly index of the combined molecule with hydrogen stripping.
+    5. Asserts that the calculated assembly index is equal to 40.
+
+    Asserts:
+        - The calculated assembly index is equal to 40.
+    """
     print(flush=True)
     molecules = "NCC(=O)O.CC(N)C(=O)O.C([C@@H](C(=O)O)N)O.O=C(O)CC(N)C(=O)O.O=C(O)C(N)CS.OC(=O)CCC(N)C(=O)O.C[C@H]([C@@H](C(=O)O)N)O.CC(C)C(N)C(=O)O"
     molecules += ".NC(=O)CC(N)C(=O)O.O=C(N)CCC(N)C(=O)O.CC(CC)C(N)C(=O)O.CC(C)CC(N)C(=O)O.NC(CCCCN)C(=O)O.O=C(O)C1CCCN1.O=C(O)C(N)CCSC.C(C[C@@H](C(=O)O)N)CN=C(N)N"
-    # Convert all the smile to mol
+    # Convert all the SMILES strings to molecule objects
     mols = [att.smi_to_mol(smile) for smile in molecules]
+    # Combine the molecule objects into a single molecule
     mol = att.combine_mols(mols)
 
     # Calculate the assembly index
     ai, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
 
+    # Assert that the calculated assembly index is equal to 40
     assert ai == 40
 
 
 def test_joint_ass_mol():
+    """
+    Test the calculation of the assembly index for a combined molecule.
+
+    This function performs the following steps:
+    1. Defines a string of SMILES representations for multiple molecules.
+    2. Splits the string into individual SMILES strings.
+    3. Converts the SMILES strings to molecule objects.
+    4. Combines the molecule objects into a single molecule.
+    5. Calculates the assembly index of the combined molecule.
+    6. Compares the calculated assembly index to the expected value.
+    7. Verifies that the InChI of the first split molecule matches the InChI from the output dictionary.
+
+    Asserts:
+        - The calculated assembly index is equal to 11.
+        - The InChI of the first split molecule matches the InChI from the output dictionary.
+    """
     print(flush=True)
     molecules = "[H]C#C[H].[H][C]([H])([H])[C]([H])([H])[H].[H]C([H])([H])([H]).[H]O([H]).[H]N([H])([H]).[H][N+]([H])([H])([H]).[S-]([H]).[H][H]"
     molecules = molecules.split(".")
-    # Convert all the smile to mol
+    # Convert all the SMILES strings to molecule objects
     mols = [att.smi_to_mol(smile) for smile in molecules]
     mol = att.combine_mols(mols)
 
@@ -247,12 +428,29 @@ def test_joint_ass_mol():
 
 
 def test_joint_ass_graph():
+    """
+    Test the calculation of the assembly index for a combined molecular graph.
+
+    This function performs the following steps:
+    1. Defines a string of SMILES representations for multiple molecules.
+    2. Splits the string into individual SMILES strings.
+    3. Converts the SMILES strings to molecule objects.
+    4. Converts the molecule objects to NetworkX graphs.
+    5. Joins the individual graphs into a single graph.
+    6. Calculates the assembly index of the combined graph.
+    7. Compares the calculated assembly index to the expected value.
+    8. Verifies that the original combined graph is isomorphic to the output graph.
+
+    Asserts:
+        - The calculated assembly index is equal to 11.
+        - The original combined graph is isomorphic to the output graph.
+    """
     print(flush=True)
     molecules = "[H]C#C[H].[H][C]([H])([H])[C]([H])([H])[H].[H]C([H])([H])([H]).[H]O([H]).[H]N([H])([H]).[H][N+]([H])([H])([H]).[S-]([H]).[H][H]"
     molecules = molecules.split(".")
-    # Convert all the smile to mol
+    # Convert all the SMILES strings to molecule objects
     mols = [att.smi_to_mol(smile) for smile in molecules]
-    # Convert the system into graphs
+    # Convert the molecule objects into graphs
     graphs = [att.mol_to_nx(mol) for mol in mols]
     # Join the graphs
     graphs_joint = nx.disjoint_union_all(graphs)
@@ -265,20 +463,56 @@ def test_joint_ass_graph():
 
 
 def test_all_paths_simple():
+    """
+    Test the calculation of all shortest paths in a molecule.
+
+    This function performs the following steps:
+    1. Converts a SMILES string to a molecule object.
+    2. Calculates all shortest paths in the molecule.
+    3. Compares the calculated paths to the expected paths.
+
+    Asserts:
+        - Each calculated path is in the list of expected paths.
+    """
     print(flush=True)
+    # Convert the SMILES string to a molecule object
     mol = att.smi_to_mol("C#CCC=C")
+    # Calculate all shortest paths in the molecule
     paths = att.all_shortest_paths(mol, f_graph_care=False)
+    # Define the expected paths
     expected = ['InChI=1S/CH4/h1H4',
                 'InChI=1S/C2H2/c1-2/h1-2H',
                 'InChI=1S/C2H4/c1-2/h1-2H2',
                 'InChI=1S/C2H6/c1-2/h1-2H3',
                 'InChI=1S/C3H8/c1-3-2/h3H2,1-2H3',
                 'InChI=1S/C5H6/c1-3-5-4-2/h1,4H,2,5H2']
+    # Assert that each calculated path is in the list of expected paths
     for p in paths:
         assert p in expected
 
 
 def test_node_scramble():
+    """
+    Test the scrambling of node indices in a molecular graph.
+
+    This function performs the following steps:
+    1. Defines a SMILES string for a molecule.
+    2. Converts the SMILES string to a molecule object.
+    3. Converts the molecule object to a NetworkX graph.
+    4. Calculates the assembly index of the graph.
+    5. Retrieves the input graph from the output dictionary.
+    6. Plots the molecular graph.
+    7. Converts the input graph back to a SMILES string.
+    8. Scrambles the node indices of the graph.
+    9. Calculates the assembly index of the scrambled graph.
+    10. Retrieves the input graph from the output dictionary.
+    11. Plots the scrambled molecular graph.
+    12. Converts the scrambled input graph back to a SMILES string.
+    13. Asserts that the SMILES string of the original graph matches the SMILES string of the scrambled graph.
+
+    Asserts:
+        - The SMILES string of the original graph matches the SMILES string of the scrambled graph.
+    """
     print(flush=True)
     smi_in = "[H]OC(=O)C([H])(N([H])C(=O)C([H])([H])N([H])[H])C([H])([H])C([H])(C([H])([H])[H])C([H])([H])[H]"
     # smi_in = "CCC"
@@ -306,6 +540,17 @@ def test_node_scramble():
 
 
 def test_str_ass():
+    """
+    Test the calculation of the assembly index for a string.
+
+    This function performs the following steps:
+    1. Defines an input string.
+    2. Calculates the assembly index of the input string.
+    3. Compares the calculated assembly index to the expected value.
+
+    Asserts:
+        - The calculated assembly index is equal to the expected value.
+    """
     print(flush=True)
     s_inpt = "abracadabra"
     ai, _, _ = att.calculate_assembly_index(s_inpt)
@@ -314,6 +559,24 @@ def test_str_ass():
 
 
 def test_hand_graph():
+    """
+    Test the calculation of the assembly index for a hand-constructed graph.
+
+    This function performs the following steps:
+    1. Creates a ring graph with 8 nodes.
+    2. Sets the labels of the nodes to "C" (carbon atom).
+    3. Sets the edge labels to "1" (single bond).
+    4. Prints the details of the input graph.
+    5. Calculates the assembly index of the graph.
+    6. Converts the pathway dictionary to a list.
+    7. Prints the details of the output graph.
+    8. Removes the first pathway from the list.
+    9. Prints the details of each pathway object.
+    10. Asserts that the calculated assembly index is equal to 3.
+
+    Asserts:
+        - The calculated assembly index is equal to 3.
+    """
     print(flush=True)
     print("This is a hand construction graph test", flush=True)
     # Create a ring graph with 8 nodes
@@ -340,6 +603,23 @@ def test_hand_graph():
 
 
 def test_create_ionic_molecule():
+    """
+    Test the creation and validation of an ionic molecule.
+
+    This function performs the following steps:
+    1. Defines a SMILES string for an ionic molecule.
+    2. Creates the ionic molecule from the SMILES string.
+    3. Checks that the combined graph has the correct number of nodes and edges.
+    4. Checks that the combined graph contains the ionic bond.
+    5. Calculates the assembly index of the combined graph.
+    6. Adjusts the assembly index for ionic molecules.
+    7. Asserts that the adjusted assembly index is equal to 3.
+
+    Asserts:
+        - The combined graph has the correct number of nodes and edges.
+        - The combined graph contains the ionic bond.
+        - The adjusted assembly index is equal to 3.
+    """
     print(flush=True)
     smiles = "[NH4+].[SH-]"
     # Create the ionic molecule
@@ -368,6 +648,24 @@ def test_create_ionic_molecule():
 
 
 def test_cif_loading():
+    """
+    Test the loading and validation of CIF files.
+
+    This function performs the following steps:
+    1. Lists all CIF files in the target directory.
+    2. Skips specific invalid CIF files.
+    3. Reads each CIF file and converts it to a molecule object.
+    4. Reduces the lattice of the molecule.
+    5. Visualizes the molecule.
+    6. Writes the molecule to a mol file.
+    7. Reads the mol file back into a molecule object.
+    8. Visualizes the molecule read from the mol file.
+    9. Asserts that the positions and atomic numbers of the atoms are consistent between the original and read molecules.
+
+    Asserts:
+        - The positions of the atoms in the original and read molecules are close within a tolerance.
+        - The atomic numbers of the atoms in the original and read molecules are the same.
+    """
     print(flush=True)
     target_dir = "data/cif_files/"
     dirs = att.file_list_all(os.path.expanduser(os.path.abspath(target_dir)))
@@ -403,6 +701,22 @@ def test_cif_loading():
 
 
 def test_cif_ai():
+    """
+    Test the calculation of the assembly index for a molecule from a CIF file.
+
+    This function performs the following steps:
+    1. Lists all CIF files in the target directory.
+    2. Reads the first CIF file and converts it to a molecule object.
+    3. Writes the molecule object to a mol file.
+    4. Calculates the assembly index of the molecule from the mol file.
+    5. Removes the temporary mol file.
+    6. Converts the molecule object to a NetworkX graph.
+    7. Calculates the assembly index of the graph.
+    8. Asserts that the assembly index calculated from the mol file and the graph are equal to 4.
+
+    Asserts:
+        - The assembly index calculated from the mol file and the graph are equal to 4.
+    """
     print(flush=True)
     target_dir = "data/cif_files/"
     dirs = att.file_list_all(os.path.expanduser(os.path.abspath(target_dir)))
@@ -423,6 +737,19 @@ def test_cif_ai():
 
 
 def test_semi_metric():
+    """
+    Test the calculation of the assembly semi-metric between two molecular graphs.
+
+    This function performs the following steps:
+    1. Defines a list of SMILES strings for two molecules.
+    2. Converts the SMILES strings to molecule objects.
+    3. Converts the molecule objects to NetworkX graphs.
+    4. Calculates the assembly semi-metric between the two graphs.
+    5. Asserts that the calculated distance is equal to 1.
+
+    Asserts:
+        - The calculated distance is equal to 1.
+    """
     print(flush=True)
     molecules = ["NCC(O)=O", "CC(N)C(O)=O"]
     # Convert all the smile to mol
