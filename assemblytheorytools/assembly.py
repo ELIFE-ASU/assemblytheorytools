@@ -331,3 +331,54 @@ def compile_assembly_code():
     # run_command_simple(f"g++ assemblycpp-main/v5_combined_linux/main.cpp -O3 -o asscpp_v5 -I {boost_dir}")
     # run_command_simple("rm -r")
     return None
+
+
+def assembly_dry_run(mol, temp_dir=None, strip_hydrogen=False):
+    """
+    Perform a dry run of the assembly process for a given molecule.
+
+    Args:
+        mol (Union[nx.Graph, Chem.Mol, str]): The molecule, which can be a NetworkX graph, an RDKit molecule, or a file path to a .mol file.
+        temp_dir (str, optional): The temporary directory to use for file operations. Defaults to the current working directory.
+        strip_hydrogen (bool, optional): If True, removes hydrogen atoms from the molecule before processing. Defaults to False.
+
+    Raises:
+        ValueError: If the input molecule type is not supported.
+    """
+    if temp_dir is None:
+        temp_dir = os.getcwd()
+
+    # Assuming a NetworkX graph
+    if isinstance(mol, nx.Graph):
+        # Check if we need to strip hydrogen
+        if strip_hydrogen:
+            mol = remove_hydrogen_from_graph(mol)
+        # Make the input file path
+        file_path_in = os.path.join(temp_dir, "graph_in")
+        # Write the input graph file
+        write_ass_graph_file(mol, file_name=file_path_in)
+    # Check if the input is an RDKit molecule
+    elif isinstance(mol, Chem.Mol):
+        # Check if we need to strip hydrogen
+        if strip_hydrogen:
+            mol = Chem.RemoveHs(mol)
+
+        # Write the mol file
+        mol_file = os.path.join(temp_dir, "tmp.mol")
+        # Write the input mol file
+        write_v2k_mol_file(mol, mol_file)
+    # Check if the input is a file path to a .mol file
+    elif isinstance(mol, str) and mol.endswith(".mol"):
+        # WARNING it is the responsibility of the user to ensure the mol file has H or not!
+        if strip_hydrogen:
+            # Load the mol file
+            mol_ob = Chem.MolFromMolFile(mol, sanitize=False, removeHs=True)
+            # Make a temp dir to prevent overwriting
+            mol = os.path.join(temp_dir, "tmp.mol")
+            # Make a new mol file
+            Chem.MolToMolFile(mol_ob, mol)
+        else:
+            # Copy the mol file into the temp directory
+            shutil.copy(mol, os.path.join(temp_dir, "tmp.mol"))
+    else:
+        raise ValueError("Input not supported")

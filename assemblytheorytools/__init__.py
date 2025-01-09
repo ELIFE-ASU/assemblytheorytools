@@ -4,7 +4,8 @@ from .assembly import (calculate_assembly_index,
                        run_command,
                        calculate_assembly_semi_metric,
                        run_command_simple,
-                       compile_assembly_code)
+                       compile_assembly_code,
+                       assembly_dry_run)
 
 from .complexity_scores import (molecular_weight,
                                 bertz_complexity,
