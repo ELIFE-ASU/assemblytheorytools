@@ -540,18 +540,51 @@ def test_node_scramble():
 
 
 def test_undir_str_ass():
+    """
+    Test the string assembly index calculation in mol mode for an undirected string.
+    
+    This function performs the following steps:
+    1. Defines an input string.
+    2. Calculates the assembly index of the input string.
+    3. Compares the calculated assembly index to the expected value.
+
+    Asserts:
+        - The calculated assembly index is equal to the expected value.
+    """
     s_inpt = "abracadabra"
-    ai, _ = att.calculate_string_assembly_index(s_inpt, directed=False, debug=True)
+    ai, _ = att.calculate_string_assembly_index(s_inpt, directed=False, mode='mol', debug=True)
     ai_ref = 7
     assert ai == ai_ref
 
 def test_dir_str_ass():
+    """
+    Test the string assembly index calculation in mol mode for a directed string.
+    
+    This function performs the following steps:
+    1. Defines an input string.
+    2. Calculates the assembly index of the input string.
+    3. Compares the calculated assembly index to the expected value.
+
+    Asserts:
+        - The calculated assembly index is equal to the expected value.
+    """
     s_inpt = "abracadabra"
-    ai, _ = att.calculate_string_assembly_index(s_inpt, directed=True, debug=True)
+    ai, _ = att.calculate_string_assembly_index(s_inpt, directed=True, mode='mol', debug=True)
     ai_ref = 7
     assert ai == ai_ref
 
 def test_CFG_str_ass():
+    """
+    Test the CFG upperbound to string assembly index for a directed string.
+    
+    This function performs the following steps:
+    1. Defines an input string.
+    2. Calculates the assembly index upper bound for the input string.
+    3. Compares the upper bound to the exact value.
+
+    Asserts:
+        - The calculated upper bound is <= the exact value.
+    """
     s_inpt = "abracadabra"
     ai, _ = att.calculate_string_assembly_index(s_inpt, directed=True, mode="cfg", debug=True)
     ai_ref = 7
