@@ -12,7 +12,7 @@ import CFG
 from .graph_tools import write_ass_graph_file, remove_hydrogen_from_graph, nx_to_mol
 from .mol_tools import write_v2k_mol_file, combine_mols
 from .pathway import get_pathway_to_graph, get_pathway_to_mol, get_pathway_to_inchi
-from .string_tools import prep_joint_string_ai, get_dirstr_molecule, get_undir_str_molecule
+from .string_tools import prep_joint_string_ai, get_dir_str_molecule, get_undir_str_molecule
 
 
 def load_assembly_output(file_path):
@@ -359,18 +359,33 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]], dir_code=
 
     if mode == "mol": # Use the molecular assembly cpp calculator
         if directed:
-            graph = get_dirstr_molecule(string)
+            graph = get_dir_str_molecule(string, debug=debug)
         else:
-            graph = get_undir_str_molecule(string)
+            graph, edge_color_dict = get_undir_str_molecule(string, debug=debug)
         
+        if debug:
+            # String-Molecular Graph Nodes colors
+            print("\nNode colors:")
+            for node, data in graph.nodes(data=True):
+                print(f"Node {node}: {data.get('color', 'No color')}")
+
+            # String-Molecular Graph Edge colors
+            print("\nEdge colors:")
+            for u, v, data in graph.edges(data=True):
+                print(f"Edge {u}-{v}: {data.get('color', 'No color')}")
+
+
         graph_ai, graph_path = calculate_assembly_index(graph, dir_code=dir_code, timeout=timeout, debug=debug, joint_corr=False, strip_hydrogen=False)
+
+        if debug:
+            print(f"Graph Assembly Index: {graph_ai}", flush=True)
 
         if directed:
             # Convert to (joint) assembly index of directed strings
-            return graph_ai - 2 * len(delimiters), None # Path parsing still needs to be added
+            return graph_ai - len(set(string)) - 2 * len(delimiters), None # Path parsing still needs to be added
         else:
             # Convert to (joint) assembly index of undirected strings
-            return graph_ai - len(set(string)) - 2 * len(delimiters), None # Path parsing still needs to be added
+            return graph_ai - 2 * len(delimiters), None # Path parsing still needs to be added
     
     elif mode == "str": # Use the string assembly cpp calculator
         raise NotImplementedError("String assembly cpp calculator not yet supported.")
