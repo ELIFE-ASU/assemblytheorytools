@@ -1,5 +1,5 @@
 import numpy as np
-
+import networkx as nx
 
 def load_fasta(file_path):
     """
@@ -63,3 +63,64 @@ def get_unique_char(input_str):
         char = chr(i)
         if char not in input_str:
             return char
+
+
+def get_undir_str_molecule(undir_str, debug=0):
+    """
+    Make a molecule that corresponds to an undirected string. The string will have the same assembly index
+    as the molecular graph, and the paths will correspond as well.
+
+    Args:
+        undir_str (str): The undirected string.
+        debug (int): If 1, print debug information.
+
+    Returns:
+        graph: A networkx graph of the corresponding molecule.
+        edge_color_dict: A dictionary mapping edge colors (integers) to characters.
+    """
+
+    edge_color_dict = dict()
+    for i, char in enumerate(set(undir_str)):
+        edge_color_dict[char] = str(i+1)
+    
+    if debug:
+        print("Edge color dict:")
+        print(edge_color_dict)
+
+
+    graph = nx.Graph()
+    graph.add_node(0, color="null")
+    graph.add_node(1,color="null")
+    graph.add_edge(0,1,color=edge_color_dict[undir_str[0]])
+    for i in range(1, len(undir_str)):
+        graph.add_node(i+1, color="null")
+        graph.add_edge(i, i+1,color=edge_color_dict[undir_str[i]])
+
+    return graph, edge_color_dict
+
+
+def get_dir_str_molecule(dir_str, debug=0):
+    """
+    Make a molecule that corresponds to a directed string. The string will have the same assembly index
+    as the molecular graph, and the paths will correspond as well.
+
+    Args:
+        dir_str (str): The directed string.
+
+    Returns:
+        graph: A networkx graph of the corresponding molecule.
+    """
+    blank = 'null'
+    graph = nx.Graph()
+    graph.add_node(0, color=blank)
+    graph.add_node(1, color=dir_str[0])
+    graph.add_node(2, color=blank)
+    graph.add_edge(0, 1, color=1)
+    graph.add_edge(1, 2, color=2)
+    for i in range(1, len(dir_str)):
+        graph.add_node(2*i+1, color=dir_str[i])
+        graph.add_edge(2*i, 2*i+1, color=1)
+        graph.add_node(2*i+2, color=blank)
+        graph.add_edge(2*i+1, 2*i+2, color=2)
+
+    return graph

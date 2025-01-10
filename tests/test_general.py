@@ -1,6 +1,6 @@
 import os
 import shutil
-
+import pytest
 import networkx as nx
 import numpy as np
 from ase.io import read
@@ -204,7 +204,7 @@ def test_compare_ass_graph_mol_file_mol():
     # Remove the temporary mol file
     os.remove(mol_file)
 
-
+@pytest.mark.slow
 def test_big_chungus():
     """
     Test the calculation of the assembly index for a large molecule.
@@ -234,7 +234,7 @@ def test_big_chungus():
 
     assert ai_graph == ai_mol_file == ai_mol == 8
 
-
+@pytest.mark.slow
 def test_taxol_file():
     """
     Test the calculation of the assembly index for the molecule in the taxol mol file.
@@ -539,10 +539,10 @@ def test_node_scramble():
     assert smi_out == smi_out_sc  # Check the graph conversion to and from RDKit
 
 
-def test_str_ass():
+def test_undir_str_ass():
     """
-    Test the calculation of the assembly index for a string.
-
+    Test the string assembly index calculation in mol mode for an undirected string.
+    
     This function performs the following steps:
     1. Defines an input string.
     2. Calculates the assembly index of the input string.
@@ -551,11 +551,44 @@ def test_str_ass():
     Asserts:
         - The calculated assembly index is equal to the expected value.
     """
-    print(flush=True)
     s_inpt = "abracadabra"
-    ai, _, _ = att.calculate_assembly_index(s_inpt)
+    ai, _ = att.calculate_string_assembly_index(s_inpt, directed=False, mode='mol', debug=True)
     ai_ref = 7
     assert ai == ai_ref
+
+def test_dir_str_ass():
+    """
+    Test the string assembly index calculation in mol mode for a directed string.
+    
+    This function performs the following steps:
+    1. Defines an input string.
+    2. Calculates the assembly index of the input string.
+    3. Compares the calculated assembly index to the expected value.
+
+    Asserts:
+        - The calculated assembly index is equal to the expected value.
+    """
+    s_inpt = "abracadabra"
+    ai, _ = att.calculate_string_assembly_index(s_inpt, directed=True, mode='mol', debug=True)
+    ai_ref = 7
+    assert ai == ai_ref
+
+def test_CFG_str_ass():
+    """
+    Test the CFG upperbound to string assembly index for a directed string.
+    
+    This function performs the following steps:
+    1. Defines an input string.
+    2. Calculates the assembly index upper bound for the input string.
+    3. Compares the upper bound to the exact value.
+
+    Asserts:
+        - The calculated upper bound is <= the exact value.
+    """
+    s_inpt = "abracadabra"
+    ai, _ = att.calculate_string_assembly_index(s_inpt, directed=True, mode="cfg", debug=True)
+    ai_ref = 7
+    assert ai <= ai_ref
 
 
 def test_hand_graph():
