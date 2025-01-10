@@ -249,7 +249,7 @@ def all_shortest_paths(mol, f_graph_care=False, max_attempts=3):
         if f_graph_care:
             Chem.Kekulize(mol_renum)
 
-        ai, path = calculate_assembly_index(mol_renum)
+        ai, virt_obj, path = calculate_assembly_index(mol_renum)
         path = get_mol_pathway_to_inchi(path)
         path = convert_pathway_dict_to_list(path)
 

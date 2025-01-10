@@ -255,14 +255,14 @@ def calculate_assembly_semi_metric(graph1, graph2, dir_code=None, timeout=100.0,
     mol = combine_mols(mols)
 
     # Calculate the joint assembly index
-    jai, _ = calculate_assembly_index(mol, dir_code=dir_code, timeout=timeout, debug=debug,
+    jai, _, _ = calculate_assembly_index(mol, dir_code=dir_code, timeout=timeout, debug=debug,
                                       strip_hydrogen=strip_hydrogen)
     if debug:
         print(f"Joint Assembly Index: {jai}", flush=True)
     # Calculate the assembly index for each subgraph
     result = 0
     for subgraph in [graph1, graph2]:
-        ai, _ = calculate_assembly_index(subgraph, dir_code=dir_code, timeout=timeout, debug=debug,
+        ai, _, _ = calculate_assembly_index(subgraph, dir_code=dir_code, timeout=timeout, debug=debug,
                                          strip_hydrogen=strip_hydrogen)
         if debug:
             print(f"Assembly Index: {ai}", flush=True)
@@ -375,7 +375,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]], dir_code=
                 print(f"Edge {u}-{v}: {data.get('color', 'No color')}")
 
 
-        graph_ai, graph_path = calculate_assembly_index(graph, dir_code=dir_code, timeout=timeout, debug=debug, joint_corr=False, strip_hydrogen=False)
+        graph_ai, graph_virtual_obj, graph_path = calculate_assembly_index(graph, dir_code=dir_code, timeout=timeout, debug=debug, joint_corr=False, strip_hydrogen=False)
 
         if debug:
             print(f"Graph Assembly Index: {graph_ai}", flush=True)
