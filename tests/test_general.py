@@ -1,8 +1,9 @@
 import os
 import shutil
-import pytest
+
 import networkx as nx
 import numpy as np
+import pytest
 from ase.io import read
 from ase.visualize import view
 from rdkit.Chem import AllChem as Chem
@@ -204,6 +205,7 @@ def test_compare_ass_graph_mol_file_mol():
     # Remove the temporary mol file
     os.remove(mol_file)
 
+
 @pytest.mark.slow
 def test_big_chungus():
     """
@@ -233,6 +235,7 @@ def test_big_chungus():
     ai_mol, _, _ = att.calculate_assembly_index(mol, timeout=1000.0)
 
     assert ai_graph == ai_mol_file == ai_mol == 8
+
 
 @pytest.mark.slow
 def test_taxol_file():
@@ -556,6 +559,7 @@ def test_undir_str_ass():
     ai_ref = 7
     assert ai == ai_ref
 
+
 def test_dir_str_ass():
     """
     Test the string assembly index calculation in mol mode for a directed string.
@@ -572,6 +576,7 @@ def test_dir_str_ass():
     ai, _ = att.calculate_string_assembly_index(s_inpt, directed=True, mode='mol', debug=True)
     ai_ref = 7
     assert ai == ai_ref
+
 
 def test_CFG_str_ass():
     """
