@@ -12,16 +12,8 @@ Currently supports and connects to:
 - Minerals see [https://github.com/ELIFE-ASU/Mineral-evo](https://github.com/ELIFE-ASU/Mineral-evo).
 - For Proteins see [https://github.com/ELIFE-ASU/ProteinAssembly](https://github.com/ELIFE-ASU/ProteinAssembly).
 
-# Requirements
-Make sure to load your conda environment. I would install them in this order:
-- numpy `conda install conda-forge::numpy`
-- matplotlib `conda install conda-forge::matplotlib`
-- networkx `conda install anaconda::networkx`
-- rdkit `conda install conda-forge::rdkit`
-- pyvis `conda install conda-forge::pyvis`
-
 # For Local Installation 
-Install the requirements above (conda recommended). In one go:
+Install the requirements (conda recommended). In one go:
 
 `conda install conda-forge::numpy conda-forge::matplotlib anaconda::networkx conda-forge::rdkit conda-forge::pyvis`
 
@@ -31,6 +23,13 @@ Then install AssemblyTheoryTools:
 
 When asked for a password, you will need your GitHub username AND 'personal access token' (found in developer settings in your GitHub settings).
 See `https://stackoverflow.com/questions/2505096/clone-a-private-repository-github`
+
+# For Development Installation
+Install the requirements (conda recommended). In one go:
+
+`conda install conda-forge::numpy conda-forge::matplotlib anaconda::networkx conda-forge::rdkit conda-forge::pyvis anaconda::pytest`
+
+Clone the repo using Git or GitKraken. Then, open your favorite IDE (Pycharm/VS Code) and open the cloned repo.
 
 # For HPC (SOL) Installation
 
