@@ -1,8 +1,9 @@
 import os
 import shutil
-import pytest
+
 import networkx as nx
 import numpy as np
+import pytest
 from ase.io import read
 from ase.visualize import view
 from rdkit.Chem import AllChem as Chem
@@ -204,6 +205,7 @@ def test_compare_ass_graph_mol_file_mol():
     # Remove the temporary mol file
     os.remove(mol_file)
 
+
 @pytest.mark.slow
 def test_big_chungus():
     """
@@ -233,6 +235,7 @@ def test_big_chungus():
     ai_mol, _, _ = att.calculate_assembly_index(mol, timeout=1000.0)
 
     assert ai_graph == ai_mol_file == ai_mol == 8
+
 
 @pytest.mark.slow
 def test_taxol_file():

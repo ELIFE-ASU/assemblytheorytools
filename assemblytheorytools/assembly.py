@@ -4,15 +4,23 @@ import subprocess
 import tempfile
 from datetime import datetime
 from typing import Union, List
+
 import networkx as nx
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 
 import CFG
-from .graph_tools import write_ass_graph_file, remove_hydrogen_from_graph, nx_to_mol
-from .mol_tools import write_v2k_mol_file, combine_mols
-from .pathway import get_pathway_to_graph, get_pathway_to_mol, get_pathway_to_inchi
-from .string_tools import prep_joint_string_ai, get_dir_str_molecule, get_undir_str_molecule
+from .graph_tools import (write_ass_graph_file,
+                          remove_hydrogen_from_graph,
+                          nx_to_mol)
+from .mol_tools import (write_v2k_mol_file,
+                        combine_mols)
+from .pathway import (get_pathway_to_graph,
+                      get_pathway_to_mol,
+                      get_pathway_to_inchi)
+from .string_tools import (prep_joint_string_ai,
+                           get_dir_str_molecule,
+                           get_undir_str_molecule)
 
 
 def load_assembly_output(file_path):
@@ -29,7 +37,11 @@ def load_assembly_output(file_path):
         return next(int(line.split(":")[-1]) for line in f if "assembly index" in line)
 
 
-def run_command(command, output_file="output.out", error_file="error.err", timeout=10000.0, verbose=False):
+def run_command(command,
+                output_file="output.out",
+                error_file="error.err",
+                timeout=10000.0,
+                verbose=False):
     """
     Run a command in the subprocess with specified output and error files, and a timeout.
 
@@ -47,7 +59,10 @@ def run_command(command, output_file="output.out", error_file="error.err", timeo
         # Open the output and error files using with statement
         with open(output_file, "w") as out, open(error_file, "w") as err:
             # Run the command with a timeout
-            result = subprocess.run(command, stdout=out, stderr=err, timeout=timeout)
+            result = subprocess.run(command[0].split() + command[1].split(),
+                                    stdout=out,
+                                    stderr=err,
+                                    timeout=timeout)
             if verbose:
                 print("Command executed successfully:", result, flush=True)
                 # Write to output file
@@ -69,6 +84,20 @@ def run_command(command, output_file="output.out", error_file="error.err", timeo
             err.write(f"Failed to run command {command}")
             err.write(str(e))
         return False
+
+
+def run_command_simple(command):
+    """
+    Run a simple command in the subprocess.
+
+    Args:
+        command (str): The command to run as a string.
+
+    Returns:
+        bytes: The standard output of the command.
+    """
+    result = subprocess.run(command.split())
+    return result.stdout
 
 
 def joint_correction(mol, ass_index):
@@ -227,7 +256,12 @@ def calculate_assembly_index(mol,
                 return ai, virt_obj, path
 
 
-def calculate_assembly_semi_metric(graph1, graph2, dir_code=None, timeout=100.0, debug=False, strip_hydrogen=False):
+def calculate_assembly_semi_metric(graph1,
+                                   graph2,
+                                   dir_code=None,
+                                   timeout=100.0,
+                                   debug=False,
+                                   strip_hydrogen=False):
     """
     Calculate the assembly semi-metric distance between a pair of molecular graphs. 
 
@@ -255,15 +289,21 @@ def calculate_assembly_semi_metric(graph1, graph2, dir_code=None, timeout=100.0,
     mol = combine_mols(mols)
 
     # Calculate the joint assembly index
-    jai, _, _ = calculate_assembly_index(mol, dir_code=dir_code, timeout=timeout, debug=debug,
-                                      strip_hydrogen=strip_hydrogen)
+    jai, _, _ = calculate_assembly_index(mol,
+                                         dir_code=dir_code,
+                                         timeout=timeout,
+                                         debug=debug,
+                                         strip_hydrogen=strip_hydrogen)
     if debug:
         print(f"Joint Assembly Index: {jai}", flush=True)
     # Calculate the assembly index for each subgraph
     result = 0
     for subgraph in [graph1, graph2]:
-        ai, _, _ = calculate_assembly_index(subgraph, dir_code=dir_code, timeout=timeout, debug=debug,
-                                         strip_hydrogen=strip_hydrogen)
+        ai, _, _ = calculate_assembly_index(subgraph,
+                                            dir_code=dir_code,
+                                            timeout=timeout,
+                                            debug=debug,
+                                            strip_hydrogen=strip_hydrogen)
         if debug:
             print(f"Assembly Index: {ai}", flush=True)
         result += ai
@@ -272,18 +312,19 @@ def calculate_assembly_semi_metric(graph1, graph2, dir_code=None, timeout=100.0,
     return 2 * jai - result
 
 
-def run_command_simple(command):
+def add_to_bashrc(export_line):
     """
-    Run a simple command in the subprocess.
+    Add the specified export line to the .bashrc file.
 
     Args:
-        command (str): The command to run as a string.
-
-    Returns:
-        bytes: The standard output of the command.
+        export_line (str): The export line to add to the .bashrc file.
     """
-    result = subprocess.run(command.split())
-    return result.stdout
+    # Get the path to the .bashrc file in the user's home directory
+    bashrc_path = os.path.expanduser("~/.bashrc")
+
+    # Open the .bashrc file in append mode and write the export line to it
+    with open(bashrc_path, "a") as bashrc:
+        bashrc.write(f"export {export_line}")
 
 
 def compile_assembly_code():
@@ -317,24 +358,52 @@ def compile_assembly_code():
     export ASS_PATH=$HOME/asscpp/v5_boost/asscpp_v5_boost_recursive
 
     # Remove the boost folder
-    rm -r
-
+    rm -r /boost_1_86_0/
     """
-    boost_dir = os.path.abspath(os.path.expanduser(os.path.join(os.getcwd(), "/boost_1_86_0")))
-    # Get the assembly code
-    # run_command_simple("git clone git@gitlab.com:croningroup/cheminformatics/assemblycpp.git")
+    assembly_tar_path = ""
+    uncompress = "tar -xvzf"
+    remove = "rm -r"
+    boost_version = "1_86_0"
+    boost_code = f"boost_{boost_version}"
 
-    # run_command_simple("tar -xvzf assemblycpp-main.tar.gz")
-    # run_command_simple("rm assemblycpp-main.tar.gz")
-    # run_command_simple("wget https://archives.boost.io/release/1.86.0/source/boost_1_86_0.tar.gz")
-    # run_command_simple("tar -xvzf boost_1_86_0.tar.gz")
-    # run_command_simple("rm boost_1_86_0.tar.gz")
-    # run_command_simple(f"g++ assemblycpp-main/v5_combined_linux/main.cpp -O3 -o asscpp_v5 -I {boost_dir}")
-    # run_command_simple("rm -r")
+    exe_name = "asscpp_v5"
+    exe_dir = os.path.abspath(os.path.expanduser(os.path.join(os.getcwd(), exe_name)))
+
+    # Update the system packages
+    run_command_simple("sudo apt-get update && sudo apt-get upgrade -y")
+    # Install g++
+    run_command_simple("which g++ || sudo apt-get install g++ -y")
+    # Get the boost code
+    run_command_simple(
+        f"wget 'https://archives.boost.io/release/{boost_version.replace('_', '.')}/source/{boost_code}.tar.gz'")
+    # Unzip the boost code
+    run_command_simple(f"{uncompress} {boost_code}.tar.gz")
+    # Remove the boost zip file
+    run_command_simple(f"{remove} {boost_code}.tar.gz")
+    # Remove the boost folder
+    run_command_simple(f"{remove} /{boost_code}/")
+    # Compile the assembly code
+    run_command_simple(f"g++ assemblycpp/v5_combined_linux/main.cpp -O3 -o {exe_dir} -I /{boost_code}/")
+    # Set the permissions to allow execution
+    os.chmod(exe_dir, 0o755)
+
+    # Remove the assembly code folder
+    run_command_simple(f"{remove} /assemblycpp/")
+
+    # Add the exe to the bashrc
+    add_to_bashrc(f"ASS_PATH={exe_dir}\n")
+
+    # run_command_simple("")
+
     return None
 
 
-def calculate_string_assembly_index(input_data: Union[str, List[str]], dir_code=None, timeout=100.0, debug=False, directed=False, mode="mol"):
+def calculate_string_assembly_index(input_data: Union[str, List[str]],
+                                    dir_code=None,
+                                    timeout=100.0,
+                                    debug=False,
+                                    directed=False,
+                                    mode="mol"):
     """
     Calculate the assembly index of a string or a set of strings. 
     This function uses the molecular assembly calculator by constructing molecular graphs which correspond to the strings.
@@ -357,25 +426,29 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]], dir_code=
     else:
         raise ValueError("Input must be either a single string or a list of strings")
 
-    if mode == "mol": # Use the molecular assembly cpp calculator
+    if mode == "mol":  # Use the molecular assembly cpp calculator
         if directed:
             graph = get_dir_str_molecule(string, debug=debug)
         else:
             graph, edge_color_dict = get_undir_str_molecule(string, debug=debug)
-        
+
         if debug:
             # String-Molecular Graph Nodes colors
-            print("\nNode colors:")
+            print("\nNode colors:", flush=True)
             for node, data in graph.nodes(data=True):
-                print(f"Node {node}: {data.get('color', 'No color')}")
+                print(f"Node {node}: {data.get('color', 'No color')}", flush=True)
 
             # String-Molecular Graph Edge colors
-            print("\nEdge colors:")
+            print("\nEdge colors:", flush=True)
             for u, v, data in graph.edges(data=True):
-                print(f"Edge {u}-{v}: {data.get('color', 'No color')}")
+                print(f"Edge {u}-{v}: {data.get('color', 'No color')}", flush=True)
 
-
-        graph_ai, graph_virtual_obj, graph_path = calculate_assembly_index(graph, dir_code=dir_code, timeout=timeout, debug=debug, joint_corr=False, strip_hydrogen=False)
+        graph_ai, graph_virtual_obj, graph_path = calculate_assembly_index(graph,
+                                                                           dir_code=dir_code,
+                                                                           timeout=timeout,
+                                                                           debug=debug,
+                                                                           joint_corr=False,
+                                                                           strip_hydrogen=False)
 
         if debug:
             print(f"Graph Assembly Index: {graph_ai}", flush=True)
@@ -389,15 +462,15 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]], dir_code=
     
     elif mode == "str": # Use the string assembly cpp calculator
         raise NotImplementedError("String assembly cpp calculator not yet supported.")
-    
-    elif mode == "cfg": # Use the RePair upper bound
+
+    elif mode == "cfg":  # Use the RePair upper bound
         composite_ai, virt_obj, path = CFG.ai_with_pathways(string, f_print=False)
         if directed:
             # Convert to (joint) assembly index of directed strings
             return composite_ai - 2 * len(delimiters), virt_obj, path
         else:
-            ValueError("Current CFG code only works for directed strings. Directed string assembly index is an upper bound to undirected string assembly index, so you may still use the directed calculator.")
-        
+            ValueError(
+                "Current CFG code only works for directed strings. Directed string assembly index is an upper bound to undirected string assembly index, so you may still use the directed calculator.")
 
 
 def assembly_dry_run(mol, temp_dir=None, strip_hydrogen=False):
