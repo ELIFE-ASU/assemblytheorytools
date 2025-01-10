@@ -462,6 +462,23 @@ def test_joint_ass_graph():
     assert att.is_graph_isomorphic(graphs_joint, out_graph)
 
 
+def test_joint_ass_str():
+    """
+    Test the calculation of the assembly index for a set of strings.
+
+    This function performs the following steps:
+    1. Define a list of strings
+    2. Calculate their assembly index
+    3. Assert ai = 4
+
+
+    Asserts:
+        - The calculated assembly index is equal to 4.
+    """
+    strs = ["aaaa","bbbb","aa"]
+    ai, v_obj, path = att.calculate_string_assembly_index(strs)
+    assert ai == 4
+
 def test_all_paths_simple():
     """
     Test the calculation of all shortest paths in a molecule.
@@ -552,9 +569,10 @@ def test_undir_str_ass():
         - The calculated assembly index is equal to the expected value.
     """
     s_inpt = "abracadabra"
-    ai, _ = att.calculate_string_assembly_index(s_inpt, directed=False, mode='mol', debug=True)
+    ai, _, _ = att.calculate_string_assembly_index(s_inpt, directed=False, mode='mol', debug=True)
     ai_ref = 7
     assert ai == ai_ref
+
 
 def test_dir_str_ass():
     """
@@ -569,9 +587,10 @@ def test_dir_str_ass():
         - The calculated assembly index is equal to the expected value.
     """
     s_inpt = "abracadabra"
-    ai, _ = att.calculate_string_assembly_index(s_inpt, directed=True, mode='mol', debug=True)
+    ai, _, _ = att.calculate_string_assembly_index(s_inpt, directed=True, mode='mol', debug=True)
     ai_ref = 7
     assert ai == ai_ref
+
 
 def test_CFG_str_ass():
     """
@@ -586,7 +605,7 @@ def test_CFG_str_ass():
         - The calculated upper bound is <= the exact value.
     """
     s_inpt = "abracadabra"
-    ai, _ = att.calculate_string_assembly_index(s_inpt, directed=True, mode="cfg", debug=True)
+    ai, _, _ = att.calculate_string_assembly_index(s_inpt, directed=True, mode="cfg", debug=True)
     ai_ref = 7
     assert ai <= ai_ref
 
