@@ -10,10 +10,17 @@ from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 
 import CFG
-from .graph_tools import write_ass_graph_file, remove_hydrogen_from_graph, nx_to_mol
-from .mol_tools import write_v2k_mol_file, combine_mols
-from .pathway import get_pathway_to_graph, get_pathway_to_mol, get_pathway_to_inchi
-from .string_tools import prep_joint_string_ai, get_dir_str_molecule, get_undir_str_molecule
+from .graph_tools import (write_ass_graph_file,
+                          remove_hydrogen_from_graph,
+                          nx_to_mol)
+from .mol_tools import (write_v2k_mol_file,
+                        combine_mols)
+from .pathway import (get_pathway_to_graph,
+                      get_pathway_to_mol,
+                      get_pathway_to_inchi)
+from .string_tools import (prep_joint_string_ai,
+                           get_dir_str_molecule,
+                           get_undir_str_molecule)
 
 
 def load_assembly_output(file_path):
@@ -77,6 +84,20 @@ def run_command(command,
             err.write(f"Failed to run command {command}")
             err.write(str(e))
         return False
+
+
+def run_command_simple(command):
+    """
+    Run a simple command in the subprocess.
+
+    Args:
+        command (str): The command to run as a string.
+
+    Returns:
+        bytes: The standard output of the command.
+    """
+    result = subprocess.run(command.split())
+    return result.stdout
 
 
 def joint_correction(mol, ass_index):
@@ -291,20 +312,6 @@ def calculate_assembly_semi_metric(graph1,
     return 2 * jai - result
 
 
-def run_command_simple(command):
-    """
-    Run a simple command in the subprocess.
-
-    Args:
-        command (str): The command to run as a string.
-
-    Returns:
-        bytes: The standard output of the command.
-    """
-    result = subprocess.run(command.split())
-    return result.stdout
-
-
 def compile_assembly_code():
     """
     Set up the keys
@@ -389,14 +396,14 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
 
         if debug:
             # String-Molecular Graph Nodes colors
-            print("\nNode colors:")
+            print("\nNode colors:", flush=True)
             for node, data in graph.nodes(data=True):
-                print(f"Node {node}: {data.get('color', 'No color')}")
+                print(f"Node {node}: {data.get('color', 'No color')}", flush=True)
 
             # String-Molecular Graph Edge colors
-            print("\nEdge colors:")
+            print("\nEdge colors:", flush=True)
             for u, v, data in graph.edges(data=True):
-                print(f"Edge {u}-{v}: {data.get('color', 'No color')}")
+                print(f"Edge {u}-{v}: {data.get('color', 'No color')}", flush=True)
 
         graph_ai, graph_virtual_obj, graph_path = calculate_assembly_index(graph,
                                                                            dir_code=dir_code,
