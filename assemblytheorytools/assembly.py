@@ -312,6 +312,21 @@ def calculate_assembly_semi_metric(graph1,
     return 2 * jai - result
 
 
+def add_to_bashrc(export_line):
+    """
+    Add the specified export line to the .bashrc file.
+
+    Args:
+        export_line (str): The export line to add to the .bashrc file.
+    """
+    # Get the path to the .bashrc file in the user's home directory
+    bashrc_path = os.path.expanduser("~/.bashrc")
+
+    # Open the .bashrc file in append mode and write the export line to it
+    with open(bashrc_path, "a") as bashrc:
+        bashrc.write(f"export {export_line}")
+
+
 def compile_assembly_code():
     """
     Set up the keys
@@ -343,20 +358,43 @@ def compile_assembly_code():
     export ASS_PATH=$HOME/asscpp/v5_boost/asscpp_v5_boost_recursive
 
     # Remove the boost folder
-    rm -r
-
+    rm -r /boost_1_86_0/
     """
-    boost_dir = os.path.abspath(os.path.expanduser(os.path.join(os.getcwd(), "/boost_1_86_0")))
-    # Get the assembly code
-    # run_command_simple("git clone git@gitlab.com:croningroup/cheminformatics/assemblycpp.git")
+    assembly_tar_path = ""
+    uncompress = "tar -xvzf"
+    remove = "rm -r"
+    boost_version = "1_86_0"
+    boost_code = f"boost_{boost_version}"
 
-    # run_command_simple("tar -xvzf assemblycpp-main.tar.gz")
-    # run_command_simple("rm assemblycpp-main.tar.gz")
-    # run_command_simple("wget https://archives.boost.io/release/1.86.0/source/boost_1_86_0.tar.gz")
-    # run_command_simple("tar -xvzf boost_1_86_0.tar.gz")
-    # run_command_simple("rm boost_1_86_0.tar.gz")
-    # run_command_simple(f"g++ assemblycpp-main/v5_combined_linux/main.cpp -O3 -o asscpp_v5 -I {boost_dir}")
-    # run_command_simple("rm -r")
+    exe_name = "asscpp_v5"
+    exe_dir = os.path.abspath(os.path.expanduser(os.path.join(os.getcwd(), exe_name)))
+
+    # Update the system packages
+    run_command_simple("sudo apt-get update && sudo apt-get upgrade -y")
+    # Install g++
+    run_command_simple("which g++ || sudo apt-get install g++ -y")
+    # Get the boost code
+    run_command_simple(
+        f"wget 'https://archives.boost.io/release/{boost_version.replace('_', '.')}/source/{boost_code}.tar.gz'")
+    # Unzip the boost code
+    run_command_simple(f"{uncompress} {boost_code}.tar.gz")
+    # Remove the boost zip file
+    run_command_simple(f"{remove} {boost_code}.tar.gz")
+    # Remove the boost folder
+    run_command_simple(f"{remove} /{boost_code}/")
+    # Compile the assembly code
+    run_command_simple(f"g++ assemblycpp/v5_combined_linux/main.cpp -O3 -o {exe_dir} -I /{boost_code}/")
+    # Set the permissions to allow execution
+    os.chmod(exe_dir, 0o755)
+
+    # Remove the assembly code folder
+    run_command_simple(f"{remove} /assemblycpp/")
+
+    # Add the exe to the bashrc
+    add_to_bashrc(f"ASS_PATH={exe_dir}\n")
+
+    # run_command_simple("")
+
     return None
 
 
