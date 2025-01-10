@@ -539,23 +539,23 @@ def test_node_scramble():
     assert smi_out == smi_out_sc  # Check the graph conversion to and from RDKit
 
 
-def test_str_ass():
-    """
-    Test the calculation of the assembly index for a string.
-
-    This function performs the following steps:
-    1. Defines an input string.
-    2. Calculates the assembly index of the input string.
-    3. Compares the calculated assembly index to the expected value.
-
-    Asserts:
-        - The calculated assembly index is equal to the expected value.
-    """
-    print(flush=True)
+def test_undir_str_ass():
     s_inpt = "abracadabra"
-    ai, _ = att.calculate_string_assembly_index(s_inpt, directed=True)
+    ai, _ = att.calculate_string_assembly_index(s_inpt, directed=False, debug=True)
     ai_ref = 7
     assert ai == ai_ref
+
+def test_dir_str_ass():
+    s_inpt = "abracadabra"
+    ai, _ = att.calculate_string_assembly_index(s_inpt, directed=True, debug=True)
+    ai_ref = 7
+    assert ai == ai_ref
+
+def test_CFG_str_ass():
+    s_inpt = "abracadabra"
+    ai, _ = att.calculate_string_assembly_index(s_inpt, directed=True, mode="cfg", debug=True)
+    ai_ref = 7
+    assert ai <= ai_ref
 
 
 def test_hand_graph():
