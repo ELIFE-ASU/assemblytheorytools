@@ -382,10 +382,10 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]], dir_code=
 
         if directed:
             # Convert to (joint) assembly index of directed strings
-            return graph_ai - len(set(string)) - 2 * len(delimiters), None # Path parsing still needs to be added
+            return graph_ai - len(set(string)) - 2 * len(delimiters), None, None # Virt obj and Path parsing still needs to be added
         else:
             # Convert to (joint) assembly index of undirected strings
-            return graph_ai - 2 * len(delimiters), None # Path parsing still needs to be added
+            return graph_ai - 2 * len(delimiters), None, None # Virt obj, Path parsing still needs to be added
     
     elif mode == "str": # Use the string assembly cpp calculator
         raise NotImplementedError("String assembly cpp calculator not yet supported.")
@@ -394,7 +394,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]], dir_code=
         composite_ai, virt_obj, path = CFG.ai_with_pathways(string, f_print=False)
         if directed:
             # Convert to (joint) assembly index of directed strings
-            return composite_ai - 2 * len(delimiters), path
+            return composite_ai - 2 * len(delimiters), virt_obj, path
         else:
             ValueError("Current CFG code only works for directed strings. Directed string assembly index is an upper bound to undirected string assembly index, so you may still use the directed calculator.")
         
