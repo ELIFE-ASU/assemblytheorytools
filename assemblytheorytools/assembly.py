@@ -455,12 +455,13 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
 
         if directed:
             # Convert to (joint) assembly index of directed strings
-            return graph_ai - len(set(string)) - 2 * len(delimiters), None, None # Virt obj and Path parsing still needs to be added
+            return graph_ai - len(set(string)) - 2 * len(
+                delimiters), None, None  # Virt obj and Path parsing still needs to be added
         else:
             # Convert to (joint) assembly index of undirected strings
-            return graph_ai - 2 * len(delimiters), None, None # Virt obj, Path parsing still needs to be added
-    
-    elif mode == "str": # Use the string assembly cpp calculator
+            return graph_ai - 2 * len(delimiters), None, None  # Virt obj, Path parsing still needs to be added
+
+    elif mode == "str":  # Use the string assembly cpp calculator
         raise NotImplementedError("String assembly cpp calculator not yet supported.")
 
     elif mode == "cfg":  # Use the RePair upper bound
