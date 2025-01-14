@@ -2,6 +2,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 from datetime import datetime
 from typing import Union, List
 
@@ -312,22 +313,24 @@ def calculate_assembly_semi_metric(graph1,
     return 2 * jai - result
 
 
-def add_to_bashrc(export_line):
+def add_to_bashrc(export_line, file=".bashrc"):
     """
-    Add the specified export line to the .bashrc file.
+    Append an export line to the specified bash configuration file.
 
     Args:
-        export_line (str): The export line to add to the .bashrc file.
+        export_line (str): The export line to add to the bash configuration file.
+        file (str, optional): The name of the bash configuration file. Defaults to ".bashrc".
+
     """
-    # Get the path to the .bashrc file in the user's home directory
-    bashrc_path = os.path.expanduser("~/.bashrc")
+    # Get the path to the file in the user's home directory
+    file_path = os.path.expanduser(f"~/{file}")
 
     # Open the .bashrc file in append mode and write the export line to it
-    with open(bashrc_path, "a") as bashrc:
-        bashrc.write(f"export {export_line}")
+    with open(file_path, "a") as f:
+        f.write(f"\nexport {export_line}\n")
 
 
-def compile_assembly_code():
+def compile_assembly_code(assembly_tar_path="assemblycpp-main", boost_version="1_86_0", exe_name="asscpp_v5"):
     """
     Set up the keys
     go to gitlab website
@@ -347,6 +350,11 @@ def compile_assembly_code():
     # Install g++
     which g++ || sudo apt-get install g++ -y
 
+    # # Update the system packages
+    # run_command_simple("sudo apt-get update && sudo apt-get upgrade -y")
+    # # Install g++
+    # run_command_simple("which g++ || sudo apt-get install g++ -y")
+
     # Get the boost code
     wget 'https://archives.boost.io/release/1.86.0/source/boost_1_86_0.tar.gz'
     # Unzip the boost code
@@ -360,41 +368,54 @@ def compile_assembly_code():
     # Remove the boost folder
     rm -r /boost_1_86_0/
     """
-    assembly_tar_path = ""
+    print("compile_assembly_code", flush=True)
+
     uncompress = "tar -xvzf"
     remove = "rm -r"
-    boost_version = "1_86_0"
     boost_code = f"boost_{boost_version}"
+    exe_dir = os.path.abspath(os.path.expanduser(os.path.join(os.getcwd(), exe_name)))  # "../precompiled/"
 
-    exe_name = "asscpp_v5"
-    exe_dir = os.path.abspath(os.path.expanduser(os.path.join(os.getcwd(), exe_name)))
+    # Uncompress the assembly code
+    run_command_simple(f"{uncompress} {assembly_tar_path}.tar.gz")
+    time.sleep(1)
 
-    # Update the system packages
-    run_command_simple("sudo apt-get update && sudo apt-get upgrade -y")
-    # Install g++
-    run_command_simple("which g++ || sudo apt-get install g++ -y")
     # Get the boost code
-    run_command_simple(
-        f"wget 'https://archives.boost.io/release/{boost_version.replace('_', '.')}/source/{boost_code}.tar.gz'")
+    subprocess.run(
+        f"wget 'https://archives.boost.io/release/{boost_version.replace('_', '.')}/source/{boost_code}.tar.gz'",
+        shell=True, check=True)
+    time.sleep(1)
+
     # Unzip the boost code
     run_command_simple(f"{uncompress} {boost_code}.tar.gz")
-    # Remove the boost zip file
-    run_command_simple(f"{remove} {boost_code}.tar.gz")
-    # Remove the boost folder
-    run_command_simple(f"{remove} /{boost_code}/")
+    time.sleep(1)
+
     # Compile the assembly code
-    run_command_simple(f"g++ assemblycpp/v5_combined_linux/main.cpp -O3 -o {exe_dir} -I /{boost_code}/")
+    run_command_simple(f"g++ {assembly_tar_path}/v5_combined_linux/main.cpp -O3 -o {exe_dir} -I{boost_code}/")
+    time.sleep(1)
+
     # Set the permissions to allow execution
     os.chmod(exe_dir, 0o755)
+    time.sleep(1)
+
+    # Remove the boost zip file
+    run_command_simple(f"{remove} {boost_code}.tar.gz")
+    time.sleep(1)
+
+    # Remove the boost folder
+    run_command_simple(f"{remove} {boost_code}/")
+    time.sleep(1)
 
     # Remove the assembly code folder
-    run_command_simple(f"{remove} /assemblycpp/")
+    run_command_simple(f"{remove} {assembly_tar_path}/")
+    time.sleep(1)
 
     # Add the exe to the bashrc
-    add_to_bashrc(f"ASS_PATH={exe_dir}\n")
+    add_to_bashrc(f"ASS_PATH={exe_dir}", file=".bashrc")
+    time.sleep(1)
+    add_to_bashrc(f"ASS_PATH={exe_dir}", file=".profile")
 
     # run_command_simple("")
-
+    print("Done!", flush=True)
     return None
 
 

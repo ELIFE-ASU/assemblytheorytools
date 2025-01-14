@@ -478,9 +478,10 @@ def test_joint_ass_str():
     Asserts:
         - The calculated assembly index is equal to 4.
     """
-    strs = ["aaaa","bbbb","aa"]
+    strs = ["aaaa", "bbbb", "aa"]
     ai, v_obj, path = att.calculate_string_assembly_index(strs)
     assert ai == 4
+
 
 def test_all_paths_simple():
     """
@@ -823,6 +824,5 @@ def test_semi_metric():
 
 def test_auto_compile():
     print(flush=True)
-    att.compile_assembly_code()
-    print(att.run_command_simple("ls -l"), flush=True)
-    raise ValueError("This test is not implemented")
+    att.compile_assembly_code(os.path.join(os.getcwd(), "assemblycpp-main"))
+    pass
