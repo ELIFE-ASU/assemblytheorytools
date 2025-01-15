@@ -369,6 +369,7 @@ def test_joint_ass():
     assert ai == 4
 
 
+@pytest.mark.slow
 def test_big_joint_ass():
     """
     Test the calculation of the assembly index for a large combined molecule.

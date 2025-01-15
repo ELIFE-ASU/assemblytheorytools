@@ -1,6 +1,7 @@
-import assemblytheorytools as att
-import networkx as nx
 import matplotlib.pyplot as plt
+import networkx as nx
+
+import assemblytheorytools as att
 
 if __name__ == "__main__":
     # Create a simple graph
