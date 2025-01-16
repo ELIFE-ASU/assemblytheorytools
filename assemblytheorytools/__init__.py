@@ -54,7 +54,9 @@ from .pathway import (get_pathway_to_graph,
                       get_mol_pathway_to_smi,
                       convert_pathway_dict_to_list)
 
-from .plotting import (plot_mol_graph,
+from .plotting import (n_plot,
+                       ax_plot,
+                       plot_mol_graph,
                        plot_interactive_graph,
                        plot_graph)
 
