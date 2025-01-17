@@ -42,7 +42,7 @@ def plot_contourf_full(x, y, xlab, ylab, c_map="Purples", name="name"):
     return None
 
 
-def plot_heatmap(x, y, xlab, ylab, c_map='viridis', nbins=50):
+def plot_heatmap(x, y, xlab, ylab, name, c_map='viridis', nbins=50):
     # Create a 2D histogram of the data
     heatmap_data, xedges, yedges = np.histogram2d(x, y, bins=(nbins, nbins))
 
@@ -55,10 +55,11 @@ def plot_heatmap(x, y, xlab, ylab, c_map='viridis', nbins=50):
                extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]])
     plt.colorbar(label='Counts')
     att.n_plot(xlab, ylab)
+    plt.savefig(f"{name}_heatmap.png", dpi=600)
     plt.show()
 
 
-def plot_heatmap_line(x, y, xlab, ylab, c_map='viridis', nbins=50):
+def plot_heatmap_line(x, y, xlab, ylab, name, c_map='viridis', nbins=50):
     # For each n_heavy_atoms value calculate the average assembly index
     ave_y = []
     std_y = []
@@ -89,11 +90,12 @@ def plot_heatmap_line(x, y, xlab, ylab, c_map='viridis', nbins=50):
     plt.ylim(yedges[0], yedges[-1])
 
     att.n_plot(xlab, ylab)
+    plt.savefig(f"{name}_heatmap_line.png", dpi=600)
     plt.show()
 
 
 if __name__ == "__main__":
-    f_run = True
+    f_run = False
     max_heavy = 25
 
     if f_run:
@@ -156,9 +158,29 @@ if __name__ == "__main__":
     n_chiral_centers = data[:, 1]
     array_ai = data[:, 2]
 
-    plot_heatmap(n_heavy_atoms, array_ai, "Heavy atom count", "Assembly index", c_map='viridis', nbins=100)
-    plot_heatmap_line(n_heavy_atoms, array_ai, "Heavy atom count", "Assembly index", c_map='viridis', nbins=100)
-    plot_heatmap(n_chiral_centers, array_ai, "Chiral center count", "Assembly index", c_map='viridis', nbins=100)
-    plot_heatmap_line(n_chiral_centers, array_ai, "Chiral center count", "Assembly index", c_map='viridis', nbins=100)
+    plot_heatmap(n_heavy_atoms, array_ai,
+                 "Heavy atom count",
+                 "Assembly index",
+                 "heavy_ai",
+                 c_map='viridis',
+                 nbins=100)
+    plot_heatmap_line(n_heavy_atoms, array_ai,
+                      "Heavy atom count",
+                      "Assembly index",
+                      "heavy_ai",
+                      c_map='viridis',
+                      nbins=100)
+    plot_heatmap(n_chiral_centers, array_ai,
+                 "Chiral center count",
+                 "Assembly index",
+                 "chiral_ai",
+                 c_map='viridis',
+                 nbins=100)
+    plot_heatmap_line(n_chiral_centers, array_ai,
+                      "Chiral center count",
+                      "Assembly index",
+                      "chiral_ai",
+                      c_map='viridis',
+                      nbins=100)
 
     # plot_contourf_full(n_heavy_atoms, array_ai, "Heavy atom count", "Assembly index", name="heavy_atom")
