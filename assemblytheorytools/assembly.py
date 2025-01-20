@@ -312,6 +312,48 @@ def calculate_assembly_semi_metric(graph1,
     # Calculate the semimetric distance
     return 2 * jai - result
 
+def calculate_normalized_semi_metric(graph1,
+                                     graph2,
+                                     dir_code=None,
+                                     timeout=100.0,
+                                     debug=False,
+                                     strip_hydrogen=False):
+    """
+    Calculate the normalized semi-metric distance between a pair of molecular graphs.
+
+    Args:
+        graph1 (nx.Graph): First input molecule as a NetworkX graph.
+        graph2 (nx.Graph): Second input molecule as a NetworkX graph.
+        dir_code (str, optional): The directory code for the assembly tool. Defaults to None.
+        timeout (float, optional): The maximum time in seconds to allow the command to run. Defaults to 100.0 seconds.
+        debug (bool, optional): If True, prints debug information. Defaults to False.
+        strip_hydrogen (bool, optional): If True, removes hydrogen atoms from the molecule before calculation. Defaults to False.
+
+    Returns:
+        float: The normalized semi-metric distance.
+    """
+    # Calculate the semi-metric distance using the provided function
+    semi_metric = calculate_assembly_semi_metric(graph1,
+                                                  graph2,
+                                                  dir_code=dir_code,
+                                                  timeout=timeout,
+                                                  debug=debug,
+                                                  strip_hydrogen=strip_hydrogen)
+
+    # Avoid division by zero
+    if semi_metric == 0:
+        raise ValueError("The result of the semi-metric calculation is zero, normalization cannot be performed.")
+
+    # Calculate the normalized semi-metric distance
+    normalized_distance = semi_metric / result
+
+    if debug:
+        print(f"Semi-metric distance: {semi_metric}")
+        print(f"Normalized semi-metric distance: {normalized_distance}")
+
+    return normalized_distance
+
+
 
 def add_to_bashrc(export_line, file=".bashrc"):
     """
