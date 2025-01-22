@@ -1,13 +1,19 @@
 import copy
 import json
 import os
-import shutil
+import networkx as nx
 
 import numpy as np
 from rdkit import Chem
 from rdkit.Chem import Draw
-from rdkit.Chem.Draw import rdMolDraw2D
 from rdkit.Chem.rdchem import RWMol
+
+import networkx as nx
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+from PIL import Image
+
+from .file_tools import file_list_all
 
 
 def transform_array(array, array_mod, fromm, repa, replace, e):
@@ -301,7 +307,17 @@ def tables2mol(tables):
 
 
 class AssemblyConstruction:
-    def __init__(self, v, e, v_l, e_l, remnant_e, equivalences, duplicates, if_string=False):
+    def __init__(self, data, if_string=False):
+
+        v = data["file_graph"][0]['Vertices']
+        e = data["file_graph"][0]['Edges']
+        v_l = data["file_graph"][0]['VertexColours']
+        e_l = data["file_graph"][0]['EdgeColours']
+        remnant_e = data["remnant"][0]["Edges"] + data["removed_edges"]
+        duplicates = [[dup["Right"], dup['Left']] for dup in data["duplicates"]]
+        equivalences = [[1, 1]]
+
+        remnant_e, duplicates, equivalences = fix_repeated_equiv(remnant_e, duplicates, equivalences, e)
         self.v = v
         self.e = e
         self.v_l = v_l
@@ -309,37 +325,36 @@ class AssemblyConstruction:
         self.remnant_e = remnant_e
         self.equivalences = equivalences
         self.duplicates = duplicates
-        self.ifstring = if_string
+        self.if_string = if_string
+        # Construct the atoms list
         atoms_list = []
-        atoms_list_indx = []
+        atoms_list_index = []
         atoms_pre = []
         full_atoms_list = []
         for i, bond in enumerate(e):
             atom_list = [[v_l[bond[0]], v_l[bond[1]]], e_l[i]]
-            atom_list_indx = [bond[0], bond[1]]
+            atom_list_index = [bond[0], bond[1]]
             atom_set = [{v_l[bond[0]], v_l[bond[1]]}, e_l[i]]
             if not (atom_set in atoms_pre):
                 atoms_pre.append(atom_set)
                 atoms_list.append(atom_list)
-                atoms_list_indx.append(atom_list_indx)
+                atoms_list_index.append(atom_list_index)
             full_atoms_list.append(atom_list)
         self.atoms = atoms_pre
         self.full_atoms_list = full_atoms_list
         self.atoms_list = atoms_list
-        self.atoms_list_index = atoms_list_indx
+        self.atoms_list_index = atoms_list_index
 
     def consistent_join(self, pieces_mod, steps_mod, repeated_mo1_cp, step, digraph, indexes):
-        """final takes a set of graph pieces[[[18 25],[25 17]],[[12 18],[14 18],[18 17]],[[14 26]]] and "intelligently" join one pair of edges at a time depending
-            if the join version is still a connected graph, for example [[18 25],[25 17],[14 26]] is NOT valid
-            but [[14 26],[14 18],[18 17],[14 26]] would be
+        """final takes a set of graph pieces and "intelligently" join one pair of edges
 
-        :param pieces_mod: The current starting piece of edges [[[18 25],[25 17]],[[12 18],[14 18],[18 17]],[[14 26]]](modified by equivalence up to the current step)
+        :param pieces_mod: The current starting piece of edges (modified by equivalence up to the current step)
         :param steps_mod: the current list of steps to construct all the pieces(modified by equivalence up to the current step)
         :param repeated_mo1_cp: Is the original copy of the duplicate edges before the recursive_join was performed
         :param step: the number of joins so far i.e. assembly index(up to the current step)
         :param digraph: list atom0-> step1,atom1-> step1, step1-> step2,atom1-> step2, atom0-> step3,atom0-> step3
         :param indexes: from the repeated array, at each entry is the index of the steps_mod
-        :return pieces_mod: The finishing piece of edges, [[[18 25],[25 17]],[[12 18],[14 26],[14 18],[18 17]]]
+        :return pieces_mod: The finishing piece of edges
         :return steps_mod: set of graph pieces after intelligent join
         :return step: outputs the assembly index N=3(up to the current step)
         :return digraph: list atom0-> step1,atom1-> step1, step1-> step2,atom1-> step2, atom0-> step3,atom0-> step3(up to the current step)
@@ -354,7 +369,7 @@ class AssemblyConstruction:
                     if ed in pic_r and not (pic == pic_i):
 
                         step = step + 1
-                        if self.ifstring:
+                        if self.if_string:
                             steps_mod.append(np.sort(pic + pic_i, axis=0).tolist())
                         else:
                             steps_mod.append(pic + pic_i)
@@ -436,7 +451,7 @@ class AssemblyConstruction:
                             )
                         pieces_mod.remove(pic)
                         pieces_mod.remove(pic_i)
-                        if self.ifstring:
+                        if self.if_string:
                             pieces_mod.insert(0, np.sort(pic + pic_i, axis=0).tolist())
                         else:
                             pieces_mod.insert(0, pic + pic_i)
@@ -444,7 +459,7 @@ class AssemblyConstruction:
         return pieces_mod, steps_mod, step, digraph
 
     def repeated_construction(self, pieces_mod, steps_mod, sorted_repeated_mod1, step, digraph):
-        """repeated_construction takes list of sorted equivalences [[[[0,2],[0,15]],[[1,3],[1,16]]],[[[2,49],[31,49]],[[3,50],[37,50]]][[[63,75],[67,70],[70,75]],[[49,50],[50,53],[52,53]]]]
+        """repeated_construction takes list of sorted equivalences
         and if the right side of the equivalence is on pieces_mod, it adds the left side to pieces_mod and captures the index for the entry of the equivalences list.
         If right side is not on the pieces_mod, it constructs it from the known pieces and/or equivalences(final function) and it adds the final piece the pieces_mod,
         and the index of the equivalence in the steps_mod.
@@ -513,7 +528,7 @@ class AssemblyConstruction:
         step = 0
         # The digraph contains the information of the assembly path
         digraph = []
-        # The steps contains all the new assembled pieces at each step
+        # The steps contain all the new assembled pieces at each step
         steps = []
         # We construct each piece of the remnant graph one edge at a time
         pieces = [[edge] for edge in self.remnant_e]
@@ -647,127 +662,119 @@ class AssemblyConstruction:
         self.vs_atoms_indx = vs_atoms_index
         return inchi_list
 
-    def plot_pathway(self, mode):
+    def plot_pathway(self):
         _ = self.pathway_inchi_fragments()
+        pic_path = "path_images"
+        os.makedirs(pic_path, exist_ok=True)
+        for i, atom in enumerate(self.molecules_atoms):
+            Draw.MolToFile(atom, os.path.join(pic_path,"atom{}.png").format(i))
+        for i, step in enumerate(self.molecules_steps):
+            Draw.MolToFile(step, os.path.join(pic_path,"step{}.png").format(i + 1))
 
-        if mode == 1:
-            if not os.path.exists("path-images/path"):
-                os.makedirs("path-images/path")
-            for i, atom in enumerate(self.molecules_atoms):
-                Draw.MolToFile(atom, "path-images/path/atom{}.png".format(i))
-            for i, step in enumerate(self.molecules_steps):
-                Draw.MolToFile(step, "path-images/path/step{}.png".format(i + 1))
-        ###### Draw Molecules Mode 1 #####
-        if mode == 2:
-            if not os.path.exists("path-images/path"):
-                os.makedirs("path-images/path")
-            mol = self.molecules_steps[-1]
-            atoms_info = [
-                (atom.GetIdx(), atom.GetAtomicNum(), atom.GetSymbol())
-                for atom in mol.GetAtoms()
-            ]
-            bonds_info = [
-                [bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()]
-                for bond in mol.GetBonds()
-            ]
-
-            highlight_bonds = []
-            highlight_atoms = []
-            for step in self.steps:
-                highlight_step_bond = []
-                highlight_step_atom = []
-                for i, bond in enumerate(bonds_info):
-                    if bond in step:
-                        continue
-                    highlight_step_bond.append(i)
-                    highlight_step_atom.append(bond)
-                highlight_bonds.append(highlight_step_bond)
-                highlight_atoms.append(
-                    {item for sublist in highlight_step_atom for item in sublist}
-                )
-
-            for step, _ in enumerate(self.steps):
-                atom_cols = {}
-                for i, at in enumerate(highlight_atoms[step]):
-                    atom_cols[at] = (1.0, 1.0, 1.0)
-                bond_cols = {}
-                for i, bd in enumerate(highlight_bonds[step]):
-                    bond_cols[bd] = (1.0, 1.0, 1.0)
-                d = rdMolDraw2D.MolDraw2DCairo(
-                    500, 500
-                )  # or MolDraw2DCairo to get PNGs
-                # d.drawOptions().useBWAtomPalette()
-                d.drawOptions().noAtomLabels = True
-                d.drawOptions().fillHighlights = True
-                d.drawOptions().continuousHighlight = False
-                rdMolDraw2D.PrepareAndDrawMolecule(
-                    d,
-                    mol,
-                    highlightBonds=highlight_bonds[step],
-                    highlightBondColors=bond_cols,
-                )
-                d.WriteDrawingText("path-images/path/step{}.png".format(step + 1))
-            for i, atom in enumerate(self.molecules_atoms):
-                Draw.MolToFile(atom, "path-images/path/atom{}.png".format(i))
-
-        if mode == 2 or mode == 1:
-            shutil.copyfile(
-                "klay/pathway-plot.html", "path-images/path/pathway-plot.html"
-            )
-            shutil.copyfile(
-                "klay/cytoscape-klay.js", "path-images/path/cytoscape-klay.js"
-            )
-
-            f = open("path-images/path/pathway.js", "w")
-            f.write(
-                "document.addEventListener('DOMContentLoaded', function(){\nvar cy = window.cy = cytoscape({\ncontainer: document.getElementById('cy'),\nwheelSensitivity: 0.1,\nlayout: {name: 'klay'},\nstyle: [{selector: 'node',\nstyle: {shape: 'round-rectangle',\n'height': 70,\n'width': 70,\n'background-fit': 'cover',\n'border-color': '#000',\n'border-width': 3,\n'border-opacity': 0.5,\n'background-width': 35,\n'background-height': 35,\n'background-image-containment': 'over',}},\n{selector: 'edge',\nstyle: {\n'curve-style': 'bezier',\n'target-arrow-shape': 'triangle',\n'line-color': '#1aa7ec',\n'target-arrow-color': '#1aa7ec',\n'opacity': 0.5}},\n"
-            )
-            for index, _ in enumerate(self.atoms_list):
-                f.write(
-                    "{{selector: '#atom{}', style: {{'background-image': 'atom{}.png',}}}},\n".format(
-                        index, index
-                    )
-                )
-            for index, _ in enumerate(self.steps):
-                f.write(
-                    "{{selector: '#step{}', style: {{'background-image': 'step{}.png',}}}},\n".format(
-                        index + 1, index + 1
-                    )
-                )
-            f.write("],\n elements: {\n nodes: [\n")
-            for index, _ in enumerate(self.atoms_list):
-                f.write("  {{ data: {{ id: 'atom{}' }} }},\n".format(index))
-            for index, _ in enumerate(self.steps):
-                f.write("  {{ data: {{ id: 'step{}' }} }},\n".format(index + 1))
-            f.write("],\n edges: [\n")
-            for diredge in self.digraph:
-                f.write(
-                    "  {{ data: {{ source: '{}', target: '{}' }} }},\n".format(
-                        diredge[0], diredge[1]
-                    )
-                )
-            f.write("]\n}\n});\n});\n")
-            f.close()
+        for diredge in self.digraph:
+            print(diredge)
 
         return None
+
+
+def generate_directional_graph(digraph):
+    """
+    Generates a directional NetworkX graph from the given digraph.
+
+    :param digraph: List of tuples representing directed edges.
+    :return: A directional NetworkX graph.
+    """
+    graph = nx.DiGraph()
+    for edge in digraph:
+        graph.add_edge(edge[0], edge[1])
+    return graph
+
+
+import os
+import networkx as nx
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+from PIL import Image
+
+
+def plot_graph_with_images(graph, image_paths):
+    """
+    Plots a NetworkX graph with node labels replaced by images.
+
+    Parameters:
+    - graph (networkx.Graph): The NetworkX graph to plot.
+    - image_paths (list of str): List of paths to images.
+
+    Assumes that the node names in the graph match the base names of the image files (without extensions).
+    """
+    # Match nodes to their respective images
+    node_image_mapping = {}
+    for path in image_paths:
+        # Get the base name (without extension) of the image file
+        file_name = os.path.splitext(os.path.basename(path))[0]
+        if file_name in graph.nodes:
+            node_image_mapping[file_name] = path
+
+
+    # Get graph layout
+    pos = nx.spring_layout(graph)
+    # Set up the plot
+    fig = plt.figure(figsize=(5, 5))
+    ax = plt.subplot(111)
+    ax.set_aspect('equal')
+
+    # Add nodes with images
+    for node, (x, y) in pos.items():
+        # Add the image to the graph
+        graph.nodes[node]["image"] = mpimg.imread(node_image_mapping[node])
+
+    plt.xlim(-1., 1.)
+    plt.ylim(-1., 1.)
+
+    trans = ax.transData.transform
+    trans2 = fig.transFigure.inverted().transform
+
+    piesize = 0.05  # this is the image size
+    p2 = piesize / 2.5
+    for n in graph:
+        xx, yy = trans(pos[n])  # figure coordinates
+        xa, ya = trans2((xx, yy))  # axes coordinates
+        a = plt.axes([xa - p2, ya - p2, piesize, piesize])
+        a.set_aspect('equal')
+        a.imshow(graph.nodes[n]['image'])
+        a.axis('off')
+
+    # Draw the graph edges
+    nx.draw_networkx_edges(graph, pos, ax=ax)
+
+    # Hide axes
+    ax.axis('off')
+    plt.tight_layout()
+    plt.show()
 
 
 def parse_pathway_file(file):
     f = open(file)
     data = json.load(f)
-    v = data["file_graph"][0]['Vertices']
-    e = data["file_graph"][0]['Edges']
-    v_l = data["file_graph"][0]['VertexColours']
-    e_l = data["file_graph"][0]['EdgeColours']
-    remnant_e = data["remnant"][0]["Edges"] + data["removed_edges"]
-    duplicates = [[dup["Right"], dup['Left']] for dup in data["duplicates"]]
-    equivalences = [[1, 1]]
-    mode = 1
 
-    remnant_e, duplicates, equivalences = fix_repeated_equiv(remnant_e, duplicates, equivalences, e)
-    construction_object = AssemblyConstruction(v, e, v_l, e_l, remnant_e, equivalences, duplicates)
+    construction_object = AssemblyConstruction(data)
 
     construction_object.generate_pathway()
-    construction_object.plot_pathway(mode)
+    construction_object.plot_pathway()
+
+    ## Generate the directional graph
+    graph = generate_directional_graph(construction_object.digraph)
+
+    # Find all the files
+    files = file_list_all("path_images/")
+    print(files)
+
+    # Plot the graph
+    nx.draw(graph, with_labels=True)
+    plt.show()
+
+    plot_graph_with_images(graph, files)
+
+
 
     return construction_object
