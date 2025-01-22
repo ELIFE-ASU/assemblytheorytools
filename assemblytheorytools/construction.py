@@ -1,17 +1,14 @@
 import copy
 import json
 import os
-import networkx as nx
 
+import matplotlib.image as mpimg
+import matplotlib.pyplot as plt
+import networkx as nx
 import numpy as np
 from rdkit import Chem
 from rdkit.Chem import Draw
 from rdkit.Chem.rdchem import RWMol
-
-import networkx as nx
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-from PIL import Image
 
 from .file_tools import file_list_all
 
@@ -667,9 +664,9 @@ class AssemblyConstruction:
         pic_path = "path_images"
         os.makedirs(pic_path, exist_ok=True)
         for i, atom in enumerate(self.molecules_atoms):
-            Draw.MolToFile(atom, os.path.join(pic_path,"atom{}.png").format(i))
+            Draw.MolToFile(atom, os.path.join(pic_path, "atom{}.png").format(i))
         for i, step in enumerate(self.molecules_steps):
-            Draw.MolToFile(step, os.path.join(pic_path,"step{}.png").format(i + 1))
+            Draw.MolToFile(step, os.path.join(pic_path, "step{}.png").format(i + 1))
 
         for diredge in self.digraph:
             print(diredge)
@@ -685,28 +682,11 @@ def generate_directional_graph(digraph):
     :return: A directional NetworkX graph.
     """
     graph = nx.DiGraph()
-    for edge in digraph:
-        graph.add_edge(edge[0], edge[1])
+    graph.add_edges_from(digraph)
     return graph
 
 
-import os
-import networkx as nx
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-from PIL import Image
-
-
-def plot_graph_with_images(graph, image_paths):
-    """
-    Plots a NetworkX graph with node labels replaced by images.
-
-    Parameters:
-    - graph (networkx.Graph): The NetworkX graph to plot.
-    - image_paths (list of str): List of paths to images.
-
-    Assumes that the node names in the graph match the base names of the image files (without extensions).
-    """
+def match_node_to_image(graph, image_paths):
     # Match nodes to their respective images
     node_image_mapping = {}
     for path in image_paths:
@@ -715,37 +695,44 @@ def plot_graph_with_images(graph, image_paths):
         if file_name in graph.nodes:
             node_image_mapping[file_name] = path
 
+    return node_image_mapping
 
-    # Get graph layout
-    pos = nx.spring_layout(graph)
-    # Set up the plot
-    fig = plt.figure(figsize=(5, 5))
-    ax = plt.subplot(111)
-    ax.set_aspect('equal')
+
+def plot_graph_with_images(graph, image_paths):
+    # Create a mapping from node to image path
+    node_image_mapping = match_node_to_image(graph, image_paths)
 
     # Add nodes with images
-    for node, (x, y) in pos.items():
-        # Add the image to the graph
-        graph.nodes[node]["image"] = mpimg.imread(node_image_mapping[node])
-
-    plt.xlim(-1., 1.)
-    plt.ylim(-1., 1.)
-
-    trans = ax.transData.transform
-    trans2 = fig.transFigure.inverted().transform
-
-    piesize = 0.05  # this is the image size
-    p2 = piesize / 2.5
     for n in graph:
-        xx, yy = trans(pos[n])  # figure coordinates
-        xa, ya = trans2((xx, yy))  # axes coordinates
-        a = plt.axes([xa - p2, ya - p2, piesize, piesize])
-        a.set_aspect('equal')
-        a.imshow(graph.nodes[n]['image'])
-        a.axis('off')
+        graph.nodes[n]["image"] = mpimg.imread(node_image_mapping[n])
+
+    # Get graph layout
+    pos = nx.spring_layout(graph, seed=1734289230)
+    # Set up the plot
+    fig, ax = plt.subplots()
 
     # Draw the graph edges
-    nx.draw_networkx_edges(graph, pos, ax=ax)
+    nx.draw_networkx_edges(graph,
+                           pos=pos,
+                           ax=ax,
+                           min_source_margin=15,
+                           min_target_margin=15)
+
+    # Transform from data coordinates (scaled between xlim and ylim) to display coordinates
+    tr_figure = ax.transData.transform
+    # Transform from display to figure coordinates
+    tr_axes = fig.transFigure.inverted().transform
+    # Select the size of the image (relative to the X axis)
+    icon_size = (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.05
+    icon_center = icon_size / 2.0
+    # Add the respective image to each node
+    for n in graph.nodes:
+        xf, yf = tr_figure(pos[n])
+        xa, ya = tr_axes((xf, yf))
+        # get overlapped axes and plot icon
+        a = plt.axes([xa - icon_center, ya - icon_center, icon_size, icon_size])
+        a.imshow(graph.nodes[n]["image"])
+        a.axis("off")
 
     # Hide axes
     ax.axis('off')
@@ -758,7 +745,6 @@ def parse_pathway_file(file):
     data = json.load(f)
 
     construction_object = AssemblyConstruction(data)
-
     construction_object.generate_pathway()
     construction_object.plot_pathway()
 
@@ -767,14 +753,11 @@ def parse_pathway_file(file):
 
     # Find all the files
     files = file_list_all("path_images/")
-    print(files)
 
     # Plot the graph
     nx.draw(graph, with_labels=True)
     plt.show()
 
     plot_graph_with_images(graph, files)
-
-
 
     return construction_object
