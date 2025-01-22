@@ -64,6 +64,8 @@ from .string_tools import (load_fasta,
                            prep_joint_string_ai,
                            get_unique_char)
 
+from .construction import parse_pathway_file
+
 __version__ = "0.3.0"
 
 """

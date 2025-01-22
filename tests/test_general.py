@@ -1,3 +1,4 @@
+import io
 import os
 import shutil
 
@@ -827,3 +828,11 @@ def test_auto_compile():
     print(flush=True)
     att.compile_assembly_code(os.path.join(os.getcwd(), "assemblycpp-main"))
     pass
+
+
+def test_construction():
+    print(flush=True)
+    pathway_str = "data/pathway/tmpPathway"
+
+    # Try to load the pathway
+    att.parse_pathway_file(pathway_str)
