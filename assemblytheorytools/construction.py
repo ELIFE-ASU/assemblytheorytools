@@ -48,70 +48,53 @@ def repeated_sizes(repeated):
     return rep
 
 
-def equal_two(lista, listb):
+def equal_two(list_a, list_b):
     """
     Tests if two lists contain the same elements, setwise equality.
 
     This function takes two lists and checks if they contain the same elements,
     regardless of the order of the elements.
 
-    :param lista: Input list, e.g., [A, B, C, D]
-    :param listb: Input list, e.g., [A, C, B, D]
+    :param list_a: Input list, e.g., [A, B, C, D]
+    :param list_b: Input list, e.g., [A, C, B, D]
     :return: True if the two lists are equal setwise, False otherwise
     """
-    if set(row for row in lista) == set(row for row in listb):
+    if set(row for row in list_a) == set(row for row in list_b):
         return True
     else:
         return False
 
 
-def equal(lista, listb):
+def equal(list_a, list_b):
     """
     Tests if two lists contain the same elements, setwise equality.
 
     This function takes two lists and checks if they contain the same elements,
     regardless of the order of the elements.
 
-    :param lista: Input list, e.g., [A, B, C, D]
-    :param listb: Input list, e.g., [A, C, B, D]
+    :param list_a: Input list, e.g., [A, B, C, D]
+    :param list_b: Input list, e.g., [A, C, B, D]
     :return: True if the two lists are equal setwise, False otherwise
     """
-    if set(tuple(row) for row in lista) == set(tuple(row) for row in listb):
+    if set(tuple(row) for row in list_a) == set(tuple(row) for row in list_b):
         return True
     else:
         return False
 
 
-def check_edge_in_lista(edges, lista):
+def check_edge_in_list(edges, list_in):
     """
     Checks if a list is contained in a list of lists.
 
     This function takes a list of lists and a list, and checks if the list is contained
     in the list of lists using setwise equality.
 
-    :param lista: Input list of lists, e.g., [[A, B, C, D], [A, C, B, D]]
+    :param list_in: Input list of lists, e.g., [[A, B, C, D], [A, C, B, D]]
     :param edges: Input list, e.g., [A, C, B, D]
     :return: True if the list is contained in the list of lists, False otherwise
     """
-    for l in lista:
+    for l in list_in:
         if equal(l, edges):
-            return True
-    return False
-
-
-def check_edge_in_list(edges, lista):
-    """
-    Checks if a list is contained in a list of lists.
-
-    This function takes a list of lists and a list, and checks if the list is contained
-    in the list of lists using setwise equality.
-
-    :param lista: Input list of lists, e.g., [[A, B, C, D], [A, C, B, D]]
-    :param edges: Input list, e.g., [A, C, B, D]
-    :return: True if the list is contained in the list of lists, False otherwise
-    """
-    for l in lista:
-        if equal_two(l, edges):
             return True
     return False
 
@@ -232,18 +215,18 @@ def fix_repeated_equiv(er, repeated, equivalences, e):
     return er, repeated, equivalences
 
 
-def index_set(lists, listb):
+def index_set(lists, list_in):
     """
     Takes a list of list of lists and a list of lists, and returns the first index where the list and the element of the list of lists have set equality.
 
     This function iterates over a list of list of lists and checks if any of the lists within it have set equality with the provided list of lists.
 
     :param lists: Input list of list of lists
-    :param listb: Input list of lists
+    :param list_in: Input list of lists
     :return: The first index where the list of lists appears in the list of list of lists with set equality, or None if not found.
     """
     for i, lista in enumerate(lists):
-        if set(tuple(row) for row in listb) == set(tuple(row) for row in lista):
+        if set(tuple(row) for row in list_in) == set(tuple(row) for row in lista):
             return i + 1
 
 
@@ -317,10 +300,8 @@ def tables2mol(tables):
     return mol
 
 
-class assemblyConstruction:
-    def __init__(
-            self, v, e, v_l, e_l, remnant_e, equivalences, duplicates, ifstring=False
-    ):
+class AssemblyConstruction:
+    def __init__(self, v, e, v_l, e_l, remnant_e, equivalences, duplicates, if_string=False):
         self.v = v
         self.e = e
         self.v_l = v_l
@@ -328,7 +309,7 @@ class assemblyConstruction:
         self.remnant_e = remnant_e
         self.equivalences = equivalences
         self.duplicates = duplicates
-        self.ifstring = ifstring
+        self.ifstring = if_string
         atoms_list = []
         atoms_list_indx = []
         atoms_pre = []
@@ -345,11 +326,9 @@ class assemblyConstruction:
         self.atoms = atoms_pre
         self.full_atoms_list = full_atoms_list
         self.atoms_list = atoms_list
-        self.atoms_list_indx = atoms_list_indx
+        self.atoms_list_index = atoms_list_indx
 
-    def consistent_join(
-            self, pieces_mod, steps_mod, repeated_mo1_cp, step, digraph, indexes
-    ):
+    def consistent_join(self, pieces_mod, steps_mod, repeated_mo1_cp, step, digraph, indexes):
         """final takes a set of graph pieces[[[18 25],[25 17]],[[12 18],[14 18],[18 17]],[[14 26]]] and "intelligently" join one pair of edges at a time depending
             if the join version is still a connected graph, for example [[18 25],[25 17],[14 26]] is NOT valid
             but [[14 26],[14 18],[18 17],[14 26]] would be
@@ -368,19 +347,17 @@ class assemblyConstruction:
         left_sort = [rep[0] for rep in repeated_mo1_cp]
         right_sort = [rep[1] for rep in repeated_mo1_cp]
         for pic in pieces_mod:
-            for pici in pieces_mod:
+            for pic_i in pieces_mod:
                 pic_r = np.reshape(pic, (np.shape(pic)[0] * 2))
-                pici_r = np.reshape(pici, (np.shape(pici)[0] * 2))
-                for idx, ed in enumerate(pici_r):
-                    if ed in pic_r and not (pic == pici):
-                        # temporary fix for strings
-                        #                        if (idx%2==0 and ed==0 and self.ifstring):
-                        #                            continue
+                pic_i_r = np.reshape(pic_i, (np.shape(pic_i)[0] * 2))
+                for idx, ed in enumerate(pic_i_r):
+                    if ed in pic_r and not (pic == pic_i):
+
                         step = step + 1
                         if self.ifstring:
-                            steps_mod.append(np.sort(pic + pici, axis=0).tolist())
+                            steps_mod.append(np.sort(pic + pic_i, axis=0).tolist())
                         else:
-                            steps_mod.append(pic + pici)
+                            steps_mod.append(pic + pic_i)
                         if not (len(pic) == 1):
                             if pic in left_sort:
                                 digraph.append(
@@ -418,27 +395,27 @@ class assemblyConstruction:
                             digraph.append(
                                 ["atom{}".format(atom1), "step{}".format(step)]
                             )
-                        if not (len(pici) == 1):
-                            if pici in left_sort:
+                        if not (len(pic_i) == 1):
+                            if pic_i in left_sort:
                                 digraph.append(
                                     [
-                                        "step{}".format(indexes[left_sort.index(pici)]),
+                                        "step{}".format(indexes[left_sort.index(pic_i)]),
                                         "step{}".format(step),
                                     ]
                                 )
-                            elif pici in right_sort:
+                            elif pic_i in right_sort:
                                 digraph.append(
                                     [
                                         "step{}".format(
-                                            indexes[right_sort.index(pici)]
+                                            indexes[right_sort.index(pic_i)]
                                         ),
                                         "step{}".format(step),
                                     ]
                                 )
-                            elif pici in steps_mod:
+                            elif pic_i in steps_mod:
                                 digraph.append(
                                     [
-                                        "step{}".format(steps_mod.index(pici) + 1),
+                                        "step{}".format(steps_mod.index(pic_i) + 1),
                                         "step{}".format(step),
                                     ]
                                 )
@@ -450,28 +427,26 @@ class assemblyConstruction:
                         else:
                             atom1 = self.atoms.index(
                                 [
-                                    {self.v_l[pici[0][0]], self.v_l[pici[0][1]]},
-                                    self.e_l[self.e.index(pici[0])],
+                                    {self.v_l[pic_i[0][0]], self.v_l[pic_i[0][1]]},
+                                    self.e_l[self.e.index(pic_i[0])],
                                 ]
                             )
                             digraph.append(
                                 ["atom{}".format(atom1), "step{}".format(step)]
                             )
                         pieces_mod.remove(pic)
-                        pieces_mod.remove(pici)
+                        pieces_mod.remove(pic_i)
                         if self.ifstring:
-                            pieces_mod.insert(0, np.sort(pic + pici, axis=0).tolist())
+                            pieces_mod.insert(0, np.sort(pic + pic_i, axis=0).tolist())
                         else:
-                            pieces_mod.insert(0, pic + pici)
+                            pieces_mod.insert(0, pic + pic_i)
                         return pieces_mod, steps_mod, step, digraph
         return pieces_mod, steps_mod, step, digraph
 
-    def repeated_construction(
-            self, pieces_mod, steps_mod, sorted_repeated_mod1, step, digraph
-    ):
+    def repeated_construction(self, pieces_mod, steps_mod, sorted_repeated_mod1, step, digraph):
         """repeated_construction takes list of sorted equivalences [[[[0,2],[0,15]],[[1,3],[1,16]]],[[[2,49],[31,49]],[[3,50],[37,50]]][[[63,75],[67,70],[70,75]],[[49,50],[50,53],[52,53]]]]
-        and if the right side of the equivalence is on pices_mod, it adds the left side to pices_mod and captures the index for the entry of the equivalences list.
-        If right side is not on the pieces_mod, it constructs it from the known pieces and/or equivalences(final function) and it adds the final pice the pieces_mod,
+        and if the right side of the equivalence is on pieces_mod, it adds the left side to pieces_mod and captures the index for the entry of the equivalences list.
+        If right side is not on the pieces_mod, it constructs it from the known pieces and/or equivalences(final function) and it adds the final piece the pieces_mod,
         and the index of the equivalence in the steps_mod.
         """
         step_ind = [1 for i in range(len(sorted_repeated_mod1))]
@@ -485,13 +460,11 @@ class assemblyConstruction:
                         repeat[0]
                 ):
                     continue
-                if check_edge_in_lista(repeat[1], pieces_mod) or check_edge_in_lista(
-                        repeat[1], steps_mod
-                ):
+                if check_edge_in_list(repeat[1], pieces_mod) or check_edge_in_list(repeat[1], steps_mod):
                     pieces_mod.append(repeat[0])
                     sorted_repeated_mod1.remove(repeat)
                     step_ind[j] = 0
-                    if index_set(steps_mod, repeat[1]) != None:
+                    if index_set(steps_mod, repeat[1]) is not None:
                         indexes[j] = index_set(steps_mod, repeat[1])
                     else:
                         indexes[j] = indexes[index_set(left_sort, repeat[1]) - 1]
@@ -509,13 +482,13 @@ class assemblyConstruction:
                                 break
                         if len(repeat_cp) == 0:
                             break
-                    if indices == []:
+                    if not indices:
                         continue
                     cum = [pieces_mod[i] for i in indices]
-                    # print(cum)
+
                     for idx in indices:
                         pieces_mod.remove(pieces_mod_cp[idx])
-                    # We consistently join the remant pieces in such a way that the constructed molecule never has disconnected pieces
+                    # We consistently join the remnant pieces in such a way that the constructed molecule never has disconnected pieces
                     while not (len(cum) == 1):
                         cum, steps_mod, step, digraph = self.consistent_join(
                             cum,
@@ -551,9 +524,7 @@ class assemblyConstruction:
             pieces_mod = pieces
         else:
             # change to equivalences
-            duplicates_mod = [
-                equivalence(rep, self.equivalences) for rep in self.duplicates
-            ]
+            duplicates_mod = [equivalence(rep, self.equivalences) for rep in self.duplicates]
             pieces_mod = equivalence(pieces, self.equivalences)
 
         # We sort the arrays of repeated by size
@@ -581,7 +552,7 @@ class assemblyConstruction:
         )
 
         ## Consistent Join of all Pieces
-        # We consistently join the remant pieces in such a way that the constructed molecule never has disconnected pieces
+        # We consistently join the remnant pieces in such a way that the constructed molecule never has disconnected pieces
         pieces_mod_cp = []
         while not (len(pieces_mod) == len(pieces_mod_cp)):
             pieces_mod_cp = copy.deepcopy(pieces_mod)
@@ -629,16 +600,16 @@ class assemblyConstruction:
                 )
             )
             inchi_list.append(Chem.MolToInchi(molecules_atoms[-1]))
-        steps_indx_s = []
+        steps_index_s = []
         vs_atoms = []
-        vs_atoms_indx = []
+        vs_atoms_index = []
         for i, st in enumerate(self.steps):
             indices = list(
                 set(np.reshape(self.steps[i], (np.shape(self.steps[i])[0] * 2)))
             )
-            steps_indx = []
+            steps_index = []
             for edge in self.steps[i]:
-                steps_indx.append(
+                steps_index.append(
                     [
                         indices.index(edge[0]),
                         indices.index(edge[1]),
@@ -646,16 +617,16 @@ class assemblyConstruction:
                     ]
                 )
             v_atoms = []
-            vs_atom_indx = []
+            vs_atom_index = []
             for at in indices:
                 v_atoms.append(self.v_l[at])
-                vs_atom_indx.append(at)
-            steps_indx_s.append(steps_indx)
+                vs_atom_index.append(at)
+            steps_index_s.append(steps_index)
             vs_atoms.append(v_atoms)
-            vs_atoms_indx.append(vs_atom_indx)
+            vs_atoms_index.append(vs_atom_index)
 
         molecules_steps = []
-        for i, step in enumerate(steps_indx_s):
+        for i, step in enumerate(steps_index_s):
             molecules_steps.append(
                 tables2mol(
                     (
@@ -671,9 +642,9 @@ class assemblyConstruction:
 
         self.molecules_atoms = molecules_atoms
         self.molecules_steps = molecules_steps
-        self.steps_indx_s = steps_indx_s
+        self.steps_indx_s = steps_index_s
         self.vs_atoms = vs_atoms
-        self.vs_atoms_indx = vs_atoms_indx
+        self.vs_atoms_indx = vs_atoms_index
         return inchi_list
 
     def plot_pathway(self, mode):
@@ -781,7 +752,7 @@ class assemblyConstruction:
         return None
 
 
-def parse_pathway_file_ian(file):
+def parse_pathway_file(file):
     f = open(file)
     data = json.load(f)
     v = data["file_graph"][0]['Vertices']
@@ -794,7 +765,7 @@ def parse_pathway_file_ian(file):
     mode = 1
 
     remnant_e, duplicates, equivalences = fix_repeated_equiv(remnant_e, duplicates, equivalences, e)
-    construction_object = assemblyConstruction(v, e, v_l, e_l, remnant_e, equivalences, duplicates)
+    construction_object = AssemblyConstruction(v, e, v_l, e_l, remnant_e, equivalences, duplicates)
 
     construction_object.generate_pathway()
     construction_object.plot_pathway(mode)
