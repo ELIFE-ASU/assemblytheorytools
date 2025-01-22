@@ -474,9 +474,6 @@ class assemblyConstruction:
         If right side is not on the pieces_mod, it constructs it from the known pieces and/or equivalences(final function) and it adds the final pice the pieces_mod,
         and the index of the equivalence in the steps_mod.
         """
-        # print(pieces_mod)
-        # print(sorted_repeated_mod1)
-        # print(steps_mod)
         step_ind = [1 for i in range(len(sorted_repeated_mod1))]
         indexes = [0 for i in range(len(sorted_repeated_mod1))]
         sorted_repeated_mod1_cp = copy.deepcopy(sorted_repeated_mod1)
@@ -488,11 +485,6 @@ class assemblyConstruction:
                         repeat[0]
                 ):
                     continue
-                # print(repeated_sizes(sorted_repeated_mod1))
-                # print(len(repeat[0]))
-                # print(repeat[1])
-                # print(pieces_mod)
-                # print(steps_mod)
                 if check_edge_in_lista(repeat[1], pieces_mod) or check_edge_in_lista(
                         repeat[1], steps_mod
                 ):
@@ -688,12 +680,6 @@ class assemblyConstruction:
         _ = self.pathway_inchi_fragments()
 
         if mode == 1:
-            # if not os.path.exists('path-images/{}'.format(Path(filename).stem)):
-            #    os.makedirs('path-images/{}'.format(Path(filename).stem))
-            # for i,atom in enumerate(molecules_atoms):
-            #    Draw.MolToFile(atom,'path-images/{}/atom{}.png'.format(Path(filename).stem,i))
-            # for i,step in enumerate(molecules_steps):
-            #    Draw.MolToFile(step,'path-images/{}/step{}.png'.format(Path(filename).stem,i+1))
             if not os.path.exists("path-images/path"):
                 os.makedirs("path-images/path")
             for i, atom in enumerate(self.molecules_atoms):
@@ -702,8 +688,6 @@ class assemblyConstruction:
                 Draw.MolToFile(step, "path-images/path/step{}.png".format(i + 1))
         ###### Draw Molecules Mode 1 #####
         if mode == 2:
-            # if not os.path.exists('path-images/{}'.format(Path(filename).stem)):
-            #    os.makedirs('path-images/{}'.format(Path(filename).stem))
             if not os.path.exists("path-images/path"):
                 os.makedirs("path-images/path")
             mol = self.molecules_steps[-1]
@@ -796,180 +780,6 @@ class assemblyConstruction:
 
         return None
 
-    def export_mathematica(self, image_size=80, aspect_ratio=1, file_name="assembly_space"):
-        _ = self.pathway_inchi_fragments()
-        pathway_file = open("pathway_mathematica.wls", "w")
-        # print("*Atoms List*")
-        pathway_file.write(
-            "stripMetadata[expression_] := If[Head[expression] === Rule, Last[expression], expression];\n"
-        )
-        vertex_string = "v={"
-        str_atoms = ""
-        for i, a in enumerate(self.atoms_list):
-            str_atoms = str_atoms + "atom{},".format(i)
-            ato = ""
-            for ati in a[0]:
-                ato = ato + '"{}",'.format(ati)
-            bonds = 'Bond[{{{}, {}}}, "{}"]'.format(1, 2, a[1].capitalize())
-            out = [i, ato[0:-1], bonds]
-            pathway_file.write("atom{} = Molecule[{{ {} }}, {{ {} }}];\n".format(*out))
-            vertex_string = vertex_string + "atom{},".format(i)
-        # print("*Steps List*")
-        for i, step_mol in enumerate(self.vs_atoms):
-            ato = ""
-            for ati in step_mol:
-                ato = ato + '"{}",'.format(ati)
-            bonds = ""
-            for bond in self.steps_indx_s[i]:
-                bonds = bonds + 'Bond[{{{}, {}}}, "{}"],'.format(
-                    bond[0] + 1, bond[1] + 1, bond[2].capitalize()
-                )
-            out = [i + 1, ato[0:-1], bonds[0:-1]]
-            pathway_file.write("step{} = Molecule[{{ {} }}, {{ {} }}];\n".format(*out))
-            vertex_string = vertex_string + "step{},".format(i + 1)
-        vertex_string = vertex_string[:-1] + "};"
-        # print("*Vertex List*")
-        pathway_file.write(vertex_string + "\n")
-        # print("*Digraph List*")
-        dig = ""
-        for ed in self.digraph:
-            dig = dig + "{} \[DirectedEdge] {},".format(ed[0], ed[1])
-        pathway_file.write("e = {{ {} }};\n".format(dig[0:-1]))
-
-        pathway_file.write(
-            "v1 = MoleculePlot[VertexList[e], ImageSize -> {},IncludeHydrogens -> None]; c =  Transpose[{{VertexList[e], v1}}]; map = Table[c[[i]][[1]] -> c[[i]][[2]], {{i, Length[c]}}]; eim = e /. map;\n".format(
-                image_size
-            )
-        )
-
-        pathway_file.write(
-            'gim = Graph[ eim, {AspectRatio -> 1.5, EdgeStyle -> {Directive[{Hue[0.75, 0, 0.35], Dashing[None], AbsoluteThickness[1]}]}, FormatType -> TraditionalForm, GraphLayout -> {"Dimension" -> 2}, PerformanceGoal -> "Quality", VertexShapeFunction -> {Text[ Framed[Style[stripMetadata[#2], Hue[0.62, 1, 0.48]], Background -> Directive[Opacity[0.2], Hue[0.62, 0.45, 0.87]], FrameMargins -> {{2, 2}, {0, 0}}, RoundingRadius -> 0, FrameStyle -> Directive[Opacity[0.5], Hue[0.62, 0.52, 0.82]]], #1, {0, 0}] &}}];\n'
-        )
-
-        pathway_file.write(
-            "atoms = MoleculePlot[#, ImageSize -> {},IncludeHydrogens -> None] & /@ {{".format(image_size)
-            + str_atoms[:-1]
-            + "};\n"
-        )
-        pathway_file.write(
-            "output = LayeredGraphPlot[gim, atoms -> Automatic, AspectRatio -> {}];\n".format(
-                aspect_ratio
-            )
-        )
-        pathway_file.write('Export[Directory[] <> "/{}.png", output, ImageResolution -> 300];'.format(file_name))
-        pathway_file.close()
-        return None
-
-    def export_mathematica_crystal(self, mol_info, image_size=80, aspect_ratio=1):
-        _ = self.pathway_inchi_fragments()
-        pathway_file = open("pathway_mathematica_crystal.nb", "w")
-        # print("*Atoms List*")
-        pathway_file.write(
-            "stripMetadata[expression_] := If[Head[expression] === Rule, Last[expression], expression];\n"
-        )
-        vertex_string = "v={"
-        str_atoms = ""
-        for i, a in enumerate(self.atoms_list):
-            str_atoms = str_atoms + "atom{},".format(i)
-            ato = ""
-            coord = ""
-            for j, ati in enumerate(a[0]):
-                ato = ato + '"{}",'.format(ati)
-                coord = coord + '{{ {}, {}, {} }},'.format(*mol_info.atoms[self.atoms_list_indx[i][j]][1:])
-            bonds = '{{{}, {}}}'.format(1, 2)
-            out = [i, ato[0:-1], bonds, coord[0:-1]]
-            pathway_file.write("atom{} = {{ {{ {} }}, {{ {} }}, {{ {} }} }};\n".format(*out))
-            vertex_string = vertex_string + "atom{},".format(i)
-        # print("*Steps List*")
-        for i, step_mol in enumerate(self.vs_atoms):
-            ato = ""
-            coord = ""
-            for j, ati in enumerate(step_mol):
-                ato = ato + '"{}",'.format(ati)
-                coord = coord + '{{ {}, {}, {} }},'.format(*mol_info.atoms[self.vs_atoms_indx[i][j]][1:])
-            bonds = ""
-            for bond in self.steps_indx_s[i]:
-                bonds = bonds + '{{ {}, {} }},'.format(
-                    bond[0] + 1, bond[1] + 1
-                )
-            out = [i + 1, ato[0:-1], bonds[0:-1], coord[0:-1]]
-            pathway_file.write("step{} = {{ {{ {} }}, {{ {} }}, {{ {} }} }};\n".format(*out))
-            vertex_string = vertex_string + "step{},".format(i + 1)
-        vertex_string = vertex_string[:-1] + "};"
-        # print("*Vertex List*")
-        pathway_file.write(vertex_string + "\n")
-        # print("*Digraph List*")
-        dig = ""
-        for ed in self.digraph:
-            dig = dig + "{} \[DirectedEdge] {},".format(ed[0], ed[1])
-        pathway_file.write("e = {{ {} }};\n".format(dig[0:-1]))
-
-        pathway_file.close()
-        return None
-
-    def export_mathematica_old(self, image_size=80, aspect_ratio=1):
-        _ = self.pathway_inchi_fragments()
-        pathway_file = open("pathway_mathematica.nb", "w")
-        # print("*Atoms List*")
-        pathway_file.write(
-            "stripMetadata[expression_] := If[Head[expression] === Rule, Last[expression], expression];\n"
-        )
-        vertex_string = "v={"
-        str_atoms = ""
-        for i, a in enumerate(self.atoms_list):
-            str_atoms = str_atoms + "atom{},".format(i)
-            ato = ""
-            for ati in a[0]:
-                ato = ato + '"{}",'.format(ati)
-            bonds = 'Bond[{{{}, {}}}, "{}"]'.format(1, 2, a[1].capitalize())
-            out = [i, ato[0:-1], bonds]
-            pathway_file.write("atom{} = Molecule[{{ {} }}, {{ {} }}];\n".format(*out))
-            vertex_string = vertex_string + "atom{},".format(i)
-        # print("*Steps List*")
-        for i, step_mol in enumerate(self.vs_atoms):
-            ato = ""
-            for ati in step_mol:
-                ato = ato + '"{}",'.format(ati)
-            bonds = ""
-            for bond in self.steps_indx_s[i]:
-                bonds = bonds + 'Bond[{{{}, {}}}, "{}"],'.format(
-                    bond[0] + 1, bond[1] + 1, bond[2].capitalize()
-                )
-            out = [i + 1, ato[0:-1], bonds[0:-1]]
-            pathway_file.write("step{} = Molecule[{{ {} }}, {{ {} }}];\n".format(*out))
-            vertex_string = vertex_string + "step{},".format(i + 1)
-        vertex_string = vertex_string[:-1] + "};"
-        # print("*Vertex List*")
-        pathway_file.write(vertex_string + "\n")
-        # print("*Digraph List*")
-        dig = ""
-        for ed in self.digraph:
-            dig = dig + "{} \[DirectedEdge] {},".format(ed[0], ed[1])
-        pathway_file.write("e = {{ {} }};\n".format(dig[0:-1]))
-
-        pathway_file.write(
-            "v1 = MoleculePlot[VertexList[e], ImageSize -> {}]; c =  Transpose[{{VertexList[e], v1}}]; map = Table[c[[i]][[1]] -> c[[i]][[2]], {{i, Length[c]}}]; eim = e /. map;\n".format(
-                image_size
-            )
-        )
-
-        pathway_file.write(
-            'gim = Graph[ eim, {AspectRatio -> 1.5, EdgeStyle -> {Directive[{Hue[0.75, 0, 0.35], Dashing[None], AbsoluteThickness[1]}]}, FormatType -> TraditionalForm, GraphLayout -> {"Dimension" -> 2}, PerformanceGoal -> "Quality", VertexShapeFunction -> {Text[ Framed[Style[stripMetadata[#2], Hue[0.62, 1, 0.48]], Background -> Directive[Opacity[0.2], Hue[0.62, 0.45, 0.87]], FrameMargins -> {{2, 2}, {0, 0}}, RoundingRadius -> 0, FrameStyle -> Directive[Opacity[0.5], Hue[0.62, 0.52, 0.82]]], #1, {0, 0}] &}}];\n'
-        )
-
-        pathway_file.write(
-            "atoms = MoleculePlot[#, ImageSize -> {}] & /@ {{".format(image_size)
-            + str_atoms[:-1]
-            + "};\n"
-        )
-        pathway_file.write(
-            "LayeredGraphPlot[gim, atoms -> Automatic, AspectRatio -> {}] \[AliasDelimiter]".format(
-                aspect_ratio
-            )
-        )
-        pathway_file.close()
-        return None
-
 
 def parse_pathway_file_ian(file):
     f = open(file)
@@ -982,21 +792,11 @@ def parse_pathway_file_ian(file):
     duplicates = [[dup["Right"], dup['Left']] for dup in data["duplicates"]]
     equivalences = [[1, 1]]
     mode = 1
-    remnant_e, duplicates, equivalences = fix_repeated_equiv(
-        remnant_e, duplicates, equivalences, e
-    )  # Fixing sometimes errors in the go output
-    construction_object = assemblyConstruction(
-        v, e, v_l, e_l, remnant_e, equivalences, duplicates
-    )
-    try:
-        construction_object.generate_pathway()
-        construction_object.plot_pathway(mode)
-        pathway_success = True
-    except ValueError as e:
-        pathway_success = False
-        print("error")
-    except IndexError as e:
-        pathway_success = False
-        print("error")
 
-    return construction_object, pathway_success
+    remnant_e, duplicates, equivalences = fix_repeated_equiv(remnant_e, duplicates, equivalences, e)
+    construction_object = assemblyConstruction(v, e, v_l, e_l, remnant_e, equivalences, duplicates)
+
+    construction_object.generate_pathway()
+    construction_object.plot_pathway(mode)
+
+    return construction_object
