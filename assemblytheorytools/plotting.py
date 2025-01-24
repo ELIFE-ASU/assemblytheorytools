@@ -1,8 +1,11 @@
 import os
+from html import escape
 
 import matplotlib.pyplot as plt
 import networkx as nx
+from IPython.display import HTML
 from matplotlib import colormaps, colors
+from pyvis.network import Network
 
 
 def n_plot(xlab, ylab, xs=14, ys=14):
@@ -224,9 +227,7 @@ def plot_interactive_graph(graph, show=False, filename="interactive_graph.html")
     Returns:
         pyvis.network.Network: The PyVis network object representing the graph.
     """
-    from IPython.display import HTML
-    from pyvis.network import Network
-    from html import escape
+
     # Color each node based on its degree
     max_nbr = len(max(graph.adj.values(), key=lambda x: len(x)))
     blues = colormaps.get_cmap("Blues")
