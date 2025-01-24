@@ -835,4 +835,10 @@ def test_construction():
     pathway_str = "data/pathway/tmpPathway"
 
     # Try to load the pathway
-    att.parse_pathway_file(pathway_str)
+    digraph = att.parse_pathway_file(pathway_str)
+
+    # Check the number of nodes
+    assert digraph.number_of_nodes() == 8
+    # Check the number of edges
+    assert digraph.number_of_edges() == 9
+
