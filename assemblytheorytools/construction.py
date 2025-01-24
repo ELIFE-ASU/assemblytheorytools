@@ -578,27 +578,6 @@ class AssemblyConstruction:
 
         return None
 
-    def pathway_log(self, file_name="pathway_log"):
-        pathway_file = open("{}.txt".format(file_name), "w")
-        pathway_file.write("#####Graph#####\n")
-        pathway_file.write(str(self.v) + "\n")
-        pathway_file.write(str(self.e) + "\n")
-        pathway_file.write(str(self.v_l) + "\n")
-        pathway_file.write(str(self.e_l) + "\n")
-        pathway_file.write("#####Atoms#####\n")
-        for index, a in enumerate(self.atoms_list):
-            pathway_file.write("atom{}={}\n".format(index, a))
-        pathway_file.write("#####Steps#####\n")
-        for index, ste in enumerate(self.steps):
-            pathway_file.write("step{}={}\n".format(index + 1, ste))
-        pathway_file.write("#####Digraph#####\n")
-        for i in self.digraph:
-            pathway_file.write(str(i) + "\n")
-        # close file
-        pathway_file.close()
-
-        return None
-
     def pathway_inchi_fragments(self):
         molecules_atoms = []
         inchi_list = []
@@ -660,7 +639,6 @@ class AssemblyConstruction:
         return inchi_list
 
     def plot_pathway(self):
-        _ = self.pathway_inchi_fragments()
         pic_path = "path_images"
         os.makedirs(pic_path, exist_ok=True)
         for i, atom in enumerate(self.molecules_atoms):
@@ -756,12 +734,15 @@ def plot_graph_with_images(graph, image_paths):
 
 
 def parse_pathway_file(file):
+    # Load the pathway file
     with open(file) as f:
         data = json.load(f)
-
+    # Make the construction object
     construction_object = AssemblyConstruction(data)
     construction_object.generate_pathway()
+    inchi_list = construction_object.pathway_inchi_fragments()
     construction_object.plot_pathway()
+    print(inchi_list)
 
     ## Generate the directional graph
     graph = generate_directional_graph(construction_object.digraph)
@@ -771,8 +752,8 @@ def parse_pathway_file(file):
     nx.draw(graph, with_labels=True, pos=pos)
     plt.show()
 
-    # Find all the files
-    files = file_list_all("path_images/")
-    plot_graph_with_images(graph, files)
+    # # Find all the files
+    # files = file_list_all("path_images/")
+    # plot_graph_with_images(graph, files)
 
-    return construction_object
+    return graph
