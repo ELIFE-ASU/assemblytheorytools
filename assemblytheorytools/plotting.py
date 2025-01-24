@@ -267,3 +267,7 @@ def plot_digraph(digraph,
                linewidths=linewidths,
                filename=filename)
     return None
+
+
+def plot_digraph_metro():
+    return None
