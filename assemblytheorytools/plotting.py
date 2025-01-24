@@ -88,7 +88,8 @@ def plot_graph(graph,
                edgecolors="black",
                width=2,
                linewidths=2,
-               filename="graph"):
+               filename="graph",
+               seed=1734289230):
     """
     Plot a graph using NetworkX and Matplotlib with various layout options.
 
@@ -96,21 +97,22 @@ def plot_graph(graph,
         graph (networkx.Graph): The graph to be plotted.
         layout (str, optional): The layout algorithm to use for positioning nodes. Default is 'kawai'.
         f_labs (bool, optional): Whether to display labels on the nodes. Default is False.
-        edge_color (str, optional): The color of the edges. Default is 'grey'.
-        node_size (int, optional): The size of the nodes. Default is 300.
-        edgecolors (str, optional): The color of the node borders. Default is 'black'.
-        width (int, optional): The width of the edges. Default is 2.
-        linewidths (int, optional): The width of the node borders. Default is 2.
-        filename (str, optional): The base name of the file where the plot will be saved. Default is 'graph'.
+        edge_color (str, optional): Color of the edges. Default is 'grey'.
+        node_size (int, optional): Size of the nodes. Default is 300.
+        edgecolors (str, optional): Color of the node borders. Default is 'black'.
+        width (int, optional): Width of the edges. Default is 2.
+        linewidths (int, optional): Width of the node borders. Default is 2.
+        filename (str, optional): Base name of the file where the plot will be saved. Default is 'graph'.
+        seed (int, optional): Seed for the layout algorithm (if applicable). Default is 1734289230.
 
     Returns:
         None
     """
-    # Get the position of the nodes
+    # Get the position of the nodes based on the specified layout
     if layout == 'kawai':
         pos = nx.kamada_kawai_layout(graph)
     elif layout == 'spring':
-        pos = nx.spring_layout(graph)
+        pos = nx.spring_layout(graph, seed=seed)
     elif layout == 'circular':
         pos = nx.circular_layout(graph)
     elif layout == 'shell':
@@ -124,7 +126,7 @@ def plot_graph(graph,
     else:
         pos = nx.kamada_kawai_layout(graph)
 
-    # Draw the graph
+    # Draw the graph with the specified parameters
     nx.draw(graph,
             pos=pos,
             with_labels=f_labs,
@@ -133,11 +135,14 @@ def plot_graph(graph,
             edgecolors=edgecolors,
             width=width,
             linewidths=linewidths)
+
     # Save the plot as PNG and PDF
     plt.savefig(f"{filename}.png", dpi=600)
     plt.savefig(f"{filename}.pdf")
+
     # Display or close the plot based on the operating system
     os_plot_show()
+
     return None
 
 
@@ -256,7 +261,26 @@ def plot_digraph(digraph,
                  edgecolors="black",
                  width=2,
                  linewidths=2,
-                 filename="digraph"):
+                 filename="digraph",
+                 seed=1734289230):
+    """
+    Plot a directed graph using NetworkX and Matplotlib with various layout options.
+
+    Args:
+        digraph (networkx.DiGraph): The directed graph to be plotted.
+        layout (str, optional): The layout algorithm to use for positioning nodes. Default is 'spring'.
+        f_labs (bool, optional): Whether to display labels on the nodes. Default is True.
+        edge_color (str, optional): Color of the edges. Default is 'grey'.
+        node_size (int, optional): Size of the nodes. Default is 300.
+        edgecolors (str, optional): Color of the node borders. Default is 'black'.
+        width (int, optional): Width of the edges. Default is 2.
+        linewidths (int, optional): Width of the node borders. Default is 2.
+        filename (str, optional): Base name of the file where the plot will be saved. Default is 'digraph'.
+        seed (int, optional): Seed for the layout algorithm (if applicable). Default is 1734289230.
+
+    Returns:
+        None
+    """
     plot_graph(digraph,
                layout=layout,
                f_labs=f_labs,
@@ -265,7 +289,8 @@ def plot_digraph(digraph,
                edgecolors=edgecolors,
                width=width,
                linewidths=linewidths,
-               filename=filename)
+               filename=filename,
+               seed=seed)
     return None
 
 
