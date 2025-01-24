@@ -58,7 +58,8 @@ from .plotting import (n_plot,
                        ax_plot,
                        plot_mol_graph,
                        plot_interactive_graph,
-                       plot_graph)
+                       plot_graph,
+                       plot_digraph)
 
 from .string_tools import (load_fasta,
                            prep_joint_string_ai,

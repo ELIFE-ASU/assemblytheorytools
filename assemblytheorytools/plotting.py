@@ -246,3 +246,24 @@ def plot_interactive_graph(graph, show=False, filename="interactive_graph.html")
         # Save the graph
         net.show(filename)
     return net
+
+
+def plot_digraph(digraph,
+                 layout='spring',
+                 f_labs=True,
+                 edge_color='grey',
+                 node_size=300,
+                 edgecolors="black",
+                 width=2,
+                 linewidths=2,
+                 filename="digraph"):
+    plot_graph(digraph,
+               layout=layout,
+               f_labs=f_labs,
+               edge_color=edge_color,
+               node_size=node_size,
+               edgecolors=edgecolors,
+               width=width,
+               linewidths=linewidths,
+               filename=filename)
+    return None
