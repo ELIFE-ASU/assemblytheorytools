@@ -22,6 +22,7 @@ from .pathway import (get_pathway_to_graph,
 from .string_tools import (prep_joint_string_ai,
                            get_dir_str_molecule,
                            get_undir_str_molecule)
+from .construction import parse_pathway_file
 
 
 def load_assembly_output(file_path):
@@ -236,13 +237,20 @@ def calculate_assembly_index(mol,
                 # Check the pathway file exits
                 if os.path.isfile(file_path_pathway):
                     if isinstance(mol, nx.Graph):
+                        # Load the virtual objects
                         virt_obj = get_pathway_to_graph(file_path_pathway)
+                        # Load the pathway data
+                        # path = parse_pathway_file(file_path_pathway) WARNING NOT IMPLEMENTED
                     elif isinstance(mol, Chem.Mol):
-                        # Load the pathway data
+                        # Load the virtual objects
                         virt_obj = get_pathway_to_mol(file_path_pathway)
-                    elif ".mol" in mol:
                         # Load the pathway data
+                        path = parse_pathway_file(file_path_pathway)
+                    elif ".mol" in mol:
+                        # Load the virtual objects
                         virt_obj = get_pathway_to_inchi(file_path_pathway)
+                        # Load the pathway data
+                        # path = parse_pathway_file(file_path_pathway) WARNING NOT IMPLEMENTED
                     else:
                         virt_obj = None
                         ValueError("Input not supported")

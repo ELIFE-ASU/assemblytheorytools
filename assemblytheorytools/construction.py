@@ -747,11 +747,11 @@ def parse_pathway_file(file):
     ## Generate the directional graph
     graph = generate_directional_graph(construction_object.digraph)
 
-    # Plot the graph
-    pos = nx.spring_layout(graph, seed=1734289230)
-    nx.draw(graph, with_labels=True, pos=pos)
-    plt.show()
-
+    # # Plot the graph
+    # pos = nx.spring_layout(graph, seed=1734289230)
+    # nx.draw(graph, with_labels=True, pos=pos)
+    # plt.show()
+    #
     # # Find all the files
     # files = file_list_all("path_images/")
     # plot_graph_with_images(graph, files)
