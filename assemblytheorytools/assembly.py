@@ -270,9 +270,10 @@ def calculate_assembly_semi_metric(graph1,
                                    dir_code=None,
                                    timeout=100.0,
                                    debug=False,
-                                   strip_hydrogen=False):
+                                   strip_hydrogen=False,
+                                   normalise=False):
     """
-    Calculate the assembly semi-metric distance between a pair of molecular graphs. 
+    Calculate the assembly semi-metric distance between a pair of molecular graphs.
 
     Args:
         graph1 (nx.Graph): First input molecule as a NetworkX graph.
@@ -281,17 +282,14 @@ def calculate_assembly_semi_metric(graph1,
         timeout (float, optional): The maximum time in seconds to allow the command to run. Defaults to 100.0 seconds.
         debug (bool, optional): If True, create a directory with a timestamp for debugging. Defaults to False.
         strip_hydrogen (bool, optional): If True, removes hydrogen atoms from the molecule before calculation. Defaults to False.
+        normalise (bool, optional): If True, normalizes the semi-metric distance. Defaults to False.
 
     Returns:
         int: The difference between the joint assembly index and the sum of the assembly indices of the disconnected subgraphs.
     """
-    # Here we have to assume it is in graph format to make sure we can split the system easily
+    # Ensure the inputs are NetworkX graphs
     assert isinstance(graph1, nx.Graph), "Input must be a NetworkX graph"
     assert isinstance(graph2, nx.Graph), "Input must be a NetworkX graph"
-
-    # # Get the disconnected subgraphs
-    # subgraphs = get_disconnected_subgraphs(graph)
-    # assert len(subgraphs) == 2, "Semimetric distance is between exactly two molecular graphs."
 
     # Combine the graphs into a single graph with 2 disjoint components
     mols = [nx_to_mol(graph1), nx_to_mol(graph2)]
@@ -305,6 +303,7 @@ def calculate_assembly_semi_metric(graph1,
                                          strip_hydrogen=strip_hydrogen)
     if debug:
         print(f"Joint Assembly Index: {jai}", flush=True)
+
     # Calculate the assembly index for each subgraph
     result = 0
     for subgraph in [graph1, graph2]:
@@ -317,50 +316,12 @@ def calculate_assembly_semi_metric(graph1,
             print(f"Assembly Index: {ai}", flush=True)
         result += ai
 
-    # Calculate the semimetric distance
-    return 2 * jai - result
+    # Calculate the semi-metric distance
+    semi_metric = 2 * jai - result
+    if normalise:
+        return semi_metric / result
 
-def calculate_normalized_semi_metric(graph1,
-                                     graph2,
-                                     dir_code=None,
-                                     timeout=100.0,
-                                     debug=False,
-                                     strip_hydrogen=False):
-    """
-    Calculate the normalized semi-metric distance between a pair of molecular graphs.
-
-    Args:
-        graph1 (nx.Graph): First input molecule as a NetworkX graph.
-        graph2 (nx.Graph): Second input molecule as a NetworkX graph.
-        dir_code (str, optional): The directory code for the assembly tool. Defaults to None.
-        timeout (float, optional): The maximum time in seconds to allow the command to run. Defaults to 100.0 seconds.
-        debug (bool, optional): If True, prints debug information. Defaults to False.
-        strip_hydrogen (bool, optional): If True, removes hydrogen atoms from the molecule before calculation. Defaults to False.
-
-    Returns:
-        float: The normalized semi-metric distance.
-    """
-    # Calculate the semi-metric distance using the provided function
-    semi_metric = calculate_assembly_semi_metric(graph1,
-                                                  graph2,
-                                                  dir_code=dir_code,
-                                                  timeout=timeout,
-                                                  debug=debug,
-                                                  strip_hydrogen=strip_hydrogen)
-
-    # Avoid division by zero
-    if semi_metric == 0:
-        raise ValueError("The result of the semi-metric calculation is zero, normalization cannot be performed.")
-
-    # Calculate the normalized semi-metric distance
-    normalized_distance = semi_metric / result
-
-    if debug:
-        print(f"Semi-metric distance: {semi_metric}")
-        print(f"Normalized semi-metric distance: {normalized_distance}")
-
-    return normalized_distance
-
+    return semi_metric
 
 
 def add_to_bashrc(export_line, file=".bashrc"):
