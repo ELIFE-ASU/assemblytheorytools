@@ -67,7 +67,7 @@ from .string_tools import (load_fasta,
 
 from .construction import parse_pathway_file
 
-__version__ = "0.3.0"
+__version__ = "1.0.0"
 
 """
 This module provides various tools and functions for assembly theory analysis, molecular complexity scores, 
