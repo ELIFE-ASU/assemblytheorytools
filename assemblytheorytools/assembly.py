@@ -345,91 +345,90 @@ def add_to_bashrc(export_line, file=".bashrc"):
 
 def compile_assembly_code(assembly_tar_path="assemblycpp-main", boost_version="1_86_0", exe_name="asscpp_v5"):
     """
-    Set up the keys
-    go to gitlab website
-    click your profile icon
-    go to ssh keys
+    Compile the assembly code, adapting for Linux or macOS (UNIX-based systems).
 
-    ssh-agent $(ssh-add rsa-key-20240430; git clone git@gitlab.com:croningroup/cheminformatics/assemblycpp.git)
-    # Get the assembly code
-    git clone git@gitlab.com:croningroup/cheminformatics/assemblycpp.git
-    or download the .tar.gz
-    tar -xvzf assemblycpp-main.tar.gz
-    rm assemblycpp-main.tar.gz
-
-    # Update the system packages
-    which g++ || sudo apt-get install g++ -y
-    sudo apt-get update && sudo apt-get upgrade -y
-    # Install g++
-    which g++ || sudo apt-get install g++ -y
-
-    # # Update the system packages
-    # run_command_simple("sudo apt-get update && sudo apt-get upgrade -y")
-    # # Install g++
-    # run_command_simple("which g++ || sudo apt-get install g++ -y")
-
-    # Get the boost code
-    wget 'https://archives.boost.io/release/1.86.0/source/boost_1_86_0.tar.gz'
-    # Unzip the boost code
-    tar -xvzf boost_1_86_0.tar.gz
-    # Remove the boost zip file
-    rm boost_1_86_0.tar.gz
-
-    g++ main.cpp -O3 -o asscpp_v5 -I/boost_1_86_0/
-    export ASS_PATH=$HOME/asscpp/v5_boost/asscpp_v5_boost_recursive
-
-    # Remove the boost folder
-    rm -r /boost_1_86_0/
+    Args:
+        assembly_tar_path (str): Path to the assembly .tar.gz file. Default is "assemblycpp-main".
+        boost_version (str): Boost library version. Default is "1_86_0".
+        exe_name (str): Name of the compiled executable. Default is "asscpp_v5".
     """
     print("compile_assembly_code", flush=True)
 
-    uncompress = "tar -xvzf"
-    remove = "rm -r"
-    boost_code = f"boost_{boost_version}"
-    exe_dir = os.path.abspath(os.path.expanduser(os.path.join(os.getcwd(), exe_name)))  # "../precompiled/"
+    # Detect operating system
+    system = platform.system().lower()  # Returns 'linux', 'darwin' (macOS), etc.
+    
+    if system == "linux":
+        # Existing Linux-specific code
+        uncompress = "tar -xvzf"
+        remove = "rm -r"
+        boost_code = f"boost_{boost_version}"
+        exe_dir = os.path.abspath(os.path.expanduser(os.path.join(os.getcwd(), exe_name)))  # Path to executable
 
-    # Uncompress the assembly code
-    run_command_simple(f"{uncompress} {assembly_tar_path}.tar.gz")
-    time.sleep(1)
+        # Uncompress the assembly code
+        run_command_simple(f"{uncompress} {assembly_tar_path}.tar.gz")
+        time.sleep(1)
 
-    # Get the boost code
-    subprocess.run(
-        f"wget 'https://archives.boost.io/release/{boost_version.replace('_', '.')}/source/{boost_code}.tar.gz'",
-        shell=True, check=True)
-    time.sleep(1)
+        # Get the Boost library
+        subprocess.run(
+            f"wget 'https://archives.boost.io/release/{boost_version.replace('_', '.')}/source/{boost_code}.tar.gz'",
+            shell=True, check=True)
+        time.sleep(1)
 
-    # Unzip the boost code
-    run_command_simple(f"{uncompress} {boost_code}.tar.gz")
-    time.sleep(1)
+        # Unzip the Boost code
+        run_command_simple(f"{uncompress} {boost_code}.tar.gz")
+        time.sleep(1)
 
-    # Compile the assembly code
-    run_command_simple(f"g++ {assembly_tar_path}/v5_combined_linux/main.cpp -O3 -o {exe_dir} -I{boost_code}/")
-    time.sleep(1)
+        # Compile the assembly code
+        run_command_simple(f"g++ {assembly_tar_path}/v5_combined_linux/main.cpp -O3 -o {exe_dir} -I{boost_code}/")
+        time.sleep(1)
 
-    # Set the permissions to allow execution
-    os.chmod(exe_dir, 0o755)
-    time.sleep(1)
+        # Set the permissions to allow execution
+        os.chmod(exe_dir, 0o755)
+        time.sleep(1)
 
-    # Remove the boost zip file
-    run_command_simple(f"{remove} {boost_code}.tar.gz")
-    time.sleep(1)
+        # Remove unnecessary files and folders
+        run_command_simple(f"{remove} {boost_code}.tar.gz")
+        time.sleep(1)
+        run_command_simple(f"{remove} {boost_code}/")
+        time.sleep(1)
+        run_command_simple(f"{remove} {assembly_tar_path}/")
+        time.sleep(1)
 
-    # Remove the boost folder
-    run_command_simple(f"{remove} {boost_code}/")
-    time.sleep(1)
+        # Add the executable path to the user's shell configuration
+        add_to_bashrc(f"ASS_PATH={exe_dir}", file=".bashrc")
+        time.sleep(1)
+        add_to_bashrc(f"ASS_PATH={exe_dir}", file=".profile")
 
-    # Remove the assembly code folder
-    run_command_simple(f"{remove} {assembly_tar_path}/")
-    time.sleep(1)
+        print("Done!", flush=True)
 
-    # Add the exe to the bashrc
-    add_to_bashrc(f"ASS_PATH={exe_dir}", file=".bashrc")
-    time.sleep(1)
-    add_to_bashrc(f"ASS_PATH={exe_dir}", file=".profile")
+    elif system == "darwin":  # macOS
+        # macOS-specific code
+        print("Running on macOS: Using brew to install Boost and clang++ to compile.")
+        
+        # Install Boost using Homebrew
+        subprocess.run("brew install boost", shell=True, check=True)
+        
+        # Use 'brew --prefix' to find the base installation directory for Boost
+        brew_prefix = subprocess.check_output("brew --prefix boost", shell=True, text=True).strip()
 
-    # run_command_simple("")
-    print("Done!", flush=True)
-    return None
+        # Define paths for compilation based on the Brew prefix
+        boost_include = os.path.join(brew_prefix, "include")
+        boost_lib = os.path.join(brew_prefix, "lib")
+        exe_dir = os.path.abspath(os.path.expanduser(os.path.join(os.getcwd(), "assemblycpp3")))
+
+        # Compile the assembly code with clang++
+        subprocess.run(
+            f"clang++ -std=c++17 {assembly_tar_path}/v5_combined_linux/main.cpp -O3 -o {exe_dir} "
+            f"-I{boost_include} -L{boost_lib}",
+            shell=True, check=True)
+
+        # Set the permissions to allow execution
+        os.chmod(exe_dir, 0o755)
+        print("Compilation on macOS completed successfully!", flush=True)
+
+    else:
+        # Unsupported operating system
+        raise OSError(f"Unsupported operating system: {system}")
 
 
 def calculate_string_assembly_index(input_data: Union[str, List[str]],
