@@ -167,7 +167,8 @@ def calculate_assembly_index(mol,
     else:
         # Get the assembly code directory
         if dir_code is None:
-            dir_code = os.environ.get("ASS_PATH")
+            # Get the path to the precompiled Assembly if not provided on input or an environment variable
+            dir_code = add_assembly_to_path()
 
         # Make the directory
         if debug:
@@ -559,18 +560,18 @@ def assembly_dry_run(mol, temp_dir=None, strip_hydrogen=False):
 
 
 def add_assembly_to_path():
-        """
-        Adds the path to the precompiled Assembly to the environment variable `ASS_PATH` based on the operating system.
+    """
+    Adds the path to the precompiled Assembly to the environment variable `ASS_PATH` based on the operating system.
 
-        Raises:
-            NotImplementedError: If the operating system is MacOS or Windows.
-        """
-        if not os.environ.get("ASS_PATH"):
-            full_att_path = os.path.abspath(
-                os.path.join(os.path.dirname(__file__), "precompiled", "asscpp_combined_static_linux"))
-            if platform.system() == "Linux":
-                os.environ["ASS_PATH"] = full_att_path
-            else:
-                raise NotImplementedError("Pre-compiled Assembly not implemented for MacOS or Windows.")
+    Raises:
+        NotImplementedError: If the operating system is MacOS or Windows.
+    """
+    if not os.environ.get("ASS_PATH"):
+        full_att_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "precompiled", "asscpp_combined_static_linux"))
+        if platform.system() == "Linux":
+            os.environ["ASS_PATH"] = full_att_path
+        else:
+            raise NotImplementedError("Pre-compiled Assembly not implemented for MacOS or Windows.")
 
-        return os.environ.get("ASS_PATH")
+    return os.environ.get("ASS_PATH")
