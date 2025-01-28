@@ -1,20 +1,8 @@
-import fcntl
 import os
 import sys
 import assemblytheorytools as att
 import pandas as pd
 from rdkit.Chem import AllChem as Chem
-
-
-def write_to_shared_file(message, shared_file):
-    with open(shared_file, 'a') as f:
-        # Acquire an exclusive lock before writing
-        fcntl.flock(f, fcntl.LOCK_EX)
-        # Write the message to the file
-        f.write(message)
-        # Release the lock after writing
-        fcntl.flock(f, fcntl.LOCK_UN)
-
 
 if __name__ == "__main__":
     timeout = 86400.0  # 24 hours
@@ -33,8 +21,8 @@ if __name__ == "__main__":
     # Convert the molecule to a mol object
     mol = att.safe_standardize_mol(Chem.MolFromSmiles(smiles[i]))
     # Calculate the assembly index
-    at, path = att.calculate_assembly_index(mol, timeout=timeout)
-    # convert the path into absolute smiles strings
-    path = att.get_mol_pathway_to_smi(path)
+    at, virt_obj, _ = att.calculate_assembly_index(mol, timeout=timeout)
+    # Convert the virt_obj into absolute smiles strings
+    virt_obj = att.get_mol_pathway_to_smi(virt_obj)
     # Write the data to the shared file
-    write_to_shared_file(f"{i}, {mol_id[i]}, {at}, {path}\n", at_out_file)
+    att.write_to_shared_file(f"{i}, {mol_id[i]}, {at}, {virt_obj}\n", at_out_file)
