@@ -1,4 +1,5 @@
 import os
+import platform
 import shutil
 import subprocess
 import tempfile
@@ -11,6 +12,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 
 import CFG
+from .construction import parse_pathway_file
 from .graph_tools import (write_ass_graph_file,
                           remove_hydrogen_from_graph,
                           nx_to_mol)
@@ -22,7 +24,6 @@ from .pathway import (get_pathway_to_graph,
 from .string_tools import (prep_joint_string_ai,
                            get_dir_str_molecule,
                            get_undir_str_molecule)
-from .construction import parse_pathway_file
 
 
 def load_assembly_output(file_path):
@@ -555,3 +556,21 @@ def assembly_dry_run(mol, temp_dir=None, strip_hydrogen=False):
             shutil.copy(mol, os.path.join(temp_dir, "tmp.mol"))
     else:
         raise ValueError("Input not supported")
+
+
+def add_assembly_to_path():
+        """
+        Adds the path to the precompiled Assembly to the environment variable `ASS_PATH` based on the operating system.
+
+        Raises:
+            NotImplementedError: If the operating system is MacOS or Windows.
+        """
+        if not os.environ.get("ASS_PATH"):
+            full_att_path = os.path.abspath(
+                os.path.join(os.path.dirname(__file__), "precompiled", "asscpp_combined_static_linux"))
+            if platform.system() == "Linux":
+                os.environ["ASS_PATH"] = full_att_path
+            else:
+                raise NotImplementedError("Pre-compiled Assembly not implemented for MacOS or Windows.")
+
+        return os.environ.get("ASS_PATH")
