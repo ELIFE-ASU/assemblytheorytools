@@ -19,7 +19,7 @@ Install the requirements (conda recommended). In one go:
 
 Then install AssemblyTheoryTools:
 
-`pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git@1.0.0`
+`pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git@v1.0.0`
 
 When asked for a password, you will need your GitHub username AND 'personal access token' (found in developer settings in your GitHub settings).
 See `https://stackoverflow.com/questions/2505096/clone-a-private-repository-github`
@@ -49,7 +49,7 @@ Then do the following:
 
 `mamba update --all -y`
 
-`pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git@1.0.0`
+`pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git@v1.0.0`
 
 Once again, you will need your username AND 'personal access token' entered as your password.
 
