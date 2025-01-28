@@ -1,0 +1,16 @@
+Although ATT will eventually include a precompiled version of AssemblyCPP, in the meantime it might be necessary to download and compile on your own. 
+
+For mac users:
+
+#first install boost
+brew install boost
+
+#list what is installed, and find the path to boost
+brew list boost    
+
+#For example, if the path is /opt/homebrew/Cellar/boost/1.87.0, then you would include that below in the next step
+
+#while inside the v5 directory of your choosing with the main.cpp present
+clang++ -std=c++17 main.cpp -O3 -o asscpp -I/opt/homebrew/Cellar/boost/1.87.0/include -L/opt/homebrew/Cellar/boost/1.87.0/lib
+
+#the result should be a new executable called asscpp located in the same directory as main.cpp
