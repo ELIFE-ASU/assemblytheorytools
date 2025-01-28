@@ -40,7 +40,8 @@ from .mol_tools import (safe_standardize_mol,
                         write_v2k_mol_file,
                         split_mols)
 
-from .file_tools import (file_list_all)
+from .file_tools import (file_list_all,
+                         write_to_shared_file)
 
 from .cell_tools import (read_cif_file,
                          atoms_to_mol_file,

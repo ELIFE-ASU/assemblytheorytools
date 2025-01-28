@@ -1,4 +1,5 @@
 import os
+import fcntl
 
 
 def file_list_all(mypath=None):
@@ -20,3 +21,21 @@ def file_list_all(mypath=None):
             # os.path.join joins one or more path components intelligently
             files.append(os.path.expanduser(os.path.join(dirpath, filename)))
     return files
+
+
+def write_to_shared_file(message, shared_file):
+    """
+    Write a message to a shared file with an exclusive lock.
+
+    Args:
+        message (str): The message to write to the file.
+        shared_file (str): The path to the shared file.
+
+    """
+    with open(shared_file, 'a') as f:
+        # Acquire an exclusive lock before writing
+        fcntl.flock(f, fcntl.LOCK_EX)
+        # Write the message to the file
+        f.write(message)
+        # Release the lock after writing
+        fcntl.flock(f, fcntl.LOCK_UN)
