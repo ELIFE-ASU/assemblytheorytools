@@ -41,7 +41,7 @@ def wiener_index(mol):
 
     Wiener index is a topological descriptor calculated as the sum of the shortest
     path lengths between all pairs of atoms in a molecule. It is a measure of the
-    molecule's branching and can be used to estimate various physicochemical properties.
+    molecule's branching and can be used to estimate various physico-chemical properties.
 
     :param mol: An RDKit molecule object.
     :return: The Wiener index.
@@ -66,7 +66,7 @@ def balaban_index(mol):
     Calculates the Balaban index of a molecule.
 
     Balaban index is a topological descriptor that quantifies the degree of
-    branching in a molecule. It is useful for predicting physicochemical
+    branching in a molecule. It is useful for predicting physico-chemical
     properties and biological activities of molecules.
 
     :param mol: An RDKit molecule object.
@@ -82,15 +82,15 @@ def randic_index(mol):
     Randic index is a topological descriptor calculated by summing the
     inverse square roots of the product of the degrees of connected atom pairs.
     It is used for the study of molecular structure-activity
-    relationships and the prediction of physicochemical properties.
+    relationships and the prediction of physico-chemical properties.
 
     :param mol: An RDKit molecule object.
     :return: The Randic index.
     """
-    G = Chem.rdmolops.GetAdjacencyMatrix(mol)
-    degrees = [sum(row) for row in G]
+    adj_matrix = Chem.rdmolops.GetAdjacencyMatrix(mol)
+    degrees = [sum(row) for row in adj_matrix]
     randic_sum = 0
-    for i, row in enumerate(G):
+    for i, row in enumerate(adj_matrix):
         for j, val in enumerate(row):
             if val == 1:
                 randic_sum += 1 / (degrees[i] * degrees[j]) ** 0.5
@@ -103,7 +103,7 @@ def kirchhoff_index(mol):
 
     Kirchhoff index is a topological index calculated as the sum of the effective
     resistances between all pairs of vertices in the molecular graph. It is used for
-    predicting physicochemical properties and molecular activities.
+    predicting physico-chemical properties and molecular activities.
 
     :param mol: An RDKit molecule object.
     :return: The Kirchhoff index.

@@ -193,7 +193,7 @@ def get_disconnected_subgraphs(graph):
     return [graph.subgraph(c) for c in nx.connected_components(graph)]
 
 
-def write_graph(graph, file_name="graph.graphml"):
+def write_graphml(graph, file_name="graph.graphml"):
     """
     Writes a NetworkX graph to a GraphML file.
 
@@ -208,7 +208,7 @@ def write_graph(graph, file_name="graph.graphml"):
     return None
 
 
-def read_graph(file_name="graph.graphml"):
+def read_graphml(file_name="graph.graphml"):
     """
     Reads a NetworkX graph from a GraphML file.
 

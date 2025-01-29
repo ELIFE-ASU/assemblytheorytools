@@ -79,11 +79,11 @@ def get_bonding_config(atoms):
     """
     atoms.set_pbc([False, False, False])
     atoms.cell = [0, 0, 0]
-    nl = NeighborList(natural_cutoffs(atoms))
-    nl.update(atoms)
+    neighbor_list = NeighborList(natural_cutoffs(atoms))
+    neighbor_list.update(atoms)
     bond_pairs = []
     for i in range(len(atoms)):
-        indices, _ = nl.get_neighbors(i)
+        indices, _ = neighbor_list.get_neighbors(i)
         for idx in indices[indices != i]:
             bond_pairs.append([i, idx])
     return bond_pairs
@@ -103,14 +103,14 @@ def atoms_to_nx(atoms):
     bond_pairs = get_bonding_config(atoms)
 
     # Create a graph
-    G = nx.Graph()
+    graph = nx.Graph()
 
     # Add nodes with atom indices and elements as attributes
     for i, atom in enumerate(atoms):
-        G.add_node(i, color=atom.symbol)
+        graph.add_node(i, color=atom.symbol)
 
     # Add edges based on bond pairs
     for bond in bond_pairs:
-        G.add_edge(bond[0], bond[1], color='1')
+        graph.add_edge(bond[0], bond[1], color='1')
 
-    return G
+    return graph

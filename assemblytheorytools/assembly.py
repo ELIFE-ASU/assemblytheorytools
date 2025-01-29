@@ -105,29 +105,28 @@ def run_command_simple(command):
 
 def joint_correction(mol, ass_index):
     """
-    Correct the assembly index based on the number of fragments in the molecule.
+    Correct the assembly index based on the number of components in the molecule or chemical system.
 
-    Args:
-        mol (Union[nx.Graph, Chem.Mol, str]): The molecule, which can be a NetworkX graph, an RDKit molecule, or a file path to a .mol file.
-        ass_index (int): The initial assembly index.
+    Args: mol (Union[nx.Graph, Chem.Mol, str]): The molecule or chemical system, which can be a NetworkX graph, an RDKit
+    object, or a file path to a .mol file. ass_index (int): The initial assembly index.
 
     Returns:
         int: The corrected assembly index.
     """
     if isinstance(mol, nx.Graph):
         # Get the number of connected components in the graph
-        num_fragments = nx.number_connected_components(mol)
+        num_components = nx.number_connected_components(mol)
     elif isinstance(mol, Chem.Mol):
-        # Get the number of fragments in the RDKit molecule
-        num_fragments = len(Chem.rdmolops.GetMolFrags(mol=Chem.Mol(mol)))
+        # Get the number of components in the RDKit molecular object
+        num_components = len(Chem.rdmolops.GetMolFrags(mol=Chem.Mol(mol)))
     elif ".mol" in mol:
-        # Get the number of fragments in the molecule from the .mol file
-        num_fragments = len(Chem.rdmolops.GetMolFrags(mol=Chem.MolFromMolFile(mol)))
+        # Get the number of components in the molecular object from the .mol file
+        num_components = len(Chem.rdmolops.GetMolFrags(mol=Chem.MolFromMolFile(mol)))
     else:
-        num_fragments = None
+        num_components = None
         ValueError("Input not supported")
-    # Return the number of fragments minus 1
-    correction = max(0, num_fragments - 1)
+    # Return the number of components minus 1
+    correction = max(0, num_components - 1)
     if correction < 0:
         correction = 0
     return ass_index - correction
@@ -144,13 +143,13 @@ def calculate_assembly_index(mol,
 
     WARNING it is the responsibility of the user to ensure the mol file has H or not!
 
-    Args:
-        mol (Union[nx.Graph, Chem.Mol, str]): The molecule, which can be a NetworkX graph, an RDKit molecule, or a file path to a .mol file.
-        dir_code (str, optional): The directory code for the assembly tool. Defaults to None.
-        timeout (float, optional): The maximum time in seconds to allow the command to run. Defaults to 100.0 seconds.
-        debug (bool, optional): If True, create a directory with a timestamp for debugging. Defaults to False.
-        joint_corr (bool, optional): If True, corrects the joint assembly calculation to account for disjointed graphs. Defaults to True.
-        strip_hydrogen (bool, optional): If True, removes hydrogen atoms from the molecule before calculation. Defaults to False.
+    Args: mol (Union[nx.Graph, Chem.Mol, str]): The molecule, which can be a NetworkX graph, an RDKit molecule,
+    or a file path to a .mol file. dir_code (str, optional): The directory code for the assembly tool. Defaults to
+    None. timeout (float, optional): The maximum time in seconds to allow the command to run. Defaults to 100.0
+    seconds. debug (bool, optional): If True, create a directory with a timestamp for debugging. Defaults to False.
+    joint_corr (bool, optional): If True, corrects the joint assembly calculation to account for disjointed graphs.
+    Defaults to True. strip_hydrogen (bool, optional): If True, removes hydrogen atoms from the molecule before
+    calculation. Defaults to False.
 
     Returns:
         tuple: A tuple containing the corrected assembly index (int) and the pathway (varies based on input type).
@@ -293,12 +292,12 @@ def calculate_assembly_semi_metric(graph1,
     assert isinstance(graph1, nx.Graph), "Input must be a NetworkX graph"
     assert isinstance(graph2, nx.Graph), "Input must be a NetworkX graph"
 
-    # Combine the graphs into a single graph with 2 disjoint components
+    # Combine the graphs into a single molecular object with 2 disjoint components
     mols = [nx_to_mol(graph1), nx_to_mol(graph2)]
-    mol = combine_mols(mols)
+    combined_mol = combine_mols(mols)
 
     # Calculate the joint assembly index
-    jai, _, _ = calculate_assembly_index(mol,
+    jai, _, _ = calculate_assembly_index(combined_mol,
                                          dir_code=dir_code,
                                          timeout=timeout,
                                          debug=debug,
@@ -440,15 +439,18 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
                                     mode="mol"):
     """
     Calculate the assembly index of a string or a set of strings. 
-    This function uses the molecular assembly calculator by constructing molecular graphs which correspond to the strings.
+    This function uses the molecular assembly calculator by constructing molecular graphs which correspond to the
+    strings.
 
     Args:
         input_data (Union[str, List[str]]): The input data, which can be a single string or a list of strings.
         dir_code (str, optional): The directory code for the assembly tool. Defaults to None.
         timeout (float, optional): The maximum time in seconds to allow the command to run. Defaults to 100.0 seconds.
         debug (bool, optional): If True, create a directory with a timestamp for debugging. Defaults to False.
-        directed (bool, optional): If True, treat strings as directed. Defaults to False, treating strings as undirected.
-        mode ("mol"/"str"/"cfg",optional): "mol" uses the molecular assembly calculator, "str" uses the string assembly calculator (not yet supported), "cfg" uses the RePair upper bound.
+        directed (bool, optional): If True, treat strings as directed. Defaults to False, treating strings as
+        undirected.
+        mode ("mol"/"str"/"cfg",optional): "mol" uses the molecular assembly calculator, "str" uses the string assembly
+        calculator (not yet supported), "cfg" uses the RePair upper bound.
     """
     if isinstance(input_data, str):
         # Handle the case where input_data is a single string
@@ -513,9 +515,12 @@ def assembly_dry_run(mol, temp_dir=None, strip_hydrogen=False):
     Perform a dry run of the assembly process for a given molecule.
 
     Args:
-        mol (Union[nx.Graph, Chem.Mol, str]): The molecule, which can be a NetworkX graph, an RDKit molecule, or a file path to a .mol file.
-        temp_dir (str, optional): The temporary directory to use for file operations. Defaults to the current working directory.
-        strip_hydrogen (bool, optional): If True, removes hydrogen atoms from the molecule before processing. Defaults to False.
+        mol (Union[nx.Graph, Chem.Mol, str]): The molecule, which can be a NetworkX graph, an RDKit molecule, or a file
+         path to a .mol file.
+        temp_dir (str, optional): The temporary directory to use for file operations. Defaults to the current working
+         directory.
+        strip_hydrogen (bool, optional): If True, removes hydrogen atoms from the molecule before processing. Defaults
+         to False.
 
     Raises:
         ValueError: If the input molecule type is not supported.

@@ -128,7 +128,7 @@ def combine_mols(mols):
 
 def split_mols(mol):
     """
-    Split an RDKit molecule into its individual fragments.
+    Split an RDKit molecule into its individual components.
 
     Args:
         mol (Chem.Mol): The input RDKit molecule to be split.

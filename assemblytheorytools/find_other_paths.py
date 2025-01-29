@@ -179,26 +179,26 @@ def ensure_equal_length(l1, l2, l3, max_length=None):
     return [l + [''] * (max_length - len(l)) for l in [l1, l2, l3]]
 
 
-def plot_fragments(dup_frags, rem_frags, ree_frags, outfile="fragments.png", image_size=(600, 600)):
+def plot_vo(dup_vo, rem_vo, ree_vo, outfile="virtual_objects.png", image_size=(600, 600)):
     """
-    Plot fragments in a grid image and save to a file.
+    Plot virtual objects in a grid image and save to a file.
 
     Args:
-        dup_frags (list): List of duplicate fragments in InChI format.
-        rem_frags (list): List of remnant fragments in InChI format.
-        ree_frags (list): List of removed-edges fragments in InChI format.
-        outfile (str, optional): The name of the output file. Default is "fragments.png".
+        dup_vo (list): List of duplicate virtual objects in InChI format.
+        rem_vo (list): List of remnant virtual objects in InChI format.
+        ree_vo (list): List of removed-edges virtual objects in InChI format.
+        outfile (str, optional): The name of the output file. Default is "virtual_objects.png".
         image_size (tuple, optional): The size of each sub-image in the grid. Default is (600, 600).
 
     Returns:
         None
     """
-    im_mat = ensure_equal_length(dup_frags, rem_frags, ree_frags)
+    im_mat = ensure_equal_length(dup_vo, rem_vo, ree_vo)
     max_length = get_max_list_lengths(im_mat)
     mols_mat = [[Chem.MolFromInchi(inchi) for inchi in row] for row in im_mat]
-    leg_mat = ensure_equal_length(["Duplicate Frags"],
-                                  ["Remnant Frags"],
-                                  ["Removed-Edges Frags"],
+    leg_mat = ensure_equal_length(["Duplicates"],
+                                  ["Remnants"],
+                                  ["Removed-Edges"],
                                   max_length=max_length)
     Draw.MolsMatrixToGridImage(mols_mat, legendsMatrix=leg_mat, subImgSize=image_size).save(outfile)
 
