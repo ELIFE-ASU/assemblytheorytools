@@ -67,6 +67,10 @@ from .tools_string import (load_fasta,
                            prep_joint_string_ai,
                            get_unique_char)
 
+from .tools_mp import (mp_calc,
+                       mp_calc_star,
+                       tp_calc)
+
 from .construction import parse_pathway_file
 
 __version__ = "1.0.0"
