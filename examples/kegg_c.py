@@ -94,69 +94,57 @@ def plot_heatmap_line(x, y, xlab, ylab, name, c_map='viridis', nbins=50):
     plt.show()
 
 
+def get_ai(smi):
+    if "." in smi:
+        return -1
+    else:
+        # Convert the smile to mol
+        mol = Chem.MolFromSmiles(smi, sanitize=False)
+
+        # convert to a networkx graph
+        graph = att.mol_to_nx(mol)
+
+        # Calculate the assembly index
+        ai, _, _ = att.calculate_assembly_index(graph, strip_hydrogen=True)
+        return ai
+
+
 if __name__ == "__main__":
-    f_run = False
-    max_heavy = 25
+    f_run = True
+    max_heavy = 15
+    data_file_in = "kegg_data_C.csv.zip"
+    kegg_data_in_path = os.path.expanduser(os.path.abspath(f"..//..//{data_file_in}"))
+    data_file_out = "kegg_data_C_AI.csv.zip"
+    kegg_data_out_path = os.path.expanduser(os.path.abspath(f"..//..//{data_file_out}"))
 
     if f_run:
-        kegg_data_path = os.path.expanduser(os.path.abspath("..//..//kegg_data_C.csv.zip"))
+        # Load the KEGG data
+        kegg_data = pd.read_csv(kegg_data_in_path)
 
-        kegg_data = pd.read_csv(kegg_data_path)
-        # Print the size
-        print(kegg_data.shape, flush=True)
-        print(kegg_data.columns, flush=True)
-
-        # sort by the number of heavy atoms
+        # Sort by the number of heavy atoms
         kegg_data = kegg_data.sort_values(by="n_heavy_atoms")
+
+        # Add a column for the assembly index
+        kegg_data["assembly_index"] = -1  # Initialize to -1
 
         # only select the data that has less than 20 heavy atoms
         kegg_data = kegg_data[kegg_data["n_heavy_atoms"] < max_heavy]
 
-        # Get the smiles
-        smi = kegg_data["smiles"].tolist()
-        # Get the number of heavy atoms
-        n_heavy_atoms = kegg_data["n_heavy_atoms"].tolist()
-        # Get the number of chiral centers
-        n_chiral_centers = kegg_data["n_chiral_centers"].tolist()
-        array_ai = []
-        array_heavy_atoms = []
-        array_index = []
-        print(kegg_data.shape, flush=True)
-        for i, s in enumerate(smi):
-            print(i, s, flush=True)
-            # Convert all the smile to mol
+        # Apply the get_ai function to each row in the kegg_data DataFrame
+        kegg_data['assembly_index'] = kegg_data['smiles'].apply(get_ai)
 
-            if "." in s:
-                continue
-            else:
-                mol = Chem.MolFromSmiles(s, sanitize=False)
+        # Save the updated DataFrame file
+        kegg_data.to_csv(kegg_data_out_path, index=False)
 
-                # convert to a networkx graph
-                graph = att.mol_to_nx(mol)
+    # Load the KEGG data
+    kegg_data = pd.read_csv(kegg_data_out_path)
 
-                # Calculate the assembly index
-                ai, _, _ = att.calculate_assembly_index(graph, strip_hydrogen=True)
-                print(f"Assembly index: {ai}", flush=True)
-                if ai <= 0:
-                    continue
-                else:
-                    array_ai.append(ai)
-                    array_index.append(i)
-                    # array_heavy_atoms.append(n_heavy_atoms[i])
-        array_ai = np.array(array_ai)
+    # filter out the data that has an assembly index of -1
+    kegg_data = kegg_data[kegg_data["assembly_index"] > -1]
 
-        # Select only the array_index
-        n_heavy_atoms = np.array([n_heavy_atoms[i] for i in array_index])
-        n_chiral_centers = np.array([n_chiral_centers[i] for i in array_index])
-
-        # Save the data
-        np.savetxt("data.csv", np.vstack([n_heavy_atoms, n_chiral_centers, array_ai]).T, delimiter=",")
-
-    # Load the data
-    data = np.loadtxt("data.csv", delimiter=",")
-    n_heavy_atoms = data[:, 0]
-    n_chiral_centers = data[:, 1]
-    array_ai = data[:, 2]
+    n_heavy_atoms = np.array(kegg_data["n_heavy_atoms"].values)
+    n_chiral_centers = np.array(kegg_data["n_chiral_centers"].values)
+    array_ai = np.array(kegg_data["assembly_index"].values)
 
     plot_heatmap(n_heavy_atoms, array_ai,
                  "Heavy atom count",
