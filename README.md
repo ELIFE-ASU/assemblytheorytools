@@ -15,7 +15,7 @@ Currently supports and connects to:
 # For Local Installation 
 Install the requirements (conda recommended). In one go:
 
-`conda install conda-forge::numpy conda-forge::matplotlib anaconda::networkx conda-forge::rdkit conda-forge::pyvis`
+`conda install conda-forge::numpy conda-forge::matplotlib conda-forge::networkx conda-forge::rdkit conda-forge::pyvis -y`
 
 Then install AssemblyTheoryTools:
 
@@ -27,9 +27,9 @@ See `https://stackoverflow.com/questions/2505096/clone-a-private-repository-gith
 # For Development Installation
 Install the requirements (conda recommended). In one go:
 
-`conda install conda-forge::numpy conda-forge::matplotlib anaconda::networkx conda-forge::rdkit conda-forge::pyvis anaconda::pytest`
+`conda install conda-forge::numpy conda-forge::matplotlib conda-forge::networkx conda-forge::rdkit conda-forge::pyvis conda-forge::pytest`
 
-Clone the repo using Git or GitKraken. Then, open your favorite IDE (Pycharm/VS Code) and open the cloned repo.
+Clone the repo using Git or GitKraken. Then, open your favorite IDE (Pycharm/VS Code) and the cloned repo.
 
 # For HPC (SOL) Installation
 
@@ -45,7 +45,7 @@ Then do the following:
 
 `source activate myEnv`
 
-`mamba install conda-forge::numpy conda-forge::matplotlib anaconda::networkx conda-forge::rdkit conda-forge::pyvis`
+`mamba install conda-forge::numpy conda-forge::matplotlib conda-forge::networkx conda-forge::rdkit conda-forge::pyvis -y`
 
 `mamba update --all -y`
 
@@ -53,4 +53,4 @@ Then do the following:
 
 Once again, you will need your username AND 'personal access token' entered as your password.
 
-When running on an HPC you should run Python using the absolute path to the directory, for example: `srun $HOME/.conda/envs/myEnv/bin/python3`
+When running on an HPC, you should run Python using the absolute path to the directory, for example: `srun $HOME/.conda/envs/myEnv/bin/python3`
