@@ -29,8 +29,8 @@ from .graph_tools import (nx_to_mol,
                           get_bond_smiles,
                           graph_to_smiles,
                           graph_to_inchi,
-                          write_graph,
-                          read_graph)
+                          write_graphml,
+                          read_graphml)
 
 from .mol_tools import (safe_standardize_mol,
                         standardize_mol,
