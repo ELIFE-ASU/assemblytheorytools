@@ -13,21 +13,48 @@ Currently supports and connects to:
 - For Proteins see [https://github.com/ELIFE-ASU/ProteinAssembly](https://github.com/ELIFE-ASU/ProteinAssembly).
 
 # For Local Installation 
-Install the requirements (conda recommended). In one go:
+## Fresh environment
+It is recommended that you start from a fresh environment to prevent issues.
+```
+conda create -n ass_env python=3.12
+```
+Activate the new env.
+```
+conda activate ass_env
+```
+Add channels in this order.
+```
+conda config --env --add channels conda-forge
+```
+Best to make them strict
+```
+conda config --set channel_priority true
+```
+To check your updated channel list, run:
+```
+conda config --show channels
+```
+Make sure to upgrade the conda env to force the channel priority.
+```
+conda update conda --all -y
+```
 
-`conda install conda-forge::numpy conda-forge::matplotlib conda-forge::networkx conda-forge::rdkit conda-forge::pyvis -y`
-
+## Install the requirements
+```
+conda install conda-forge::numpy conda-forge::matplotlib conda-forge::networkx conda-forge::rdkit conda-forge::pyvis -y
+```
 Then install AssemblyTheoryTools:
-
-`pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git@v1.0.0`
-
+```
+pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git@v1.0.0
+```
 When asked for a password, you will need your GitHub username AND 'personal access token' (found in developer settings in your GitHub settings).
 See `https://stackoverflow.com/questions/2505096/clone-a-private-repository-github`
 
 # For Development Installation
-Install the requirements (conda recommended). In one go:
-
-`conda install conda-forge::numpy conda-forge::matplotlib conda-forge::networkx conda-forge::rdkit conda-forge::pyvis conda-forge::pytest`
+Follow the instructions for making a fresh environment. Then, install the requirements.
+```
+conda install conda-forge::numpy conda-forge::matplotlib conda-forge::networkx conda-forge::rdkit conda-forge::pyvis conda-forge::pytest -y
+```
 
 Clone the repo using Git or GitKraken. Then, open your favorite IDE (Pycharm/VS Code) and the cloned repo.
 
@@ -40,16 +67,39 @@ Or use GitHub access tokens.
 `unset SSH_ASKPASS`
 
 Then do the following:
-
-`module load mamba/latest`
-
-`source activate myEnv`
-
-`mamba install conda-forge::numpy conda-forge::matplotlib conda-forge::networkx conda-forge::rdkit conda-forge::pyvis -y`
-
-`mamba update --all -y`
-
-`pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git@v1.0.0`
+Load Mamba (SOL preferred) or Conda.
+It is recommended that you start from a fresh environment to prevent issues.
+```
+module create -n ass_env python=3.12
+```
+Activate the new env.
+```
+module activate ass_env
+```
+Add channels in this order.
+```
+module config --env --add channels conda-forge
+```
+Best to make them strict
+```
+module config --set channel_priority true
+```
+To check your updated channel list, run:
+```
+module config --show channels
+```
+Make sure to upgrade the conda env to force the channel priority.
+```
+module update conda --all -y
+```
+Install all the dependencies.
+```
+mamba install conda-forge::numpy conda-forge::matplotlib conda-forge::networkx conda-forge::rdkit conda-forge::pyvis -y
+```
+Install AssemblyTheoryTools.
+```
+pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git@v1.0.0
+```
 
 Once again, you will need your username AND 'personal access token' entered as your password.
 
