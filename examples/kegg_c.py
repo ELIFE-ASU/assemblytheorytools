@@ -131,7 +131,7 @@ if __name__ == "__main__":
         kegg_data = kegg_data[kegg_data["n_heavy_atoms"] < max_heavy]
 
         # Apply the get_ai function to each row in the kegg_data DataFrame
-        kegg_data['assembly_index'] = kegg_data['smiles'].apply(get_ai)
+        kegg_data['assembly_index'] = att.tools_mp.mp_calc(get_ai, kegg_data['smiles'])
 
         # Save the updated DataFrame file
         kegg_data.to_csv(kegg_data_out_path, index=False)
