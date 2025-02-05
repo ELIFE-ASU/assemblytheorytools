@@ -2,7 +2,6 @@ import copy
 import json
 import os
 
-
 import networkx as nx
 import numpy as np
 from rdkit import Chem
@@ -252,6 +251,7 @@ def transform_bond_float_rdkit(bond):
     :param bond: Bond type as a float
     :return: RDKit bond type
     """
+    bond = float(bond)
     if bond == 1.0:
         return Chem.rdchem.BondType.SINGLE
     if bond == 2.0:
@@ -577,7 +577,7 @@ class AssemblyConstruction:
                 tables2mol(
                     (
                         [(0, atom[0][0]), (1, atom[0][1])],
-                        [(0, 1, transform_bond_float_rdkit(atom[1]))],
+                        [(0, 1, transform_bond_string_float(atom[1]))],
                     )
                 )
             )
@@ -614,7 +614,7 @@ class AssemblyConstruction:
                     (
                         [(i, at) for at in vs_atoms[i]],
                         [
-                            (edge[0], edge[1], transform_bond_float_rdkit(edge[2]))
+                            (edge[0], edge[1], transform_bond_string_float(edge[2]))
                             for edge in step
                         ],
                     )
@@ -653,9 +653,6 @@ def generate_directional_graph(digraph):
     graph = nx.DiGraph()
     graph.add_edges_from(digraph)
     return graph
-
-
-
 
 
 def parse_pathway_file(file):

@@ -852,3 +852,4 @@ def test_plot_construction():
     # Find all the files
     files = att.file_list_all("path_images/")
     att.plot_digraph_with_images(digraph, files)
+    pass
