@@ -1,6 +1,7 @@
 import os
 from html import escape
 
+import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 import networkx as nx
 from IPython.display import HTML
@@ -297,3 +298,72 @@ def plot_digraph(digraph,
 
 def plot_digraph_metro():
     return None
+
+
+def match_node_to_image(graph, image_paths):
+    """
+    Matches nodes in the graph to their respective image paths.
+
+    This function iterates over the provided image paths, extracts the base name of each image file,
+    and checks if it matches any node in the graph. If a match is found, it maps the node to the image path.
+
+    :param graph: A NetworkX graph object containing nodes.
+    :param image_paths: A list of image file paths.
+    :return: A dictionary mapping node labels to their corresponding image paths.
+    """
+    # Initialize an empty dictionary to store the node-to-image mapping
+    node_image_mapping = {}
+
+    # Iterate over each image path
+    for path in image_paths:
+        # Get the base name (without extension) of the image file
+        file_name = os.path.splitext(os.path.basename(path))[0]
+
+        # Check if the base name matches any node in the graph
+        if file_name in graph.nodes:
+            # Map the node to the image path
+            node_image_mapping[file_name] = path
+
+    return node_image_mapping
+
+
+def plot_digraph_with_images(graph, image_paths):
+    # Create a mapping from node to image path
+    node_image_mapping = match_node_to_image(graph, image_paths)
+
+    # Add nodes with images
+    for n in graph:
+        graph.nodes[n]["image"] = mpimg.imread(node_image_mapping[n])
+
+    # Get graph layout
+    pos = nx.spring_layout(graph, seed=1734289230)
+    # Set up the plot
+    fig, ax = plt.subplots()
+
+    # Draw the graph edges
+    nx.draw_networkx_edges(graph,
+                           pos=pos,
+                           ax=ax,
+                           min_source_margin=15,
+                           min_target_margin=15)
+
+    # Transform from data coordinates (scaled between xlim and ylim) to display coordinates
+    tr_figure = ax.transData.transform
+    # Transform from display to figure coordinates
+    tr_axes = fig.transFigure.inverted().transform
+    # Select the size of the image (relative to the X axis)
+    icon_size = (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.06
+    icon_center = icon_size / 2.0
+    # Add the respective image to each node
+    for n in graph.nodes:
+        xf, yf = tr_figure(pos[n])
+        xa, ya = tr_axes((xf, yf))
+        # get overlapped axes and plot icon
+        a = plt.axes([xa - icon_center, ya - icon_center, icon_size, icon_size])
+        a.imshow(graph.nodes[n]["image"])
+        a.axis("off")
+
+    # Hide axes
+    ax.axis('off')
+    plt.tight_layout()
+    plt.show()
