@@ -159,6 +159,7 @@ def calculate_assembly_index(mol,
     virt_obj = None
     path = None
     file_path_in = None
+
     # Check if the input is a string and not a .mol file
     if isinstance(mol, str) and not mol.endswith(".mol"):
         ai, virt_obj, path = CFG.ai_with_pathways(mol, f_print=False)
@@ -265,6 +266,12 @@ def calculate_assembly_index(mol,
                 print(f"Failed to load assembly output: {file_path_out}, Error: {e}", flush=True)
                 return ai, virt_obj, path
 
+    # Check input types
+    assert (dir_code==None) or isinstance(dir_code, str), "Directory code must be a string"
+    assert isinstance(timeout, (int, float)), "Timeout must be an integer or float"
+    assert isinstance(debug, bool), "Debug must be a boolean"
+    assert isinstance(joint_corr, bool), "Joint correction must be a boolean"
+    assert isinstance(strip_hydrogen, bool), "Strip hydrogen must be a boolean"
 
 def calculate_assembly_semi_metric(graph1,
                                    graph2,
@@ -288,9 +295,14 @@ def calculate_assembly_semi_metric(graph1,
     Returns:
         int: The difference between the joint assembly index and the sum of the assembly indices of the disconnected subgraphs.
     """
-    # Ensure the inputs are NetworkX graphs
+    # Make input type checks
     assert isinstance(graph1, nx.Graph), "Input must be a NetworkX graph"
     assert isinstance(graph2, nx.Graph), "Input must be a NetworkX graph"
+    assert (dir_code == None) or isinstance(dir_code, str), "Directory code must be a string"
+    assert isinstance(timeout, (int, float)), "Timeout must be an integer or float"
+    assert isinstance(debug, bool), "Debug must be a boolean"
+    assert isinstance(strip_hydrogen, bool), "Strip hydrogen must be a boolean"
+    assert isinstance(normalise, bool), "Normalise must be a boolean"
 
     # Ensure the inputs are connected graphs
     assert nx.is_connected(graph1), "Input graph must be connected"
@@ -470,6 +482,12 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
     else:
         raise ValueError("Input must be either a single string or a list of strings")
 
+    # Check input types
+    assert (dir_code==None) or isinstance(dir_code, str), "Directory code must be a string"
+    assert isinstance(timeout, (int, float)), "Timeout must be an integer or float"
+    assert isinstance(debug, bool), "Debug must be a boolean"
+    assert isinstance(directed, bool), "Directed must be a boolean"
+
     if mode == "mol":  # Use the molecular assembly cpp calculator
         if directed:
             graph = get_dir_str_molecule(string, debug=debug)
@@ -517,6 +535,8 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
             ValueError(
                 "Current CFG code only works for directed strings. Directed string assembly index is an upper bound to undirected string assembly index, so you may still use the directed calculator.")
 
+    else:
+        ValueError("Mode must be either 'mol', 'str', or 'cfg'.")
 
 def assembly_dry_run(mol, temp_dir=None, strip_hydrogen=False):
     """
