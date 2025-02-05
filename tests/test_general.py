@@ -835,12 +835,31 @@ def test_construction():
     pathway_str = "data/pathway/tmpPathway"
 
     # Try to load the pathway
-    digraph = att.parse_pathway_file(pathway_str)
+    digraph, inchi_list = att.parse_pathway_file(pathway_str)
+
+    print(inchi_list)
+    print(digraph.nodes(data=True))
+    # # Get the inchi from the digraph
+    # for i,_ in enumerate(digraph.nodes()):
+    #     print(digraph.nodes[i]["inchi"])
+
+    inchi_list_ref = ['InChI=1S/C2H6/c1-2/h1-2H3',
+                      'InChI=1S/CH4/h1H4',
+                      'InChI=1S/CH2O/c1-2/h1H2',
+                      'InChI=1S/CH4/h1H4',
+                      'InChI=1S/CH4/h1H4', 
+                      'InChI=1S/C2H6/c1-2/h1-2H3',
+                      'InChI=1S/C2H6/c1-2/h1-2H3',
+                      'InChI=1S/C2H4O/c1-2-3/h2H,1H3']
 
     # Check the number of nodes
     assert digraph.number_of_nodes() == 8
     # Check the number of edges
     assert digraph.number_of_edges() == 9
+
+    # Check the inchi
+    for ref, node in zip(inchi_list_ref, inchi_list):
+        assert ref == node
 
 def test_plot_construction():
     print(flush=True)

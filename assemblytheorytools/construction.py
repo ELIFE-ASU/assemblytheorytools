@@ -667,4 +667,4 @@ def parse_pathway_file(file):
     # Generate the directional graph
     graph = generate_directional_graph(construction_object.digraph)
 
-    return graph
+    return graph, inchi_list
