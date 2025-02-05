@@ -663,10 +663,8 @@ def parse_pathway_file(file):
     construction_object = AssemblyConstruction(data)
     construction_object.generate_pathway()
     inchi_list = construction_object.pathway_inchi_vo()
-    construction_object.plot_pathway()
-    print(inchi_list)
 
-    # # Generate the directional graph
+    # Generate the directional graph
     graph = generate_directional_graph(construction_object.digraph)
 
     return graph
