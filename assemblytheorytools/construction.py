@@ -304,15 +304,19 @@ class AssemblyConstruction:
                     combined = np.sort(pic + pic_i, axis=0).tolist() if self.if_string else pic + pic_i
                     steps_mod.append(combined)
 
-                    add_digraph_entry(pic, step) if len(pic) > 1 else digraph.append(
-                        ["virtual_object{}".format(self.atoms.index(
-                            [{self.v_l[pic[0][0]], self.v_l[pic[0][1]]}, self.e_l[self.e.index(pic[0])]])),
-                            "step{}".format(step)])
+                    if len(pic) > 1:
+                        add_digraph_entry(pic, step)
+                    else:
+                        v_object1 = self.atoms.index(
+                            [{self.v_l[pic[0][0]], self.v_l[pic[0][1]]}, self.e_l[self.e.index(pic[0])]])
+                        digraph.append(["virtual_object{}".format(v_object1), "step{}".format(step)])
 
-                    add_digraph_entry(pic_i, step) if len(pic_i) > 1 else digraph.append(
-                        ["virtual_object{}".format(self.atoms.index(
-                            [{self.v_l[pic_i[0][0]], self.v_l[pic_i[0][1]]}, self.e_l[self.e.index(pic_i[0])]])),
-                            "step{}".format(step)])
+                    if len(pic_i) > 1:
+                        add_digraph_entry(pic_i, step)
+                    else:
+                        v_object1 = self.atoms.index(
+                            [{self.v_l[pic_i[0][0]], self.v_l[pic_i[0][1]]}, self.e_l[self.e.index(pic_i[0])]])
+                        digraph.append(["virtual_object{}".format(v_object1), "step{}".format(step)])
 
                     pieces_mod.remove(pic)
                     pieces_mod.remove(pic_i)
@@ -343,8 +347,8 @@ class AssemblyConstruction:
                         continue
 
                     combined_pieces = [pieces_mod[i] for i in indices]
-                    for idx in indices:
-                        pieces_mod.remove(pieces_mod[idx])
+                    for idx in sorted(indices, reverse=True):
+                        pieces_mod.pop(idx)
 
                     while len(combined_pieces) > 1:
                         combined_pieces, steps_mod, step, digraph = self.consistent_join(
@@ -377,12 +381,13 @@ class AssemblyConstruction:
             pieces_mod, steps, sorted_repeated_mod1, step, digraph
         )
 
-        pieces_mod_cp = []
-        while len(pieces_mod) != len(pieces_mod_cp):
+        while True:
             pieces_mod_cp = copy.deepcopy(pieces_mod)
             pieces_mod, steps_mod, step, digraph = self.consistent_join(
                 pieces_mod, steps_mod, sorted_repeated_mod1_cp, step, digraph, indexes
             )
+            if len(pieces_mod) == len(pieces_mod_cp):
+                break
 
         self.steps = steps_mod
         self.digraph = digraph
