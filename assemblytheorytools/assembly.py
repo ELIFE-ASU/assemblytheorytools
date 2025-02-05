@@ -298,7 +298,8 @@ def calculate_assembly_semi_metric(graph1,
 
     # Ensure the inputs are not isomorphic
     if not nx.is_isomorphic(graph1, graph2):
-        warnings.warn("Input graphs must not be isomorphic")
+        warnings.warn("Input graphs are isomorphic.")
+        return 0
 
     # Combine the graphs into a single molecular object with 2 disjoint components
     mols = [nx_to_mol(graph1), nx_to_mol(graph2)]
