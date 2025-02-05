@@ -389,57 +389,35 @@ class AssemblyConstruction:
         return pieces_mod, steps_mod, step, digraph
 
     def repeated_construction(self, pieces_mod, steps_mod, sorted_repeated_mod1, step, digraph):
-        step_ind = [1 for i in range(len(sorted_repeated_mod1))]
-        indexes = [0 for i in range(len(sorted_repeated_mod1))]
+        step_ind = [1] * len(sorted_repeated_mod1)
+        indexes = [0] * len(sorted_repeated_mod1)
         sorted_repeated_mod1_cp = copy.deepcopy(sorted_repeated_mod1)
         left_sort = [rep[0] for rep in sorted_repeated_mod1_cp]
-        right_sort = [rep[1] for rep in sorted_repeated_mod1_cp]
-        while len(sorted_repeated_mod1) != 0:
+
+        while sorted_repeated_mod1:
             for j, repeat in enumerate(sorted_repeated_mod1_cp):
-                if (not step_ind[j]) or repeated_sizes(sorted_repeated_mod1)[0] != len(
-                        repeat[0]
-                ):
+                if not step_ind[j] or repeated_sizes(sorted_repeated_mod1)[0] != len(repeat[0]):
                     continue
                 if check_edge_in_list(repeat[1], pieces_mod) or check_edge_in_list(repeat[1], steps_mod):
                     pieces_mod.append(repeat[0])
                     sorted_repeated_mod1.remove(repeat)
                     step_ind[j] = 0
-                    if index_set(steps_mod, repeat[1]) is not None:
-                        indexes[j] = index_set(steps_mod, repeat[1])
-                    else:
-                        indexes[j] = indexes[index_set(left_sort, repeat[1]) - 1]
+                    indexes[j] = index_set(steps_mod, repeat[1]) or indexes[index_set(left_sort, repeat[1]) - 1]
                 else:
-                    repeat_cp = copy.deepcopy(repeat[1])
-                    pieces_mod_cp = copy.deepcopy(pieces_mod)
-                    indices = []
+                    indices = [i for i, piece in enumerate(pieces_mod) if any(rep in piece for rep in repeat[1])]
 
-                    for i, piece in enumerate(pieces_mod):
-                        for k, rep in enumerate(repeat[1]):
-                            if rep in piece:
-                                indices.append(i)
-                                for edge in piece:
-                                    repeat_cp.remove(edge)
-                                break
-                        if len(repeat_cp) == 0:
-                            break
                     if not indices:
                         continue
-                    combined_pieces = [pieces_mod[i] for i in indices]
 
+                    combined_pieces = [pieces_mod[i] for i in indices]
                     for idx in indices:
-                        pieces_mod.remove(pieces_mod_cp[idx])
-                    # We consistently join the remnant pieces in such a way that the constructed molecule never has
-                    # disconnected pieces
-                    while not (len(combined_pieces) == 1):
+                        pieces_mod.remove(pieces_mod[idx])
+
+                    while len(combined_pieces) > 1:
                         combined_pieces, steps_mod, step, digraph = self.consistent_join(
-                            combined_pieces,
-                            steps_mod,
-                            sorted_repeated_mod1_cp,
-                            step,
-                            digraph,
-                            indexes,
+                            combined_pieces, steps_mod, sorted_repeated_mod1_cp, step, digraph, indexes
                         )
-                    # Construct repeat[1]
+
                     pieces_mod.append(combined_pieces[0])
                     pieces_mod.append(repeat[0])
                     step_ind[j] = 0
