@@ -10,6 +10,20 @@ from rdkit.Chem.rdchem import RWMol
 
 
 def transform_array(target_array, comp_array, source_val, target_val, new_val, pairs_list):
+    """
+    Transforms the target array by replacing specific values based on the comparison array and pairs list.
+
+    This function iterates over the comparison array and updates the target array by replacing elements
+    that match the target value and source value with a new value, according to the pairs list.
+
+    :param target_array: List of lists, where each sublist represents an edge in the target array.
+    :param comp_array: List of lists, where each sublist represents an edge in the comparison array.
+    :param source_val: The source value to be replaced.
+    :param target_val: The target value to be replaced.
+    :param new_val: The new value to replace the source and target values.
+    :param pairs_list: List of pairs that determine valid replacements.
+    :return: The modified target array with updated values.
+    """
     for i, edge in enumerate(comp_array):
         if edge[0] == target_val and [source_val, edge[1]] in pairs_list:
             target_array[i] = [new_val, edge[1]]
@@ -19,19 +33,56 @@ def transform_array(target_array, comp_array, source_val, target_val, new_val, p
 
 
 def repeated_sizes(repeated):
+    """
+    Returns a sorted list of unique sizes of the second element in each tuple in the repeated list.
+
+    :param repeated: List of tuples, where each tuple contains two elements.
+    :return: Sorted list of unique sizes of the second element in each tuple.
+    """
     rep = sorted(set(len(rep[1]) for rep in repeated))
     return rep
 
 
 def equal_list(list_a, list_b):
+    """
+    Compares two lists of lists and checks if they contain the same elements.
+
+    This function converts each sublist in the input lists to a set of tuples and compares them.
+    It returns True if both lists contain the same sets of tuples, otherwise False.
+
+    :param list_a: First list of lists to compare.
+    :param list_b: Second list of lists to compare.
+    :return: True if both lists contain the same sets of tuples, otherwise False.
+    """
     return set(row for row in list_a) == set(row for row in list_b)
 
 
 def check_edge_in_list(edges, list_in):
+    """
+    Checks if a given list of edges is present in any of the lists within a list of lists.
+
+    This function iterates over each list in the input list of lists and uses the `equal_list` function
+    to check if any of these lists contain the same elements as the given list of edges.
+
+    :param edges: List of edges to check.
+    :param list_in: List of lists, where each sublist is a list of edges.
+    :return: True if the given list of edges is present in any of the lists within the input list of lists, otherwise False.
+    """
     return any(equal_list(l, edges) for l in list_in)
 
 
 def equivalence(remnant_pieces, equivalences):
+    """
+    Applies equivalence transformations to the remnant pieces based on the provided equivalences.
+
+    This function creates a deep copy of the remnant pieces and iterates through each edge in each piece.
+    If an edge's vertex matches any vertex in the equivalences list, it replaces the vertex with the corresponding
+    equivalent vertex.
+
+    :param remnant_pieces: List of lists, where each sublist represents a piece containing edges.
+    :param equivalences: List of pairs, where each pair represents an equivalence between two vertices.
+    :return: A deep copy of the remnant pieces with applied equivalence transformations.
+    """
     pieces_copy = copy.deepcopy(remnant_pieces)
     equivalences_array = np.array(equivalences)
     equivalences_list = equivalences_array[:, 1].tolist()
@@ -47,6 +98,18 @@ def equivalence(remnant_pieces, equivalences):
 
 
 def fix_repeated_equiv(edge_list, repeated_equiv, equivalences, edge_pairs):
+    """
+    Fixes repeated equivalences in the edge list by transforming the edges based on the provided equivalences.
+
+    This function identifies and resolves repeated equivalences in the edge list. It updates the edge list and
+    repeated equivalences by applying transformations based on the equivalences and edge pairs.
+
+    :param edge_list: List of edges to be transformed.
+    :param repeated_equiv: List of repeated equivalences to be fixed.
+    :param equivalences: List of equivalences to be applied.
+    :param edge_pairs: List of valid edge pairs for transformations.
+    :return: Tuple containing the updated edge list, repeated equivalences, and equivalences.
+    """
     global new_val, target_val, source_val
     equivalences = np.unique(equivalences, axis=0).tolist()
     equiv_np = np.array(equivalences)
@@ -99,6 +162,16 @@ def fix_repeated_equiv(edge_list, repeated_equiv, equivalences, edge_pairs):
 
 
 def index_set(lists, list_in):
+    """
+    Finds the index of a list within a list of lists that matches the given list.
+
+    This function converts the input list and each list within the list of lists to a set of tuples.
+    It then checks if any of these sets match the set of the input list and returns the index (1-based) of the matching list.
+
+    :param lists: List of lists to search within.
+    :param list_in: List to find within the list of lists.
+    :return: 1-based index of the matching list, or None if no match is found.
+    """
     list_in_set = set(tuple(row) for row in list_in)
     for i, i_list in enumerate(lists):
         if set(tuple(row) for row in i_list) == list_in_set:
@@ -216,23 +289,6 @@ class AssemblyConstruction:
         self.atoms_list_index = atoms_list_index
 
     def consistent_join(self, pieces_mod, steps_mod, repeated_mo1_cp, step, digraph, indexes):
-        """final takes a set of graph pieces and "intelligently" join one pair of edges
-
-        :param pieces_mod: The current starting piece of edges (modified by equivalence up to the current step)
-        :param steps_mod: the current list of steps to construct all the pieces(modified by equivalence up to the
-         current step)
-        :param repeated_mo1_cp: Is the original copy of the duplicate edges before the recursive_join was performed
-        :param step: the number of joins so far i.e. assembly index(up to the current step)
-        :param digraph: list virtual_object0-> step1,virtual_object1-> step1, step1-> step2,virtual_object1-> step2,
-        virtual_object0-> step3,virtual_object0-> step3
-        :param indexes: from the repeated array, at each entry is the index of the steps_mod
-        :return pieces_mod: The finishing piece of edges
-        :return steps_mod: set of graph pieces after intelligent join
-        :return step: outputs the assembly index N=3(up to the current step)
-        :return digraph: list virtual_object0-> step1,virtual_object1-> step1, step1-> step2,virtual_object1-> step2,
-        virtual_object0-> step3,virtual_object0-> step3(up
-         to the current step)
-        """
         left_sort = [rep[0] for rep in repeated_mo1_cp]
         right_sort = [rep[1] for rep in repeated_mo1_cp]
         for pic in pieces_mod:
