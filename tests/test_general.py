@@ -842,3 +842,13 @@ def test_construction():
     # Check the number of edges
     assert digraph.number_of_edges() == 9
 
+def test_plot_construction():
+    print(flush=True)
+    pathway_str = "data/pathway/tmpPathway"
+
+    # Try to load the pathway
+    digraph = att.parse_pathway_file(pathway_str)
+
+    # Find all the files
+    files = att.file_list_all("path_images/")
+    att.plot_digraph_with_images(digraph, files)
