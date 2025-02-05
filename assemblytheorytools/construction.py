@@ -251,42 +251,34 @@ def tables2mol(tables):
 
 class AssemblyConstruction:
     def __init__(self, data, if_string=False):
+        self.v = data["file_graph"][0]['Vertices']
+        self.e = data["file_graph"][0]['Edges']
+        self.v_l = data["file_graph"][0]['VertexColours']
+        self.e_l = data["file_graph"][0]['EdgeColours']
+        self.remnant_e = data["remnant"][0]["Edges"] + data["removed_edges"]
+        self.duplicates = [[dup["Right"], dup['Left']] for dup in data["duplicates"]]
+        self.equivalences = [[1, 1]]
 
-        v = data["file_graph"][0]['Vertices']
-        e = data["file_graph"][0]['Edges']
-        v_l = data["file_graph"][0]['VertexColours']
-        e_l = data["file_graph"][0]['EdgeColours']
-        remnant_e = data["remnant"][0]["Edges"] + data["removed_edges"]
-        duplicates = [[dup["Right"], dup['Left']] for dup in data["duplicates"]]
-        equivalences = [[1, 1]]
-
-        remnant_e, duplicates, equivalences = fix_repeated_equiv(remnant_e, duplicates, equivalences, e)
-        self.v = v
-        self.e = e
-        self.v_l = v_l
-        self.e_l = e_l
-        self.remnant_e = remnant_e
-        self.equivalences = equivalences
-        self.duplicates = duplicates
+        self.remnant_e, self.duplicates, self.equivalences = fix_repeated_equiv(
+            self.remnant_e, self.duplicates, self.equivalences, self.e
+        )
         self.if_string = if_string
+
         # Construct the atoms list
-        atoms_list = []
-        atoms_list_index = []
-        atoms_pre = []
-        full_atoms_list = []
-        for i, bond in enumerate(e):
-            atom_list = [[v_l[bond[0]], v_l[bond[1]]], e_l[i]]
+        self.atoms = []
+        self.full_atoms_list = []
+        self.atoms_list = []
+        self.atoms_list_index = []
+
+        for i, bond in enumerate(self.e):
+            atom_list = [[self.v_l[bond[0]], self.v_l[bond[1]]], self.e_l[i]]
             atom_list_index = [bond[0], bond[1]]
-            atom_set = [{v_l[bond[0]], v_l[bond[1]]}, e_l[i]]
-            if not (atom_set in atoms_pre):
-                atoms_pre.append(atom_set)
-                atoms_list.append(atom_list)
-                atoms_list_index.append(atom_list_index)
-            full_atoms_list.append(atom_list)
-        self.atoms = atoms_pre
-        self.full_atoms_list = full_atoms_list
-        self.atoms_list = atoms_list
-        self.atoms_list_index = atoms_list_index
+            atom_set = [{self.v_l[bond[0]], self.v_l[bond[1]]}, self.e_l[i]]
+            if atom_set not in self.atoms:
+                self.atoms.append(atom_set)
+                self.atoms_list.append(atom_list)
+                self.atoms_list_index.append(atom_list_index)
+            self.full_atoms_list.append(atom_list)
 
     def consistent_join(self, pieces_mod, steps_mod, repeated_mo1_cp, step, digraph, indexes):
         left_sort = [rep[0] for rep in repeated_mo1_cp]
