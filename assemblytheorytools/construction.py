@@ -515,67 +515,36 @@ class AssemblyConstruction:
         return None
 
     def pathway_inchi_vo(self):
-        # molecules_vo is a list of RDKit molecule objects, each constructed from atom and bond information and
-        # representing a fragment of the pathway (ie the virtual objects of the pathway).
-        # The function tables2mol is used to create these molecular objects from the provided atom and bond data.
-
         molecules_vo = []
         inchi_list = []
+
         for atom in self.atoms_list:
-            molecules_vo.append(
-                tables2mol(
-                    (
-                        [(0, atom[0][0]), (1, atom[0][1])],
-                        [(0, 1, transform_bond_string_float(atom[1]))],
-                    )
-                )
-            )
-            inchi_list.append(Chem.MolToInchi(molecules_vo[-1]))
+            mol = tables2mol(([(0, atom[0][0]), (1, atom[0][1])], [(0, 1, transform_bond_string_float(atom[1]))]))
+            molecules_vo.append(mol)
+            inchi_list.append(Chem.MolToInchi(mol))
+
         steps_index_s = []
         vs_atoms = []
-        vs_atoms_index = []
-        for i, st in enumerate(self.steps):
-            indices = list(
-                set(np.reshape(self.steps[i], (np.shape(self.steps[i])[0] * 2)))
-            )
-            steps_index = []
-            for edge in self.steps[i]:
-                steps_index.append(
-                    [
-                        indices.index(edge[0]),
-                        indices.index(edge[1]),
-                        self.e_l[self.e.index(edge)],
-                    ]
-                )
-            v_atoms = []
-            vs_atom_index = []
-            for at in indices:
-                v_atoms.append(self.v_l[at])
-                vs_atom_index.append(at)
-            steps_index_s.append(steps_index)
-            vs_atoms.append(v_atoms)
-            vs_atoms_index.append(vs_atom_index)
+
+        for step in self.steps:
+            indices = list(set(np.reshape(step, -1)))
+            steps_index_s.append(
+                [[indices.index(edge[0]), indices.index(edge[1]), self.e_l[self.e.index(edge)]] for edge in step])
+            vs_atoms.append([self.v_l[at] for at in indices])
 
         molecules_steps = []
+
         for i, step in enumerate(steps_index_s):
-            molecules_steps.append(
-                tables2mol(
-                    (
-                        [(i, at) for at in vs_atoms[i]],
-                        [
-                            (edge[0], edge[1], transform_bond_string_float(edge[2]))
-                            for edge in step
-                        ],
-                    )
-                )
-            )
-            inchi_list.append(Chem.MolToInchi(molecules_steps[-1]))
+            mol = tables2mol(([(i, at) for at in vs_atoms[i]],
+                              [(edge[0], edge[1], transform_bond_string_float(edge[2])) for edge in step]))
+            molecules_steps.append(mol)
+            inchi_list.append(Chem.MolToInchi(mol))
 
         self.molecules_vo = molecules_vo
         self.molecules_steps = molecules_steps
         self.steps_indx_s = steps_index_s
         self.vs_atoms = vs_atoms
-        self.vs_atoms_indx = vs_atoms_index
+
         return inchi_list
 
     def plot_pathway(self):
