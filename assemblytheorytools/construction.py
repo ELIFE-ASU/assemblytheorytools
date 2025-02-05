@@ -10,153 +10,67 @@ from rdkit.Chem.rdchem import RWMol
 
 
 def transform_array(target_array, comp_array, source_val, target_val, new_val, pairs_list):
-    """
-    Transforms the input array by replacing elements based on specified conditions.
-
-    This function iterates over `array_mod` and checks if the elements match the `repa` value.
-    If a match is found, it further checks if a specific pair exists in `e` and then replaces
-    the corresponding elements in the `array`.
-
-    :param target_array: List of lists to be transformed.
-    :param comp_array: List of lists used for comparison.
-    :param source_val: The value to be checked in the first position of the pairs.
-    :param target_val: The value to be replaced if conditions are met.
-    :param new_val: The value to replace `repa` with.
-    :param pairs_list: List of lists containing pairs to be checked against.
-    :return: Transformed array.
-    """
     for i, edge in enumerate(comp_array):
-        if edge[0] == target_val:
-            if [source_val, edge[1]] in pairs_list:
-                target_array[i] = [new_val, edge[1]]
-        if edge[1] == target_val:
-            if [edge[0], source_val] in pairs_list:
-                target_array[i] = [edge[0], new_val]
+        if edge[0] == target_val and [source_val, edge[1]] in pairs_list:
+            target_array[i] = [new_val, edge[1]]
+        elif edge[1] == target_val and [edge[0], source_val] in pairs_list:
+            target_array[i] = [edge[0], new_val]
     return target_array
 
 
 def repeated_sizes(repeated):
-    """
-    Takes a list of sorted equivalences and returns the set of lengths of the equivalence array.
-
-    :param repeated: List of sorted equivalences
-    :return: List of lengths of each equivalence
-    """
-    rep = list(set([len(rep[1]) for rep in repeated]))
-    rep.sort()
+    rep = sorted(set(len(rep[1]) for rep in repeated))
     return rep
 
 
 def equal_list(list_a, list_b):
-    """
-    Tests if two lists contain the same elements, set-wise equality.
-
-    This function takes two lists and checks if they contain the same elements,
-    regardless of the order of the elements.
-
-    :param list_a: Input list, e.g., [A, B, C, D]
-    :param list_b: Input list, e.g., [A, C, B, D]
-    :return: True if the two lists are equal set-wise, False otherwise
-    """
-    if set(row for row in list_a) == set(row for row in list_b):
-        return True
-    else:
-        return False
+    return set(row for row in list_a) == set(row for row in list_b)
 
 
 def check_edge_in_list(edges, list_in):
-    """
-    Checks if a list is contained in a list of lists.
-
-    This function takes a list of lists and a list, and checks if the list is contained
-    in the list of lists using set-wise equality.
-
-    :param list_in: Input list of lists, e.g., [[A, B, C, D], [A, C, B, D]]
-    :param edges: Input list, e.g., [A, C, B, D]
-    :return: True if the list is contained in the list of lists, False otherwise
-    """
-    for l in list_in:
-        if equal_list(l, edges):
-            return True
-    return False
+    return any(equal_list(l, edges) for l in list_in)
 
 
 def equivalence(remnant_pieces, equivalences):
-    """
-    Transforms a list of pieces of the remnant graph to their equivalent set of pieces from the original graph.
-
-    This function takes a list of pieces of the remnant graph that can have a label not found in the original graph,
-    and transforms them to their equivalent set of pieces all from the original graph based on the provided equivalences.
-
-    :param remnant_pieces: Input list of pieces
-    :param equivalences: List of equivalences
-    :return: Relabeled list of pieces
-    """
     pieces_copy = copy.deepcopy(remnant_pieces)
-    for j, piece in enumerate(pieces_copy):
-        for i, edge in enumerate(piece):
-            if edge[0] in np.array(equivalences)[:, 1]:
-                pieces_copy[j][i][0] = equivalences[
-                    np.array(equivalences)[:, 1].tolist().index(edge[0])
-                ][0]
-            if edge[1] in np.array(equivalences)[:, 1]:
-                pieces_copy[j][i][1] = equivalences[
-                    np.array(equivalences)[:, 1].tolist().index(edge[1])
-                ][0]
+    equivalences_array = np.array(equivalences)
+    equivalences_list = equivalences_array[:, 1].tolist()
+
+    for piece in pieces_copy:
+        for edge in piece:
+            if edge[0] in equivalences_list:
+                edge[0] = equivalences[equivalences_list.index(edge[0])][0]
+            if edge[1] in equivalences_list:
+                edge[1] = equivalences[equivalences_list.index(edge[1])][0]
+
     return pieces_copy
 
 
 def fix_repeated_equiv(edge_list, repeated_equiv, equivalences, edge_pairs):
-    """
-    Fixes indexing issues in equivalences by transforming arrays based on specified conditions.
-
-    This function attempts to fix indexing issues in the equivalences array. It iterates over the equivalences,
-    identifies repeated elements, and transforms the arrays accordingly. This process is non-deterministic and
-    may require multiple attempts to achieve a well-formatted pathway.
-
-    :param edge_list: List of edges to be transformed.
-    :param repeated_equiv: List of repeated equivalences.
-    :param equivalences: List of equivalences.
-    :param edge_pairs: List of edges containing pairs to be checked against.
-    :return: Tuple containing the transformed edges, repeated equivalences, and updated equivalences.
-    """
     global new_val, target_val, source_val
     equivalences = np.unique(equivalences, axis=0).tolist()
     equiv_np = np.array(equivalences)
-    if len(equiv_np) != 0:
-        sorted_eq = equiv_np[equiv_np[:, 0].argsort()]
-    else:
-        sorted_eq = equiv_np
-    repeated_eq_1 = []
-    for i, array in enumerate(sorted_eq):
-        check = np.concatenate((sorted_eq[:, 1][0:i], sorted_eq[:, 1][i + 1:]), axis=0)
-        if array[1] in check:
-            repeated_eq_1.append(array.tolist())
+    sorted_eq = equiv_np[equiv_np[:, 0].argsort()] if len(equiv_np) != 0 else equiv_np
 
-    repeated_eq_2 = []
-    for i, array in enumerate(sorted_eq):
-        check_2 = np.concatenate(
-            (sorted_eq[:, 0][0:i], sorted_eq[:, 0][i + 1:]), axis=0
-        )
-        if array[0] in check_2:
-            repeated_eq_2.append(array.tolist())
+    repeated_eq_1 = [array.tolist() for i, array in enumerate(sorted_eq) if
+                     array[1] in np.concatenate((sorted_eq[:, 1][:i], sorted_eq[:, 1][i + 1:]), axis=0)]
+    repeated_eq_2 = [array.tolist() for i, array in enumerate(sorted_eq) if
+                     array[0] in np.concatenate((sorted_eq[:, 0][:i], sorted_eq[:, 0][i + 1:]), axis=0)]
+
     inter = np.intersect1d(repeated_eq_1, repeated_eq_2).tolist()
     idx = [sorted_eq.tolist().index(rem) for rem in repeated_eq_1]
     remove = np.delete(sorted_eq, idx, axis=0)
-    if repeated_eq_1 != []:
+
+    if repeated_eq_1:
         repeated_mod = [equivalence(rep, remove) for rep in repeated_equiv]
         trans_edges = equivalence([edge_list], remove)[0]
-        if repeated_eq_2 == [] or (
-                repeated_eq_2[0][0] == repeated_eq_2[0][0] and inter == []
-        ):
-            rep_eq_1_np = np.array(repeated_eq_1)
-            sort_repeated_eq_1 = rep_eq_1_np[rep_eq_1_np[:, 1].argsort()]
+        if not repeated_eq_2 or (repeated_eq_2[0][0] == repeated_eq_2[0][0] and not inter):
+            sort_repeated_eq_1 = np.array(repeated_eq_1)[np.array(repeated_eq_1)[:, 1].argsort()]
             add = []
-            for i in range(int(sort_repeated_eq_1.shape[0] / 2)):
+            for i in range(len(sort_repeated_eq_1) // 2):
                 new_val = equiv_np[equiv_np[:, 1].argsort()][-1][1] + 1 + i
-                target_val = sort_repeated_eq_1[2 * i][1]
-                source_val = sort_repeated_eq_1[2 * i][0]
-                add = add + [[source_val, new_val], sort_repeated_eq_1.tolist()[2 * i + 1]]
+                target_val, source_val = sort_repeated_eq_1[2 * i][1], sort_repeated_eq_1[2 * i][0]
+                add += [[source_val, new_val], sort_repeated_eq_1[2 * i + 1].tolist()]
                 edge_list = transform_array(edge_list, trans_edges, source_val, target_val, new_val, edge_pairs)
                 for i, rep in enumerate(repeated_mod):
                     for j, _ in enumerate(rep):
@@ -166,49 +80,28 @@ def fix_repeated_equiv(edge_list, repeated_equiv, equivalences, edge_pairs):
         else:
             for item in repeated_eq_2:
                 if inter[0] == item[0] and inter[1] != item[1]:
-                    new_val = item[1]
-                    target_val = inter[1]
-                    source_val = item[0]
-            equivalences = (
-                    remove.tolist()
-                    + np.delete(repeated_eq_1, repeated_eq_1.index(inter), axis=0).tolist()
-            )
+                    new_val, target_val, source_val = item[1], inter[1], item[0]
+            equivalences = remove.tolist() + np.delete(repeated_eq_1, repeated_eq_1.index(inter), axis=0).tolist()
             edge_list = transform_array(edge_list, trans_edges, source_val, target_val, new_val, edge_pairs)
             for i, rep in enumerate(repeated_mod):
                 for j, _ in enumerate(rep):
                     repeated_equiv[i][j] = transform_array(repeated_equiv[i][j], repeated_mod[i][j], source_val,
                                                            target_val, new_val, edge_pairs)
 
-            equiv_np = np.array(equivalences)
-            sorted_eq = equiv_np[equiv_np[:, 0].argsort()]
-            repeated_eq_1 = []
-            for i, array in enumerate(sorted_eq):
-                check = np.concatenate(
-                    (sorted_eq[:, 1][0:i], sorted_eq[:, 1][i + 1:]), axis=0
-                )
-                if array[1] in check:
-                    repeated_eq_1.append(array.tolist())
-            if repeated_eq_1 != []:
-                edge_list, repeated_equiv, equivalences = fix_repeated_equiv(edge_list, repeated_equiv, equivalences, )
+            sorted_eq = np.array(equivalences)[np.array(equivalences)[:, 0].argsort()]
+            repeated_eq_1 = [array.tolist() for i, array in enumerate(sorted_eq) if
+                             array[1] in np.concatenate((sorted_eq[:, 1][:i], sorted_eq[:, 1][i + 1:]), axis=0)]
+            if repeated_eq_1:
+                edge_list, repeated_equiv, equivalences = fix_repeated_equiv(edge_list, repeated_equiv, equivalences,
+                                                                             edge_pairs)
 
     return edge_list, repeated_equiv, equivalences
 
 
 def index_set(lists, list_in):
-    """
-    Takes a list of list of lists and a list of lists, and returns the first index where the list and the element of the
-     list of lists have set equality.
-
-    This function iterates over a list of list of lists and checks if any of the lists within it have set equality with
-     the provided list of lists.
-
-    :param lists: Input list of list of lists
-    :param list_in: Input list of lists
-    :return: The first index where the list of lists appears in the list of list of lists with set equality, or None if
-     not found.
-    """
+    list_in_set = set(tuple(row) for row in list_in)
     for i, i_list in enumerate(lists):
-        if set(tuple(row) for row in list_in) == set(tuple(row) for row in i_list):
+        if set(tuple(row) for row in i_list) == list_in_set:
             return i + 1
 
 
