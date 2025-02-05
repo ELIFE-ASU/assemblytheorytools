@@ -283,101 +283,42 @@ class AssemblyConstruction:
     def consistent_join(self, pieces_mod, steps_mod, repeated_mo1_cp, step, digraph, indexes):
         left_sort = [rep[0] for rep in repeated_mo1_cp]
         right_sort = [rep[1] for rep in repeated_mo1_cp]
+
+        def add_digraph_entry(piece, step):
+            if piece in left_sort:
+                digraph.append(["step{}".format(indexes[left_sort.index(piece)]), "step{}".format(step)])
+            elif piece in right_sort:
+                digraph.append(["step{}".format(indexes[right_sort.index(piece)]), "step{}".format(step)])
+            elif piece in steps_mod:
+                digraph.append(["step{}".format(steps_mod.index(piece) + 1), "step{}".format(step)])
+            else:
+                digraph.append(["step{}".format("_error"), "step{}".format(step)])
+
         for pic in pieces_mod:
             for pic_i in pieces_mod:
-                pic_r = np.reshape(pic, (np.shape(pic)[0] * 2))
-                pic_i_r = np.reshape(pic_i, (np.shape(pic_i)[0] * 2))
-                for idx, ed in enumerate(pic_i_r):
-                    if ed in pic_r and not (pic == pic_i):
+                if pic == pic_i:
+                    continue
 
-                        step = step + 1
-                        if self.if_string:
-                            steps_mod.append(np.sort(pic + pic_i, axis=0).tolist())
-                        else:
-                            steps_mod.append(pic + pic_i)
-                        if not (len(pic) == 1):
-                            if pic in left_sort:
-                                digraph.append(
-                                    [
-                                        "step{}".format(indexes[left_sort.index(pic)]),
-                                        "step{}".format(step),
-                                    ]
-                                )
-                            elif pic in right_sort:
-                                digraph.append(
-                                    [
-                                        "step{}".format(indexes[right_sort.index(pic)]),
-                                        "step{}".format(step),
-                                    ]
-                                )
-                            elif pic in steps_mod:
-                                digraph.append(
-                                    [
-                                        "step{}".format(steps_mod.index(pic) + 1),
-                                        "step{}".format(step),
-                                    ]
-                                )
-                            else:
-                                digraph.append(
-                                    ["step{}".format("_error"), "step{}".format(step)]
-                                )
+                if any(ed in np.reshape(pic, -1) for ed in np.reshape(pic_i, -1)):
+                    step += 1
+                    combined = np.sort(pic + pic_i, axis=0).tolist() if self.if_string else pic + pic_i
+                    steps_mod.append(combined)
 
-                        else:
-                            v_object1 = self.atoms.index(
-                                [
-                                    {self.v_l[pic[0][0]], self.v_l[pic[0][1]]},
-                                    self.e_l[self.e.index(pic[0])],
-                                ]
-                            )
-                            digraph.append(
-                                ["virtual_object{}".format(v_object1), "step{}".format(step)]
-                            )
-                        if not (len(pic_i) == 1):
-                            if pic_i in left_sort:
-                                digraph.append(
-                                    [
-                                        "step{}".format(indexes[left_sort.index(pic_i)]),
-                                        "step{}".format(step),
-                                    ]
-                                )
-                            elif pic_i in right_sort:
-                                digraph.append(
-                                    [
-                                        "step{}".format(
-                                            indexes[right_sort.index(pic_i)]
-                                        ),
-                                        "step{}".format(step),
-                                    ]
-                                )
-                            elif pic_i in steps_mod:
-                                digraph.append(
-                                    [
-                                        "step{}".format(steps_mod.index(pic_i) + 1),
-                                        "step{}".format(step),
-                                    ]
-                                )
-                            else:
-                                digraph.append(
-                                    ["step{}".format("_error"), "step{}".format(step)]
-                                )
+                    add_digraph_entry(pic, step) if len(pic) > 1 else digraph.append(
+                        ["virtual_object{}".format(self.atoms.index(
+                            [{self.v_l[pic[0][0]], self.v_l[pic[0][1]]}, self.e_l[self.e.index(pic[0])]])),
+                            "step{}".format(step)])
 
-                        else:
-                            v_object1 = self.atoms.index(
-                                [
-                                    {self.v_l[pic_i[0][0]], self.v_l[pic_i[0][1]]},
-                                    self.e_l[self.e.index(pic_i[0])],
-                                ]
-                            )
-                            digraph.append(
-                                ["virtual_object{}".format(v_object1), "step{}".format(step)]
-                            )
-                        pieces_mod.remove(pic)
-                        pieces_mod.remove(pic_i)
-                        if self.if_string:
-                            pieces_mod.insert(0, np.sort(pic + pic_i, axis=0).tolist())
-                        else:
-                            pieces_mod.insert(0, pic + pic_i)
-                        return pieces_mod, steps_mod, step, digraph
+                    add_digraph_entry(pic_i, step) if len(pic_i) > 1 else digraph.append(
+                        ["virtual_object{}".format(self.atoms.index(
+                            [{self.v_l[pic_i[0][0]], self.v_l[pic_i[0][1]]}, self.e_l[self.e.index(pic_i[0])]])),
+                            "step{}".format(step)])
+
+                    pieces_mod.remove(pic)
+                    pieces_mod.remove(pic_i)
+                    pieces_mod.insert(0, combined)
+                    return pieces_mod, steps_mod, step, digraph
+
         return pieces_mod, steps_mod, step, digraph
 
     def repeated_construction(self, pieces_mod, steps_mod, sorted_repeated_mod1, step, digraph):
