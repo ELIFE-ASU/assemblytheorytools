@@ -389,13 +389,6 @@ class AssemblyConstruction:
         return pieces_mod, steps_mod, step, digraph
 
     def repeated_construction(self, pieces_mod, steps_mod, sorted_repeated_mod1, step, digraph):
-        """repeated_construction takes list of sorted equivalences
-        and if the right side of the equivalence is on pieces_mod, it adds the left side to pieces_mod and captures the
-         index for the entry of the equivalences list.
-        If right side is not on the pieces_mod, it constructs it from the known pieces and/or equivalences(final
-         function) and it adds the final piece the pieces_mod,
-        and the index of the equivalence in the steps_mod.
-        """
         step_ind = [1 for i in range(len(sorted_repeated_mod1))]
         indexes = [0 for i in range(len(sorted_repeated_mod1))]
         sorted_repeated_mod1_cp = copy.deepcopy(sorted_repeated_mod1)
@@ -456,53 +449,25 @@ class AssemblyConstruction:
         return pieces_mod, steps_mod, sorted_repeated_mod1_cp, step, digraph, indexes
 
     def generate_pathway(self):
-        # # Construct Remnant Graph
-        # The Remnant Graph are usually disjoint pieces
         step = 0
-        # The digraph contains the information of the assembly path
         digraph = []
-        # The steps contain all the new assembled pieces at each step
         steps = []
-        # We construct each piece of the remnant graph one edge at a time
         pieces = [[edge] for edge in self.remnant_e]
 
-        # change to equivalences
-        if len(self.equivalences) == 0:
-            duplicates_mod = self.duplicates
-            pieces_mod = pieces
-        else:
-            # change to equivalences
-            duplicates_mod = [equivalence(rep, self.equivalences) for rep in self.duplicates]
-            pieces_mod = equivalence(pieces, self.equivalences)
+        duplicates_mod = [equivalence(rep, self.equivalences) for rep in
+                          self.duplicates] if self.equivalences else self.duplicates
+        pieces_mod = equivalence(pieces, self.equivalences) if self.equivalences else pieces
 
-        # We sort the arrays of repeated by size
-        sizes = []
-        for i, repeat in enumerate(duplicates_mod):
-            sizes.append({"index": i, "len": len(repeat[0])})
+        sizes = sorted([{"index": i, "len": len(repeat[0])} for i, repeat in enumerate(duplicates_mod)],
+                       key=select_length)
+        sorted_repeated_mod1 = [duplicates_mod[size["index"]] for size in sizes]
 
-        sizes.sort(key=select_length)
-
-        sorted_repeated_mod1 = []
-        for size in sizes:
-            sorted_repeated_mod1.append(duplicates_mod[size["index"]])
-
-        # We generate all the steps that are needed to construct the duplicates
-
-        (
-            pieces_mod,
-            steps_mod,
-            sorted_repeated_mod1_cp,
-            step,
-            digraph,
-            indexes,
-        ) = self.repeated_construction(
+        pieces_mod, steps_mod, sorted_repeated_mod1_cp, step, digraph, indexes = self.repeated_construction(
             pieces_mod, steps, sorted_repeated_mod1, step, digraph
         )
 
-        # # Consistent Join of all Pieces We consistently join the remnant pieces in such a way that the constructed
-        # molecule never has disconnected pieces
         pieces_mod_cp = []
-        while not (len(pieces_mod) == len(pieces_mod_cp)):
+        while len(pieces_mod) != len(pieces_mod_cp):
             pieces_mod_cp = copy.deepcopy(pieces_mod)
             pieces_mod, steps_mod, step, digraph = self.consistent_join(
                 pieces_mod, steps_mod, sorted_repeated_mod1_cp, step, digraph, indexes
