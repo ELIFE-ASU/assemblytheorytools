@@ -6,7 +6,7 @@ import tempfile
 import time
 from datetime import datetime
 from typing import Union, List
-
+import warnings
 import networkx as nx
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
@@ -291,6 +291,14 @@ def calculate_assembly_semi_metric(graph1,
     # Ensure the inputs are NetworkX graphs
     assert isinstance(graph1, nx.Graph), "Input must be a NetworkX graph"
     assert isinstance(graph2, nx.Graph), "Input must be a NetworkX graph"
+
+    # Ensure the inputs are connected graphs
+    assert nx.is_connected(graph1), "Input graph must be connected"
+    assert nx.is_connected(graph2), "Input graph must be connected"
+
+    # Ensure the inputs are not isomorphic
+    if not nx.is_isomorphic(graph1, graph2):
+        warnings.warn("Input graphs must not be isomorphic")
 
     # Combine the graphs into a single molecular object with 2 disjoint components
     mols = [nx_to_mol(graph1), nx_to_mol(graph2)]
