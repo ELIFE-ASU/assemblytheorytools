@@ -301,10 +301,10 @@ def calculate_assembly_semi_metric(graph1,
     assert nx.is_connected(graph1), "Input graph must be connected"
     assert nx.is_connected(graph2), "Input graph must be connected"
 
-    # # Ensure the inputs are not isomorphic
-    # if not nx.is_isomorphic(graph1, graph2):
-    #     warnings.warn("Input graphs are isomorphic.")
-    #     return 0
+    # Check if the inputs are isomorphic, in which case the semi-metric distance is 0 and the user may not intend to compare these mols
+    if nx.is_isomorphic(graph1, graph2):
+        warnings.warn("Input graphs are isomorphic.")
+        return 0
 
     # Combine the graphs into a single molecular object with 2 disjoint components
     mols = [nx_to_mol(graph1), nx_to_mol(graph2)]

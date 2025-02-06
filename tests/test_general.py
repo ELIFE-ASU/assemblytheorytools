@@ -823,7 +823,7 @@ def test_semi_metric():
                                                   strip_hydrogen=True)
     assert distance == 1
 
-
+@pytest.mark.slow
 def test_auto_compile():
     print(flush=True)
     att.compile_assembly_code(os.path.join(os.getcwd(), "assemblycpp-main"))
