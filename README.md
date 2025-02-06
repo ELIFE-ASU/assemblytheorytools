@@ -41,7 +41,7 @@ conda update conda --all -y
 
 ## Install the requirements
 ```
-conda install conda-forge::numpy conda-forge::matplotlib conda-forge::networkx conda-forge::rdkit conda-forge::pyvis -y
+conda install conda-forge::numpy conda-forge::matplotlib conda-forge::networkx conda-forge::rdkit conda-forge::openbabel conda-forge::pyvis -y
 ```
 Then install AssemblyTheoryTools:
 ```
