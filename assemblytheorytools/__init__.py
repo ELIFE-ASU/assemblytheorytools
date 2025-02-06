@@ -14,7 +14,8 @@ from .complexity_scores import (molecular_weight,
                                 wiener_index,
                                 balaban_index,
                                 randic_index,
-                                kirchhoff_index)
+                                kirchhoff_index,
+                                get_mol_descriptors)
 
 from .find_other_paths import (all_shortest_paths)
 
