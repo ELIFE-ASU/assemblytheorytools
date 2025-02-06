@@ -37,7 +37,7 @@ def load_assembly_output(file_path):
         int: The assembly index extracted from the file.
     """
     with open(file_path, "r") as f:
-        return next(int(line.split(":")[-1]) for line in f if "assembly index" in line)
+        return next(int(line.split(":")[-1].strip().strip('\n')) for line in f if "assembly index" in line)
 
 
 def run_command(command,
@@ -266,13 +266,6 @@ def calculate_assembly_index(mol,
                 print(f"Failed to load assembly output: {file_path_out}, Error: {e}", flush=True)
                 return ai, virt_obj, path
 
-    # Check input types
-    assert (dir_code==None) or isinstance(dir_code, str), "Directory code must be a string"
-    assert isinstance(timeout, (int, float)), "Timeout must be an integer or float"
-    assert isinstance(debug, bool), "Debug must be a boolean"
-    assert isinstance(joint_corr, bool), "Joint correction must be a boolean"
-    assert isinstance(strip_hydrogen, bool), "Strip hydrogen must be a boolean"
-
 def calculate_assembly_semi_metric(graph1,
                                    graph2,
                                    dir_code=None,
@@ -298,7 +291,7 @@ def calculate_assembly_semi_metric(graph1,
     # Make input type checks
     assert isinstance(graph1, nx.Graph), "Input must be a NetworkX graph"
     assert isinstance(graph2, nx.Graph), "Input must be a NetworkX graph"
-    assert (dir_code == None) or isinstance(dir_code, str), "Directory code must be a string"
+    assert (dir_code is None) or isinstance(dir_code, str), "Directory code must be a string"
     assert isinstance(timeout, (int, float)), "Timeout must be an integer or float"
     assert isinstance(debug, bool), "Debug must be a boolean"
     assert isinstance(strip_hydrogen, bool), "Strip hydrogen must be a boolean"
@@ -308,10 +301,10 @@ def calculate_assembly_semi_metric(graph1,
     assert nx.is_connected(graph1), "Input graph must be connected"
     assert nx.is_connected(graph2), "Input graph must be connected"
 
-    # Ensure the inputs are not isomorphic
-    if not nx.is_isomorphic(graph1, graph2):
-        warnings.warn("Input graphs are isomorphic.")
-        return 0
+    # # Ensure the inputs are not isomorphic
+    # if not nx.is_isomorphic(graph1, graph2):
+    #     warnings.warn("Input graphs are isomorphic.")
+    #     return 0
 
     # Combine the graphs into a single molecular object with 2 disjoint components
     mols = [nx_to_mol(graph1), nx_to_mol(graph2)]
