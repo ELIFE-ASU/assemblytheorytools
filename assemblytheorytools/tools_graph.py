@@ -323,3 +323,34 @@ def create_ionic_molecule(smiles):
         offset += graph.number_of_nodes()
 
     return combined, mols  # Return combined graph and both molecules
+
+
+def longest_path_length(digraph):
+    """
+    Calculate the longest path length in a Directed Acyclic Graph (DAG).
+
+    Args:
+        digraph (nx.DiGraph): The input directed acyclic graph.
+
+    Returns:
+        int: The length of the longest path in the graph.
+
+    Raises:
+        ValueError: If the input graph is not a Directed Acyclic Graph (DAG).
+    """
+    if not nx.is_directed_acyclic_graph(digraph):
+        raise ValueError("Graph must be a Directed Acyclic Graph (DAG)")
+
+    # Get topological order of nodes
+    topological_order = list(nx.topological_sort(digraph))
+
+    # Dictionary to store the longest path distance to each node
+    longest_dist = {node: 0 for node in digraph.nodes()}
+
+    # Process nodes in topological order
+    for node in topological_order:
+        for successor in digraph.successors(node):
+            longest_dist[successor] = max(longest_dist[successor], longest_dist[node] + 1)
+
+    # Return the maximum path length found
+    return max(longest_dist.values(), default=0)
