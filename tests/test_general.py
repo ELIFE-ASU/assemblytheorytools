@@ -8,7 +8,7 @@ import pytest
 from ase.io import read
 from ase.visualize import view
 from rdkit.Chem import AllChem as Chem
-
+from rdkit import Chem
 import assemblytheorytools as att
 
 
@@ -847,7 +847,7 @@ def test_construction():
                       'InChI=1S/CH4/h1H4',
                       'InChI=1S/CH2O/c1-2/h1H2',
                       'InChI=1S/CH4/h1H4',
-                      'InChI=1S/CH4/h1H4', 
+                      'InChI=1S/CH4/h1H4',
                       'InChI=1S/C2H6/c1-2/h1-2H3',
                       'InChI=1S/C2H6/c1-2/h1-2H3',
                       'InChI=1S/C2H4O/c1-2-3/h2H,1H3']
@@ -861,6 +861,7 @@ def test_construction():
     for ref, node in zip(inchi_list_ref, inchi_list):
         assert ref == node
 
+
 def test_plot_construction():
     print(flush=True)
     pathway_str = "data/pathway/tmpPathway"
@@ -872,3 +873,11 @@ def test_plot_construction():
     files = att.file_list_all("path_images/")
     att.plot_digraph_with_images(digraph, files)
     pass
+
+
+def test_get_mol_descriptors():
+    doravirine = Chem.MolFromSmiles('Cn1c(n[nH]c1=O)Cn2ccc(c(c2=O)Oc3cc(cc(c3)Cl)C#N)C(F)(F)F')
+
+    desc = att.get_mol_descriptors(doravirine)
+    assert desc['MolWt'] == 425.754
+    assert desc['BertzCT'] == 1236.821427505276
