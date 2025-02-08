@@ -266,6 +266,7 @@ def calculate_assembly_index(mol,
                 print(f"Failed to load assembly output: {file_path_out}, Error: {e}", flush=True)
                 return ai, virt_obj, path
 
+
 def calculate_assembly_semi_metric(graph1,
                                    graph2,
                                    dir_code=None,
@@ -369,7 +370,7 @@ def compile_assembly_code(assembly_tar_path="assemblycpp-main", boost_version="1
 
     # Detect operating system
     system = platform.system().lower()  # Returns 'linux', 'darwin' (macOS), etc.
-    
+
     if system == "linux":
         # Existing Linux-specific code
         uncompress = "tar -xvzf"
@@ -417,10 +418,10 @@ def compile_assembly_code(assembly_tar_path="assemblycpp-main", boost_version="1
     elif system == "darwin":  # macOS
         # macOS-specific code
         print("Running on macOS: Using brew to install Boost and clang++ to compile.")
-        
+
         # Install Boost using Homebrew
         subprocess.run("brew install boost", shell=True, check=True)
-        
+
         # Use 'brew --prefix' to find the base installation directory for Boost
         brew_prefix = subprocess.check_output("brew --prefix boost", shell=True, text=True).strip()
 
@@ -476,7 +477,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         raise ValueError("Input must be either a single string or a list of strings")
 
     # Check input types
-    assert (dir_code==None) or isinstance(dir_code, str), "Directory code must be a string"
+    assert (dir_code is None) or isinstance(dir_code, str), "Directory code must be a string"
     assert isinstance(timeout, (int, float)), "Timeout must be an integer or float"
     assert isinstance(debug, bool), "Debug must be a boolean"
     assert isinstance(directed, bool), "Directed must be a boolean"
@@ -530,6 +531,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
 
     else:
         ValueError("Mode must be either 'mol', 'str', or 'cfg'.")
+
 
 def assembly_dry_run(mol, temp_dir=None, strip_hydrogen=False):
     """
