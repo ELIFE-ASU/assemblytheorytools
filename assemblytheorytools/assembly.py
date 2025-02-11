@@ -4,23 +4,24 @@ import shutil
 import subprocess
 import tempfile
 import time
+import warnings
 from datetime import datetime
 from typing import Union, List
-import warnings
+
 import networkx as nx
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 
 import CFG
 from .construction import parse_pathway_file
+from .pathway import (get_pathway_to_graph,
+                      get_pathway_to_mol,
+                      get_pathway_to_inchi)
 from .tools_graph import (write_ass_graph_file,
                           remove_hydrogen_from_graph,
                           nx_to_mol)
 from .tools_mol import (write_v2k_mol_file,
                         combine_mols)
-from .pathway import (get_pathway_to_graph,
-                      get_pathway_to_mol,
-                      get_pathway_to_inchi)
 from .tools_string import (prep_joint_string_ai,
                            get_dir_str_molecule,
                            get_undir_str_molecule)

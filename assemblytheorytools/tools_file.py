@@ -1,5 +1,5 @@
-import os
 import fcntl
+import os
 
 
 def file_list_all(mypath=None):
