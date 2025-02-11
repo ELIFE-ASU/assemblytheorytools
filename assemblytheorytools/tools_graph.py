@@ -39,14 +39,14 @@ def nx_to_mol(graph, add_hydrogens=True):
     for node, data in graph.nodes(data=True):
         # Get the atomic symbol from the node's 'color' attribute, default to 'C' if not present
         atom_symbol = data.get('color', 'C')
-        atom = Chem.Atom(atom_symbol)
+        atom = Chem.Atom(atom_symbol.strip())
         idx = mol.AddAtom(atom)
         node_to_idx[node] = idx
 
     # Add bonds to the molecule
     for u, v, data in graph.edges(data=True):
         # Get the bond order from the edge's 'color' attribute, default to 1 if not present
-        bond_order = data.get('color', 1)
+        bond_order = int(data.get('color', 1))
         # Map the bond order to RDKit's bond types
         bond_type = converter.get(bond_order, Chem.rdchem.BondType.SINGLE)
         # Add the bond to the molecule
