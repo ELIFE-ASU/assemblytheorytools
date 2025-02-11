@@ -111,7 +111,7 @@ def remove_hydrogen_from_graph(graph):
 
 def write_ass_graph_file(graph, file_name="graph_info"):
     """
-    Write the graph information to a file.
+    Write the graph information to a file for the assembly CPP calculator.
 
     Args:
         graph (nx.Graph): The input NetworkX graph where nodes represent atoms and edges represent bonds.
@@ -128,6 +128,16 @@ def write_ass_graph_file(graph, file_name="graph_info"):
     vertex_colors = nx.get_node_attributes(graph, 'color')
     # Get edge colors
     edge_colors = nx.get_edge_attributes(graph, 'color')
+
+    # Assert that all node colors are strings and do not contain spaces
+    for node, color in vertex_colors.items():
+        assert isinstance(color, str), f"Node color for node {node} is not a string."
+        assert ' ' not in color, f"Node color for node {node} contains a space."
+
+    # Assert that all edge colors are integers
+    for edge, color in edge_colors.items():
+        assert isinstance(color, int), f"Edge color for edge {edge} is not an integer."
+
     # Write the information to a file
     with open(file_name, 'w') as f:
         f.write(f"{graph.name}\n")
