@@ -7,6 +7,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 from rdkit.Chem import Descriptors
 from rdkit.Chem.GraphDescriptors import BertzCT
+from rdkit import DataStructs
 
 
 def molecular_weight(mol):
@@ -159,3 +160,21 @@ def get_mol_descriptors(mol, missingval=None):
             traceback.print_exc()
             res[nm] = missingval
     return res
+
+
+def tanimoto_similarity(mol1, mol2):
+    """
+    Calculates the Tanimoto similarity between two molecules.
+
+    Tanimoto similarity is a measure of the similarity between two sets of
+    molecular fingerprints. It is commonly used in cheminformatics to compare
+    the structural similarity of molecules.
+
+    :param mol1: An RDKit molecule object representing the first molecule.
+    :param mol2: An RDKit molecule object representing the second molecule.
+    :return: The Tanimoto similarity between the two molecules.
+    """
+    fpgen = Chem.GetRDKitFPGenerator()
+    fp1 = fpgen.GetFingerprint(mol1)
+    fp2 = fpgen.GetFingerprint(mol2)
+    return DataStructs.TanimotoSimilarity(fp1, fp2)

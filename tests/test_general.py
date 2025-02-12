@@ -882,3 +882,17 @@ def test_get_mol_descriptors():
     desc = att.get_mol_descriptors(doravirine)
     assert desc['MolWt'] == 425.754
     assert desc['BertzCT'] == 1236.821427505276
+
+
+def test_tanimoto_similarity():
+    # https://www.rdkit.org/docs/GettingStartedInPython.html#rdkit-topological-fingerprints
+    ms = [Chem.MolFromSmiles('CCOC'),
+          Chem.MolFromSmiles('CCO'),
+          Chem.MolFromSmiles('COC')]
+
+    sim = att.tanimoto_similarity(ms[0], ms[1])
+    assert sim == 0.6
+    sim = att.tanimoto_similarity(ms[0], ms[2])
+    assert sim == 0.4
+    sim = att.tanimoto_similarity(ms[1], ms[2])
+    assert sim == 0.25
