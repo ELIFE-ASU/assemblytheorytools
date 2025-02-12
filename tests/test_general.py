@@ -896,3 +896,11 @@ def test_tanimoto_similarity():
     assert sim == 0.4
     sim = att.tanimoto_similarity(ms[1], ms[2])
     assert sim == 0.25
+
+def test_dice_morgan_similarity():
+    # https://www.rdkit.org/docs/GettingStartedInPython.html#morgan-fingerprints-circular-fingerprints
+    m1 = Chem.MolFromSmiles('Cc1ccccc1')
+    m2 = Chem.MolFromSmiles('Cc1ncccc1')
+    sim = att.dice_morgan_similarity(m1, m2, radius=2)
+    assert sim == 0.55
+

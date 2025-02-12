@@ -178,3 +178,22 @@ def tanimoto_similarity(mol1, mol2):
     fp1 = fpgen.GetFingerprint(mol1)
     fp2 = fpgen.GetFingerprint(mol2)
     return DataStructs.TanimotoSimilarity(fp1, fp2)
+
+
+def dice_morgan_similarity(mol1, mol2, radius=3):
+    """
+    Calculates the Dice similarity between two molecules using Morgan fingerprints.
+
+    Dice similarity is a measure of the similarity between two sets of
+    molecular fingerprints. It is commonly used in cheminformatics to compare
+    the structural similarity of molecules.
+
+    :param mol1: An RDKit molecule object representing the first molecule.
+    :param mol2: An RDKit molecule object representing the second molecule.
+    :param radius: The radius parameter for the Morgan fingerprint. Default is 3.
+    :return: The Dice similarity between the two molecules.
+    """
+    fpgen = Chem.GetMorganGenerator(radius=radius)
+    fp1 = fpgen.GetSparseCountFingerprint(mol1)
+    fp2 = fpgen.GetSparseCountFingerprint(mol2)
+    return DataStructs.DiceSimilarity(fp1, fp2)
