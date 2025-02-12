@@ -59,6 +59,9 @@ def run_command(command,
     Returns:
         bool: True if the command executed successfully, False otherwise.
     """
+    if command is None:
+        raise ValueError("Command must be provided")
+
     try:
         # Open the output and error files using with statement
         with open(output_file, "w") as out, open(error_file, "w") as err:
@@ -100,6 +103,9 @@ def run_command_simple(command):
     Returns:
         bytes: The standard output of the command.
     """
+    if command is None:
+        raise ValueError("Command must be provided")
+
     result = subprocess.run(command.split())
     return result.stdout
 
@@ -222,6 +228,9 @@ def calculate_assembly_index(mol,
         # Get the output file
         file_path_out = os.path.join(file_path_in + "Out")
         file_path_pathway = os.path.join(file_path_in + "Pathway")
+
+        if dir_code is None:
+            raise ValueError("Assembly code directory not provided.")
 
         # Run the assembly code
         outcome = run_command([dir_code, file_path_in],
