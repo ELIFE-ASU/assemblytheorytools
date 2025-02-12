@@ -1,11 +1,9 @@
 import copy
 import json
-import os
 
 import networkx as nx
 import numpy as np
 from rdkit import Chem
-from rdkit.Chem import Draw
 from rdkit.Chem.rdchem import RWMol
 
 
@@ -427,19 +425,6 @@ class AssemblyConstruction:
         self.vs_atoms = vs_atoms
 
         return inchi_list
-
-    def plot_pathway(self):
-        pic_path = "path_images"
-        os.makedirs(pic_path, exist_ok=True)
-        for i, vo in enumerate(self.molecules_vo):
-            Draw.MolToFile(vo, os.path.join(pic_path, "virtual_object{}.png").format(i))
-        for i, step in enumerate(self.molecules_steps):
-            Draw.MolToFile(step, os.path.join(pic_path, "step{}.png").format(i + 1))
-
-        for dir_edge in self.digraph:
-            print(dir_edge)
-
-        return None
 
 
 def generate_directional_graph(digraph):

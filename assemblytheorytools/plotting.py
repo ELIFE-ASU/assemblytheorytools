@@ -328,6 +328,29 @@ def match_node_to_image(graph, image_paths):
 
 
 def plot_digraph_with_images(graph, image_paths):
+    """
+
+
+    Assumes the old function plot_pathway in the AssemblyConstruction class has been called!
+    def plot_pathway(self):
+        pic_path = "path_images"
+        os.makedirs(pic_path, exist_ok=True)
+        for i, vo in enumerate(self.molecules_vo):
+            Draw.MolToFile(vo, os.path.join(pic_path, "virtual_object{}.png").format(i))
+        for i, step in enumerate(self.molecules_steps):
+            Draw.MolToFile(step, os.path.join(pic_path, "step{}.png").format(i + 1))
+        return None
+
+
+
+    Args:
+        graph:
+        image_paths:
+
+    Returns:
+
+    """
+
     # Create a mapping from node to image path
     node_image_mapping = match_node_to_image(graph, image_paths)
 
