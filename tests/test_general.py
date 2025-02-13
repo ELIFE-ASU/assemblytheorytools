@@ -659,6 +659,14 @@ def test_hand_graph():
 
     assert ai == 3
 
+def test_path_vis_strings():
+    # COMPLETE ME
+    pass
+
+def test_path_vis_mols():
+    # COMPLETE ME
+    pass
+
 
 def test_create_ionic_molecule():
     """
