@@ -25,6 +25,7 @@ setup(
         'rdkit>=2024.03.5',
         'ipython>=8.30.0',
         'pyvis>=0.3.2',
+        'dagviz @ git+https://github.com/ELIFE-ASU/dagviz.git',
     ],
     extras_require={
         'dev': [
