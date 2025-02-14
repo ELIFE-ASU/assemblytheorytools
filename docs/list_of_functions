@@ -1,1 +1,46 @@
-A table of contents for functions within Assembly Theory tools. 
+# Table of Contents for Functions within Assembly Theory Tools  
+
+## In `assembly.py`  
+
+### File Handling & Execution  
+- **`load_assembly_output(file_path)`** – Loads and extracts the assembly index from a file.  
+- **`run_command(command, output_file, error_file, timeout, verbose)`** – Runs a command in a subprocess with output/error logging.  
+- **`run_command_simple(command)`** – Runs a simple command in a subprocess.  
+- **`add_to_bashrc(export_line, file)`** – Appends an export line to a bash configuration file.  
+
+### Assembly Index Calculations  
+- **`calculate_assembly_index(mol, dir_code, timeout, debug, joint_corr, strip_hydrogen)`** – Calculates the assembly index of a molecule.  
+- **`joint_correction(mol, ass_index)`** – Corrects the assembly index based on the number of components in a molecule.  
+
+### Assembly Distance Calculations  
+- **`calculate_assembly_semi_metric(graph1, graph2, dir_code, timeout, debug, strip_hydrogen, normalise)`** – Computes the assembly semi-metric distance between two molecular graphs.  
+
+### String-Based Assembly Calculation  
+- **`calculate_string_assembly_index(input_data, dir_code, timeout, debug, directed, mode)`** – Computes the assembly index for a string or a set of strings.  
+
+### Assembly Compilation & Setup  
+- **`compile_assembly_code(assembly_tar_path, boost_version, exe_name)`** – Compiles the assembly code, adjusting for Linux/macOS environments.  
+- **`add_assembly_to_path()`** – Adds the precompiled assembly tool path to the environment.  
+
+### Dry Run & Debugging  
+- **`assembly_dry_run(mol, temp_dir, strip_hydrogen)`** – Performs a dry run of the assembly process for a given molecule.  
+
+---
+
+## In `complexity_scores.py`  
+
+### Molecular Properties & Complexity  
+- **`molecular_weight(mol)`** – Calculates the molecular weight of a molecule.  
+- **`bertz_complexity(mol)`** – Computes the Bertz complexity, a topological measure of molecular complexity.  
+- **`wiener_index(mol)`** – Computes the Wiener index, a measure of molecular branching.  
+- **`balaban_index(mol)`** – Calculates the Balaban index, a descriptor quantifying molecular branching.  
+- **`randic_index(mol)`** – Computes the Randic index, a structural descriptor based on connectivity.  
+- **`kirchhoff_index(mol)`** – Computes the Kirchhoff index, based on the effective resistances in a molecular graph.  
+- **`spacial_score(mol, normalize=False)`** – Computes the spatial score of a molecule.  
+
+### Molecular Descriptor Calculation  
+- **`get_mol_descriptors(mol, missingval=None)`** – Computes a variety of molecular descriptors using RDKit.  
+
+### Molecular Similarity Measures  
+- **`tanimoto_similarity(mol1, mol2)`** – Computes Tanimoto similarity between two molecules based on fingerprints.  
+- **`dice_morgan_similarity(mol1, mol2, radius=3)`** – Computes Dice similarity using Morgan fingerprints.  
