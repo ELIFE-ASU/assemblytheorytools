@@ -7,6 +7,8 @@ import networkx as nx
 from IPython.display import HTML
 from matplotlib import colormaps, colors
 from pyvis.network import Network
+import dagviz
+import cairosvg
 
 
 def n_plot(xlab, ylab, xs=14, ys=14):
@@ -296,7 +298,25 @@ def plot_digraph(digraph,
     return None
 
 
-def plot_digraph_metro():
+def plot_digraph_metro(digraph, filename='metro'):
+    """
+    Plot a directed graph using the Metro style and save it as SVG and PNG files.
+
+    Args:
+        digraph (networkx.DiGraph): The directed graph to be plotted.
+        filename (str, optional): The base name of the files where the plot will be saved. Default is 'metro'.
+
+    Returns:
+        None
+    """
+    r = dagviz.render_svg(digraph,
+                          style=dagviz.style.metro.svg_renderer(dagviz.style.metro.StyleConfig(node_stroke="black")))
+    # Save the SVG
+    with open(f'{filename}.svg', 'w') as file:
+        file.write(r)
+
+    # Save the PNG file
+    cairosvg.svg2png(bytestring=r.encode('utf-8'), write_to=f"{filename}.png")
     return None
 
 

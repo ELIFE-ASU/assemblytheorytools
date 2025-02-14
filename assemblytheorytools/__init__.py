@@ -67,7 +67,8 @@ from .plotting import (n_plot,
                        plot_interactive_graph,
                        plot_graph,
                        plot_digraph,
-                       plot_digraph_with_images)
+                       plot_digraph_with_images,
+                       plot_digraph_metro)
 
 from .tools_string import (load_fasta,
                            prep_joint_string_ai,
