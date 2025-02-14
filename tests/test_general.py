@@ -659,9 +659,11 @@ def test_hand_graph():
 
     assert ai == 3
 
+
 def test_path_vis_strings():
     # COMPLETE ME
     pass
+
 
 def test_path_vis_mols():
     # COMPLETE ME
@@ -839,7 +841,7 @@ def test_auto_compile():
     pass
 
 
-def test_construction():
+def test_construction_pathway_file():
     print(flush=True)
     pathway_str = "data/pathway/tmpPathway"
 
@@ -869,6 +871,39 @@ def test_construction():
     # Check the inchi
     for ref, node in zip(inchi_list_ref, inchi_list):
         assert ref == node
+
+
+def test_construction_pathway_smi():
+    print(flush=True)
+
+    smi = "CC=O" # Acetaldehyde
+    mol = att.smi_to_mol(smi)
+    ai, virt_obj, pathway = att.calculate_assembly_index(mol, debug=False)
+    pathway, inchi_list = pathway
+    inchi_list_ref = ['InChI=1S/C2H6/c1-2/h1-2H3',
+                      'InChI=1S/CH4/h1H4',
+                      'InChI=1S/CH2O/c1-2/h1H2',
+                      'InChI=1S/CH4/h1H4',
+                      'InChI=1S/CH4/h1H4',
+                      'InChI=1S/C2H6/c1-2/h1-2H3',
+                      'InChI=1S/C2H6/c1-2/h1-2H3',
+                      'InChI=1S/C2H4O/c1-2-3/h2H,1H3']
+    assert ai == 5
+    assert len(virt_obj) == len(set(inchi_list_ref))
+    assert pathway.number_of_nodes() == 8
+    assert pathway.number_of_edges() == 9
+
+    # Check the information on each node
+    for ref, node in zip(inchi_list_ref, inchi_list):
+        assert ref == node
+
+
+def test_construction_pathway_joint():
+    print(flush=True)
+    smi = "CC=O.OCC"
+    mol = att.smi_to_mol(smi)
+    ai, virt_obj, pathway = att.calculate_assembly_index(mol, debug=False)
+    pass
 
 
 def test_plot_construction():
@@ -905,10 +940,10 @@ def test_tanimoto_similarity():
     sim = att.tanimoto_similarity(ms[1], ms[2])
     assert sim == 0.25
 
+
 def test_dice_morgan_similarity():
     # https://www.rdkit.org/docs/GettingStartedInPython.html#morgan-fingerprints-circular-fingerprints
     m1 = Chem.MolFromSmiles('Cc1ccccc1')
     m2 = Chem.MolFromSmiles('Cc1ncccc1')
     sim = att.dice_morgan_similarity(m1, m2, radius=2)
     assert sim == 0.55
-
