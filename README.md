@@ -55,6 +55,10 @@ Follow the instructions for making a fresh environment. Then, install the requir
 ```
 conda install conda-forge::numpy conda-forge::matplotlib conda-forge::networkx conda-forge::rdkit conda-forge::pyvis conda-forge::pytest -y
 ```
+The, install the ELIFE packages
+```
+pip install git+https://github.com/ELIFE-ASU/dagviz.git git+https://github.com/ELIFE-ASU/CFG.git
+```
 
 Clone the repo using Git or GitKraken. Then, open your favorite IDE (Pycharm/VS Code) and the cloned repo.
 

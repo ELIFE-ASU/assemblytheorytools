@@ -18,13 +18,13 @@ setup(
     python_requires='>=3.12',
     install_requires=[
         'ase>=3.23.0',
-        'CFG @ git+https://github.com/ELIFE-ASU/CFG.git',
         'numpy>=2.1.3',
         'matplotlib>=3.9.2',
         'networkx>=3.4.2',
         'rdkit>=2024.03.5',
         'ipython>=8.30.0',
         'pyvis>=0.3.2',
+        'CFG @ git+https://github.com/ELIFE-ASU/CFG.git',
         'dagviz @ git+https://github.com/ELIFE-ASU/dagviz.git',
     ],
     extras_require={
