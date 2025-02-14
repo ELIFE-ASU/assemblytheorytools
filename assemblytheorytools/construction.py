@@ -52,7 +52,9 @@ def equal_list(list_a, list_b):
     :param list_b: Second list of lists to compare.
     :return: True if both lists contain the same sets of tuples, otherwise False.
     """
-    return set(row for row in list_a) == set(row for row in list_b)
+    set_a = {tuple(sorted(sublist)) for sublist in list_a}
+    set_b = {tuple(sorted(sublist)) for sublist in list_b}
+    return set_a == set_b
 
 
 def check_edge_in_list(edges, list_in):
