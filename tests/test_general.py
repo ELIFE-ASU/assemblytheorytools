@@ -876,7 +876,7 @@ def test_construction_pathway_file():
 def test_construction_pathway_smi():
     print(flush=True)
 
-    smi = "CC=O" # Acetaldehyde
+    smi = "CC=O"  # Acetaldehyde
     mol = att.smi_to_mol(smi)
     ai, virt_obj, pathway = att.calculate_assembly_index(mol, debug=False)
     pathway, inchi_list = pathway
@@ -901,8 +901,33 @@ def test_construction_pathway_smi():
 def test_construction_pathway_joint():
     print(flush=True)
     smi = "CC=O.OCC"
+    inchi_acetaldehyde = "InChI=1S/C2H4O/c1-2-3/h2H,1H3"
+    inchi_ethanol = "InChI=1S/C2H6O/c1-2-3/h3H,2H2,1H3"
     mol = att.smi_to_mol(smi)
     ai, virt_obj, pathway = att.calculate_assembly_index(mol, debug=False)
+    pathway, inchi_list = pathway
+    inchi_list_ref = ['InChI=1S/C2H6/c1-2/h1-2H3',
+                      'InChI=1S/CH4/h1H4',
+                      'InChI=1S/CH2O/c1-2/h1H2',
+                      'InChI=1S/CH4O/c1-2/h2H,1H3',
+                      'InChI=1S/H2O/h1H2',
+                      'InChI=1S/C2H6/c1-2/h1-2H3',
+                      'InChI=1S/C2H6/c1-2/h1-2H3',
+                      'InChI=1S/C2H6/c1-2/h1-2H3',
+                      'InChI=1S/C2H6/c1-2/h1-2H3',
+                      'InChI=1S/CH4O/c1-2/h2H,1H3',
+                      'InChI=1S/CH4O/c1-2/h2H,1H3',
+                      'InChI=1S/C2H6O/c1-2-3/h3H,2H2,1H3',
+                      'InChI=1S/C2H4O/c1-2-3/h2H,1H3']
+    assert ai == 8
+    assert inchi_list[-2] == inchi_ethanol
+    assert inchi_list[-1] == inchi_acetaldehyde
+    assert pathway.number_of_nodes() == 13
+    assert pathway.number_of_edges() == 16
+
+    # Check the information on each node
+    for ref, node in zip(inchi_list_ref, inchi_list):
+        assert ref == node
     pass
 
 
