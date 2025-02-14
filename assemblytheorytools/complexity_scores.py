@@ -141,7 +141,9 @@ def spacial_score(mol, normalize=False):
 
 def get_mol_descriptors(mol, missingval=None):
     """
-    Calculates molecular descriptors for a given molecule.
+    Calculates molecular descriptors for a given molecule. Please note that there are a lot of descriptors.
+
+    https://greglandrum.github.io/rdkit-blog/posts/2022-12-23-descriptor-tutorial.html
 
     This function iterates over all available molecular descriptors in RDKit,
     calculates each descriptor for the provided molecule, and stores the results
