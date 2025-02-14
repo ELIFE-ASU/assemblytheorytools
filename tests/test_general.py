@@ -972,3 +972,11 @@ def test_dice_morgan_similarity():
     m2 = Chem.MolFromSmiles('Cc1ncccc1')
     sim = att.dice_morgan_similarity(m1, m2, radius=2)
     assert sim == 0.55
+
+
+def test_get_chirality():
+    smi = "OC[C@H]1OC=C[C@@H](O)[C@@H]1O"
+    mol = att.smi_to_mol(smi)
+
+    chirality = att.get_chirality(mol)
+    assert chirality == 3
