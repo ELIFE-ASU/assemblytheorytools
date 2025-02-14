@@ -26,6 +26,7 @@ setup(
         'pyvis>=0.3.2',
         'CFG @ git+https://github.com/ELIFE-ASU/CFG.git',
         'dagviz @ git+https://github.com/ELIFE-ASU/dagviz.git',
+        'cairosvg>=2.7.1',
     ],
     extras_require={
         'dev': [
