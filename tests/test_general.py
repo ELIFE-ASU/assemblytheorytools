@@ -937,10 +937,9 @@ def test_plot_construction():
 
     # Try to load the pathway
     digraph = att.parse_pathway_file(pathway_str)
+    digraph, _ = digraph
 
-    # Find all the files
-    files = att.file_list_all("path_images/")
-    att.plot_digraph_with_images(digraph, files)
+    att.plot_digraph_metro(digraph, filename="test")
     pass
 
 
