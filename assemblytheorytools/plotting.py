@@ -320,6 +320,39 @@ def plot_digraph_metro(digraph, filename='metro'):
     return None
 
 
+def plot_digraph_topological(digraph, filename='topological'):
+    """
+    Plot a directed graph using a topological layout and save it as a PNG file.
+
+    This function assigns layers to nodes based on their topological generation and uses the
+    multipartite layout to position the nodes. The plot is saved as a PNG file.
+
+    https://networkx.org/documentation/stable/auto_examples/graph/plot_dag_layout.html
+
+    Args:
+        digraph (networkx.DiGraph): The directed graph to be plotted.
+        filename (str, optional): The base name of the file where the plot will be saved. Default is 'topological'.
+
+    Returns:
+        None
+    """
+    for layer, nodes in enumerate(nx.topological_generations(digraph)):
+        # `multipartite_layout` expects the layer as a node attribute, so add the
+        # numeric layer value as a node attribute
+        for node in nodes:
+            digraph.nodes[node]["layer"] = layer
+
+    # Compute the multipartite_layout using the "layer" node attribute
+    pos = nx.multipartite_layout(digraph, subset_key="layer")
+
+    # Compute the multipartite_layout using the "layer" node attribute
+    fig, ax = plt.subplots()
+    nx.draw_networkx(digraph, pos=pos, ax=ax)
+    fig.tight_layout()
+    plt.savefig(f"{filename}.png", dpi=600)
+    plt.show()
+
+
 def match_node_to_image(graph, image_paths):
     """
     Matches nodes in the graph to their respective image paths.
