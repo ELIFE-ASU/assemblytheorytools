@@ -829,7 +829,7 @@ def test_semi_metric():
                                                   graphs[1],
                                                   dir_code=None,
                                                   timeout=100.0,
-                                                  debug=True,
+                                                  debug=False,
                                                   strip_hydrogen=True)
     assert distance == 1
 
