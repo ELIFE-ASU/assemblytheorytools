@@ -199,3 +199,22 @@ def dice_morgan_similarity(mol1, mol2, radius=3):
     fp1 = fpgen.GetSparseCountFingerprint(mol1)
     fp2 = fpgen.GetSparseCountFingerprint(mol2)
     return DataStructs.DiceSimilarity(fp1, fp2)
+
+
+def get_chirality(mol):
+    """
+    Determine the chirality of a molecule.
+
+    This function calculates the number of chiral centers in a given RDKit molecule object.
+
+    Parameters:
+        mol (rdkit.Chem.rdchem.Mol): An RDKit molecule object.
+
+    Returns:
+        int: The number of chiral centers in the molecule.
+    """
+    nc = len(Chem.FindMolChiralCenters(mol,
+                                       useLegacyImplementation=False,
+                                       includeUnassigned=True,
+                                       includeCIP=False))
+    return nc

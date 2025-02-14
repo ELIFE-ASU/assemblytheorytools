@@ -17,7 +17,8 @@ from .complexity_scores import (molecular_weight,
                                 kirchhoff_index,
                                 get_mol_descriptors,
                                 tanimoto_similarity,
-                                dice_morgan_similarity)
+                                dice_morgan_similarity,
+                                get_chirality)
 
 from .find_other_paths import (all_shortest_paths)
 
