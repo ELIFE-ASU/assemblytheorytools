@@ -24,7 +24,6 @@ def convert_edge_color(edge_color):
         "triple": 3,
         "quadruple": 4,
         "quintuple": 5,
-        "ionic": 6,
     }
 
     if edge_color in edge_color_map:
