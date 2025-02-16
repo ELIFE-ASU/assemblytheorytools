@@ -80,7 +80,7 @@ from .tools_mp import (mp_calc,
 
 from .construction import parse_pathway_file
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 """
 This module provides various tools and functions for assembly theory analysis, molecular complexity scores, 
