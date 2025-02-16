@@ -327,7 +327,7 @@ def create_ionic_molecule(smiles):
         last_node_prev_graph = offset - 1  # Last node index of the previous graph
         first_node_current_graph = offset  # First node index of the current graph
 
-        combined.add_edge(last_node_prev_graph, first_node_current_graph, bond_type='ionic')
+        combined.add_edge(last_node_prev_graph, first_node_current_graph, color=6)
 
         # Update offset for the next graph
         offset += graph.number_of_nodes()
