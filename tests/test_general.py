@@ -206,7 +206,37 @@ def test_compare_ass_graph_mol_file_mol():
     # Remove the temporary mol file
     os.remove(mol_file)
 
+def test_calculate_assembly_index_flag_for_logs():
+    """
+    Test the `calculate_assembly_index` function with different input types
+    and configuration options.
+    """
 
+    # Test case 1: SMILES to RDKit molecule
+    smi = "C1=CC=CC=C1"  # Benzene
+    mol = att.smi_to_mol(smi)
+
+    #test input of mol from smiles, no return log file
+    ai, virt_obj, path = att.calculate_assembly_index(mol)
+    assert isinstance(ai, int), "Assembly index should be an integer"
+    assert ai > 0, "AI should be a positive number"
+
+    #test input of mol object to mol file, no return log file
+    mol_file = "test_benzene.mol"
+    att.write_v2k_mol_file(mol, mol_file)
+    ai_mol_file, _, _ = att.calculate_assembly_index(mol_file)
+    assert ai == ai_mol_file, "Assembly index should be consistent across representations"
+
+    # Clean up test file
+    os.remove(mol_file)
+
+    #test mol object and flag for returning log file
+    ai_log, _, _, log_file = att.calculate_assembly_index(mol, return_log_file=True)
+    assert os.path.exists(log_file), "Log file should be generated when return_log_file=True"
+
+    # Clean up log file
+    os.remove(log_file)
+    
 @pytest.mark.slow
 def test_big_chungus():
     """
