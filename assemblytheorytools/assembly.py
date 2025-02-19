@@ -7,6 +7,7 @@ import time
 import warnings
 from datetime import datetime
 from typing import Union, List
+import re
 
 import networkx as nx
 from rdkit import Chem
@@ -144,138 +145,160 @@ def calculate_assembly_index(mol,
                              timeout=100.0,
                              debug=False,
                              joint_corr=True,
-                             strip_hydrogen=False):
+                             strip_hydrogen=False,
+                             return_log_file=False):  # New flag
     """
     Calculate the assembly index for a given molecule.
 
-    WARNING it is the responsibility of the user to ensure the mol file has H or not!
+    WARNING: It is the responsibility of the user to ensure the mol file has H or not!
 
-    Args: mol (Union[nx.Graph, Chem.Mol, str]): The molecule, which can be a NetworkX graph, an RDKit molecule,
-    or a file path to a .mol file. dir_code (str, optional): The directory code for the assembly tool. Defaults to
-    None. timeout (float, optional): The maximum time in seconds to allow the command to run. Defaults to 100.0
-    seconds. debug (bool, optional): If True, create a directory with a timestamp for debugging. Defaults to False.
-    joint_corr (bool, optional): If True, corrects the joint assembly calculation to account for disjointed graphs.
-    Defaults to True. strip_hydrogen (bool, optional): If True, removes hydrogen atoms from the molecule before
-    calculation. Defaults to False.
+    Args:
+        mol (Union[nx.Graph, Chem.Mol, str]): The molecule (NetworkX graph, RDKit molecule, or .mol file path).
+        dir_code (str, optional): The directory code for the assembly tool. Defaults to None.
+        timeout (float, optional): Maximum time in seconds before termination. Defaults to 100.0.
+        debug (bool, optional): If True, creates a directory with a timestamp for debugging. Defaults to False.
+        joint_corr (bool, optional): If True, corrects disjointed graphs. Defaults to True.
+        strip_hydrogen (bool, optional): If True, removes hydrogen atoms before calculation. Defaults to False.
+        return_log_file (bool, optional): If True, includes log file in return. Defaults to False.
 
     Returns:
-        tuple: A tuple containing the corrected assembly index (int) and the pathway (varies based on input type).
+        - (ai, virt_obj, path) if return_log_file=False (old behavior).
+        - (ai, virt_obj, path, log_file) if return_log_file=True (new behavior).
     """
-    # Initialise the variables
+
+    # Initialize variables
     ai = -1
     virt_obj = None
     path = None
     file_path_in = None
+    timed_out = False  # Flag for timeout tracking
 
-    # Check if the input is a string and not a .mol file
+    # Check if input is a string and not a .mol file
     if isinstance(mol, str) and not mol.endswith(".mol"):
         ai, virt_obj, path = CFG.ai_with_pathways(mol, f_print=False)
-        return ai, virt_obj, path
+        return (ai, virt_obj, path) if not return_log_file else (ai, virt_obj, path, None)
+
     else:
         # Get the assembly code directory
         if dir_code is None:
-            # Get the path to the precompiled Assembly if not provided on input or an environment variable
-            dir_code = add_assembly_to_path()
+            dir_code = add_assembly_to_path()  # Preserving original function's behavior
 
-        # Make the directory
-        if debug:
-            # Define the directory name with the timestamp
-            temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}"
-            os.makedirs(temp_dir)
-        else:
-            temp_dir = tempfile.mkdtemp()
+        # Create working directory
+        temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}" if debug else tempfile.mkdtemp()
+        os.makedirs(temp_dir, exist_ok=True)
 
-        # Assuming a NetworkX graph
+        # Process input based on type
         if isinstance(mol, nx.Graph):
-            # Check if we need to strip hydrogen
             if strip_hydrogen:
                 mol = remove_hydrogen_from_graph(mol)
-            # Make the in file
-            file_path_in = os.path.join(temp_dir, f"graph_in")
-            # Write the input graph file
+            file_path_in = os.path.join(temp_dir, "graph_in")
             write_ass_graph_file(mol, file_name=file_path_in)
-        # Check if the input is a RDkit mol
+
         elif isinstance(mol, Chem.Mol):
-            # Check if we need to strip hydrogen
             if strip_hydrogen:
                 mol = Chem.RemoveHs(mol)
-
-            # Write the mol file
-            mol_file = os.path.join(temp_dir, f"tmp.mol")
-            # Write the input mol file
+            mol_file = os.path.join(temp_dir, "tmp.mol")
             write_v2k_mol_file(mol, mol_file)
-            # Get the infile
             file_path_in = os.path.splitext(mol_file)[0]
-        # Check if instance is a file path to a .mol file
+
         elif isinstance(mol, str) and mol.endswith(".mol"):
-            # WARNING it is the responsibility of the user to ensure the mol file has H or not!
             if strip_hydrogen:
-                # Load the mol file
                 mol_ob = Chem.MolFromMolFile(mol, sanitize=False, removeHs=True)
-                # Make a temp dir to prevent overwriting
                 mol = os.path.join(temp_dir, "tmp.mol")
-                # Make a new mol file
                 Chem.MolToMolFile(mol_ob, mol)
             else:
-                # Copy the mol file into the temp directory
                 shutil.copy(mol, os.path.join(temp_dir, "tmp.mol"))
                 mol = os.path.join(temp_dir, "tmp.mol")
-
-            # Get the infile
             file_path_in = os.path.splitext(mol)[0]
         else:
-            ValueError("Input not supported")
-        # Get the output file
+            raise ValueError("Input not supported")
+
+        # Define output and log file paths
         file_path_out = os.path.join(file_path_in + "Out")
         file_path_pathway = os.path.join(file_path_in + "Pathway")
+        log_file = os.path.join(temp_dir, "assembly_output.log")
 
+        # Ensure directory code is available
         if dir_code is None:
             raise ValueError("Assembly code directory not provided.")
 
-        # Run the assembly code
-        outcome = run_command([dir_code, file_path_in],
-                              output_file=f"{file_path_in}.out",
-                              error_file=f"{file_path_in}.err",
-                              timeout=timeout)
+        # Run the assembly code and log output
+        try:
+            with open(log_file, "w") as log:
+                process = subprocess.Popen(
+                    [dir_code, file_path_in],
+                    stdout=log,
+                    stderr=subprocess.STDOUT  # Merge stdout and stderr into one log file
+                )
 
-        # Get the output
-        if not outcome:
-            # If the assembly code failed return -1
-            return ai, virt_obj, path
-        else:
+                start_time = time.time()
+                while process.poll() is None:
+                    # Check for timeout
+                    if time.time() - start_time > timeout:
+                        print("Warning: Assembly calculation timed out. Terminating...")
+                        process.terminate()
+                        time.sleep(2)
+                        if process.poll() is None:
+                            process.kill()
+                        timed_out = True  # Mark timeout
+                        break
+                    time.sleep(1)
+
+        except Exception as e:
+            print(f"Error: {e}")
+
+        # Extract the most recent "min AI found so far" from the log file
+        last_ai = -1
+        if os.path.exists(log_file):
             try:
-                # Load the assembly output
-                ai = load_assembly_output(file_path_out)
-                # Check the pathway file exits
-                if os.path.isfile(file_path_pathway):
-                    if isinstance(mol, nx.Graph):
-                        # Load the virtual objects
-                        virt_obj = get_pathway_to_graph(file_path_pathway)
-                        # Load the pathway data
-                        # path = parse_pathway_file(file_path_pathway) WARNING NOT IMPLEMENTED
-                    elif isinstance(mol, Chem.Mol):
-                        # Load the virtual objects
-                        virt_obj = get_pathway_to_mol(file_path_pathway)
-                        # Load the pathway data
-                        path = parse_pathway_file(file_path_pathway)
-                    elif ".mol" in mol:
-                        # Load the virtual objects
-                        virt_obj = get_pathway_to_inchi(file_path_pathway)
-                        # Load the pathway data
-                        # path = parse_pathway_file(file_path_pathway) WARNING NOT IMPLEMENTED
-                    else:
-                        virt_obj = None
-                        ValueError("Input not supported")
+                with open(log_file, "r") as log:
+                    log_lines = log.readlines()
+
+                # Reverse scan for last occurrence of "min AI found so far"
+                for line in reversed(log_lines):
+                    match = re.search(r"min AI found so far:\s*(\d+)", line)
+                    if match:
+                        last_ai = int(match.group(1))
+                        break
+
+                ai = last_ai  # Assign found AI
+
+                # Print appropriate messages based on timeout
+                if ai == -1 and timed_out:
+                    print("No minimum AI found before timeout.")
+                elif ai != -1 and timed_out:
+                    print(f"Partial AI found = {ai}")
+
+            except Exception as e:
+                print(f"⚠️ Failed to read AI from log file: {e}")
+
+        # Process pathway output if available
+        if os.path.isfile(file_path_pathway):
+            try:
+                if isinstance(mol, nx.Graph):
+                    virt_obj = get_pathway_to_graph(file_path_pathway)
+                elif isinstance(mol, Chem.Mol):
+                    virt_obj = get_pathway_to_mol(file_path_pathway)
+                    path = parse_pathway_file(file_path_pathway)
+                elif ".mol" in mol:
+                    virt_obj = get_pathway_to_inchi(file_path_pathway)
                 else:
                     virt_obj = None
-                if joint_corr:
-                    return joint_correction(mol, ai), virt_obj, path
-                else:
-                    return ai, virt_obj, path
+                    raise ValueError("Input not supported")
             except Exception as e:
-                print(f"Failed to load assembly output: {file_path_out}, Error: {e}", flush=True)
-                return ai, virt_obj, path
+                print(f"Failed to load pathway data: {e}", flush=True)
 
+        # Apply joint correction if necessary
+        if joint_corr:
+            ai = joint_correction(mol, ai)
+
+        # Print log file path if required
+        if return_log_file:
+            print(f"Log file printed to: {log_file}")
+
+        # Return based on flag
+        return (ai, virt_obj, path) if not return_log_file else (ai, virt_obj, path, log_file)
+      
 
 def calculate_assembly_semi_metric(graph1,
                                    graph2,
