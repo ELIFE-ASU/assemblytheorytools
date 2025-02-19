@@ -66,7 +66,7 @@ def get_unique_char(input_str):
             return char
 
 
-def get_undir_str_molecule(undir_str, debug=0):
+def get_undir_str_molecule(undir_str, debug=False):
     """
     Make a molecule that corresponds to an undirected string. The string will have the same assembly index
     as the molecular graph, and the paths will correspond as well.
@@ -80,26 +80,35 @@ def get_undir_str_molecule(undir_str, debug=0):
         edge_color_dict: A dictionary mapping edge colors (integers) to characters.
     """
 
+    # Create a dictionary to map each unique character in the undirected string to a unique edge color
     edge_color_dict = dict()
     for i, char in enumerate(set(undir_str)):
         edge_color_dict[char] = str(i + 1)
 
+    # If debug is enabled, print the edge color dictionary
     if debug:
         print("Edge color dict:")
         print(edge_color_dict)
 
+    # Initialize the graph and add the first two nodes with a 'null' color
+    blank = 'null'
     graph = nx.Graph()
-    graph.add_node(0, color="null")
-    graph.add_node(1, color="null")
-    graph.add_edge(0, 1, color=edge_color_dict[undir_str[0]])
-    for i in range(1, len(undir_str)):
-        graph.add_node(i + 1, color="null")
-        graph.add_edge(i, i + 1, color=edge_color_dict[undir_str[i]])
+    graph.add_node(0, color=blank)
+    graph.add_node(1, color=blank)
 
+    # Add the first edge with the color corresponding to the first character in the undirected string
+    graph.add_edge(0, 1, color=int(edge_color_dict[undir_str[0]]))
+
+    # Iterate through the rest of the undirected string, adding nodes and edges to the graph
+    for i in range(1, len(undir_str)):
+        graph.add_node(i + 1, color=blank)
+        graph.add_edge(i, i + 1, color=int(edge_color_dict[undir_str[i]]))
+
+    # Return the graph and the edge color dictionary
     return graph, edge_color_dict
 
 
-def get_dir_str_molecule(dir_str, debug=0):
+def get_dir_str_molecule(dir_str):
     """
     Make a molecule that corresponds to a directed string. The string will have the same assembly index
     as the molecular graph, and the paths will correspond as well.

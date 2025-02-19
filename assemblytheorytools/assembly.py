@@ -517,7 +517,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
 
     if mode == "mol":  # Use the molecular assembly cpp calculator
         if directed:
-            graph = get_dir_str_molecule(string, debug=debug)
+            graph = get_dir_str_molecule(string)
         else:
             graph, edge_color_dict = get_undir_str_molecule(string, debug=debug)
 
