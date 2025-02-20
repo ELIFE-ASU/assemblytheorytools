@@ -43,9 +43,13 @@ conda update conda --all -y
 ```
 conda install conda-forge::numpy conda-forge::matplotlib conda-forge::networkx conda-forge::rdkit conda-forge::openbabel conda-forge::pyvis -y
 ```
+The, install the ELIFE packages
+```
+pip install git+https://github.com/ELIFE-ASU/dagviz.git git+https://github.com/ELIFE-ASU/CFG.git
+```
 Then install AssemblyTheoryTools:
 ```
-pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git@v1.0.0
+pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git@v1.1.0
 ```
 When asked for a password, you will need your GitHub username AND 'personal access token' (found in developer settings in your GitHub settings).
 See `https://stackoverflow.com/questions/2505096/clone-a-private-repository-github`
@@ -102,7 +106,7 @@ mamba install conda-forge::numpy conda-forge::matplotlib conda-forge::networkx c
 ```
 Install AssemblyTheoryTools.
 ```
-pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git@v1.0.0
+pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git@v1.1.0
 ```
 
 Once again, you will need your username AND 'personal access token' entered as your password.
