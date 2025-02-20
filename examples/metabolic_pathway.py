@@ -46,7 +46,7 @@ if __name__ == "__main__":
 
     network1_metabolites = {"CO2": ["H2", "MFR", "Formyl-MFR"],
                             "Formyl-MFR": ["H+", "THMPT", "CO2", "Methane"],
-                            "Methyl-S-coenzyme M": ["Coenzyme B"],
+                            "Methyl-S-coenzyme-M": ["Coenzyme-B"],
                             "Methane": ["H+"]}
 
     # Flatten the dictionary and get a set of items
