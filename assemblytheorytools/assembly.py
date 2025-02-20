@@ -146,7 +146,7 @@ def calculate_assembly_index(mol,
                              debug=False,
                              joint_corr=True,
                              strip_hydrogen=False,
-                             return_log_file=False):  # New flag
+                             return_log_file=False):
     """
     Calculate the assembly index for a given molecule.
 
@@ -162,8 +162,8 @@ def calculate_assembly_index(mol,
         return_log_file (bool, optional): If True, includes log file in return. Defaults to False.
 
     Returns:
-        - (ai, virt_obj, path) if return_log_file=False (old behavior).
-        - (ai, virt_obj, path, log_file) if return_log_file=True (new behavior).
+        - (ai, virt_obj, path) if return_log_file=False
+        - (ai, virt_obj, path, log_file) if return_log_file=True
     """
 
     # Initialize variables
@@ -181,7 +181,7 @@ def calculate_assembly_index(mol,
     else:
         # Get the assembly code directory
         if dir_code is None:
-            dir_code = add_assembly_to_path()  # Preserving original function's behavior
+            dir_code = add_assembly_to_path()
 
         # Create working directory
         temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}" if debug else tempfile.mkdtemp()
@@ -270,7 +270,7 @@ def calculate_assembly_index(mol,
                     print(f"Partial AI found = {ai}")
 
             except Exception as e:
-                print(f"⚠️ Failed to read AI from log file: {e}")
+                print(f"Failed to read AI from log file: {e}")
 
         # Process pathway output if available
         if os.path.isfile(file_path_pathway):
@@ -294,7 +294,7 @@ def calculate_assembly_index(mol,
 
         # Print log file path if required
         if return_log_file:
-            print(f"Log file printed to: {log_file}")
+            print(f"Log file printed to: {log_file}", flush=True)
 
         # Return based on flag
         return (ai, virt_obj, path) if not return_log_file else (ai, virt_obj, path, log_file)
