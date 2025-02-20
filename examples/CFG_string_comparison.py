@@ -1,4 +1,5 @@
 import random
+import time
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -26,24 +27,48 @@ def generate_random_string(length, char_set):
 
 if __name__ == "__main__":
 
-    string_lengths = np.arange(2, 50, 1)
+    string_lengths = np.arange(1, 35, 1)
 
     ai_list = []
     ai_cfg_list = []
+    time_list = []
+    time_cfg_list = []
 
     for i, length in enumerate(string_lengths):
         s_inpt = generate_random_string(int(length), "atgc")
+
+        start_time = time.time()
         ai, _, _ = att.calculate_string_assembly_index(s_inpt, timeout=1000.0, directed=True, mode="mol")
+        end_time = time.time()
+        time_list.append(end_time - start_time)
+
+        start_time = time.time()
         ai_cfg, _, _ = CFG.ai_with_pathways(s_inpt, f_print=False)
+        end_time = time.time()
+        time_cfg_list.append(end_time - start_time)
+
         print(f"{i}, String: {s_inpt}, AI: {ai}, AI_CFG: {ai_cfg}")
         ai_list.append(ai)
         ai_cfg_list.append(ai_cfg)
 
-    plt.plot(string_lengths, ai_list, 'o-', label="AssCPP", lw=2, color='black')
-    plt.plot(string_lengths, ai_cfg_list, 'o-', label="CFG", lw=2, color='black')
-    plt.legend()
-    att.n_plot("String length", "Assembly index")
+    fig, ax1 = plt.subplots()
 
-    plt.savefig("string_comparison.png", dpi=600)
-    plt.savefig("string_comparison.pdf")
+    ax1.set_xlabel("String length")
+    ax1.set_ylabel("Assembly index")
+    ax1.plot(string_lengths, ai_list, 'o-', label="AssCPP", lw=2, color='black')
+    ax1.plot(string_lengths, ai_cfg_list, 'o--', label="CFG", lw=2, color='black')
+    att.ax_plot(fig, ax1, "String length", "Assembly index")
+
+    ax2 = ax1.twinx()
+    ax2.set_yscale('log')
+    ax2.plot(string_lengths, time_list, 'o-', label="AssCPP Time", lw=2, color='red')
+    ax2.plot(string_lengths, time_cfg_list, 'o--', label="CFG Time", lw=2, color='red')
+    att.ax_plot(fig, ax2, "String length", "Execution time (s)")
+    # make the axis text color match the line color
+    ax2.set_ylabel('Execution time (s)', color='red')
+    ax2.legend()
+
+    fig.tight_layout()
+    plt.savefig("string_comparison_with_time.png", dpi=600)
+    plt.savefig("string_comparison_with_time.pdf")
     plt.show()
