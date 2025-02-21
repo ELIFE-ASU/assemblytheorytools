@@ -27,7 +27,7 @@ def generate_random_string(length, char_set):
 
 if __name__ == "__main__":
 
-    string_lengths = np.arange(1, 35, 1)
+    string_lengths = np.arange(2, 40, 1)
 
     ai_list = []
     ai_cfg_list = []
@@ -50,6 +50,22 @@ if __name__ == "__main__":
         print(f"{i}, String: {s_inpt}, AI: {ai}, AI_CFG: {ai_cfg}")
         ai_list.append(ai)
         ai_cfg_list.append(ai_cfg)
+    # force the x ticks to be integers
+    plt.xticks(np.arange(min(string_lengths), max(string_lengths) + 1, 2.0))
+    # force the y ticks to be integers
+    plt.yticks(np.arange(min(ai_list), max(ai_list) + 1, 2.0))
+    plt.plot(string_lengths, ai_list, 'o-', label="AssCPP", lw=2, color='black')
+    plt.plot(string_lengths, ai_cfg_list, 'o-', label="CFG", lw=2, color='red')
+    plt.legend()
+    #att.n_plot("String length", "Assembly index")
+    ys = 14
+    plt.tick_params(axis='both', which='major', labelsize=ys - 2, direction='in', length=6, width=2)
+    plt.xlabel("String length", fontsize=ys)
+    plt.ylabel("Assembly index", fontsize=ys)
+    plt.tight_layout()
+    plt.savefig("string_comparison.png", dpi=600)
+    plt.savefig("string_comparison.pdf")
+    plt.show()
 
     fig, ax1 = plt.subplots()
 
