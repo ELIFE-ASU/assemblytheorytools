@@ -10,6 +10,10 @@ setup(
     long_description_content_type='text/markdown',
     url='https://github.com/ELIFE-ASU/assemblytheorytools',
     packages=find_packages(),
+    package_data={
+        'assemblytheorytools': ['precompiled/*'],
+    },
+    include_package_data=True,
     classifiers=[
         'Programming Language :: Python :: 3',
         'License :: OSI Approved :: MIT License',
