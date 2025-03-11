@@ -1,16 +1,18 @@
 import traceback
+from typing import Dict, Any, Optional
 
 import networkx as nx
 import numpy as np
 import rdkit
 from rdkit import Chem
+from rdkit import DataStructs
 from rdkit.Chem import AllChem as Chem
 from rdkit.Chem import Descriptors
 from rdkit.Chem.GraphDescriptors import BertzCT
-from rdkit import DataStructs
+from rdkit.Chem.rdchem import Mol
 
 
-def molecular_weight(mol):
+def molecular_weight(mol: Mol) -> float:
     """
     Calculates the molecular weight of a molecule.
 
@@ -24,7 +26,7 @@ def molecular_weight(mol):
     return Descriptors.MolWt(mol)
 
 
-def bertz_complexity(mol):
+def bertz_complexity(mol: Mol) -> float:
     """
     Calculates the Bertz complexity of a molecule.
 
@@ -38,7 +40,7 @@ def bertz_complexity(mol):
     return BertzCT(mol)
 
 
-def wiener_index(mol):
+def wiener_index(mol: Mol) -> float:
     """
     Calculates the Wiener index of a molecule.
 
@@ -64,7 +66,7 @@ def wiener_index(mol):
     return nx.wiener_index(G)
 
 
-def balaban_index(mol):
+def balaban_index(mol: Mol) -> float:
     """
     Calculates the Balaban index of a molecule.
 
@@ -78,7 +80,7 @@ def balaban_index(mol):
     return Descriptors.BalabanJ(mol)
 
 
-def randic_index(mol):
+def randic_index(mol: Mol) -> float:
     """
     Calculates the Randic index of a molecule.
 
@@ -100,7 +102,7 @@ def randic_index(mol):
     return randic_sum / 2
 
 
-def kirchhoff_index(mol):
+def kirchhoff_index(mol: Mol) -> float:
     """
     Calculates the Kirchhoff index of a molecule.
 
@@ -125,7 +127,7 @@ def kirchhoff_index(mol):
     return kirchhoff_sum
 
 
-def spacial_score(mol, normalize=False):
+def spacial_score(mol: Mol, normalize: bool = False) -> float:
     """
     Calculates the spacial score of a molecule. https://github.com/frog2000/Spacial-Score
 
@@ -139,7 +141,7 @@ def spacial_score(mol, normalize=False):
     return rdkit.Chem.SpacialScore.SPS(mol, normalize)
 
 
-def get_mol_descriptors(mol, missingval=None):
+def get_mol_descriptors(mol: Mol, missingval: Optional[Any] = None) -> Dict[str, Any]:
     """
     Calculates molecular descriptors for a given molecule. Please note that there are a lot of descriptors.
 
@@ -164,7 +166,7 @@ def get_mol_descriptors(mol, missingval=None):
     return res
 
 
-def tanimoto_similarity(mol1, mol2):
+def tanimoto_similarity(mol1: Mol, mol2: Mol) -> float:
     """
     Calculates the Tanimoto similarity between two molecules.
 
@@ -182,7 +184,7 @@ def tanimoto_similarity(mol1, mol2):
     return DataStructs.TanimotoSimilarity(fp1, fp2)
 
 
-def dice_morgan_similarity(mol1, mol2, radius=3):
+def dice_morgan_similarity(mol1: Mol, mol2: Mol, radius: int = 3) -> float:
     """
     Calculates the Dice similarity between two molecules using Morgan fingerprints.
 
@@ -201,7 +203,7 @@ def dice_morgan_similarity(mol1, mol2, radius=3):
     return DataStructs.DiceSimilarity(fp1, fp2)
 
 
-def get_chirality(mol):
+def get_chirality(mol: Mol) -> int:
     """
     Determine the chirality of a molecule.
 
