@@ -83,18 +83,46 @@ from .construction import parse_pathway_file
 __version__ = "1.3.0"
 
 """
-This module provides various tools and functions for assembly theory analysis, molecular complexity scores, 
-graph manipulation, molecular tools, pathway analysis, and plotting.
+AssemblyTheoryTools
+===================
+
+A comprehensive Python package for assembly theory analysis and molecular graph manipulation.
+
+This package provides a suite of tools and functions for applying assembly theory concepts,
+calculating molecular complexity scores, manipulating molecular graphs, analyzing pathways,
+and visualizing molecular structures. It integrates with RDKit and NetworkX to provide
+powerful molecular and graph analysis capabilities.
+
+Key Features:
+------------
+- Assembly theory calculations: Calculate assembly indices, joint corrections, and 
+  assembly semi-metrics for molecules and strings.
+- Molecular complexity measures: Calculate various descriptors like molecular weight,
+  Bertz complexity, Wiener index, Balaban index, Randic index, and Kirchhoff index.
+- Graph manipulation: Convert between NetworkX graphs and RDKit molecules, check graph
+  isomorphism, and modify molecular graphs.
+- Molecular tools: Standardize molecules, convert between different molecular
+  representations (SMILES, InChI, mol files), and combine/split molecules.
+- Pathway analysis: Convert pathways to graphs, molecules, and various string 
+  representations.
+- Visualization: Plot molecular graphs, interactive network diagrams, directed graphs,
+  and metro-style pathway visualizations.
+- Parallel processing: Multiprocessing tools for efficient calculations on large datasets.
+- File handling: Tools for reading/writing various file formats including CIF, GraphML,
+  and mol files.
 
 Submodules:
-    - assembly: Functions for calculating assembly index, joint correction, loading assembly output, and running commands.
-    - complexity_scores: Functions for calculating molecular weight, Bertz complexity, Wiener index, Balaban index, Randic index, and Kirchhoff index.
-    - find_other_paths: Functions for finding all shortest paths in a graph.
-    - graph_tools: Functions for converting between NetworkX graphs and RDKit molecules, writing graph files, and checking graph isomorphism.
-    - mol_tools: Functions for standardizing molecules, converting between different molecular representations, combining and splitting molecules, and writing V2000 mol files.
-    - pathway: Functions for converting pathways to graphs, molecules, and InChI strings.
-    - plotting: Functions for plotting molecular graphs, interactive graphs, residue graphs, and multiple graphs in subplots.
-
-Attributes:
-    __version__ (str): The version of the module.
+----------
+- assembly: Assembly theory calculations and command execution
+- complexity_scores: Molecular complexity metrics and similarity measures
+- find_other_paths: Path-finding algorithms for graphs
+- tools_graph: Graph manipulation and conversion utilities
+- tools_mol: Molecular manipulation and conversion utilities
+- tools_file: File handling utilities
+- tools_cell: Crystal structure handling utilities
+- pathway: Pathway analysis and conversion utilities
+- plotting: Visualization tools for graphs and molecules
+- tools_string: String processing utilities
+- tools_mp: Multiprocessing utilities
+- construction: Pathway construction and parsing utilities
 """
