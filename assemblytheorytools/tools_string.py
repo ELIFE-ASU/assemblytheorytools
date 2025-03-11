@@ -5,7 +5,7 @@ from typing import List, Tuple
 import matplotlib.pyplot as plt
 import networkx as nx
 
-import string_pathway as sp
+import construction_string as cs
 
 
 def load_fasta(file_path: str) -> str:
@@ -163,11 +163,11 @@ def generate_and_visualize_string_pathway(file_path: str) -> nx.DiGraph:
     """
 
     # Generate the pathway object
-    construction_object: Any = sp.generate_string_pathway_ian(file_path)
+    construction_object: Any = cs.generate_string_pathway_ian(file_path)
 
     # Create a directed graph
     G: nx.DiGraph = nx.DiGraph()
-    for edge in sp.get_graph_string_explicit(construction_object[0])[1]:
+    for edge in cs.get_graph_string_explicit(construction_object[0])[1]:
         G.add_edge(f"{edge[0]}", f"{edge[1]}")
 
     # Visualize the graph
