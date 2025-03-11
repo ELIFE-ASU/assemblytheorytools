@@ -1,6 +1,11 @@
+import re
+from typing import Any
 from typing import List, Tuple
 
+import matplotlib.pyplot as plt
 import networkx as nx
+
+import string_pathway as sp
 
 
 def load_fasta(file_path: str) -> str:
@@ -144,3 +149,89 @@ def get_dir_str_molecule(dir_str: str) -> nx.Graph:
         graph.add_edge(2 * i + 1, 2 * i + 2, color=2)
 
     return graph
+
+
+def generate_and_visualize_string_pathway(file_path: str) -> nx.DiGraph:
+    """
+    Generate and visualize a pathway graph using string pathway data from v5.
+
+    Args:
+        file_path (str): Path to the pathway file.
+
+    Returns:
+        networkx.DiGraph: The constructed directed graph.
+    """
+
+    # Generate the pathway object
+    construction_object: Any = sp.generate_string_pathway_ian(file_path)
+
+    # Create a directed graph
+    G: nx.DiGraph = nx.DiGraph()
+    for edge in sp.get_graph_string_explicit(construction_object[0])[1]:
+        G.add_edge(f"{edge[0]}", f"{edge[1]}")
+
+    # Visualize the graph
+    pos: dict[Any, Any] = nx.spring_layout(G, k=0.9)
+    nx.draw(G,
+            pos,
+            with_labels=True,
+            node_size=2000,
+            node_color="skyblue",
+            font_size=10,
+            font_color="black",
+            edge_color="gray",
+            width=1.5)
+    plt.show()
+
+    return G
+
+
+def generate_and_visualize_cfg_pathway(file_path: str) -> nx.DiGraph:
+    """
+    Generate and visualize a directed graph from CFG pathway data.
+
+    Args:
+        file_path (str): Path to the file containing pathway data.
+
+    Returns:
+        networkx.DiGraph: The constructed directed graph.
+    """
+
+    # Read the file content
+    with open(file_path, 'r') as file:
+        file_content: list[str] = file.readlines()
+
+    # Extract pathway line
+    pathway_line: str = [line for line in file_content if line.startswith("Pathway:")][0]
+
+    # Extract pathway data
+    pathway_data: list[str] = re.findall(r"'(.*?)'", pathway_line)
+
+    # Create a directed graph
+    G: nx.DiGraph = nx.DiGraph()
+    for relationship in pathway_data:
+        reactants, product = relationship.split(' = ')
+        reactant_1, reactant_2 = reactants.split(' + ')
+
+        # Add directed edges
+        G.add_edge(reactant_1, product)
+        G.add_edge(reactant_2, product)
+
+    # Visualize the graph
+    plt.figure(figsize=(12, 12))
+    pos: dict[Any, Any] = nx.spring_layout(G, k=0.5, seed=42)
+    nx.draw(G,
+            pos,
+            with_labels=True,
+            node_size=700,
+            node_color="skyblue",
+            font_size=10,
+            font_color="black",
+            font_weight="bold",
+            arrows=True,
+            arrowstyle="-|>",
+            arrowsize=15)
+    plt.title("CFG")
+    plt.show()
+
+    return G
