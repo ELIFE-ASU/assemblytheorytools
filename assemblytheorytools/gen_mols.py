@@ -1,5 +1,3 @@
-# To generated molecules from an assembly pool
-
 import random
 
 import numpy as np
@@ -7,32 +5,32 @@ from rdkit import Chem
 from rdkit import RDLogger
 from rdkit.Chem import rdMolDescriptors
 
-import reassembler as ra  # import our Reassembler
+import reassembler as ra
 
 RDLogger.DisableLog('rdApp.*')
 
 
-def pickTwo(ToBeComb):
+def pick_two(to_be_combined):
     """Pick two fragments randomly. ToBeComb records fragments indices."""
     picked, remain = [], []
-    if len(ToBeComb) <= 1:
+    if len(to_be_combined) <= 1:
         return picked, remain
     else:
-        temp = np.random.choice(len(ToBeComb), 2, replace=False)
-        picked = [ToBeComb[temp[0]], ToBeComb[temp[1]]]
-        for i in range(len(ToBeComb)):
+        temp = np.random.choice(len(to_be_combined), 2, replace=False)
+        picked = [to_be_combined[temp[0]], to_be_combined[temp[1]]]
+        for i in range(len(to_be_combined)):
             if i != temp[0] and i != temp[1]:
-                remain.append(ToBeComb[i])  # get what index remained
+                remain.append(to_be_combined[i])  # get what index remained
         return picked, remain
 
 
-def getNumAtom(formu, ele):
+def get_num_atom(formula, elements):
     """Calculate the number of elements (ele) in the molecule (represented by its formula)"""
-    idx1 = formu.find(ele)
+    idx1 = formula.find(elements)
     if idx1 == -1:  # no ele found
         return 0
     else:
-        temp = formu[idx1 + len(ele):]
+        temp = formula[idx1 + len(elements):]
         if len(temp) == 0:  # e.g., C20H25NO, here #O = 1
             return 1
         else:
@@ -47,44 +45,57 @@ def getNumAtom(formu, ele):
                 return int(nstr)
 
 
-def DegUnsat(mol):
+def degree_unsaturation(mol):
     """Calculate Degree of Unsaturation of mol"""
     formu = rdMolDescriptors.CalcMolFormula(mol)
-    nC = getNumAtom(formu, 'C')
-    nN = getNumAtom(formu, 'N')
-    nX = getNumAtom(formu, 'F') + getNumAtom(formu, 'Cl') + getNumAtom(formu, 'Br') + getNumAtom(formu, 'I')
-    nH = getNumAtom(formu, 'H')
+    nC = get_num_atom(formu, 'C')
+    nN = get_num_atom(formu, 'N')
+    nX = get_num_atom(formu, 'F') + get_num_atom(formu, 'Cl') + get_num_atom(formu, 'Br') + get_num_atom(formu, 'I')
+    nH = get_num_atom(formu, 'H')
     dou = (2 * nC + 2 + nN - nX - nH) / 2  # a well-defined formula
     return dou
 
 
-def GenerateMols(
-        NmolNeeded,
-        PoolFile,
-        OutputInchiFile,
-        OutputFigPath,
-        mwMin,
-        mwMax,
-        DoUMin,
-        DoUMax,
-        oneAtomWeight=12,
-        mwDelta=0.1
+def generate_mols(
+        n_mol_needed=1000,
+        pool_file='Pool.txt',
+        output_inchi_file='newMols.txt',
+        output_fig_path='MolsFig',
+        mw_min=281,
+        mw_max=368,
+        unsat_min=9,
+        unsat_max=12,
+        one_atom_weight=12,
+        mw_delta=0.1
 ):
-    """The main function that generates new molecules from an assembly pool.
+    """
+    #    NmolNeeded = 1000
+    #    PoolFile = 'Pool.txt'
+    #    OutputFile = 'newMols.txt'
+    #    OutputFigPath = 'MolsFig'
+    #    mwMin = 281 # minimum molecular weight of the 6 natural opiates we used
+    #    mwMax = 368 # maximum molecular weight of the 6 natural opiates we used
+    #    DoUMin = 9 # minimum Degree of Unsaturation of the 6 natural opiates we used
+    #    DoUMax = 12 # maximum Degree of Unsaturation of the 6 natural opiates we used
+    #    oneAtomWeight = 12 # choose for Carbon atom
+    #    mwDelta = 0.1
+
+
+    The main function that generates new molecules from an assembly pool.
     Args:
-        NmolNeeded (int): how many molecules needed to be generated.
-        PoolFile (str): path to assembly pool inchis.
-        OutputInchiFile (str): file name where the output inchis will be written into.
-        OutputFigPath (str): path of a folder where the pictures of the newly-generated molecules will be put into.
-        mwMin (int): minimum molecular weight of newly-generated molecules.
-        mwMax (int): maximum molecular weight of newly-generated molecules.
-        DoUMin (int): minimum Degree of Unsaturation of newly-generated molecules.
-        DoUMax (int): maximum Degree of Unsaturation of newly-generated molecules.
-        oneAtomWeight (int): an approximate molecular weight lost when an atom is thrown away when two fragments are combined.
-        mwDelta (float): give a range of the molecular weight that could be relaxed.
+        n_mol_needed (int): how many molecules needed to be generated.
+        pool_file (str): path to assembly pool inchis.
+        output_inchi_file (str): file name where the output inchis will be written into.
+        output_fig_path (str): path of a folder where the pictures of the newly-generated molecules will be put into.
+        mw_min (int): minimum molecular weight of newly-generated molecules.
+        mw_max (int): maximum molecular weight of newly-generated molecules.
+        unsat_min (int): minimum Degree of Unsaturation of newly-generated molecules.
+        unsat_max (int): maximum Degree of Unsaturation of newly-generated molecules.
+        one_atom_weight (int): an approximate molecular weight lost when an atom is thrown away when two fragments are combined.
+        mw_delta (float): give a range of the molecular weight that could be relaxed.
     """
     frag = []
-    with open(PoolFile) as f:
+    with open(pool_file) as f:
         for inc in f:
             if inc[:5] == 'InChI':
                 inc = inc.replace('\n', '')
@@ -92,15 +103,15 @@ def GenerateMols(
     Nfrag = len(frag)
     print('# fragments in the assembly pool:', Nfrag, flush=True)
 
-    mwMinTry = mwMin * (1 - mwDelta)
-    mwMaxTry = mwMax * (1 + mwDelta)
+    mwMinTry = mw_min * (1 - mw_delta)
+    mwMaxTry = mw_max * (1 + mw_delta)
     n = 0
     newMols = []
     nFiltered = 0
 
-    while n < NmolNeeded:
+    while n < n_mol_needed:
         try:
-            mw = oneAtomWeight
+            mw = one_atom_weight
             idxList = []
             idx = []
             while True:
@@ -111,12 +122,12 @@ def GenerateMols(
                 mw += rdMolDescriptors.CalcExactMolWt(frag[idxThis], onlyHeavy=True)
                 if mw < mwMinTry:
                     idx.append(idxThis)
-                    mw -= oneAtomWeight
+                    mw -= one_atom_weight
                 else:
                     if mw <= mwMaxTry:
                         idx.append(idxThis)
                         idxList.append(idx.copy())
-                        mw -= oneAtomWeight
+                        mw -= one_atom_weight
                     else:
                         break
 
@@ -131,7 +142,7 @@ def GenerateMols(
                 while len(ToBeComb) > 1:
                     # combine fragments until only a big one exists.
                     # randomly pick two fragments from ToBeComb and combine them, and then put it back into ToBeComb; Then randomly pick two from ToBeComb and repeat.
-                    picked, remain = pickTwo(ToBeComb)
+                    picked, remain = pick_two(ToBeComb)
                     M1 = frag[picked[0]]
                     M2 = frag[picked[1]]
 
@@ -158,16 +169,16 @@ def GenerateMols(
                     continue
                 newMolecule = frag[ToBeComb[0]]
 
-                # consider Degree of Unsaturation (DoU)
-                dou = DegUnsat(newmol)
-                if dou > DoUMax:
+                # consider Degree of Unsaturation
+                dou = degree_unsaturation(newmol)
+                if dou > unsat_max:
                     print('>', end='', flush=True)
                     continue
-                elif dou < DoUMin:
+                elif dou < unsat_min:
                     print('<', end='', flush=True)
                     # if DoU is smaller than DoUMin, then use operation Origami() to make rings (details in Reassembler.py)
                     # one Origami() operation, DoU is increased by 1.
-                    nOrigami = random.randint(DoUMin - int(dou), int(DoUMax - dou))
+                    nOrigami = random.randint(unsat_min - int(dou), int(unsat_max - dou))
                     # randomly decide how many Origami() operation will be done
                     try:
                         for i in range(nOrigami):
@@ -199,7 +210,7 @@ def GenerateMols(
         except:
             continue
 
-    f = open(OutputInchiFile, 'w')
+    f = open(output_inchi_file, 'w')
     i = 0
     for inc in newMols:
         i += 1
@@ -209,22 +220,4 @@ def GenerateMols(
     print('\n', 'nFiltered =', nFiltered, flush=True)
 
     # visualize, generate figures
-    ra.printer(OutputInchiFile, OutputFigPath)
-
-
-def run(NmolNeeded, PoolFile='Pool.txt', OutputInchiFile='newMols.txt', OutputFigPath='MolsFig', mwMin=281, mwMax=368,
-        DoUMin=9, DoUMax=12, oneAtomWeight=12, mwDelta=0.1):
-    #    NmolNeeded = 1000
-    #    PoolFile = 'Pool.txt'
-    #    OutputFile = 'newMols.txt'
-    #    OutputFigPath = 'MolsFig'
-    #    mwMin = 281 # minimum molecular weight of the 6 natural opiates we used
-    #    mwMax = 368 # maximum molecular weight of the 6 natural opiates we used
-    #    DoUMin = 9 # minimum Degree of Unsaturation of the 6 natural opiates we used
-    #    DoUMax = 12 # maximum Degree of Unsaturation of the 6 natural opiates we used
-    #    oneAtomWeight = 12 # choose for Carbon atom
-    #    mwDelta = 0.1
-
-    GenerateMols(NmolNeeded, PoolFile, OutputInchiFile, OutputFigPath, mwMin, mwMax, DoUMin, DoUMax, oneAtomWeight,
-                 mwDelta)
-    print('Done.')
+    ra.printer(output_inchi_file, output_fig_path)
