@@ -1,9 +1,11 @@
+from typing import List, Union
+
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 from rdkit.Chem.MolStandardize import rdMolStandardize
 
 
-def safe_standardize_mol(mol, add_hydrogens=True):
+def safe_standardize_mol(mol: Chem.Mol, add_hydrogens: bool = True) -> Chem.Mol:
     """
     Standardize the given RDKit molecule with additional safety checks.
 
@@ -32,7 +34,7 @@ def safe_standardize_mol(mol, add_hydrogens=True):
     return mol
 
 
-def standardize_mol(mol, add_hydrogens=True):
+def standardize_mol(mol: Chem.Mol, add_hydrogens: bool = True) -> Chem.Mol:
     """
     Standardize the given RDKit molecule.
 
@@ -58,7 +60,7 @@ def standardize_mol(mol, add_hydrogens=True):
     return mol
 
 
-def smi_to_mol(smi, add_hydrogens=True, safe_sanitise=False):
+def smi_to_mol(smi: str, add_hydrogens: bool = True, safe_sanitise: bool = False) -> Chem.Mol:
     """
     Convert a SMILES string to a standardized RDKit molecule.
 
@@ -78,7 +80,7 @@ def smi_to_mol(smi, add_hydrogens=True, safe_sanitise=False):
         return standardize_mol(mol, add_hydrogens=add_hydrogens)
 
 
-def inchi_to_mol(inchi, add_hydrogens=True, safe_sanitise=False):
+def inchi_to_mol(inchi: str, add_hydrogens: bool = True, safe_sanitise: bool = False) -> Chem.Mol:
     """
     Convert an InChI string to a standardized RDKit molecule.
 
@@ -98,7 +100,7 @@ def inchi_to_mol(inchi, add_hydrogens=True, safe_sanitise=False):
         return standardize_mol(mol, add_hydrogens=add_hydrogens)
 
 
-def molfile_to_mol(mol, add_hydrogens=True, safe_sanitise=False):
+def molfile_to_mol(mol: str, add_hydrogens: bool = True, safe_sanitise: bool = False) -> Chem.Mol:
     """
     Convert a Molfile to a standardized RDKit molecule.
 
@@ -119,12 +121,12 @@ def molfile_to_mol(mol, add_hydrogens=True, safe_sanitise=False):
         return standardize_mol(mol, add_hydrogens=add_hydrogens)
 
 
-def combine_mols(mols):
+def combine_mols(mols: Union[List[Chem.Mol], Chem.Mol]) -> Chem.Mol:
     """
     Combine multiple RDKit molecules into a single molecule.
 
     Args:
-        mols (list or Chem.Mol): A list of RDKit molecules to be combined or a single RDKit molecule.
+        mols (Union[List[Chem.Mol], Chem.Mol]): A list of RDKit molecules to be combined or a single RDKit molecule.
 
     Returns:
         Chem.Mol: The combined RDKit molecule if input is a list, otherwise returns the input molecule.
@@ -138,7 +140,7 @@ def combine_mols(mols):
         return mols
 
 
-def split_mols(mol):
+def split_mols(mol: Chem.Mol) -> tuple[Chem.Mol, ...]:
     """
     Split an RDKit molecule into its individual components.
 
@@ -146,12 +148,12 @@ def split_mols(mol):
         mol (Chem.Mol): The input RDKit molecule to be split.
 
     Returns:
-        tuple: A tuple of RDKit molecule fragments.
+        tuple[Chem.Mol, ...]: A tuple of RDKit molecule fragments.
     """
     return Chem.GetMolFrags(mol, asMols=True)
 
 
-def write_v2k_mol_file(mol, file_path):
+def write_v2k_mol_file(mol: Chem.Mol, file_path: str) -> None:
     """
     Write an RDKit molecule to a file in V2K Mol block format.
 
@@ -162,3 +164,4 @@ def write_v2k_mol_file(mol, file_path):
     # Need to force rdkit to use V2k mol block format
     with open(file_path, "w") as f:
         f.write(Chem.MolToV2KMolBlock(mol))
+    return None
