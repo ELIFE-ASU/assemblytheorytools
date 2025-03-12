@@ -82,7 +82,7 @@ from .construction import parse_pathway_file
 from .construction_string import (generate_string_pathway_ian,
                                   get_graph_string_explicit)
 
-from .reassembler import generate_mols
+from .reassembler import reassemble_mols
 
 __version__ = "1.3.0"
 

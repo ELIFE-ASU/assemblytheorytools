@@ -1437,17 +1437,17 @@ def degree_unsaturation(mol):
     return dou
 
 
-def generate_mols(mols,
-                  n_mol_needed=1000,
-                  output_inchi_file='newMols.txt',
-                  output_fig_path='MolsFig',
-                  mw_min=281,
-                  mw_max=368,
-                  unsat_min=9,
-                  unsat_max=12,
-                  one_atom_weight=12,
-                  mw_delta=0.1
-                  ):
+def reassemble_mols(mols,
+                    n_mol_needed=1000,
+                    output_inchi_file='newMols.txt',
+                    output_fig_path='MolsFig',
+                    mw_min=281,
+                    mw_max=368,
+                    unsat_min=9,
+                    unsat_max=12,
+                    one_atom_weight=12,
+                    mw_delta=0.1
+                    ):
     """
     #    NmolNeeded = 1000
     #    PoolFile = 'Pool.txt'
@@ -1595,4 +1595,3 @@ def generate_mols(mols,
     printer(output_inchi_file, output_fig_path)
 
     return new_mols
-

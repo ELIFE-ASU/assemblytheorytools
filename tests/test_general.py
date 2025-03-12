@@ -1011,3 +1011,25 @@ def test_get_chirality():
 
     chirality = att.get_chirality(mol)
     assert chirality == 3
+
+
+def test_reassemble():
+    print(flush=True)
+    molecules = ['[H]OC(=O)C([H])([H])N([H])[H]']
+    # Convert all the SMILES strings to molecule objects
+    mols = [att.smi_to_mol(smile) for smile in molecules]
+    # Combine the molecule objects into a single molecule
+    mol = att.combine_mols(mols)
+
+    # Calculate the assembly index
+    ai, virt_obj, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
+
+    mols_out = att.convert_pathway_dict_to_list(virt_obj)
+
+    re_mols = [Chem.MolToInchi(mol) for mol in mols_out]
+    print(re_mols, flush=True)
+
+    re_mols = att.reassemble_mols(mols_out, n_mol_needed=2)
+    re_mols = [Chem.MolToInchi(mol) for mol in re_mols]
+    print(re_mols, flush=True)
+
