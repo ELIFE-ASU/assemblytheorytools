@@ -79,6 +79,8 @@ from .tools_mp import (mp_calc,
                        tp_calc)
 
 from .construction import parse_pathway_file
+from .construction_string import (generate_string_pathway_ian,
+                                  get_graph_string_explicit)
 
 __version__ = "1.3.0"
 
