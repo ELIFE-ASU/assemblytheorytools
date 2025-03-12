@@ -13,7 +13,7 @@ from rdkit.Chem.SimpleEnum import Enumerator
 RDLogger.DisableLog('rdApp.*')
 
 
-def assemble(molecule1, molecule2, sites, return_file=False, output_file_path = 'Reassembler_Output.txt'):
+def assemble(molecule1, molecule2, sites, return_file=False, output_file_path='Reassembler_Output.txt'):
     """
     Args:
     molecule1= first fragment to be merged (mol object);
@@ -1089,8 +1089,6 @@ def assemble(molecule1, molecule2, sites, return_file=False, output_file_path = 
     for i in range(0, len(smarts[2])):
         rxn[2][i] = AllChem.ReactionFromSmarts(smarts[2][i])
 
-
-
     # ENGAGE WITH SITES=1
 
     if sites == 1:
@@ -1338,7 +1336,6 @@ def origami(mol, return_file=False, output_file_path='Reassembler_Output.txt'):
     for i in range(0, len(smarts)):
         rxn[i] = AllChem.ReactionFromSmarts(smarts[i])
 
-
     new_mol_list = []
     all_products = []
     unique_products = []
@@ -1440,18 +1437,17 @@ def degree_unsaturation(mol):
     return dou
 
 
-def generate_mols(
-        n_mol_needed=1000,
-        pool_file='Pool.txt',
-        output_inchi_file='newMols.txt',
-        output_fig_path='MolsFig',
-        mw_min=281,
-        mw_max=368,
-        unsat_min=9,
-        unsat_max=12,
-        one_atom_weight=12,
-        mw_delta=0.1
-):
+def generate_mols(mols,
+                  n_mol_needed=1000,
+                  output_inchi_file='newMols.txt',
+                  output_fig_path='MolsFig',
+                  mw_min=281,
+                  mw_max=368,
+                  unsat_min=9,
+                  unsat_max=12,
+                  one_atom_weight=12,
+                  mw_delta=0.1
+                  ):
     """
     #    NmolNeeded = 1000
     #    PoolFile = 'Pool.txt'
@@ -1478,13 +1474,8 @@ def generate_mols(
         one_atom_weight (int): an approximate molecular weight lost when an atom is thrown away when two fragments are combined.
         mw_delta (float): give a range of the molecular weight that could be relaxed.
     """
-    frag = []
-    with open(pool_file) as f:
-        for inc in f:
-            if inc[:5] == 'InChI':
-                inc = inc.replace('\n', '')
-                frag.append(Chem.MolFromInchi(inc))
-    n_frag = len(frag)
+
+    n_frag = len(mols)
     print('# fragments in the assembly pool:', n_frag, flush=True)
 
     mw_min_try = mw_min * (1 - mw_delta)
@@ -1503,7 +1494,7 @@ def generate_mols(
                 # each (list of fragments) is within the molecular weight range [mw_min_try, mw_max_try]
                 # so later, we randomly choose one (list of fragments) is a proper set of fragments that when they're combined, the weight is within the required range.
                 idx_this = random.randint(0, n_frag - 1)
-                mw += rdMolDescriptors.CalcExactMolWt(frag[idx_this], onlyHeavy=True)
+                mw += rdMolDescriptors.CalcExactMolWt(mols[idx_this], onlyHeavy=True)
                 if mw < mw_min_try:
                     idx.append(idx_this)
                     mw -= one_atom_weight
@@ -1521,14 +1512,13 @@ def generate_mols(
             else:
                 to_be_comb = idx_list[random.randint(0, len(idx_list) - 1)]
 
-
                 i_frag = n_frag
                 while len(to_be_comb) > 1:
                     # combine fragments until only a big one exists.
                     # randomly pick two fragments from to_be_comb and combine them, and then put it back into to_be_comb; Then randomly pick two from to_be_comb and repeat.
                     picked, remain = pick_two(to_be_comb)
-                    m1 = frag[picked[0]]
-                    m2 = frag[picked[1]]
+                    m1 = mols[picked[0]]
+                    m2 = mols[picked[1]]
 
                     if m1.GetNumBonds() == 1 or m2.GetNumBonds() == 1:
                         # when either has only one bond, one one atom can be joined ("overlapped")
@@ -1542,16 +1532,16 @@ def generate_mols(
                         continue_search = True
                         break
                     else:
-                        if i_frag >= len(frag):
-                            frag.append(new_mol)
+                        if i_frag >= len(mols):
+                            mols.append(new_mol)
                         else:
-                            frag[i_frag] = new_mol
+                            mols[i_frag] = new_mol
                         remain.append(i_frag)
                         i_frag += 1
                         to_be_comb = remain
                 if continue_search:
                     continue
-                new_molecule = frag[to_be_comb[0]]
+                new_molecule = mols[to_be_comb[0]]
 
                 # consider Degree of Unsaturation
                 dou = degree_unsaturation(new_mol)
@@ -1590,18 +1580,19 @@ def generate_mols(
                 # then, a new molecule is found
                 n += 1
                 print(n, end=', ', flush=True)
-                new_mols.append(Chem.MolToInchi(new_molecule))
+                new_mols.append(new_molecule)
         except:
             continue
 
     f = open(output_inchi_file, 'w')
-    i = 0
-    for inc in new_mols:
-        i += 1
-        f.write(inc + '\n')
+    for i, inc in enumerate(new_mols):
+        f.write(Chem.MolToInchi(inc) + '\n')
         f.write('--- Molecule ' + str(i) + '\n')
     f.close()
     print('\n', 'nFiltered =', n_filtered, flush=True)
 
     # visualize, generate figures
     printer(output_inchi_file, output_fig_path)
+
+    return new_mols
+
