@@ -426,7 +426,10 @@ def compile_assembly_code(assembly_tar_path="assemblycpp-main", boost_version="1
         time.sleep(1)
 
         # Compile the assembly code
+        t0 = time.time()
         run_command_simple(f"g++ {assembly_tar_path}/v5_combined_linux/main.cpp -O3 -o {exe_dir} -I{boost_code}/")
+        t1 = time.time()
+        print(f"Compilation time: {t1 - t0:.2f} seconds", flush=True)
         time.sleep(1)
 
         # Set the permissions to allow execution
@@ -464,10 +467,13 @@ def compile_assembly_code(assembly_tar_path="assemblycpp-main", boost_version="1
         exe_dir = os.path.abspath(os.path.expanduser(os.path.join(os.getcwd(), "assemblycpp3")))
 
         # Compile the assembly code with clang++
+        t0 = time.time()
         subprocess.run(
             f"clang++ -std=c++17 {assembly_tar_path}/v5_combined_linux/main.cpp -O3 -o {exe_dir} "
             f"-I{boost_include} -L{boost_lib}",
             shell=True, check=True)
+        t1 = time.time()
+        print(f"Compilation time: {t1 - t0:.2f} seconds", flush=True)
 
         # Set the permissions to allow execution
         os.chmod(exe_dir, 0o755)
