@@ -636,3 +636,34 @@ def add_assembly_to_path():
             raise NotImplementedError("Pre-compiled Assembly not implemented for MacOS or Windows.")
 
     return os.environ.get("ASS_PATH")
+
+
+def load_assembly_time():
+    """
+    Load the assembly time from the most recent output file in the most recent "ai_calc_" folder.
+
+    This function performs the following steps:
+    1. Identifies the most recent folder starting with "ai_calc_" in the current working directory.
+    2. Identifies the most recent file ending with "Out" in the identified folder.
+    3. Reads the time to completion from the last line of the identified file.
+    4. Removes the identified folder.
+
+    Returns:
+        float: The time to completion extracted from the file.
+    """
+    # Get the most recent folder starting with "ai_calc_"
+    assembly_folders = [folder for folder in os.listdir(os.getcwd()) if folder.startswith("ai_calc_")]
+    assembly_folder = max(assembly_folders, key=os.path.getctime)
+    assembly_path = os.path.join(os.getcwd(), assembly_folder)
+
+    # Get the most recent file ending with "Out"
+    assembly_files = [file for file in os.listdir(assembly_path) if file.endswith("Out")]
+    latest_file = os.path.join(assembly_path, assembly_files[-1])
+
+    # Read the time to completion from the last line of the file
+    with open(latest_file, "r") as f:
+        time_to_completion = f.readlines()[-1].split(":")[-1].strip()
+
+    # Remove the assembly folder
+    shutil.rmtree(assembly_path)
+    return float(time_to_completion)

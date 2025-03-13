@@ -7,7 +7,8 @@ from .assembly import (calculate_assembly_index,
                        run_command_simple,
                        compile_assembly_code,
                        assembly_dry_run,
-                       add_assembly_to_path)
+                       add_assembly_to_path,
+                       load_assembly_time)
 
 from .complexity_scores import (molecular_weight,
                                 bertz_complexity,
