@@ -47,8 +47,12 @@ from .tools_mol import (safe_standardize_mol,
                         write_v2k_mol_file,
                         split_mols)
 
-from .tools_file import (file_list_all,
-                         write_to_shared_file)
+from .tools_file import (file_list,
+                         file_list_all,
+                         filter_files,
+                         write_to_shared_file,
+                         remove_files,
+                         wipe_dir)
 
 from .tools_cell import (read_cif_file,
                          atoms_to_mol_file,
