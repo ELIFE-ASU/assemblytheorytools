@@ -109,3 +109,16 @@ def wipe_dir(temp_dir):
         remove_files(temp_dir)
         os.rmdir(temp_dir)
         return None
+
+def list_subdirs(directory, target="ai_calc"):
+    """
+    List subdirectories in a given directory that start with a specific target string.
+
+    Args:
+        directory (str): The path to the directory to search within.
+        target (str, optional): The prefix string that subdirectories must start with. Defaults to "ai_calc".
+
+    Returns:
+        list: A list of subdirectory names that start with the target string.
+    """
+    return [d for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d)) and d.startswith(target)]

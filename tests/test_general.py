@@ -12,20 +12,6 @@ from rdkit.Chem import AllChem as Chem
 import assemblytheorytools as att
 
 
-def list_subdirs(directory, target="ai_calc"):
-    """
-    List subdirectories in a given directory that start with a specific target string.
-
-    Args:
-        directory (str): The path to the directory to search within.
-        target (str, optional): The prefix string that subdirectories must start with. Defaults to "ai_calc".
-
-    Returns:
-        list: A list of subdirectory names that start with the target string.
-    """
-    return [d for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d)) and d.startswith(target)]
-
-
 def print_graph_details(graph):
     """
     Print the details of a graph, including node indices, node colors, edge connections, and edge colors.
@@ -366,7 +352,7 @@ def test_ass_mol_debug():
     # Calculate the assembly index
     ai, virt_obj, _ = att.calculate_assembly_index(mol, debug=True)
     # Get the path of the created file
-    dir_list = list_subdirs(os.getcwd())
+    dir_list = att.list_subdirs(os.getcwd(), target="ai_calc")
     # Compare to the hand calculated value
     assert ai == 2
     assert Chem.MolToInchi(mol) == Chem.MolToInchi(virt_obj["file_graph"][0])
@@ -1032,4 +1018,3 @@ def test_reassemble():
     re_mols = att.reassemble_mols(mols_out, n_mol_needed=2)
     re_mols = [Chem.MolToInchi(mol) for mol in re_mols]
     print(re_mols, flush=True)
-

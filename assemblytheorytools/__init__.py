@@ -52,7 +52,8 @@ from .tools_file import (file_list,
                          filter_files,
                          write_to_shared_file,
                          remove_files,
-                         wipe_dir)
+                         wipe_dir,
+                         list_subdirs)
 
 from .tools_cell import (read_cif_file,
                          atoms_to_mol_file,
