@@ -64,16 +64,17 @@ def test_ass_graph():
     graph = att.mol_to_nx(mol)
     # Calculate the assembly index of the graph
     ai, virt_obj, _ = att.calculate_assembly_index(graph)
-    # Get the input graph from the output dictionary
-    input_graph = virt_obj["file_graph"][0]
-    # Convert the input graph back to a SMILES string
-    smi_out = Chem.MolToSmiles(att.nx_to_mol(input_graph))
-    # Check the assembly index
+    virt_obj = att.convert_pathway_dict_to_list(virt_obj)
+
+    # Convert the graph to a mol and then to a SMILES string
+    virt_obj = [Chem.MolToSmiles(att.nx_to_mol(graph)) for graph in virt_obj]
+    ref_out = ['[H]C#C[H]',
+               '[H]C([H])([H])[H]',
+               '[H]C([H])([H])[H]',
+               '[H]C#C[H]']
+
     assert ai == 2
-    # Check the output graph is the same as the input
-    assert att.is_graph_isomorphic(graph, input_graph)
-    # Check the graph conversion to and from RDKit
-    assert smi_in == smi_out
+    assert att.check_elements(virt_obj, ref_out)
 
 
 def test_ass_mol_file():
@@ -102,10 +103,14 @@ def test_ass_mol_file():
     # Calculate the assembly index of the molecule from the mol file
     ai, virt_obj, _ = att.calculate_assembly_index(mol_file)
 
-    # Compare to the hand calculated value
+    virt_obj = att.convert_pathway_dict_to_list(virt_obj)
+
+    ref_out = ['InChI=1S/C2H2/c1-2/h1-2H',
+               'InChI=1S/CH4/h1H4',
+               'InChI=1S/CH4/h1H4',
+               'InChI=1S/C2H2/c1-2/h1-2H']
     assert ai == 2
-    assert Chem.MolToInchi(mol) == virt_obj["file_graph"][0]
-    # Remove the temporary mol file
+    assert att.check_elements(virt_obj, ref_out)
     os.remove(mol_file)
 
 
@@ -129,9 +134,17 @@ def test_ass_mol():
     mol = att.smi_to_mol(smi_in)
     # Calculate the assembly index of the molecule
     ai, virt_obj, _ = att.calculate_assembly_index(mol)
-    # Compare to the hand calculated value
+    virt_obj = att.convert_pathway_dict_to_list(virt_obj)
+
+    # Convert the graph to a mol and then to a SMILES string
+    virt_obj = [Chem.MolToSmiles(mol) for mol in virt_obj]
+    ref_out = ['[H]C#C[H]',
+               '[H]C([H])([H])[H]',
+               '[H]C([H])([H])[H]',
+               '[H]C#C[H]']
+
     assert ai == 2
-    assert Chem.MolToInchi(mol) == Chem.MolToInchi(virt_obj["file_graph"][0])
+    assert att.check_elements(virt_obj, ref_out)
 
 
 def test_compare_ass_graph_mol_file_mol():
@@ -362,10 +375,20 @@ def test_joint_ass():
     mol = att.combine_mols(mols)
 
     # Calculate the assembly index
-    ai, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
+    ai, virt_obj, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
 
-    # Assert that the calculated assembly index is equal to 4
+    virt_obj = att.convert_pathway_dict_to_list(virt_obj)
+
+    # Convert the graph to a mol and then to a SMILES string
+    virt_obj = [Chem.MolToSmiles(mol) for mol in virt_obj]
+    ref_out = ['[H]OC(=O)C([H])([H])N([H])[H]',
+               '[H]OC(=O)C([H])(N([H])[H])C([H])([H])[H]',
+               '[H]OC(=O)C([H])([H])N([H])[H]',
+               '[H]C([H])([H])C([H])([H])[H]',
+               '[H]OC(=O)C([H])([H])N([H])[H]']
+
     assert ai == 4
+    assert att.check_elements(virt_obj, ref_out)
 
 
 @pytest.mark.slow
