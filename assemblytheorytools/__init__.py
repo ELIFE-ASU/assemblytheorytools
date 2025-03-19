@@ -57,7 +57,8 @@ from .tools_file import (file_list,
 
 from .tools_cell import (read_cif_file,
                          atoms_to_mol_file,
-                         atoms_to_nx)
+                         atoms_to_nx,
+                         find_clusters)
 
 from .pathway import (get_pathway_to_graph,
                       get_pathway_to_mol,

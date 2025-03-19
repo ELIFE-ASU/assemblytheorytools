@@ -5,7 +5,8 @@ import networkx as nx
 from ase.atoms import Atoms
 from ase.io import cif
 from ase.neighborlist import NeighborList, natural_cutoffs
-
+from scipy import sparse
+import numpy as np
 
 def read_cif_file(cif_file: str) -> Atoms:
     """
@@ -116,3 +117,23 @@ def atoms_to_nx(atoms: Atoms) -> nx.Graph:
         graph.add_edge(bond[0], bond[1], color='1')
 
     return graph
+
+def find_clusters(atoms, cutoff_smear=1.5):
+    # Get the natural cutoffs
+    cutoffs = natural_cutoffs(atoms)
+    # Apply the smear to the cutoffs
+    cutoffs = [cutoff_smear * cutoff for cutoff in cutoffs]
+    # Get the neighbor list
+    neighbor_list = NeighborList(cutoffs, self_interaction=False, bothways=True)
+    neighbor_list.update(atoms)
+    # Get the connectivity matrix
+    n_components, component_list = sparse.csgraph.connected_components(neighbor_list.get_connectivity_matrix())
+    if n_components == 1:
+        return None
+    else:
+        # Select the atoms in the largest component
+        atoms_in_component = [i for i, c in enumerate(component_list) if c == np.argmax(np.bincount(component_list))]
+        atoms_to_remove = [i for i in range(len(atoms)) if i not in atoms_in_component]
+        print("Number of clusters:", n_components)
+        print("Atoms to remove:", atoms_to_remove)
+        return atoms_to_remove
