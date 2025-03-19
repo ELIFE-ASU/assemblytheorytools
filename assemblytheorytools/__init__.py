@@ -84,6 +84,8 @@ from .tools_mp import (mp_calc,
                        mp_calc_star,
                        tp_calc)
 
+from .tools_test import (check_elements, print_graph_details)
+
 from .construction import parse_pathway_file
 from .construction_string import (generate_string_pathway_ian,
                                   get_graph_string_explicit)

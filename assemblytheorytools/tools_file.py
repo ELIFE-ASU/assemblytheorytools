@@ -76,39 +76,40 @@ def write_to_shared_file(message: str, shared_file: str) -> None:
 
 
 def remove_files(target_dir, debug=False):
-        """
-        This function removes all files in the specified directory and its subdirectories.
+    """
+    This function removes all files in the specified directory and its subdirectories.
 
-        Parameters:
-        target_dir (str): The path to the target directory.
-        debug (bool, optional): If True, prints the name of each file being removed. Defaults to False.
+    Parameters:
+    target_dir (str): The path to the target directory.
+    debug (bool, optional): If True, prints the name of each file being removed. Defaults to False.
 
-        Returns:
-        None
-        """
-        # List all files in the directory
-        list_files = file_list_all(target_dir)
-        # Remove the files
-        for file in list_files:
-            if debug:
-                print(f"Removing file {file}", flush=True)
-            os.remove(file)
-        return None
+    Returns:
+    None
+    """
+    # List all files in the directory
+    list_files = file_list_all(target_dir)
+    # Remove the files
+    for file in list_files:
+        if debug:
+            print(f"Removing file {file}", flush=True)
+        os.remove(file)
+    return None
 
 
 def wipe_dir(temp_dir):
-        """
-        This function removes all files in the specified directory and then removes the directory itself.
+    """
+    This function removes all files in the specified directory and then removes the directory itself.
 
-        Parameters:
-        temp_dir (str): The path to the directory to be wiped.
+    Parameters:
+    temp_dir (str): The path to the directory to be wiped.
 
-        Returns:
-        None
-        """
-        remove_files(temp_dir)
-        os.rmdir(temp_dir)
-        return None
+    Returns:
+    None
+    """
+    remove_files(temp_dir)
+    os.rmdir(temp_dir)
+    return None
+
 
 def list_subdirs(directory, target="ai_calc"):
     """

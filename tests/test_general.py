@@ -12,26 +12,6 @@ from rdkit.Chem import AllChem as Chem
 import assemblytheorytools as att
 
 
-def print_graph_details(graph):
-    """
-    Print the details of a graph, including node indices, node colors, edge connections, and edge colors.
-
-    Args:
-        graph (networkx.Graph): The graph whose details are to be printed.
-
-    Returns:
-        None
-    """
-    print("{", flush=True)
-    for node in graph.nodes(data=True):
-        node_index = node[0]
-        node_color = node[1].get('color', 'No color')
-        edge_connections = list(graph.edges(node_index))
-        edge_colors = [graph.get_edge_data(*edge)['color'] for edge in edge_connections]
-        print(f"({node_index}, {node_color}): {edge_connections}, {edge_colors}", flush=True)
-    print("}", flush=True)
-
-
 def test_graph_to_mol():
     """
     Test the conversion of a SMILES string to a molecular graph and back to a molecule.
@@ -583,7 +563,7 @@ def test_node_scramble():
 def test_undir_str_ass():
     """
     Test the string assembly index calculation in mol mode for an undirected string.
-    
+
     This function performs the following steps:
     1. Defines an input string.
     2. Calculates the assembly index of the input string.
@@ -601,7 +581,7 @@ def test_undir_str_ass():
 def test_dir_str_ass():
     """
     Test the string assembly index calculation in mol mode for a directed string.
-    
+
     This function performs the following steps:
     1. Defines an input string.
     2. Calculates the assembly index of the input string.
@@ -619,7 +599,7 @@ def test_dir_str_ass():
 def test_CFG_str_ass():
     """
     Test the CFG upperbound to string assembly index for a directed string.
-    
+
     This function performs the following steps:
     1. Defines an input string.
     2. Calculates the assembly index upper bound for the input string.
@@ -662,7 +642,7 @@ def test_hand_graph():
     # Set the edge labels to be "1" - a single bond
     nx.set_edge_attributes(G, 1, "color")
     print("input", flush=True)
-    print_graph_details(G)
+    att.print_graph_details(G)
 
     ai, virt_obj, _ = att.calculate_assembly_index(G)
     # Convert the dict to a list
@@ -673,7 +653,7 @@ def test_hand_graph():
     virt_obj.pop(0)
     for i, p in enumerate(virt_obj):
         print(f"Pathway object = {i}", flush=True)
-        print_graph_details(p)
+        att.print_graph_details(p)
 
     assert ai == 3
 
