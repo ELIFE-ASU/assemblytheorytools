@@ -13,7 +13,6 @@ import json
 import random
 from copy import deepcopy # Useful for nested structures
 from .seb_pathway_tools import *
-from .seb_molecule_filter import apply_filters
 
 
 #-------------- ORIGINALLY, ASSEMBLER/JAS/CONSTRUCTION_OBJECT.PY-----------------
@@ -1189,7 +1188,7 @@ class MoleculeGenerationAssemblyPool:
 
     ### CONSTRUCTION FUNCTIONS ###
     def combine_fragments(
-        self, fragment1, fragment2, assemble_object, filter=False, layer=1, substruc_only=True
+        self, fragment1, fragment2, assemble_object, layer=1
     ):
         """
         Combines two fragments into a molecule in a assembly kind of way.
@@ -1218,22 +1217,10 @@ class MoleculeGenerationAssemblyPool:
             mol2,
             atomtype_index_mapping1,
             atomtype_index_mapping2,
-            filter=filter,
             layer=layer,
-            substruc_only=substruc_only,
         )
 
-    def check_molecule(self, molecule) -> bool:
-        """
-        Apply filtering pipeline
-        Only applied to final molecule. Substruc_only is set to False by default
-        """
-        if isinstance(molecule, str):
-            molecule = Chem.MolFromSmiles(molecule)
-        if molecule is None:
-            return False
-
-        return apply_filters(molecule)[0].get("passed_filter", True)
+    
 
     def get_atomtype_index_mapping(self, fragment):
         """
@@ -1278,9 +1265,7 @@ class MoleculeGenerationAssemblyPool:
         exponent: float = 1.0,
         layer_exponent: float = 2.0,
         step_exponent: float = 1.0,
-        filter: bool = False,
         remove_pathways: bool = False,
-        substruc_only: bool = True,
         check_final_molecule: bool = True,
     ):
         """
@@ -1309,12 +1294,8 @@ class MoleculeGenerationAssemblyPool:
             Scaling factor for sampling weights of layers
         step_exponent : float
             Scaling factor for sampling weights of steps
-        filter : bool
-            If True, apply filtering pipeline to molecules
         remove_pathways : bool
             If True, remove entire pathways from the assembly pool
-        substruc_only : bool
-            If True, only apply substructure filters to molecule substructures
         check_final_molecule : bool
             If True, apply filtering pipeline to final molecules
         """
@@ -1331,7 +1312,7 @@ class MoleculeGenerationAssemblyPool:
                 return None, None, 0
             return (
                 self.combine_fragments(
-                    fragment1, fragment2, assemble_object, filter, layer=curr_depth, substruc_only=substruc_only
+                    fragment1, fragment2, assemble_object, layer=curr_depth
                 ),
                 fragment2,
                 num_fragments,
@@ -1403,20 +1384,10 @@ class MoleculeGenerationAssemblyPool:
                     else:
                         black_list.append(fragment2)
                         continue
-            else:
-                if check_final_molecule:
-                    if self.check_molecule(molecule) and self.assembled_molecules[i]:
-                        assembled_molecules += 1
-                    else:
-                        try:
-                            del self.assembled_molecules[i]
-                            self.assembled_molecules[i] = []
-                        except KeyError:
-                            ...
-                elif self.assembled_molecules[i]:
-                    assembled_molecules += 1
+            if self.assembled_molecules[i]:
+                assembled_molecules += 1
             i += 1
-            
+
             # because regenerating a molecule
             # is done independently of the other molecules
             self.reset_level_to_fragment()
@@ -1730,7 +1701,7 @@ class Assemble:
         return None
 
     def combine_fragments(
-        self, fragment1, fragment2, combinations, filter=False, substruc_only = True
+        self, fragment1, fragment2, combinations
     ) -> Chem.rdchem.Mol:
         """
         Combine two fragments by overlapping atoms defined in combinations.
@@ -1776,11 +1747,8 @@ class Assemble:
 
         # check if molecule is valid
         mol = self.check_rdkit_compilance(rw_mol)
-        if filter and mol is not None:
-            if self.check_molecule(Chem.MolFromSmiles(mol), substruc_only=substruc_only):
-                return mol
-            else:
-                return None
+        if mol is None:
+            return None
         return mol
 
     def check_rdkit_compilance(self, rw_mol):
@@ -1796,11 +1764,6 @@ class Assemble:
             return None
         return mol
 
-    def check_molecule(self, molecule, substruc_only=True) -> bool:
-        """
-        Apply filtering pipeline
-        """
-        return apply_filters(molecule, substruc_only=substruc_only)[0].get("passed_filter", True)
 
     def create_bond(
         self,
@@ -1808,16 +1771,13 @@ class Assemble:
         fragment2,
         atomtype_index_mapping1,
         atomtype_index_mapping2,
-        filter=True,
-        layer=None,
-        substruc_only = True,
+        layer=None
     ):
         """
         Creates a bond between two atoms in two fragments.
         Iterates over all possible combinations of atoms until a valid
-        combination is found (in case of used filters).
-        Otherwise first combination is used that survives rdkit
-
+        combination is found (first combination is used that survives rdkit)
+)
         Parameters
         ----------
         fragment1 : Chem.rdchem.Mol
@@ -1857,7 +1817,7 @@ class Assemble:
             )
             for c in combinations:
                 p_combinations_copy.remove(c)
-            mol = self.combine_fragments(f1, f2, combinations, filter=filter, substruc_only=substruc_only)
+            mol = self.combine_fragments(f1, f2, combinations)
             if mol is None:
                 continue
             return mol
