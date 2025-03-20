@@ -14,9 +14,11 @@ import random
 from copy import deepcopy # Useful for nested structures
 from .seb_pathway_tools import *
 
-
 #-------------- ORIGINALLY, ASSEMBLER/JAS/CONSTRUCTION_OBJECT.PY-----------------
-# PARENT CLASSES FOR FUTURE ONES LIKE MOELCULE, ETC
+# PARENT CLASSES FOR CHILD CLASSES: MOLECULE
+
+
+
 bond_types = {
     "single": Chem.BondType.SINGLE,
     "double": Chem.BondType.DOUBLE,
@@ -24,19 +26,16 @@ bond_types = {
     "aromatic": Chem.BondType.AROMATIC,
 }
 
-
 class ConstructionObject:
     def reconstruct_joint_assembly_space(self, assembly_out: dict) -> tuple:
         """
-        Get the joint assembly space of a molecule space.
+        Get the estimated joint assembly space of a molecule space.
 
+        Args:
+            assembly_out: dict; output of assemblycalculator.molecular_exact with 'go_output' set to True
 
-        Parameters
-        ----------
-        assembly_out: dict; output of assemblycalculator.molecular_exact with 'go_output' set to True
-        Returns
-        -------
-        joint_assembly_space: list[str]; the joint assembly space of the molecule space
+        Returns:
+            joint_assembly_space: list[str]; the joint assembly space of the molecule space
                                 as a list of inchi strings
         """
 
@@ -70,8 +69,8 @@ class ConstructionObject:
 
 
 class ParsePathwayLog:
-    # Conversion to a graph
 
+    # Conversion to a graph
     global bond_types
 
     def __init__(self, pathway_log: str):
@@ -97,6 +96,15 @@ class ParsePathwayLog:
         self.nodes_per_level = self._nodes_per_level()
 
     def construct_pathway_from_log(self):
+        """
+        Parse a pathway log from assembly calculator to a graph.
+
+        Returns:
+            atom_lines: list[list]; list of atom types
+            buildingblock_lines: list[list]; list of building blocks
+            steps_lines: dict; dictionary of steps
+            digraph_lines: list[list]; list of digraph lines
+        """
         # Parse pathway log
         # Atom log
         def destringyfy(string):
@@ -148,6 +156,12 @@ class ParsePathwayLog:
         return atom_lines, buildingblock_lines, steps_lines, digraph_lines
 
     def construct_basic_bb(self):
+        """
+        Construct basic building blocks from the pathway log.
+
+        Returns:
+            bb: dict; dictionary of basic building blocks
+        """
         edmol = Chem.EditableMol(Chem.Mol())
         bb = {}
 
@@ -164,8 +178,13 @@ class ParsePathwayLog:
     def construct_fragment_for_step(self, step: str | int):
         """
         Reconstruct a molecule from a step in the pathway log.
-        """
 
+        Args:
+            step: str; step number
+        
+        Returns:
+            smiles: str; SMILES representation of the molecule
+        """
         step = str(step)
         bonds_ids = self.steps_lines[step]
         atom_ids = list(set([atom for bond in bonds_ids for atom in bond]))
@@ -195,6 +214,12 @@ class ParsePathwayLog:
         return Chem.MolToSmiles(edmol.GetMol())
 
     def construct_multidigraph(self):
+        """
+        Construct a multidigraph from the pathway log.
+
+        Returns:
+            G: nx.MultiDiGraph; multidigraph of the pathway log
+        """
         G = nx.MultiDiGraph()
         smiles_graph = self.construct_basic_bb()
         G.add_nodes_from(smiles_graph.values())
@@ -224,6 +249,12 @@ class ParsePathwayLog:
     def get_level(self, node):
         """
         Returns the level of a node in a graph.
+
+        Args:
+            node: str; node in the graph
+        
+        Returns:
+            level: int; level of the node
         """
 
         preds = [
@@ -242,6 +273,9 @@ class ParsePathwayLog:
     def assign_levels(self):
         """
         Assigns levels to nodes in a graph.
+
+        Returns:    
+            None. Updates the graph in place. 
         """
 
         for node in self.G.nodes:
@@ -257,6 +291,9 @@ class ParsePathwayLog:
     def _nodes_per_level(self):
         """
         Returns a list of nodes in a graph at a given level.
+
+        Returns:
+            num_nodes_per_level: dict; number of nodes per level
         """
         num_nodes_per_level = {}
 
@@ -270,6 +307,16 @@ class ParsePathwayLog:
         return num_nodes_per_level
 
     def plot_layered_graph(self, show_molecules=False, save_fig=True):
+        """
+        Plot the layered graph of the molecule.
+
+        Args:
+            show_molecules: bool; if True, show the molecules in the graph
+            save_fig: bool; if True, save the figure
+        
+        Returns:
+            None. Displays the graph.
+        """
         from matplotlib.offsetbox import OffsetImage, AnnotationBbox, TextArea
         import matplotlib.pyplot as plt
 
@@ -367,6 +414,9 @@ class ParsePathwayLog:
     def _get_node_positions(self):
         """
         Returns the position of a node in a graph.
+
+        Returns:
+            positions: dict; positions of nodes in the graph  
         """
         import numpy as np
 
@@ -425,6 +475,9 @@ class ParsePathwayLog:
 
 #-----------ORIGINALLY, ASSEMBLER/JAS/JOINT_ASSEMBLY_SPACE.PY----------------
 class Molecule(ConstructionObject):
+    """
+    A class to represent a molecule.
+    """
     def __init__(
         self,
         smiles: str = "",
@@ -457,14 +510,32 @@ class Molecule(ConstructionObject):
             self.smiles = list(G.nodes)[-1]
 
     def __repr__(self):
+        """
+        Returns a string representation of the Molecule object.
+
+        Returns:
+            str: A formatted string representing the Molecule instance.
+        """
         return f"Molecule(smiles={self.smiles}, assembly_index={self.assembly_index})"
 
     def __str__(self):
+        """
+        Returns a human-readable string representation of the Molecule object.
+
+        This method provides a concise and user-friendly description of the 
+        Molecule instance, primarily intended for display purposes.
+
+        Returns:
+            str: A formatted string representing the Molecule instance.
+        """
         return f"Molecule(smiles={self.smiles}, assembly_index={self.assembly_index})"
 
     def get_smiles(self) -> str:
         """
         Return the smiles string of this molecule.
+
+        Returns:
+            str: The SMILES representation of the molecule.
         """
         if self.smiles == "":
             self.reconstruct_pathway()
@@ -473,10 +544,19 @@ class Molecule(ConstructionObject):
 
     def reconstruct_pathway(self) -> None:
         """
-        Call parent method. Get the joint assembly space of this molecule space.
-        Set self.assembly_pool to the list of inchi strings contained in the
-        assembly pool
+        Reconstructs the molecular assembly pathway.
+
+        If `assembly_output` is None, it attempts to calculate the pathway using `calc_pathway()`. 
+        Then, it reconstructs the pathway fragments and log string using `ConstructionObject`.
+
+        This method updates:
+            - `self.pathway_fragments`: The fragments forming the pathway.
+            - `self.pathway_log_string`: A log of the reconstruction process.
+
+        Raises:
+            ValueError: If `self.assembly_output` is still None after attempting to calculate it.
         """
+  
         if self.assembly_output is None:
             print("Warning: `assembly_output` is None. Attempting to calculate pathway...")
             self.calc_pathway()
@@ -489,24 +569,25 @@ class Molecule(ConstructionObject):
         return None
 
 
+
+
+
     def calculate_assembly(
         self, mol_file_path, set_timeout=64
     ) -> None:
         """
-        Calculates the assembly index and pathway of the given molecular string.
-        Converting the smiles string to mol file and then calculating the assembly index
-        using assemblyCpp or assemblygo which have to be installed in the system
+        Calculates the assembly index and pathway of the given molecular string by
+        converting a SMILES string to a mol file, then calculating the assembly index
+        using assemblyCpp or assemblygo, which have to be installed in the system
 
-        Parameters
-        ----------
-        mol_file_path : Path
-            Path to the mol file
-        set_timeout : int
-            Timeout for the assembly calculation
-        assembly_version : str
-            Assembly version to use. Either "assembly" (corresponding to assemblyGo) or "assemblyCpp"
+        Args:
+            mol_file_path: str; path to the mol file
+            set_timeout: int; timeout for the assembly calculation
+
+        This method updates:
+            - `self.assembly_output`: The output of the assembly calculation.
+
         """
-
         executable_path_cpp = "/Users/elife/Desktop/vm_sebs_code2/assemblyCpp"
 
         if self.assembly_version not in ["assemblygo", "assemblyCpp"]:
@@ -555,7 +636,10 @@ class Molecule(ConstructionObject):
 
     def calc_pathway(self) -> None:
         """
-        Calculate the assembly pathway of this molecule.
+        Calculates the assembly pathway of the molecule.
+
+        Returns:
+            None. Updates the `self.assembly_output` attribute.
         """
         if self.smiles is None:
             assert ValueError("smiles is None. Cannot calculate pathway.")
@@ -576,6 +660,9 @@ class Molecule(ConstructionObject):
     def construct_layered_graph(self):
         """
         Construct the layered graph of this molecule.
+
+        Returns:
+            None. This method updates the `self.G` attribute.
         """
         self.pathwayLogObj = ParsePathwayLog(self.pathway_log_string)
         if (
@@ -589,13 +676,20 @@ class Molecule(ConstructionObject):
         return None
 
     def plot_layered_graph(self, show_molecule: bool = True):
+        """
+        Plot the layered graph of the molecule.
+
+        Args:
+            show_molecule: bool; if True, show the molecule in the graph
+        
+        Returns:
+            None. Displays the graph
+        """
         self.pathwayLogObj.plot_layered_graph(show_molecule)
 
 
-
-
 class MoleculeSpace(ConstructionObject):
-# Doesn't use the only method defined in ConstrctionObject class, so the inhereitnace feels unjustified? 
+
     """
     A class to represent a space of molecules.
     """
@@ -630,17 +724,38 @@ class MoleculeSpace(ConstructionObject):
         )
 
     def __len__(self):
+        """
+        Returns the number of molecules in the collection.
+        """
         return len(self.molecules)
 
     def __getitem__(self, idx):
+        """
+        Retrieves a molecule by its index.
+
+        Args:
+            idx (int): The index of the molecule to retrieve.
+
+        Returns:
+            object: The molecule at the specified index.
+        """
         return self.molecules[idx]
 
     def __iter__(self):
+        """
+        Returns an iterator over the molecules in the collection.
+
+        Returns:
+            iterator: An iterator over the `molecules` list.
+        """
         return iter(self.molecules)
 
     def _remove_none(self):
         """
         Remove None from self.molecules and self.molecule_smiles
+
+        Returns:
+            None. Updates the `self.molecules` and `self.molecule_smiles` attributes.
         """
         # first get none ids
         none_ids = []
@@ -656,7 +771,10 @@ class MoleculeSpace(ConstructionObject):
 
     def _set_root_nodes(self):
         """
-        Set the self.root_nodes of the joined_assembly_graph
+        Sets the self.root_nodes of the joined_assembly_graph
+
+        Returns:
+            None. Updates the `self.root_nodes` attribute.
         """
         self.root_nodes = [
             node
@@ -667,7 +785,10 @@ class MoleculeSpace(ConstructionObject):
 
     def _set_leaf_nodes(self):
         """
-        Set the self.leaf_nodes of the joined_assembly_graph
+        Sets the self.leaf_nodes of the joined_assembly_graph
+
+        Returns:
+            None. Updates the `self.leaf_nodes` attribute.
         """
         if self.molecule_smiles is None:
             self.molecule_smiles = [
@@ -682,6 +803,12 @@ class MoleculeSpace(ConstructionObject):
         Construct the joined graph of this molecule space.
         Only one node of each molecule is included in the joined graph.
         Edges that are in multiple graphs are only included once.
+
+        Args:
+            calc_fingerprints: bool; if True, calculate fingerprints for the molecules
+        
+        Returns:
+            None. Updates the `self.joined_assembly_graph` attribute.
         """
         self.joined_assembly_graph = compose_all(
             [mol.G for mol in self.molecules],
@@ -703,27 +830,19 @@ class MoleculeSpace(ConstructionObject):
         are also removed. Returns either a modified directed graph or a list of remaining 
         molecule nodes.
 
-        Parameters
-        ----------
-        X : int, optional (default=1)
-            The number of steps back in the assembly path to remove molecules.
-            
-        get_graph : bool, optional (default=True)
-            If True, returns the updated graph. If False, returns a list of remaining molecule nodes.
+        Args:
+            X : int, optional (default=1) The number of steps back in the assembly path to remove molecules.
+            get_graph : bool, optional (default=True) If True, returns the updated graph.
+            remove_paths : bool, optional (default=False) If True, also removes molecular pathway fragments corresponding to the removed nodes.
         
-        remove_paths : bool, optional (default=False)
-            If True, also removes molecular pathway fragments corresponding to the removed nodes.
         
-        Returns
-        -------
-        nx.MultiDiGraph | list[str]
-            - If `get_graph=True`: Returns the modified directed graph (`nx.MultiDiGraph`).
-            - If `get_graph=False`: Returns a list of remaining nodes (molecule identifiers).
-            
-        Raises
-        ------
-        ValueError
-            If `X` is greater than the maximum assembly index, meaning too many steps are requested.
+        Returns:
+            nx.MultiDiGraph | list[str]
+                - If `get_graph=True`: Returns the modified directed graph (`nx.MultiDiGraph`).
+                - If `get_graph=False`: Returns a list of remaining nodes (molecule identifiers).
+        
+        Raises:
+            ValueError. If `X` is greater than the maximum assembly index, meaning too many steps are requested.
 
         Notes
         -----
@@ -733,8 +852,6 @@ class MoleculeSpace(ConstructionObject):
         - **Pathway removal (`remove_paths=True`)** eliminates fragments from associated pathways if
         they are removed from the assembly pool.
         """
-            
-
         if self.joined_assembly_graph is None:
             print("Constructing joined assembly graph.")
             self.construct_joined_graph()
@@ -805,9 +922,6 @@ class MoleculeSpace(ConstructionObject):
         return list(temp_graph.nodes), removed_observed
 
 
-
-
-
 #---------- ORIGINALLY MOLECULE_ASSEMBLY.PY ----------------
 
 atom_valence = {
@@ -828,6 +942,9 @@ atom_valence = {
 
 
 class MoleculeGenerationAssemblyPool:
+    """
+    A class to represent the assembly pool of molecules.
+    """
     def __init__(
         self,
         assembly_pool,
@@ -842,7 +959,6 @@ class MoleculeGenerationAssemblyPool:
 
     #### GRAPH MANIPULATION FUNCTIONS ####
     def set_assembly_pool(self, X=10, remove_pathways=False):
-
         """
         Modifies the assembly pool by removing a subset of molecules and 
         updates node-level attributes.
@@ -857,18 +973,14 @@ class MoleculeGenerationAssemblyPool:
         4. Creates a deep copy of `self.assembly_pool.joined_assembly_graph_minus_x` 
         and stores it in `self.original_a_minus_X` for future reference.
 
-        Parameters:
-        ----------
-        X : int, optional (default = 10) Number of steps back in the assembly depth path.
-        remove_pathways : bool, optional (default=False)
-             If True, removes fragments from the pathways of the observed molecules that are being removed
+        Args:
+            X : int, optional (default = 10) Number of steps back in the assembly depth path.
+            remove_pathways : bool, optional (default=False). If True, removes fragments from the pathways of the observed molecules that are being removed
 
         Returns:
-        -------
-        None
-            This function modifies instance attributes in place.
+            None. This method updates the `self.num_removed`, `self.level_to_fragment`,
+            `self.bu_level_to_fragment`, and `self.original_a_minus_X` attributes.
         """
-
         _, self.num_removed = self.assembly_pool.a_minus_x_assembly_pool(
             X=X, get_graph=False, remove_paths=remove_pathways
         )
@@ -903,9 +1015,7 @@ class MoleculeGenerationAssemblyPool:
         mapping returns to its initial configuration.
 
         Returns:
-        --------
-        None
-            This function modifies `self.level_to_fragment` in place and does not return a value.
+            None. This method updates the `self.level_to_fragment` attribute.
 
         Notes:
         ------
@@ -918,6 +1028,11 @@ class MoleculeGenerationAssemblyPool:
         return None
 
     def get_leaf_nodes(self):
+        """
+        Returns:
+            list[str]: A list of leaf nodes in the diverged assembly graph.
+        """
+       
         return [
             node
             for node in self.diverged_assembly_graph
@@ -925,17 +1040,24 @@ class MoleculeGenerationAssemblyPool:
         ]
 
     def get_assembled_molecules(self):
+        """
+        Returns:
+            list[str]: A list of assembled molecules in the assembly pool.
+        """
         if len(self.assembled_molecules) == 0:
             return None
         return [value[-1][-1] for _, value in self.assembled_molecules.items() if value]
 
     def get_leaf_counts_per_level(self, min_level=1) -> dict[int, int]:
         """
-        Returns the number of leaf nodes per
-        level in self.assembly_pool.joined_assembly_graph.
-        with minimum level min_level
-
+        Retrieves the number of leaf nodes per level in the assembly pool.
         Used to sample how many assembly steps to take
+
+        Args:
+            min_level : int, optional (default=1) The minimum level to consider.
+        
+        Returns:
+            dict[int, int]: The number of leaf nodes per level in the assembly pool.
         """
         leaf_counts: dict[int, int] = defaultdict(int)
         for node in self.assembly_pool.leaf_nodes:
@@ -956,8 +1078,15 @@ class MoleculeGenerationAssemblyPool:
 
     def add_to_assembly_graph(self, parents, child) -> bool:
         """
-        Return True if child was added to the assembly graph
-        and False otherwise
+        Adds a child node to the assembly graph.
+
+        Args:
+            parents: list[str] The parent nodes of the child node.
+            child: str The child node to add.
+        
+        Returns:
+            bool: True if the child node is successfully added, False otherwise.
+            Updates the `self.assembly_pool.joined_assembly_graph_minus_x` attribute.
         """
         atomic_count = []
         try:
@@ -1003,6 +1132,9 @@ class MoleculeGenerationAssemblyPool:
     def construct_diverged_assembly_graph(self):
         """
         Constructs a diverged assembly graph from the assembly pool.
+
+        Returns:
+            None. Updates the `self.diverged_assembly_graph` attribute.
         """
         self.diverged_assembly_graph = deepcopy(
             self.assembly_pool.joined_assembly_graph_minus_x
@@ -1012,24 +1144,26 @@ class MoleculeGenerationAssemblyPool:
     ### SAMPLING WEIGHTS FUNCTIONS ###
     def set_sw_layer(self, exponent: float = 2.0):
         """
-        Set weights to sample a layer to selecet a fragment from
-        Count attribute from original graph is used as weights
-        Weights are set based on all nodes in original graph
-        -> Deviation from the original graph is enforced by
-            exponent attribute
-        -> this could really be any other attribute as well
+        Computes and assigns sampling weights for each layer in the assembly graph.
 
-        exponent: float
-            Exponent to use for weighting; 2.0 seems to be a good value to
-            reproduce the Number of Heavy Atom Distribution of the assembly pool
+        This function initializes `self.layer_sampling_weights` as a dictionary where 
+        each key represents a layer level in the `joined_assembly_graph`, and the value 
+        is computed as the count of nodes in that layer raised to the given `exponent`. 
+        This weighting influences how nodes are sampled during assembly.
 
-            Absolute # of atoms per resulting molecule 
-            Alterative paths should have similar distribution of initial natural products (doesn't have to do with fragments)
+        Args:
+            exponent (float, optional): The exponent applied to the node count to compute 
+                                        sampling weights. Defaults to 2.0. This enforces the deviation from 
+                                        the original graph.
 
-        self.layer_sampling_weights: dict
-            Weights to sample a layer to selecet a fragment from
-            len(keys) == max(assembly_depth)+1 orginal graph
+        Updates:
+            self.layer_sampling_weights (dict): A dictionary where keys are layer levels 
+                                                and values are computed sampling weights.
+
+        Returns:
+            None
         """
+
         self.layer_sampling_weights: dict = defaultdict(int)
         for node in self.assembly_pool.joined_assembly_graph:
             self.layer_sampling_weights[
@@ -1041,19 +1175,32 @@ class MoleculeGenerationAssemblyPool:
 
         return None
 
+
     def set_sw_n_steps(self, level: int = 0, exponent: float = 1.0):
         """
-        To decide how many assembly steps to take. Ensures that generated molecules
+        Computes and assigns sampling weights for different levels based on leaf node counts.
+        Used to decide how many assembly steps to take, and ensures that generated molecules
         are of same complexity as molecules in the assembly pool.
-        Set sampling weights for n steps sampling
 
-        Parameters
-        ------------
-        level : int
-            Level of the biggest fragments in the assembly pool to start from
-            min_level is l + 1 since at least one step is needed to combine
-            two fragments
+        This function retrieves the count of leaf nodes at each level starting from 
+        `min_level = level + 1` using `get_leaf_counts_per_level()`. It then ensures 
+        that the levels are continuous (i.e., no level is skipped) and calculates 
+        sampling weights using an exponentiation method.
+
+        Args:
+            level (int, optional): The minimum level from which to start counting leaf nodes.
+                                Defaults to 0.
+            exponent (float, optional): The exponent applied to the leaf node count to compute
+                                        sampling weights. Defaults to 1.0.
+
+        Updates:
+            self.n_steps_sampling_weights (list): A list where indices represent levels and 
+                                                values are computed sampling weights.
+
+        Returns:
+            None
         """
+  
         leaf_counts = self.get_leaf_counts_per_level(min_level=level + 1)
         # print("leaf_counts", leaf_counts, len(leaf_counts))
         keys = list(leaf_counts.keys())
@@ -1070,7 +1217,16 @@ class MoleculeGenerationAssemblyPool:
     ### SAMPLING FUNCTIONS ###
     def sample_layer(self, exponent=2.0, curr_depth=0, black_listed_layers=[]) -> int:
         """
-        Which layer to sample from
+        Sample a layer based on the sampling weights.
+
+        Args:
+            exponent (float, optional): The exponent applied to the node count to compute
+                                        sampling weights. Defaults to 2.0.
+            curr_depth (int, optional): The current depth in the assembly process. Defaults to 0.
+            black_listed_layers (list, optional): A list of layers to exclude from sampling. Defaults to [].
+        
+        Returns:
+            int: The sampled layer level.
         """
         # sample layer this is done to ensure roughly same molecule size
         # distribution as in the assembly pool
@@ -1096,34 +1252,41 @@ class MoleculeGenerationAssemblyPool:
         layer: int = 0,
         exponent: float = 1.0,
         blacklist=[],
-    ) -> tuple[str, int]:
+    ) -> tuple[str, int]: 
         """
-        Return a random node weighted
-        by their count attribute from layer l
-        First samples a layer and then a node from that layer
+        Performs weighted random sampling (WRS) of a fragment from a specified layer.
+        The main idea is to ensure roughly the same molecule size distribution as in the assembly pool.
 
-        Parameters
-        ------------
-        base_mol : str
-            Smiles of the base molecule. Used to make sure that
-            the sampled fragment has at least one atom in common
-        inverse : bool
-            If True, sample inversely proportional to count attribute
-        exponent : float
-            Used to bias sampling towards nodes with high count or low count
-        layer : int
-            Layer to sample from
-        blacklist : list[str]
-            List of molecules that were previously tried and failed
-        Returns
-        ------------
-        str
-            Fragment
-        int
-            Number of fragments in layer that have not been tried yet
+        This function selects a fragment from a given `layer` in the assembly graph 
+        based on weighted probabilities derived from node counts. The weights are 
+        exponentiated to control selection bias. Only fragments that can combine 
+        with `base_mol` (based on atomic compatibility) are considered.
+
+        If `inverse` is `True`, the exponent is negated, effectively inverting 
+        the weighting bias.
+
+        Args:
+            base_mol (str): The base molecule with which the selected fragment 
+                            must be compatible.
+            inverse (bool, optional): If `True`, inverts the exponent to modify 
+                                    the weighting distribution. Defaults to `False`.
+            layer (int, optional): The layer from which fragments should be sampled.
+                                Defaults to `0`.
+            exponent (float, optional): The exponent applied to fragment counts 
+                                        to determine their selection weight. Defaults to `1.0`.
+            blacklist (list, optional): A list of fragments to exclude from selection.
+                                        Defaults to an empty list.
+
+        Returns:
+            tuple[str, int]: A tuple containing:
+                - `fragment` (str): The randomly chosen fragment from the layer.
+                - `num_available_fragments` (int): The number of compatible fragments available.
+
+        Notes:
+            - If no compatible fragments are found, the function returns `(None, 0)`.
+            - The weighting function accounts for fragment availability and applies 
+            an exponentiation factor to control bias.
         """
-        # sample layer this is done to ensure roughly same
-        # molecule size distribution as in the assembly pool
 
         # sample node from layer
         if inverse:
@@ -1157,11 +1320,19 @@ class MoleculeGenerationAssemblyPool:
 
         return fragment, len(layer_fragments)
 
+
     def weighted_n_steps_sampler(self, n, min_level=1):
         """
         Sample how many construction steps make for a
         molecule weighted by the number of observed molecules
         in each level in the assembly pool
+
+        Args:
+            n : int The number of steps to sample from.
+            min_level : int, optional The minimum level to consider. Defaults to 1.
+        
+        Returns:
+            int: The sampled number of steps.
         """
         return random.choices(
             list(range(1, n + 1)),
@@ -1169,42 +1340,57 @@ class MoleculeGenerationAssemblyPool:
             k=1,
         )[0]
 
+
+
     def get_random_fragment_with_level(self, node_level: int) -> str:
         """
-        USED for selection of fragment1
-        Returns a random fragment with level l from the
-        assembly pool X steps backwards from max level.
+        Selects a random fragment from the specified level.
 
-        Parameters
-        ----------
-        node_level : int
-            Level of the fragment to return.
+        This function retrieves a list of fragments associated with the given 
+        `node_level` and returns a randomly selected fragment from that list.
 
-        Returns
-        -------
-        str
+        Args:
+            node_level (int): The level from which to select a fragment.
+
+        Returns:
+            str: A randomly chosen fragment from the specified level.
+
+        Raises:
+            KeyError: If `node_level` is not present in `self.level_to_fragment`.
+            IndexError: If the list of fragments at the given level is empty.
         """
         return random.choice(self.level_to_fragment[node_level])
+
 
     ### CONSTRUCTION FUNCTIONS ###
     def combine_fragments(
         self, fragment1, fragment2, assemble_object, layer=1
     ):
         """
-        Combines two fragments into a molecule in a assembly kind of way.
-        So by overlapping two atoms
+        Combines two molecular fragments to create a new molecule.
 
-        Parameters
-        ----------
-        fragment1 : str
-            Fragment 1 SMILES
-        fragment2 : str
-            Fragment 2 SMILES
+        This function takes two molecular fragments, retrieves their molecular 
+        representations and atomic index mappings, and attempts to bond them 
+        together using the provided `assemble_object`. If either fragment cannot 
+        be processed, the function returns `None`.
 
-        Returns
-        -------
-        str Smiles of the combined molecule
-            Molecule
+        Args:
+            fragment1 (str): The first fragment to combine, represented as a SMILES string.
+            fragment2 (str): The second fragment to combine, represented as a SMILES string.
+            assemble_object (object): An object responsible for bonding the molecules, 
+                                    expected to have a `create_bond` method.
+            layer (int, optional): The layer at which the bonding process occurs. 
+                                Defaults to `1`.
+
+        Returns:
+            object | None: The newly formed molecule if bonding is successful, 
+                        or `None` if either fragment could not be processed.
+
+        Notes:
+            - The `assemble_object.create_bond()` method is assumed to handle the 
+            bonding process and return the resulting molecule.
+            - The function calls `self.get_atomtype_index_mapping()` to retrieve 
+            molecular representations and atomic index mappings for bonding.
         """
         mol1, atomtype_index_mapping1 = self.get_atomtype_index_mapping(fragment1)
         mol2, atomtype_index_mapping2 = self.get_atomtype_index_mapping(fragment2)
@@ -1220,22 +1406,36 @@ class MoleculeGenerationAssemblyPool:
             layer=layer,
         )
 
-    
 
     def get_atomtype_index_mapping(self, fragment):
         """
-        Returns a mapping of atom types to atom
-        indices and their free valences.
+        Retrieves the molecular representation and atomic index mapping for a given fragment.
 
-        Parameters
-        ----------
-        fragment : str
-            Fragment
+        This function converts a SMILES string into an RDKit `Mol` object and creates 
+        a mapping of atomic indices to their atomic symbol and free valence count.
 
-        Returns
-        -------
-        dict
-            Mapping of atom index to atom type and free valence.
+        Args:
+            fragment (str): The molecular fragment represented as a SMILES string.
+
+        Returns:
+            tuple[Chem.Mol, dict[int, list]] | tuple[None, None]: 
+                - `mol` (Chem.Mol): The RDKit molecular object representation of the fragment.
+                - `atomtype_index_mapping` (dict[int, list]): A dictionary where:
+                    - Keys are atomic indices.
+                    - Values are lists containing:
+                        - The atomic symbol (str).
+                        - The free valence count (int).
+                - If the fragment cannot be processed, returns `(None, None)`.
+
+        Raises:
+            TypeError: If the input fragment is not a valid string.
+            Chem.KekulizeException: If RDKit fails to kekulize the molecule.
+            Chem.AtomValenceException: If RDKit detects an invalid atomic valence.
+
+        Notes:
+            - The function first attempts to convert the SMILES string to an RDKit `Mol` object.
+            - Implicit hydrogens are removed to simplify atom valence calculations.
+            - Free valence is determined based on predefined valence rules (`atom_valence` dictionary).
         """
         try:
             mol = Chem.MolFromSmiles(fragment, sanitize=False)
@@ -1269,38 +1469,53 @@ class MoleculeGenerationAssemblyPool:
         check_final_molecule: bool = True,
     ):
         """
-        Constructs n molecules from the assembly pool
-        by randomly choosing fragments from the assembly pool.
+        Constructs `n` molecules through a stochastic fragment assembly process.
 
-        INCLUDES PROPORTION OF FRAGMENTS USED TO CONSTRUCT MOLECULE
+        This function generates molecules by iteratively combining molecular 
+        fragments, starting from a sampled fragment at a given level and proceeding 
+        through `steps` of assembly. The fragments are selected based on weighted 
+        random sampling influenced by various exponent parameters.
 
-       
+        Args:
+            n (int): The number of molecules to construct.
+            steps (int): The number of assembly steps per molecule.
+            X (int, optional): The number of initial fragments used in the assembly pool. Defaults to `10`.
+            inverse (bool, optional): If `True`, inverts the exponent used in fragment sampling. Defaults to `False`.
+            exponent (float, optional): The exponent controlling fragment selection bias. Defaults to `1.0`.
+            layer_exponent (float, optional): The exponent controlling layer sampling bias. Defaults to `2.0`.
+            step_exponent (float, optional): The exponent controlling step weighting. Defaults to `1.0`.
+            remove_pathways (bool, optional): If `True`, removes pathways from the assembly pool. Defaults to `False`.
+            check_final_molecule (bool, optional): If `True`, validates the final constructed molecules using RDKit. Defaults to `True`.
 
-        Parameters
-        ----------
-        n : int
-            Number of molecules to construct.
-        steps : int
-            Number of construction steps for new molecules
-        X : int
-            Number of steps backwards from the
-            end of the assembly pool to choose from.
-        inverse : bool
-            If True, sample inversely proportional to count attribute
-        exponent : float
-            Used to bias sampling towards nodes with high
-            count or low count (in self.weighted_random_sampler_for_layer)
-        layer_exponent : float
-            Scaling factor for sampling weights of layers
-        step_exponent : float
-            Scaling factor for sampling weights of steps
-        remove_pathways : bool
-            If True, remove entire pathways from the assembly pool
-        check_final_molecule : bool
-            If True, apply filtering pipeline to final molecules
-        """
+        Returns:
+            None
+
+        Notes:
+            - The function uses `_combine_fragments()` to iteratively assemble molecules.
+            - Fragments are sampled from a level-based fragment pool and combined using `self.combine_fragments()`.
+            - The number of steps for each molecule is determined by `self.weighted_n_steps_sampler()`.
+            - If fragment assembly fails, a blacklist mechanism prevents retrying invalid combinations.
+            - Assembled molecules are stored in `self.assembled_molecules` and integrated into the assembly graph.
+            - The function resets `self.level_to_fragment()` after every molecule regeneration.
+            - `self.construct_diverged_assembly_graph()` is called at the end to finalize the assembly graph.
+            """
+
 
         def _combine_fragments(fragment1, layer, curr_depth=None):
+            """
+            Attempts to combine a fragment with another randomly selected fragment from the specified layer.
+
+            Args:
+                fragment1 (str): The base fragment for combination.
+                layer (int): The layer from which to sample a second fragment.
+                curr_depth (int, optional): The current depth in the assembly process.
+
+            Returns:
+                tuple[str | None, str | None, int]: 
+                    - The newly formed molecule (or None if unsuccessful).
+                    - The second fragment used in the combination.
+                    - The number of available fragments at the given layer.
+            """
             fragment2, num_fragments = self.wrs_from_layer(
                 base_mol=fragment1,
                 inverse=inverse,
@@ -1397,16 +1612,7 @@ class MoleculeGenerationAssemblyPool:
 
 
 
-
-
-
 class Assemble:
-    # weights used to sample the number of atom overlaps to create per assembly step
-    # Because each assembly step could include more than 1 point of attachment. 
-    # Seb said that each number (1, 2, 3) indicates assembly depth layer
-    # I don't understand why each layer has a different number of weights? 
-    # I suspect there is a different number of potential overlaps per layer because you
-    # are working with larger molecules
 
     BASE_WEIGHTS = [0.908, 0.075, 0.0137, 0.003]
     
@@ -1571,11 +1777,33 @@ class Assemble:
         pass
 
     def select_max_overlaps(self, f1_atoms, f2_atoms) -> int:
+        """
+        Returns the maximum number of atoms that can overlap between two fragments.
+
+        Args:
+            f1_atoms : int The number of atoms in fragment 1.
+            f2_atoms : int The number of atoms in fragment 2.
+        
+        Returns:
+            int: The maximum number of atoms that can overlap
+        """
         return min(f1_atoms, f2_atoms)
 
     def select_n_overlaps(
         self, f1_atoms, f2_atoms, p_combinations_copy, layer=None
     ) -> int:
+        """
+        Selects the number of atoms that can overlap between two fragments.
+
+        Args:
+            f1_atoms : int The number of atoms in fragment 1.
+            f2_atoms : int The number of atoms in fragment 2.
+            p_combinations_copy : list[list[int, int]] A list of possible atom combinations.
+            layer : int, optional The layer of the assembly graph. Defaults to None.
+        
+        Returns:
+            combinations: list[list[int, int]] A list of atom combinations.
+        """
         max_overlap = self.select_max_overlaps(f1_atoms, f2_atoms)
 
         allowed_num_combinations = min(
@@ -1600,6 +1828,15 @@ class Assemble:
         return combinations
 
     def count_non_overlapping_sublists(self, lst):
+        """
+        Counts the number of non-overlapping sublists in a list of lists.
+
+        Args:
+            lst : list[list] A list of lists.
+        
+        Returns:
+            counts (int) The number of non-overlapping sublists.
+        """
         # Sort the list of lists by the first element of each sublist
         sorted_lst = sorted(lst, key=lambda x: x[0])
 
@@ -1616,6 +1853,16 @@ class Assemble:
         return count
 
     def get_allowed_pairs(self, combinations, k):
+        """
+        Returns a list of k allowed pairs of atoms from a list of possible combinations.
+
+        Args:
+            combinations : list[list[int, int]] A list of possible atom combinations.
+            k : int The number of pairs to select.
+
+        Returns:
+            sampled_sublists : list[list[int, int]] A list of k allowed pairs of atoms.
+        """
         sampled_sublists = []
         counter = 0
 
@@ -1635,19 +1882,14 @@ class Assemble:
 
     def _valence_check(self, atom1, atom2):
         """
-        Checks if the valence of two atoms allows to overlap them
+        Checks if the valence of two atoms allows them to be combined.
 
-        Parameters
-        ----------
-        atom1 : list[str, int]
-            Atom 1 with atom type and free valence
-        atom2 : list[str, int]
-            Atom 2 with atom type and free valence
-
-        Returns
-        -------
-        bool
-            True if valence check is passed, False otherwise.
+        Args:
+            atom1 : list[str, int] A list containing the atom type and free valence of atom 1.
+            atom2 : list[str, int] A list containing the atom type and free valence of atom 2.
+        
+        Returns:
+            bool: True if the atoms can be combined, False otherwise.
         """
         atom_type = atom1[0]
         if (
@@ -1668,20 +1910,13 @@ class Assemble:
         Possible combinations are atoms with the same atom type and sum of valence
         does not exceed the allowed valence.
 
-        Parameters
-        ----------
-        atomtype_index_mapping1 : dict
-            Mapping of atom index to atom type and free valence for fragment 1.
-        atomtype_index_mapping2 : dict
-            Mapping of atom index to atom type and free valence for fragment 2.
-
-        Returns
-        -------
-        list[list[int, int]]
-            List of possible combinations of atoms.
-            list[[atom_index_fragment1, atom_index_fragment2], ...]
+        Args:
+            atomtype_index_mapping1 : dict A dictionary mapping atom index to atom type and free valence for fragment 1.
+            atomtype_index_mapping2 : dict A dictionary mapping atom index to atom type and free valence for fragment 2.
+        
+        Returns:
+            possible_combinations : list[list[int, int]] A list of possible atom combinations.
         """
-
         possible_combinations = []
         for atom1 in atomtype_index_mapping1:
             for atom2 in atomtype_index_mapping2:
@@ -1704,7 +1939,33 @@ class Assemble:
         self, fragment1, fragment2, combinations
     ) -> Chem.rdchem.Mol:
         """
-        Combine two fragments by overlapping atoms defined in combinations.
+        Combines two molecular fragments by forming bonds between specified atom pairs.
+
+        This function takes two RDKit `Mol` objects (`fragment1` and `fragment2`) and 
+        attempts to merge them by connecting specified atom pairs. The resulting molecule 
+        undergoes structural validation before being returned.
+
+        Args:
+            fragment1 (Chem.rdchem.Mol): The first molecular fragment.
+            fragment2 (Chem.rdchem.Mol): The second molecular fragment.
+            combinations (list[tuple[int, int]]): A list of atom index pairs, where each tuple
+                                                represents a bond to be formed between an 
+                                                atom in `fragment1` and an atom in `fragment2`.
+
+        Returns:
+            Chem.rdchem.Mol | None: 
+                - The combined molecule if the bonding is successful and chemically valid.
+                - `None` if the molecule fails RDKit compliance checks.
+
+        Raises:
+            IndexError: If an invalid atom index is accessed in either fragment.
+
+        Notes:
+            - The function starts by retrieving the atom objects based on the given indices.
+            - Atom neighbors and bond orders from `fragment2` are stored before merging.
+            - `fragment1` and `fragment2` are merged using `Chem.CombineMols()`.
+            - The function modifies bonds using `Chem.RWMol()` to ensure proper connectivity.
+            - `self.check_rdkit_compliance()` is used to validate the final structure.
         """
         max_idx = fragment1.GetNumAtoms()
 
@@ -1753,7 +2014,13 @@ class Assemble:
 
     def check_rdkit_compilance(self, rw_mol):
         """
-        Make sure that the molecule is rdkit compilant
+        Checks if the molecule is rdkit compilant
+
+        Args:
+            rw_mol : Chem.RWMol The molecule to check.
+        
+        Returns:
+            mol: (C)hem.Mol) The molecule if it is compilant, None otherwise.
         """
         try:
             mol = Chem.MolToSmiles(Chem.Mol(rw_mol))
@@ -1774,26 +2041,36 @@ class Assemble:
         layer=None
     ):
         """
-        Creates a bond between two atoms in two fragments.
-        Iterates over all possible combinations of atoms until a valid
-        combination is found (first combination is used that survives rdkit)
-)
-        Parameters
-        ----------
-        fragment1 : Chem.rdchem.Mol
-            Fragment 1
-        fragment2 : Chem.rdchem.Mol
-            Fragment 2
-        atomtype_index_mapping1 : dict
-            Mapping of atom index to atom type and free valence for fragment 1.
-        atomtype_index_mapping2 : dict
-            Mapping of atom index to atom type and free valence for fragment 2.
+        Attempts to create a bond between two molecular fragments.
 
-        Returns
-        -------
-        str
-            Molecule
+        This function generates all possible atom pairings for bonding between `fragment1` 
+        and `fragment2`, selects a subset of these pairings, and attempts to combine the 
+        fragments. If a valid bond is formed, the new molecule is returned. If no valid 
+        bond can be created, the function returns `None`.
+
+        Args:
+            fragment1 (Chem.rdchem.Mol): The first molecular fragment.
+            fragment2 (Chem.rdchem.Mol): The second molecular fragment.
+            atomtype_index_mapping1 (dict): A mapping of atomic indices to atom types for `fragment1`.
+            atomtype_index_mapping2 (dict): A mapping of atomic indices to atom types for `fragment2`.
+            layer (int, optional): The layer at which bonding occurs. Defaults to `None`.
+
+        Returns:
+            Chem.rdchem.Mol | None:
+                - The newly formed molecule if bonding is successful.
+                - `None` if no valid bond can be created.
+
+        Raises:
+            RuntimeError: If the function exceeds the maximum number of bonding attempts (`5000`).
+
+        Notes:
+            - The function first determines **all possible atom combinations** for bonding.
+            - If no valid combinations exist, it returns `None`.
+            - It then iterates through possible combinations, attempting to create a bond.
+            - A **fail-safe counter** prevents infinite loops and prints a warning after 5000 attempts.
+            - The function calls `self.combine_fragments()` to form the final molecule.
         """
+
         # get all possible combinations of atoms
         possible_combinations = self.get_possible_combinations(
             atomtype_index_mapping1, atomtype_index_mapping2
