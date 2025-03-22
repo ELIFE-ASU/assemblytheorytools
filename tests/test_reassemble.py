@@ -32,7 +32,11 @@ def test_origami():
 
 
 def test_get_num_atom():
-    pass
+    print(flush=True)
+    res = att.get_num_atom('CH3', 'C')
+    assert res == 1
+    res = att.get_num_atom('CH3', 'H')
+    assert res == 3
 
 
 def test_degree_unsaturation():
