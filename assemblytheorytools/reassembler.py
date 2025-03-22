@@ -12,14 +12,8 @@ from rdkit.Chem.SimpleEnum import Enumerator
 RDLogger.DisableLog('rdApp.*')
 
 
-def assemble(molecule1, molecule2, sites):
-    mol1 = [molecule1]
-    mol2 = [molecule2]
-
-    s1 = [''] * 14
-    s2 = [''] * 512
-    s3 = [''] * 14
-    smarts = [s1, s2, s3]
+def assemble_smarts():
+    smarts = [[''] * 14, [''] * 512, [''] * 14]
 
     # carbon sp3
     smarts[0][0] = '[CH:1]([*:2])([*:3])[*:4].[CH3:5][*:6]>>[C:1]([*:2])([*:3])([*:4])[*:6].[CH4:5]'  # 1
@@ -1059,21 +1053,20 @@ def assemble(molecule1, molecule2, sites):
     # intramolecular oxygen
     smarts[2][13] = '([OH:1][*:2].[OH:3][*:4])>>[O:1]([*:2])[*:4].[OH2:3]'  # 14
 
-    rxn1 = [None] * 14
-    rxn2 = [None] * 512
-    rxn3 = [None] * 14
-    rxn = [rxn1, rxn2, rxn3]
+    rxn = [[None] * 14, [None] * 512, [None] * 14]
 
-    for i in range(0, len(smarts[0])):
-        rxn[0][i] = AllChem.ReactionFromSmarts(smarts[0][i])
+    return smarts, rxn
 
-    for i in range(0, len(smarts[1])):
-        rxn[1][i] = AllChem.ReactionFromSmarts(smarts[1][i])
 
-    for i in range(0, len(smarts[2])):
-        rxn[2][i] = AllChem.ReactionFromSmarts(smarts[2][i])
+def assemble(molecule1, molecule2, sites):
+    mol1 = [molecule1]
+    mol2 = [molecule2]
 
-    # ENGAGE WITH SITES=1
+    smarts, rxn = assemble_smarts()
+
+    for i in range(3):
+        for j in range(len(smarts[i])):
+            rxn[i][j] = AllChem.ReactionFromSmarts(smarts[i][j])
 
     if sites == 1:
         # =============================================
@@ -1087,19 +1080,18 @@ def assemble(molecule1, molecule2, sites):
 
         products = []
 
-        for i in range(0, len(rxn[0])):
-            pass_products = Enumerator.EnumerateReaction(rxn[0][i], (mol1, mol2), uniqueProductsOnly=True)
-            pass_products = list(pass_products)
-            for j in range(0, len(pass_products)):
-                if Chem.MolToSmiles(pass_products[j][0]) not in products:
-                    products.append(Chem.MolToSmiles(pass_products[j][0]))
-            pass_products = Enumerator.EnumerateReaction(rxn[0][i], (mol2, mol1), uniqueProductsOnly=True)
-            pass_products = list(pass_products)
-            for j in range(0, len(pass_products)):
-                if Chem.MolToSmiles(pass_products[j][0]) not in products:
-                    products.append(Chem.MolToSmiles(pass_products[j][0]))
+        for i in range(len(rxn[0])):
+            for mol_pair in [(mol1, mol2), (mol2, mol1)]:
+                pass_products = Enumerator.EnumerateReaction(rxn[0][i],
+                                                             mol_pair,
+                                                             uniqueProductsOnly=True)
+                for product in list(pass_products):
+                    smiles = Chem.MolToSmiles(product[0])
+                    if smiles not in products:
+                        products.append(smiles)
 
         result = (sorted([product for product in products]))
+        print(result)
 
         if len(result) == 0:
             return None
@@ -1119,19 +1111,15 @@ def assemble(molecule1, molecule2, sites):
 
         products = []
 
-        for i in range(0, len(rxn[1])):
-            pass_products = Enumerator.EnumerateReaction(rxn[1][i], (mol1, mol2), uniqueProductsOnly=True)
-            pass_products = list(pass_products)
-            for j in range(0, len(pass_products)):
-                if Chem.MolToSmiles(pass_products[j][0]) not in products:
-                    products.append(Chem.MolToSmiles(pass_products[j][0]))
-            pass_products = Enumerator.EnumerateReaction(rxn[1][i], (mol2, mol1), uniqueProductsOnly=True)
-            pass_products = list(pass_products)
-            for j in range(0, len(pass_products)):
-                if Chem.MolToSmiles(pass_products[j][0]) not in products:
-                    products.append(Chem.MolToSmiles(pass_products[j][0]))
+        for i in range(len(rxn[1])):
+            for mol_pair in [(mol1, mol2), (mol2, mol1)]:
+                pass_products = list(Enumerator.EnumerateReaction(rxn[1][i], mol_pair, uniqueProductsOnly=True))
+                for product in pass_products:
+                    smiles = Chem.MolToSmiles(product[0])
+                    if smiles not in products:
+                        products.append(smiles)
 
-        result = (sorted([product for product in products]))
+        result = sorted([product for product in products])
 
         if len(result) == 0:
             return None
@@ -1219,12 +1207,11 @@ def filter_mol(mol):
     evil_smarts[49] = '[*]1~[*]~[*]~[*]2:[*]:[*]:[*]:[*](:[*]:2)~[*]~[*]~1'
     evil_smarts[50] = '[*]1~[*]~[*]~[*]2:[*]:[*]:[*](:[*]:[*]:2)~[*]~1'
 
-    for i, item in enumerate(evil_smarts):
+    for item in evil_smarts:
         sub_mol = Chem.MolFromSmarts(item)
         if mol.HasSubstructMatch(sub_mol):
             return None
-        elif i == 50:
-            return mol
+    return mol
 
 
 def origami_smarts():
