@@ -1,5 +1,4 @@
 import math
-import os
 import random
 
 import numpy as np
@@ -1161,12 +1160,9 @@ def printer(mols):
 
 def filter_mol(mol):
     """
-    Args:
-        mol= mol object of molecule that needs to be checked.
-        
-        It cycles through the list of smarts structures and checks if the input molecule contains any of them as its substructure.
-        As soon as one of the listed smarts structures if found in the input molecule, the molecule is rejected and filter returns None
-        If the filter reaches the end of the smarts list without detecting any of them in the molecule, the input mol is returned unchanged
+    It cycles through the list of smarts structures and checks if the input molecule contains any of them as its substructure.
+    As soon as one of the listed smarts structures if found in the input molecule, the molecule is rejected and filter returns None
+    If the filter reaches the end of the smarts list without detecting any of them in the molecule, the input mol is returned unchanged
     """
 
     evil_smarts = 51 * ['']
@@ -1264,19 +1260,15 @@ def origami_smarts():
 
 def origami(mol):
     """
-    Args:
-        mol= mol object containing the fragment that undergoes internal connection with itself
-        return_file: if False, then assembly products are return as mol objects, otherwise if True returns a file with product InChI
-
-        This method executes one origami loop.
-        Which means, it created RDKit reaction objects from the list of smarts that describe origami connections.
-        Origami connections are the ones where one molecule undergoes internal connection with itself.
-        It cycles through all origami reactions listed in rxn and feeds them the input mol to enumerate all possible products.
-        Before product is stored it is being checked for validity:
-        - if the number of atoms in the origami product is not as expected (i.e. number of atoms in pre-origami substrate minus one) or
-        - if the product does not contain each of the input fragments as its substructures then
-        it is discarded as the case of bond fusion / other invalid connection.
-        Products are stored in the result list as mol objects, duplicates are avoided.
+    This method executes one origami loop.
+    Which means, it created RDKit reaction objects from the list of smarts that describe origami connections.
+    Origami connections are the ones where one molecule undergoes internal connection with itself.
+    It cycles through all origami reactions listed in rxn and feeds them the input mol to enumerate all possible products.
+    Before product is stored it is being checked for validity:
+    - if the number of atoms in the origami product is not as expected (i.e. number of atoms in pre-origami substrate minus one) or
+    - if the product does not contain each of the input fragments as its substructures then
+    it is discarded as the case of bond fusion / other invalid connection.
+    Products are stored in the result list as mol objects, duplicates are avoided.
     """
 
     # Get the allowed operations
@@ -1308,6 +1300,19 @@ def origami(mol):
 
 
 def conformation_filter(mol):
+    """
+    Generate a 3D conformation for a molecule and filter based on the success of the geometry generation.
+
+    This function sanitizes the molecule, adds hydrogen atoms, and attempts to generate a 3D conformation
+    using the ETKDGv3 method. If the geometry generation is successful, the molecule is returned. If it fails,
+    None is returned.
+
+    Parameters:
+    mol (rdkit.Chem.Mol): The input molecule.
+
+    Returns:
+    rdkit.Chem.Mol or None: The molecule with a generated 3D conformation if successful, otherwise None.
+    """
     Chem.SanitizeMol(mol)
     mol = Chem.AddHs(mol)
     params = AllChem.ETKDGv3()
@@ -1320,10 +1325,21 @@ def conformation_filter(mol):
         print("Geometry generation failed", flush=True)
         return None
     else:
-        return 'confilter crashed'
+        return None
 
 
 def pick_two(to_be_combined):
+    """
+    Randomly pick two unique elements from the input list and return them along with the remaining elements.
+
+    Parameters:
+    to_be_combined (list): The list of elements to pick from.
+
+    Returns:
+    tuple: A tuple containing two lists:
+        - picked (list): A list of two randomly picked elements.
+        - remain (list): A list of the remaining elements after picking.
+    """
     if len(to_be_combined) <= 1:
         return [], []
 
@@ -1335,6 +1351,19 @@ def pick_two(to_be_combined):
 
 
 def get_num_atom(formula, elements):
+    """
+    Get the number of atoms of a specific element in a molecular formula.
+
+    This function searches for the specified element in the molecular formula
+    and returns the number of atoms of that element.
+
+    Parameters:
+    formula (str): The molecular formula as a string.
+    elements (str): The element symbol to search for in the formula.
+
+    Returns:
+    int: The number of atoms of the specified element in the formula.
+    """
     idx1 = formula.find(elements)
     if idx1 == -1:
         return 0
@@ -1345,11 +1374,23 @@ def get_num_atom(formula, elements):
         idx2 = next(i for i, c in enumerate(temp) if c.isalpha())
     except StopIteration:
         return int(temp)
-    nstr = temp[:idx2]
-    return int(nstr) if nstr else 1
+    n_str = temp[:idx2]
+    return int(n_str) if n_str else 1
 
 
 def degree_unsaturation(mol):
+    """
+    Calculate the degree of unsaturation (DoU) for a given molecule.
+
+    The degree of unsaturation is a measure of the number of rings and multiple bonds in a molecule.
+    It is calculated using the molecular formula of the molecule.
+
+    Parameters:
+    mol (rdkit.Chem.Mol): The molecule for which the degree of unsaturation is to be calculated.
+
+    Returns:
+    float: The degree of unsaturation of the molecule.
+    """
     formula = rdMolDescriptors.CalcMolFormula(mol)
     n_carbon = get_num_atom(formula, 'C')
     n_nitrogen = get_num_atom(formula, 'N')
@@ -1422,7 +1463,6 @@ def reassemble_mols(mols,
     while n < n_mol_needed:
         print(f'Searching for new molecules... {n}', flush=True)
 
-        print('Creating indexes to try', flush=True)
         mw = one_atom_weight
         idx_list = []
         idx = []
