@@ -91,7 +91,12 @@ from .construction import parse_pathway_file
 from .construction_string import (generate_string_pathway_ian,
                                   get_graph_string_explicit)
 
-from .reassembler import reassemble_mols
+from .reassembler import (assemble,
+                          origami,
+                          get_num_atom,
+                          degree_unsaturation,
+                          get_unique_mols,
+                          reassemble_mols)
 
 __version__ = "1.3.0"
 
