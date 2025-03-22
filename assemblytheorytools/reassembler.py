@@ -1229,7 +1229,6 @@ def filter_mol(mol):
 
 def origami_smarts():
     smarts = [''] * 14
-    rxn = [None] * 14
 
     # intra-molecular carbon sp3
     smarts[0] = '([CH:1]([*:2])([*:3])[*:4].[CH3:5][*:6])>>[C:1]([*:2])([*:3])([*:4])[*:6].[CH4:5]'  # 1
@@ -1255,7 +1254,7 @@ def origami_smarts():
     # intra-molecular oxygen
     smarts[13] = '([OH:1][*:2].[OH:3][*:4])>>[O:1]([*:2])[*:4].[OH2:3]'  # 14
 
-    return smarts, rxn
+    return smarts
 
 
 def origami(mol):
@@ -1272,10 +1271,7 @@ def origami(mol):
     """
 
     # Get the allowed operations
-    smarts, rxn = origami_smarts()
-
-    # for i, smarts_pattern in enumerate(smarts):
-    #     rxn[i] = AllChem.ReactionFromSmarts(smarts_pattern)
+    smarts = origami_smarts()
 
     rxn = [AllChem.ReactionFromSmarts(s) for s in smarts]
 
@@ -1285,18 +1281,21 @@ def origami(mol):
 
     for reaction in rxn:
         try:
-            pass_products = reaction.RunReactant(mol, 0)
-            for product in pass_products:
-                new_num_atoms = product[0].GetNumAtoms()
-                if new_num_atoms == (num_atoms - 1):
+            for product in reaction.RunReactant(mol, 0):
+                if product[0].GetNumAtoms() == num_atoms - 1:
                     unique_products.add(Chem.MolToSmiles(product[0]))
         except:
             continue
 
     all_products.extend(unique_products)
 
-    new_mol_list = [Chem.MolFromSmiles(smiles) for smiles in all_products]
-    return new_mol_list
+    if not all_products:
+        print("No origami products found...", flush=True)
+        return [mol]
+    else:
+        # Convert the unique SMILES strings back to RDKit molecule objects
+        new_mol_list = [Chem.MolFromSmiles(smiles) for smiles in all_products]
+        return new_mol_list
 
 
 def conformation_filter(mol):
@@ -1535,8 +1534,17 @@ def reassemble_mols(mols,
                 n_origami = random.randint(int(unsat_min - dou), int(unsat_max - dou))
                 print(f'Origami operations: {n_origami}', flush=True)
                 # Randomly decide how many Origami() operation will be done
+                new_molecule = [new_molecule]
                 for i in range(n_origami):
-                    new_molecule = random.choice(origami(new_molecule))
+                    print(f'Origami operation {i + 1}', flush=True)
+                    in_molecule = random.choice(new_molecule)
+                    out_molecule = origami(in_molecule)
+                    if len(out_molecule) == 1 and out_molecule[0] == in_molecule:
+                        # exit the loop if no new molecule is generated
+                        break
+
+                    # otherwise, continue to do origami operation
+                    new_molecule = out_molecule
             else:
                 pass
 
