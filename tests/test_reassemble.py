@@ -40,7 +40,20 @@ def test_get_num_atom():
 
 
 def test_degree_unsaturation():
-    pass
+    print(flush=True)
+    # Ethane
+    sat = att.degree_unsaturation(Chem.MolFromSmiles('CC'))
+    assert sat == 0.0
+    # Ethene
+    sat = att.degree_unsaturation(Chem.MolFromSmiles('C=C'))
+    assert sat == 1.0
+    # Cyclopropane
+    sat = att.degree_unsaturation(Chem.MolFromSmiles('C1CC1'))
+    assert sat == 1.0
+    # Benzene
+    sat = att.degree_unsaturation(Chem.MolFromSmiles('c1ccccc1'))
+    assert sat == 4.0
+
 
 
 def test_get_unique_mols():
