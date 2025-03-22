@@ -14,27 +14,12 @@ RDLogger.DisableLog('rdApp.*')
 
 
 def assemble(molecule1, molecule2, sites):
-    """
-    Args:
-    molecule1= first fragment to be merged (mol object);
-    molecule2= second fragment to be merged (mol object)
-    sites= number of connections made (i.e. sites = n, where n is the number of individual atom pairs being fused together)
-    returnfile: if False, then assembly products are return as mol objects, otherwise if True returns a file with product InChi
-    
-    Before assembling the molecules, Reassembler is initialized by transforming the reaction smarts strings into RDKit reaction objects
-    smarts1 is the list of n=1 reaction smarts, rxn1 is the list of reactions defined by those smarts
-    smarts2 is the list of n=2 reactions, rxn2 is the list of reactions defined by those smarts
-    smarts3 is the list of origami reactions, rxn3 is the list of reactions defined by those smarts
-    These lists are merged into one list of lists, where smarts[0] is smarts1, smarts[1] is smarts2 and smarts[2] is smarts3
-    Therefore, in the rxn list of lists, rxn[0] are n=1 reactions, rxn[1] are n=2 reactions and rxn[2] are origami reactions
-    """
-
     mol1 = [molecule1]
     mol2 = [molecule2]
 
-    s1 = [None] * 14
-    s2 = [None] * 512
-    s3 = [None] * 14
+    s1 = [''] * 14
+    s2 = [''] * 512
+    s3 = [''] * 14
     smarts = [s1, s2, s3]
 
     # carbon sp3
@@ -1117,7 +1102,6 @@ def assemble(molecule1, molecule2, sites):
 
         result = (sorted([product for product in products]))
 
-
         if len(result) == 0:
             return None
         else:
@@ -1150,7 +1134,6 @@ def assemble(molecule1, molecule2, sites):
 
         result = (sorted([product for product in products]))
 
-
         if len(result) == 0:
             return None
         else:
@@ -1167,18 +1150,12 @@ def printer(mols):
     indexes = np.arange(len(mols), dtype=int)
 
     for batch in range(0, math.ceil(len(mols) / 50)):
-        pages.append([])
-        labels.append([])
-        if len(mols) >= 50:
-            pages[batch] = mols[0:50]
-            labels[batch] = indexes[0:50]
-            mols = mols[50:]
-            indexes = indexes[50:]
-        else:
-            pages[batch] = mols
-            labels[batch] = indexes
+        start = batch * 50
+        end = start + 50
+        pages.append(mols[start:end])
+        labels.append([str(i) for i in indexes[start:end]])
         img = Draw.MolsToGridImage(pages[batch], molsPerRow=10, legends=labels[batch])
-        img.save('Mols_' + str(batch * 50) + '-' + str(batch * 50 + 50) + '.png')
+        img.save('Mols_' + str(start) + '-' + str(end) + '.png')
     return None
 
 
@@ -1192,7 +1169,7 @@ def filter_mol(mol):
         If the filter reaches the end of the smarts list without detecting any of them in the molecule, the input mol is returned unchanged
     """
 
-    evil_smarts = 51 * [None]
+    evil_smarts = 51 * ['']
 
     evil_smarts[0] = '[*]1~[*]#[*]~1'
     evil_smarts[1] = '[*]1~[*]~[*]#[*]~1'
@@ -1254,13 +1231,43 @@ def filter_mol(mol):
             return mol
 
 
+def origami_smarts():
+    smarts = [''] * 14
+    rxn = [None] * 14
+
+    # intra-molecular carbon sp3
+    smarts[0] = '([CH:1]([*:2])([*:3])[*:4].[CH3:5][*:6])>>[C:1]([*:2])([*:3])([*:4])[*:6].[CH4:5]'  # 1
+    smarts[1] = '([CH2:1]([*:2])[*:3].[CH2:4]([*:5])[*:6])>>[C:1]([*:2])([*:3])([*:5])[*:6].[CH4:4]'  # 2
+    smarts[2] = '([CH2:1]([*:2])[*:3].[CH3:4][*:5])>>[CH:1]([*:2])([*:3])[*:5].[CH4:4]'  # 3
+    smarts[3] = '([CH3:1][*:2].[CH3:4][*:5])>>[CH2:1]([*:2])[*:5].[CH4:4]'  # 4
+
+    # intra-molecular carbon sp2
+    smarts[4] = '([CH:1](=[*:2])[*:3].[CH3:4][*:5])>>[C:1](=[*:2])([*:3])[*:5].[CH4:4]'  # 5
+    smarts[5] = '([CH2:1]=[*:2].[CH2:3]([*:4])[*:5])>>[C:1](=[*:2])([*:4])[*:5].[CH4:3]'  # 6
+    smarts[6] = '([CH2:1]=[*:2].[CH3:3][*:4])>>[CH:1](=[*:2])[*:4].[CH4:3]'  # 7
+    smarts[7] = '([CH2:1]=[*:2].[CH2:3]=[*:4])>>[C:1](=[*:2])=[*:4].[CH4:3]'  # 8
+
+    # intra-molecular carbon sp
+    smarts[8] = '([CH:1]#[*:2].[CH3:3][*:4])>>[C:1](#[*:2])[*:4].[CH4:3]'  # 9
+
+    # intra-molecular nitrogen
+    smarts[9] = '([NH:1]([*:2])[*:3].[NH2:4][*:5])>>[N:1]([*:2])([*:3])[*:5].[NH3:4]'  # 10
+    smarts[10] = '([NH2:1][*:2].[NH2:3][*:4])>>[NH:1]([*:2])[*:4].[NH3:3]'  # 11
+    smarts[11] = '([NH:1]=[*:2].[NH2:3][*:4])>>[N:1](=[*:2])[*:4].[NH3:3]'  # 12
+    smarts[12] = '([N:1]#[*:2].[NH:3]=[*:4])>>[N:1](#[*:2])=[*:4].[NH3:4]'  # 13
+
+    # intra-molecular oxygen
+    smarts[13] = '([OH:1][*:2].[OH:3][*:4])>>[O:1]([*:2])[*:4].[OH2:3]'  # 14
+
+    return smarts, rxn
+
+
 def origami(mol):
     """
     Args:
-        mol= mol object containing the fragment that undergoes internall connection with itself
+        mol= mol object containing the fragment that undergoes internal connection with itself
         return_file: if False, then assembly products are return as mol objects, otherwise if True returns a file with product InChI
-        
-        origami_v1.1
+
         This method executes one origami loop.
         Which means, it created RDKit reaction objects from the list of smarts that describe origami connections.
         Origami connections are the ones where one molecule undergoes internal connection with itself.
@@ -1272,80 +1279,45 @@ def origami(mol):
         Products are stored in the result list as mol objects, duplicates are avoided.
     """
 
-    smarts = [None] * 14
+    # Get the allowed operations
+    smarts, rxn = origami_smarts()
 
-    # intramolecular carbon sp3
-    smarts[0] = '([CH:1]([*:2])([*:3])[*:4].[CH3:5][*:6])>>[C:1]([*:2])([*:3])([*:4])[*:6].[CH4:5]'  # 1
-    smarts[1] = '([CH2:1]([*:2])[*:3].[CH2:4]([*:5])[*:6])>>[C:1]([*:2])([*:3])([*:5])[*:6].[CH4:4]'  # 2
-    smarts[2] = '([CH2:1]([*:2])[*:3].[CH3:4][*:5])>>[CH:1]([*:2])([*:3])[*:5].[CH4:4]'  # 3
-    smarts[3] = '([CH3:1][*:2].[CH3:4][*:5])>>[CH2:1]([*:2])[*:5].[CH4:4]'  # 4
+    # for i, smarts_pattern in enumerate(smarts):
+    #     rxn[i] = AllChem.ReactionFromSmarts(smarts_pattern)
 
-    # intramolecular carbon sp2
-    smarts[4] = '([CH:1](=[*:2])[*:3].[CH3:4][*:5])>>[C:1](=[*:2])([*:3])[*:5].[CH4:4]'  # 5
-    smarts[5] = '([CH2:1]=[*:2].[CH2:3]([*:4])[*:5])>>[C:1](=[*:2])([*:4])[*:5].[CH4:3]'  # 6
-    smarts[6] = '([CH2:1]=[*:2].[CH3:3][*:4])>>[CH:1](=[*:2])[*:4].[CH4:3]'  # 7
-    smarts[7] = '([CH2:1]=[*:2].[CH2:3]=[*:4])>>[C:1](=[*:2])=[*:4].[CH4:3]'  # 8
+    rxn = [AllChem.ReactionFromSmarts(s) for s in smarts]
 
-    # intramolecular carbon sp
-    smarts[8] = '([CH:1]#[*:2].[CH3:3][*:4])>>[C:1](#[*:2])[*:4].[CH4:3]'  # 9
-
-    # intramolecular nitrogen
-    smarts[9] = '([NH:1]([*:2])[*:3].[NH2:4][*:5])>>[N:1]([*:2])([*:3])[*:5].[NH3:4]'  # 10
-    smarts[10] = '([NH2:1][*:2].[NH2:3][*:4])>>[NH:1]([*:2])[*:4].[NH3:3]'  # 11
-    smarts[11] = '([NH:1]=[*:2].[NH2:3][*:4])>>[N:1](=[*:2])[*:4].[NH3:3]'  # 12
-    smarts[12] = '([N:1]#[*:2].[NH:3]=[*:4])>>[N:1](#[*:2])=[*:4].[NH3:4]'  # 13
-
-    # intramolecular oxygen
-    smarts[13] = '([OH:1][*:2].[OH:3][*:4])>>[O:1]([*:2])[*:4].[OH2:3]'  # 14
-
-    rxn = [None] * 14
-
-    for i in range(0, len(smarts)):
-        rxn[i] = AllChem.ReactionFromSmarts(smarts[i])
-
-    new_mol_list = []
     all_products = []
-    unique_products = []
+    unique_products = set()
     num_atoms = mol.GetNumAtoms()
-    for i in range(0, len(rxn)):
+
+    for reaction in rxn:
         try:
-            pass_product = rxn[i].RunReactant(mol, 0)
-            for j in range(0, len(pass_product)):
-                new_num_atoms = pass_product[j][0].GetNumAtoms()
+            pass_products = reaction.RunReactant(mol, 0)
+            for product in pass_products:
+                new_num_atoms = product[0].GetNumAtoms()
                 if new_num_atoms == (num_atoms - 1):
-                    if Chem.MolToSmiles(pass_product[j][0]) not in unique_products:
-                        unique_products.append(Chem.MolToSmiles(pass_product[j][0]))
+                    unique_products.add(Chem.MolToSmiles(product[0]))
         except:
             continue
-    all_products += unique_products
-    result = all_products
 
+    all_products.extend(unique_products)
 
-    for smiles in result:
-        mol = Chem.MolFromSmiles(smiles)
-        new_mol_list.append(mol)
-
+    new_mol_list = [Chem.MolFromSmiles(smiles) for smiles in all_products]
     return new_mol_list
 
 
 def conformation_filter(mol):
-    """
-    Args:
-        mol= mol object of molecule that needs to be checked.
-        
-        It sanitized the mol object, adds hydrogens and then tries to find a conformation for the molecule.
-        If any conformation is found (EmbedMolecule() returns 0), then input molecule is returned in unchanged form
-        If no conformation could be found at all (EmbedMolecule() returns -1), then molecule is rejected and None is returned
-    """
-
     Chem.SanitizeMol(mol)
     mol = Chem.AddHs(mol)
-    score = AllChem.EmbedMolecule(mol)
-    print('score:', score)
+    params = AllChem.ETKDGv3()
+    params.randomSeed = 0xf00d  # optional random seed for reproducibility
+    score = AllChem.EmbedMolecule(mol, params)
 
     if score == 0:
         return mol
     elif score == -1:
+        print("Geometry generation failed", flush=True)
         return None
     else:
         return 'confilter crashed'
@@ -1425,13 +1397,11 @@ def get_unique_mols(mols):
 
 def reassemble_mols(mols,
                     n_mol_needed=1000,
-                    output_inchi_file='newMols.txt',
-                    output_fig_path='MolsFig',
-                    mw_min=100,
-                    mw_max=300,
+                    mw_min=20,
+                    mw_max=100,
                     unsat_min=1.0,
                     unsat_max=12.0,
-                    one_atom_weight=1,
+                    one_atom_weight=2,
                     mw_delta=0.1
                     ):
     # Ensure that the input list of molecules is unique
@@ -1522,9 +1492,9 @@ def reassemble_mols(mols,
                 print('dou < unsat_min', flush=True)
                 # if DoU is smaller than DoUMin, then use operation Origami() to make rings (details in Reassembler.py)
                 # one Origami() operation, DoU is increased by 1.
-                n_origami = random.randint(unsat_min - int(dou), int(unsat_max - dou))
-                # randomly decide how many Origami() operation will be done
-
+                n_origami = random.randint(int(unsat_min - dou), int(unsat_max - dou))
+                print(f'Origami operations: {n_origami}', flush=True)
+                # Randomly decide how many Origami() operation will be done
                 for i in range(n_origami):
                     new_molecule = random.choice(origami(new_molecule))
             else:
@@ -1552,6 +1522,6 @@ def reassemble_mols(mols,
     print('\n', 'nFiltered =', n_filtered, flush=True)
 
     # visualize, generate figures
-    printer(output_inchi_file, output_fig_path)
+    printer(new_mols)
 
     return new_mols
