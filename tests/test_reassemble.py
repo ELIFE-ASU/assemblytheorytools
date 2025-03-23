@@ -15,39 +15,40 @@ import matplotlib.pyplot as plt
 from rdkit import Chem
 from rdkit.Chem import AllChem
 import random
+from rdkit import Chem
 
 
-def react_smiles(smiles1, smiles2):
+def react_smiles(smiles1, smiles2, random_bond=False):
     try:
         mol1 = Chem.MolFromSmiles(smiles1)
         mol2 = Chem.MolFromSmiles(smiles2)
-
-        if not mol1 or not mol2:
-            return None
 
         heavy_atom_smarts = Chem.MolFromSmarts("[!#1]")
         heavy_atoms1 = mol1.GetSubstructMatches(heavy_atom_smarts)
         heavy_atoms2 = mol2.GetSubstructMatches(heavy_atom_smarts)
 
-        if not heavy_atoms1 or not heavy_atoms2:
-            return None
-
         idx1 = random.choice(heavy_atoms1)[0]
         idx2 = random.choice(heavy_atoms2)[0]
 
-        # Randomize bond order (SINGLE, DOUBLE, or TRIPLE)
-        bond_types = [
-            Chem.rdchem.BondType.SINGLE,
-            Chem.rdchem.BondType.DOUBLE,
-            Chem.rdchem.BondType.TRIPLE
-        ]
-        random_bond = random.choice(bond_types)
-
         emol = Chem.EditableMol(Chem.CombineMols(mol1, mol2))
-        emol.AddBond(idx1, mol1.GetNumAtoms() + idx2, order=random_bond)
+
+        # Randomize bond order (SINGLE, DOUBLE, or TRIPLE)
+        if random_bond:
+            bond_types = [
+                Chem.rdchem.BondType.SINGLE,
+                Chem.rdchem.BondType.DOUBLE,
+                Chem.rdchem.BondType.TRIPLE
+            ]
+            random_bond = random.choice(bond_types)
+            emol.AddBond(idx1, mol1.GetNumAtoms() + idx2, order=random_bond)
+        else:
+            # Use a fixed bond order (SINGLE)
+            emol.AddBond(idx1, mol1.GetNumAtoms() + idx2, order=Chem.rdchem.BondType.SINGLE)
 
         new_mol = emol.GetMol()
         Chem.SanitizeMol(new_mol)
+
+        #
 
         return Chem.MolToSmiles(new_mol)
     except:
@@ -59,9 +60,6 @@ def test_1():
     smiles1 = "CCO"  # ethanol, for example
     smiles2 = "O"  # benzene
     product_smiles = react_smiles(smiles1, smiles2)
-    print(smiles1)
-    print(smiles2)
-    print(product_smiles)
 
 
 def test_origami():

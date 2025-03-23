@@ -7,6 +7,9 @@ from rdkit import RDLogger
 from rdkit.Chem import AllChem
 from rdkit.Chem import Draw
 from rdkit.Chem import rdMolDescriptors
+from rdkit.Chem.EnumerateHeterocycles import EnumerateHeterocycles
+from rdkit.Chem.EnumerateStereoisomers import EnumerateStereoisomers, StereoEnumerationOptions
+from rdkit.Chem.MolStandardize import rdMolStandardize
 from rdkit.Chem.SimpleEnum import Enumerator
 
 RDLogger.DisableLog('rdApp.*')
@@ -1560,3 +1563,78 @@ def reassemble_mols(mols,
     printer(new_mols)
 
     return new_mols
+
+
+def enumerate_sterioisomers(mol):
+    """
+    Enumerate all possible stereoisomers of a given molecule.
+
+    This function takes an RDKit molecule object as input and generates all possible stereoisomers
+    of the molecule. It returns a list of RDKit molecule objects representing these stereoisomers.
+
+    Parameters:
+    mol (rdkit.Chem.Mol): The input molecule for which stereoisomers are to be enumerated.
+
+    Returns:
+    list: A list of RDKit molecule objects representing the stereoisomers of the input molecule.
+    """
+    # Define options for stereoisomer enumeration
+    opts = StereoEnumerationOptions(unique=True, onlyUnassigned=False)
+
+    # Enumerate stereoisomers based on the defined options
+    isomers = EnumerateStereoisomers(mol, options=opts)
+
+    # Convert the enumerated stereoisomers to SMILES strings and sort them
+    mol_out = [smi for smi in sorted(Chem.MolToSmiles(x, isomericSmiles=True) for x in tuple(isomers))]
+
+    # Convert the sorted SMILES strings back to RDKit molecule objects and return them
+    return [Chem.MolFromSmiles(x) for x in mol_out]
+
+
+def enumerate_tautomers(mol):
+    """
+    Enumerate all possible tautomers of a given molecule.
+
+    This function takes an RDKit molecule object as input and generates all possible tautomers
+    of the molecule. It returns a list of RDKit molecule objects representing these tautomers.
+
+    Parameters:
+    mol (rdkit.Chem.Mol): The input molecule for which tautomers are to be enumerated.
+
+    Returns:
+    list: A list of RDKit molecule objects representing the tautomers of the input molecule.
+    """
+    # Create a TautomerEnumerator object
+    enumerator = rdMolStandardize.TautomerEnumerator()
+
+    # Canonicalize the input molecule to get the canonical tautomer
+    canon = enumerator.Canonicalize(mol)
+
+    # Convert the canonical tautomer to a SMILES string
+    csmi = Chem.MolToSmiles(canon)
+
+    # Enumerate all possible tautomers of the input molecule
+    tauts = enumerator.Enumerate(mol)
+
+    # Create a list of the canonical tautomer and the sorted tautomers (excluding the canonical tautomer)
+    res = [canon] + [y for x, y in sorted((Chem.MolToSmiles(x), x) for x in tauts) if x != csmi]
+
+    return res
+
+
+def enumerate_heterocycles(mol, depth=None):
+    """
+    Enumerate all possible heterocycles of a given molecule.
+
+    This function takes an RDKit molecule object as input and generates all possible heterocycles
+    of the molecule. It returns a list of RDKit molecule objects representing these heterocycles.
+
+    Parameters:
+    mol (rdkit.Chem.Mol): The input molecule for which heterocycles are to be enumerated.
+    depth (int, optional): The depth of enumeration. Defaults to None.
+
+    Returns:
+    list: A list of RDKit molecule objects representing the heterocycles of the input molecule.
+    """
+    smiles = sorted(Chem.MolToSmiles(m) for m in EnumerateHeterocycles(mol, depth=depth))
+    return [Chem.MolFromSmiles(smi) for smi in smiles]

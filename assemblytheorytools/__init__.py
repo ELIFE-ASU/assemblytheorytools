@@ -96,7 +96,10 @@ from .reassembler import (assemble,
                           get_num_atom,
                           degree_unsaturation,
                           get_unique_mols,
-                          reassemble_mols)
+                          reassemble_mols,
+                          enumerate_sterioisomers,
+                          enumerate_tautomers,
+                          enumerate_heterocycles)
 
 __version__ = "1.3.0"
 
