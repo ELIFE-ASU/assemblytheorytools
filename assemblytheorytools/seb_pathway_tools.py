@@ -1,23 +1,20 @@
-import igraph
-from rdkit import Chem
-from rdkit.Chem.rdchem import RWMol
-from rdkit.Chem import Draw
-from rdkit.Chem.Draw import rdMolDraw2D
-import json
-import numpy as np
-import re
 import copy
 import os
-import shutil
+import re
+
+import igraph
 import networkx as nx
-from rdkit.Chem import rdFingerprintGenerator
+import numpy as np
+from rdkit import Chem
+from rdkit.Chem import Draw
 from rdkit.Chem import MolFromSmiles
+from rdkit.Chem import rdFingerprintGenerator
+from rdkit.Chem.Draw import rdMolDraw2D
+from rdkit.Chem.rdchem import RWMol
 from tqdm import tqdm
 
 
-
-# -------- LOG PARSING -----------
-def v_string_convert(v_string,input_type):
+def v_string_convert(v_string, input_type):
     """v_string_convert transforms a string "[0 1 2]" into a list of ints of strings [0, 1, 2]
 
     :param v_string: input string "[0 1 2]" or "[A B C]"
@@ -26,23 +23,24 @@ def v_string_convert(v_string,input_type):
     """
     indices = []
     if input_type == "int":
-        f=int
+        f = int
     if input_type == "str":
-        f=str
-    for i,c in enumerate(v_string):
+        f = str
+    for i, c in enumerate(v_string):
         if c == " ":
             indices.append(i)
     if indices != []:
         v = [f(v_string[1:indices[0]])]
-        for i,j in enumerate(indices):
-            if i == len(indices)-1:
+        for i, j in enumerate(indices):
+            if i == len(indices) - 1:
                 break
-            v.append(f(v_string[indices[i]+1:indices[i+1]]))
+            v.append(f(v_string[indices[i] + 1:indices[i + 1]]))
     else:
         indices = [0]
         v = []
-    v.append(f(v_string[indices[-1]+1:-1]))
+    v.append(f(v_string[indices[-1] + 1:-1]))
     return v
+
 
 def e_string_convert(e_string):
     """e_string_convert transforms a string "[[0 1] [1 2]]" into a list of list of ints [[0, 1],[1,2]]
@@ -50,19 +48,23 @@ def e_string_convert(e_string):
     :param e_string: input string "[[0 1] [1 2]]"
     :return: outputs a list of list of ints [[0, 1],[1,2]]
     """
-    export = np.fromstring(e_string.replace("[","").replace("]",""), dtype=int, sep=' ')
-    e = export.reshape((int(len(export)/2),2)).tolist()
+    export = np.fromstring(e_string.replace("[", "").replace("]", ""), dtype=int, sep=' ')
+    e = export.reshape((int(len(export) / 2), 2)).tolist()
     return e
+
+
 def dup_string_convert(e_string):
     """dup_string_convert transforms a string "[[1 2] [3 4]] [[5 6] [7 8]]" into a list of list of ints [[[1, 2],[3, 4]],[[5, 6],[7, 8]]]
 
     :param e_string: input string "[[1 2] [3 4]] [[5 6] [7 8]]"
     :return: outputs an ordered pair of list of list of ints [[[1, 2],[3, 4]],[[5, 6],[7, 8]]]
     """
-    export = np.fromstring(e_string.replace("[","").replace("]",""), dtype=int, sep=' ')
-    final = export.reshape((2,int(len(export)/2)))
-    dup = [final[0].reshape((int(len(final[0])/2),2)).tolist(),final[1].reshape((int(len(final[1])/2),2)).tolist()]
+    export = np.fromstring(e_string.replace("[", "").replace("]", ""), dtype=int, sep=' ')
+    final = export.reshape((2, int(len(export) / 2)))
+    dup = [final[0].reshape((int(len(final[0]) / 2), 2)).tolist(),
+           final[1].reshape((int(len(final[1]) / 2), 2)).tolist()]
     return dup
+
 
 def parse_log(file_name):
     """parse_log takes a file from the AssemblyGo log output and outputs all relevant information for its pathway reconstruction
@@ -85,48 +87,48 @@ def parse_log(file_name):
     equivalences = []
     for x in f:
         if x[-15:-1] == "ORIGINAL GRAPH":
-            counter =-1
+            counter = -1
             continue
         if counter == -1:
-            counter =-2
+            counter = -2
             continue
-        if counter ==-2:
-            v = v_string_convert(x[9:-1],"int")
-            counter =-3
+        if counter == -2:
+            v = v_string_convert(x[9:-1], "int")
+            counter = -3
             continue
-        if counter ==-3:
+        if counter == -3:
             e = e_string_convert(x[6:-1])
             counter = -4
             continue
-        if counter ==-4:
-            v_c = v_string_convert(x[14:-1],"str") 
+        if counter == -4:
+            v_c = v_string_convert(x[14:-1], "str")
             counter = -5
             continue
-        if counter ==-5:
-            e_c = v_string_convert(x[12:-2],"str")
-            counter =-6
+        if counter == -5:
+            e_c = v_string_convert(x[12:-2], "str")
+            counter = -6
             continue
         if x[0:13] == "Remnant Graph":
-            counter =1
+            counter = 1
             continue
-        if counter ==1:
-            vr = v_string_convert(x[9:-1],"int")
-            counter =2
+        if counter == 1:
+            vr = v_string_convert(x[9:-1], "int")
+            counter = 2
             continue
-        if counter ==2:
+        if counter == 2:
             er = e_string_convert(x[6:-1])
             counter = 3
             continue
-        if counter ==3:
-            vr_c = v_string_convert(x[14:-1],"str") 
+        if counter == 3:
+            vr_c = v_string_convert(x[14:-1], "str")
             counter = 4
             continue
-        if counter ==4:
-            er_c = v_string_convert(x[12:-2],"str")
-            counter =5
+        if counter == 4:
+            er_c = v_string_convert(x[12:-2], "str")
+            counter = 5
             continue
         if x[0:16] == "Duplicated Edges":
-            counter =6
+            counter = 6
             continue
         if counter == 6 and x[0:15] == "+++++++++++++++":
             counter = 7
@@ -134,52 +136,55 @@ def parse_log(file_name):
         if counter == 6:
             repeated.append(dup_string_convert(x[1:-2]))
         if x[0:16] == "Atom Equivalents":
-            counter =8
+            counter = 8
             continue
         if counter == 8 and x[0:15] == "###############":
             counter = 9
             continue
         if counter == 8:
-            equivalences.append(v_string_convert(x[:-1],'int'))
+            equivalences.append(v_string_convert(x[:-1], 'int'))
         s = re.sub(r'[0-9]', " ", x)
         s = re.sub(r'\W+', " ", s).strip()
         if s == "Time":
-            runtime = float(x[x.find("Time")+7:])
-    
-    return v,e,v_c,e_c,vr,er,vr_c,er_c,repeated,equivalences,runtime
+            runtime = float(x[x.find("Time") + 7:])
+
+    return v, e, v_c, e_c, vr, er, vr_c, er_c, repeated, equivalences, runtime
+
 
 def print_array(array):
     outp = ''
     for a in array:
-        outp = outp+str(a).replace("'", "").replace("[", "").replace("]", "|")
-        
+        outp = outp + str(a).replace("'", "").replace("[", "").replace("]", "|")
+
     return outp
+
 
 def print_array_2(array):
     outp = ''
     for a in array:
         for e in a:
             for b in e:
-                outp = outp+str(b).replace("'", "").replace("[", "").replace("]", "|")
-            outp = outp+'|'
-        outp = outp+'|'
+                outp = outp + str(b).replace("'", "").replace("[", "").replace("]", "|")
+            outp = outp + '|'
+        outp = outp + '|'
     return outp
 
+
 def encode_path_data(file_name):
-    v,e,v_c,e_c,vr,er,vr_c,er_c,repeated,equivalences,runtime = parse_log(file_name)
-    #if not os.path.exists('paths_encoded'):
+    v, e, v_c, e_c, vr, er, vr_c, er_c, repeated, equivalences, runtime = parse_log(file_name)
+    # if not os.path.exists('paths_encoded'):
     #    os.makedirs('paths_encoded')
     with open('encoded_{}'.format(file_name), 'w') as f:
         f.write("10\n")
-        f.write(str(runtime)+"\n")
+        f.write(str(runtime) + "\n")
         f.write(print_array(e).replace(" ", "")[:-1])
         f.write("\n")
-        f.write(''.join(v_c))        
+        f.write(''.join(v_c))
         f.write("\n")
-        atom_bonds=[bond for bond in set(e_c)]
+        atom_bonds = [bond for bond in set(e_c)]
         e_c_comp = ["{}".format(atom_bonds.index(bond)) for bond in e_c]
-        for i,bond in enumerate(atom_bonds):
-            f.write("{}{}".format(i,bond))
+        for i, bond in enumerate(atom_bonds):
+            f.write("{}{}".format(i, bond))
             f.write("\n")
         f.write(''.join(e_c_comp))
         f.write("\n")
@@ -191,26 +196,8 @@ def encode_path_data(file_name):
         f.write(print_array_2(repeated).replace(" ", "")[:-3])
         f.write("\n")
         f.write(print_array(equivalences).replace(" ", "")[:-1])
-    
+
     return None
-# --------------------------
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# ---------- AASEMBLY_PATHV3.PY ----------
 
 
 def transfrom_bond(bond):
@@ -269,7 +256,7 @@ def fix_repeated_equiv(er, repeated, equivalences, e):
     repeated_eq_1 = []
     for i, array in enumerate(sorted_eq):
         check = np.concatenate(
-            (sorted_eq[:, 1][0:i], sorted_eq[:, 1][i + 1 :]), axis=0
+            (sorted_eq[:, 1][0:i], sorted_eq[:, 1][i + 1:]), axis=0
         )
         if array[1] in check:
             repeated_eq_1.append(array.tolist())
@@ -277,7 +264,7 @@ def fix_repeated_equiv(er, repeated, equivalences, e):
     repeated_eq_2 = []
     for i, array in enumerate(sorted_eq):
         check_2 = np.concatenate(
-            (sorted_eq[:, 0][0:i], sorted_eq[:, 0][i + 1 :]), axis=0
+            (sorted_eq[:, 0][0:i], sorted_eq[:, 0][i + 1:]), axis=0
         )
         if array[0] in check_2:
             repeated_eq_2.append(array.tolist())
@@ -288,7 +275,7 @@ def fix_repeated_equiv(er, repeated, equivalences, e):
         repeated_mod = [equivalence(rep, remove) for rep in repeated]
         er_mod = equivalence([er], remove)[0]
         if repeated_eq_2 == [] or (
-            repeated_eq_2[0][0] == repeated_eq_2[0][0] and inter == []
+                repeated_eq_2[0][0] == repeated_eq_2[0][0] and inter == []
         ):
             rep_eq_1_np = np.array(repeated_eq_1)
             sort_repeated_eq_1 = rep_eq_1_np[rep_eq_1_np[:, 1].argsort()]
@@ -320,10 +307,10 @@ def fix_repeated_equiv(er, repeated, equivalences, e):
                     repa = inter[1]
                     fromm = item[0]
             equivalences = (
-                remove.tolist()
-                + np.delete(
-                    repeated_eq_1, repeated_eq_1.index(inter), axis=0
-                ).tolist()
+                    remove.tolist()
+                    + np.delete(
+                repeated_eq_1, repeated_eq_1.index(inter), axis=0
+            ).tolist()
             )
             er = transfrom_array(er, er_mod, fromm, repa, replace, e)
             for i, rep in enumerate(repeated_mod):
@@ -342,7 +329,7 @@ def fix_repeated_equiv(er, repeated, equivalences, e):
             repeated_eq_1 = []
             for i, array in enumerate(sorted_eq):
                 check = np.concatenate(
-                    (sorted_eq[:, 1][0:i], sorted_eq[:, 1][i + 1 :]), axis=0
+                    (sorted_eq[:, 1][0:i], sorted_eq[:, 1][i + 1:]), axis=0
                 )
                 if array[1] in check:
                     repeated_eq_1.append(array.tolist())
@@ -425,7 +412,7 @@ def index_set(lists, listb):
     """
     for i, lista in enumerate(lists):
         if set(tuple(row) for row in listb) == set(
-            tuple(row) for row in lista
+                tuple(row) for row in lista
         ):
             return i + 1
 
@@ -464,15 +451,15 @@ def equivalence(pieces, equivalences):
 
 class assemblyConstruction:
     def __init__(
-        self,
-        v,
-        e,
-        v_l,
-        e_l,
-        remnant_e,
-        equivalences,
-        duplicates,
-        ifstring=False,
+            self,
+            v,
+            e,
+            v_l,
+            e_l,
+            remnant_e,
+            equivalences,
+            duplicates,
+            ifstring=False,
     ):
         self.v = v
         self.e = e
@@ -498,7 +485,7 @@ class assemblyConstruction:
         self.atoms_list = atoms_list
 
     def consistent_join(
-        self, pieces_mod, steps_mod, repeated_mo1_cp, step, digraph, indexes
+            self, pieces_mod, steps_mod, repeated_mo1_cp, step, digraph, indexes
     ):
         """final takes a set of graph pieces[[[18 25],[25 17]],[[12 18],[14 18],[18 17]],[[14 26]]] and "intelligently" join one pair of edges at a time depending
             if the join version is still a connected graph, for example [[18 25],[25 17],[14 26]] is NOT valid
@@ -640,7 +627,7 @@ class assemblyConstruction:
         return pieces_mod, steps_mod, step, digraph
 
     def repeated_construction(
-        self, pieces_mod, steps_mod, sorted_repeated_mod1, step, digraph
+            self, pieces_mod, steps_mod, sorted_repeated_mod1, step, digraph
     ):
         """repeated_construction takes list of sorted equivalences [[[[0,2],[0,15]],[[1,3],[1,16]]],[[[2,49],[31,49]],[[3,50],[37,50]]][[[63,75],[67,70],[70,75]],[[49,50],[50,53],[52,53]]]]
         and if the right side of the equivalence is on pices_mod, it adds the left side to pices_mod and captures the index for the entry of the equivalences list.
@@ -667,7 +654,7 @@ class assemblyConstruction:
                 # print(pieces_mod)
                 # print(steps_mod)
                 if check_edge_in_lista(
-                    repeat[1], pieces_mod
+                        repeat[1], pieces_mod
                 ) or check_edge_in_lista(repeat[1], steps_mod):
                     pieces_mod.append(repeat[0])
                     sorted_repeated_mod1.remove(repeat)
@@ -677,7 +664,7 @@ class assemblyConstruction:
                     else:
                         indexes[j] = indexes[
                             index_set(left_sort, repeat[1]) - 1
-                        ]
+                            ]
                 else:
                     repeat_cp = copy.deepcopy(repeat[1])
                     pieces_mod_cp = copy.deepcopy(pieces_mod)
@@ -703,7 +690,7 @@ class assemblyConstruction:
                     while not (len(cum) == 1):
                         counter = counter + 1
                         if counter > 100:
-                            #print("Max reached")
+                            # print("Max reached")
                             raise ValueError("Cant join the pieces")
                         cum, steps_mod, step, digraph = self.consistent_join(
                             cum,
@@ -1046,17 +1033,6 @@ class assemblyConstruction:
         return None
 
 
-
-
-
-
-
-
-
-
-
-#--------------------------------- PATH_DB_PARSING ---------------------------------------
-
 def edgesfromstring(string):
     e = []
     couple = ""
@@ -1155,14 +1131,6 @@ def parse_db_path(file_name):
     )
 
 
-
-
-
-
-
-# ------ COMPOSE GRAPHS --------
-# Kind of random here. Used to be in Utils folder, not Pathway tools. 
-
 atom_valence = {
     "C": 4,
     "N": 3,
@@ -1181,11 +1149,11 @@ atom_valence = {
 
 
 def compose_all(
-    graphs,
-    attribute="level",
-    calc_fingerprints=False,
-    get_atomic_count=True,
-    disable_tqdm=False,
+        graphs,
+        attribute="level",
+        calc_fingerprints=False,
+        get_atomic_count=True,
+        disable_tqdm=False,
 ):
     """
     THIS IS A MODIFIED VERSION OF networkx.compose_all
@@ -1299,9 +1267,9 @@ def accumulate_nodes_data(graphs, attribute="level", disable_tqdm=False):
                 node_counts[node[0]] = 1
 
             elif (
-                # if level in one pathway is lower than in another. Can happen
-                # sometimes if the pathways are not exact
-                node[1][attribute] < nodes_data[node[0]]
+                    # if level in one pathway is lower than in another. Can happen
+                    # sometimes if the pathways are not exact
+                    node[1][attribute] < nodes_data[node[0]]
             ):  # update to minimum value
                 nodes_data[node[0]] = node[1][attribute]
                 node_counts[node[0]] += 1
@@ -1326,7 +1294,7 @@ def accumulate_node_usage(graph, attribute="usage"):
 
 
 def get_fingerprints(
-    graph, generator="count", radius: int = 2, fpSize: int = 512
+        graph, generator="count", radius: int = 2, fpSize: int = 512
 ) -> dict:
     """
     Calculates the MorganFingerprint for each node in the graph; returns a dict of node: fingerprint
@@ -1400,9 +1368,9 @@ def get_atomic_distribution(graph) -> dict:
         else:
             for atom in mol.GetAtoms():
                 free_atom_valence = (
-                    atom_valence.get(atom.GetSymbol(), 0) - atom.GetExplicitValence()
+                        atom_valence.get(atom.GetSymbol(), 0) - atom.GetExplicitValence()
                 )
-                #only relevant atoms
+                # only relevant atoms
                 if free_atom_valence > 0:
                     atomic_count[node].append(atom.GetAtomicNum())
         atomic_count[node] = set(atomic_count[node])
@@ -1410,27 +1378,6 @@ def get_atomic_distribution(graph) -> dict:
     return atomic_count
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# ------------------- PATHWAY_TOOLS.PY------------------------
 def encode_go_output(go_output, fname="temp"):
     # open text file
     try:
@@ -1466,7 +1413,7 @@ def draw_pathway(pathway, mode, fname="temp"):
     remnant_e, duplicates, equivalences = fix_repeated_equiv(
         remnant_e, duplicates, equivalences, e
     )  # Fixing sometimes errors in the go output#
-    
+
     construction_object = assemblyConstruction(
         v, e, v_l, e_l, remnant_e, equivalences, duplicates
     )
@@ -1484,15 +1431,15 @@ def draw_pathway(pathway, mode, fname="temp"):
 
 
 def parse_pathway_file_ian(data):
-    #f = open(file)
-    #data = json.load(file)
+    # f = open(file)
+    # data = json.load(file)
     v = data["file_graph"][0]['Vertices']
     e = data["file_graph"][0]['Edges']
     v_l = data["file_graph"][0]['VertexColours']
     e_l = data["file_graph"][0]['EdgeColours']
     remnant_e = data["remnant"][0]["Edges"] + data["removed_edges"]
-    duplicates = [[dup["Right"],dup['Left']]for dup in data["duplicates"]]
-    equivalences = [[1,1]]
+    duplicates = [[dup["Right"], dup['Left']] for dup in data["duplicates"]]
+    equivalences = [[1, 1]]
     mode = 1
     remnant_e, duplicates, equivalences = fix_repeated_equiv(
         remnant_e, duplicates, equivalences, e
@@ -1510,8 +1457,9 @@ def parse_pathway_file_ian(data):
     except IndexError as e:
         pathway_success = False
         print("error")
-        
+
     return pathway_success, construction_object
+
 
 def parse_pathway(pathway, fname="temp"):
     try:
