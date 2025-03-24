@@ -218,10 +218,6 @@ def calculate_assembly_index(mol,
         file_path_pathway = os.path.join(file_path_in + "Pathway")
         log_file = os.path.join(temp_dir, "assembly_output.log")
 
-        # Ensure directory code is available
-        if dir_code is None:
-            raise ValueError("Assembly code directory not provided.")
-
         # Run the assembly code and log output
         try:
             with open(log_file, "w") as log:
@@ -677,7 +673,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         composite_ai, virt_obj, path = CFG.ai_with_pathways(string, f_print=False)
         if directed:
             # Convert to (joint) assembly index of directed strings
-            return composite_ai - 2 * len(delimiters), virt_obj, path
+            return composite_ai - 2 * len(delimiters), virt_obj, path # Note: there is no log file for CFG
         else:
             ValueError(
                 "Current CFG code only works for directed strings. Directed string assembly index is an upper bound to undirected string assembly index, so you may still use the directed calculator.")
