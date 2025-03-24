@@ -320,9 +320,6 @@ class ParsePathwayLog:
         node_colors = [self.G.nodes[node]["level"] for node in self.G.nodes]
 
         cmap = [cmap(0.4) for i in np.linspace(0.3, 1, len(node_colors))]
-        # node_colors = [
-        #     cmap(self.G.nodes[node]["level"]) for node in self.G.nodes
-        # ]
         positions = self._get_node_positions()
         nx.draw(
             self.G,
@@ -460,7 +457,6 @@ class ParsePathwayLog:
         return positions
 
 
-# -----------ORIGINALLY, ASSEMBLER/JAS/JOINT_ASSEMBLY_SPACE.PY----------------
 class Molecule(ConstructionObject):
     """
     A class to represent a molecule.
@@ -905,8 +901,6 @@ class MoleculeSpace(ConstructionObject):
         return list(temp_graph.nodes), removed_observed
 
 
-# ---------- ORIGINALLY MOLECULE_ASSEMBLY.PY ----------------
-
 atom_valence = {
     "C": 4,
     "N": 3,
@@ -941,7 +935,6 @@ class MoleculeGenerationAssemblyPool:
         self.level_to_fragment: dict[int, list[str]]
         self.sampling_weights: list[int]
 
-    #### GRAPH MANIPULATION FUNCTIONS ####
     def set_assembly_pool(self, X=10, remove_pathways=False):
         """
         Modifies the assembly pool by removing a subset of molecules and 
@@ -1125,7 +1118,6 @@ class MoleculeGenerationAssemblyPool:
         )
         return None
 
-    ### SAMPLING WEIGHTS FUNCTIONS ###
     def set_sw_layer(self, exponent: float = 2.0):
         """
         Computes and assigns sampling weights for each layer in the assembly graph.
@@ -1197,7 +1189,6 @@ class MoleculeGenerationAssemblyPool:
         )
         return None
 
-    ### SAMPLING FUNCTIONS ###
     def sample_layer(self, exponent=2.0, curr_depth=0, black_listed_layers=[]) -> int:
         """
         Sample a layer based on the sampling weights.
@@ -1341,7 +1332,6 @@ class MoleculeGenerationAssemblyPool:
         """
         return random.choice(self.level_to_fragment[node_level])
 
-    ### CONSTRUCTION FUNCTIONS ###
     def combine_fragments(
             self, fragment1, fragment2, assemble_object, layer=1
     ):

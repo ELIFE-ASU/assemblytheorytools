@@ -1018,6 +1018,7 @@ def test_get_chirality():
 
 from assemblytheorytools.seb_reassembler import *
 
+
 def test_seb_molecule_construction():
     """
     Test random molecule construction between 2 fragments
@@ -1036,18 +1037,19 @@ def test_seb_molecule_construction():
     # Create minimal graph as a mock assembly pool
     G = nx.DiGraph()
     G.add_nodes_from(["NCC(O)=O", "CC(N)C(O)=O"])  # Glycine, alanine
-    molecule_generation = MoleculeGenerationAssemblyPool(G) 
+    molecule_generation = MoleculeGenerationAssemblyPool(G)
 
     # Combine two fragments together to form new molecule
     list_fragments = list(G.nodes)
     fragment1 = list_fragments[0]
     fragment2 = list_fragments[1]
-    product = molecule_generation.combine_fragments(fragment1 = fragment1, fragment2 = fragment2, assemble_object = Assemble())
-    
-    assert product == "CC(N)C(=O)OC(=O)CN"
-    
+    product = molecule_generation.combine_fragments(fragment1=fragment1, fragment2=fragment2,
+                                                    assemble_object=Assemble())
 
-def test_seb_combine_pathways(): # mol_space.construct_joined_graph() Method from MoleculeSpace
+    assert product == "CC(N)C(=O)OC(=O)CN"
+
+
+def test_seb_combine_pathways():  # mol_space.construct_joined_graph() Method from MoleculeSpace
     """
     Test the combination of two molecules' assembly pathways for an estimated JAS.
     Only one node of each molecule is included in the joined directed graph. 
@@ -1058,7 +1060,7 @@ def test_seb_combine_pathways(): # mol_space.construct_joined_graph() Method fro
     2. Combines the each individual molecules' pathways together.
     3. Asserts that resulting directed graph matches Sebastian's code 
     """
-    print(flush=True) 
+    print(flush=True)
 
     # Construct expected graph
     nodes = ['CC', 'CO', 'CCO', 'C=O', 'CC=O']
@@ -1067,21 +1069,21 @@ def test_seb_combine_pathways(): # mol_space.construct_joined_graph() Method fro
     H.add_nodes_from(nodes)
     H.add_edges_from(edges)
 
-    smiles = ['CCO', 'CC=O'] # Ethanol, acetaldehyade
-    molecule_list = [] # To store Molecule objects
+    smiles = ['CCO', 'CC=O']  # Ethanol, acetaldehyade
+    molecule_list = []  # To store Molecule objects
     # For each SMILES, construct a Molecule object, including its assembly pathway 
     # represented as a directed graph. 
-    for smiles_str in smiles: 
-        molecule = Molecule(smiles = smiles_str, assembly_version = "assemblyCpp") 
-        molecule.reconstruct_pathway() #
+    for smiles_str in smiles:
+        molecule = Molecule(smiles=smiles_str, assembly_version="assemblyCpp")
+        molecule.reconstruct_pathway()  #
         molecule.construct_layered_graph()
         molecule_list.append(molecule)
 
     # Construct MoleculeSpace
-    mol_space = MoleculeSpace(molecules = molecule_list)
-    mol_space.construct_joined_graph() #  Creates the estimated joint assembly
-    G = mol_space.joined_assembly_graph # Grab the graph - this is the assembly pool (I think)
-        
+    mol_space = MoleculeSpace(molecules=molecule_list)
+    mol_space.construct_joined_graph()  # Creates the estimated joint assembly
+    G = mol_space.joined_assembly_graph  # Grab the graph - this is the assembly pool (I think)
+
     assert nx.is_isomorphic(G, H)
 
 
@@ -1094,29 +1096,29 @@ def test_seb_assembly_layer_removal():
 
     Asserts that resulting assembly pool is isomorphic with expected graph.
     """
-    print(flush=True) 
+    print(flush=True)
 
     # Construct expected graph
-    nodes = ['CC', 'CO', 'C=O'] # No edges, just building blocks
+    nodes = ['CC', 'CO', 'C=O']  # No edges, just building blocks
     H = nx.MultiDiGraph()
     H.add_nodes_from(nodes)
 
-    smiles = ['CCO', 'CC=O'] # Ethanol, acetaldehyade
-    molecule_list = [] # To store Molecule objects
+    smiles = ['CCO', 'CC=O']  # Ethanol, acetaldehyade
+    molecule_list = []  # To store Molecule objects
     # For each SMILES, construct a Molecule object, including its assembly pathway 
     # represented as a directed graph. 
-    for smiles_str in smiles: 
-        molecule = Molecule(smiles = smiles_str, assembly_version = "assemblyCpp") 
-        molecule.reconstruct_pathway() #
+    for smiles_str in smiles:
+        molecule = Molecule(smiles=smiles_str, assembly_version="assemblyCpp")
+        molecule.reconstruct_pathway()  #
         molecule.construct_layered_graph()
         molecule_list.append(molecule)
 
     # Construct MoleculeSpace
-    mol_space = MoleculeSpace(molecules = molecule_list)
-    mol_space.construct_joined_graph() #  Creates the estimated joint assembly
+    mol_space = MoleculeSpace(molecules=molecule_list)
+    mol_space.construct_joined_graph()  # Creates the estimated joint assembly
 
     # Remove layer (all molecules with assembly index of 1)
-    G, _ = mol_space.a_minus_x_assembly_pool(X = 1) # Returns the resuling graph
+    G, _ = mol_space.a_minus_x_assembly_pool(X=1)  # Returns the resuling graph
 
     assert nx.is_isomorphic(G, H)
 
@@ -1139,7 +1141,8 @@ def test_seb_constructing_n_molecules():
     2. The diverged assembly pool appropriately depicts this new construction.
     """
     print(flush=True)
-    random.seed(2) # This particular seed generates novel products that don't exist in the pool: propane and acetic acid
+    random.seed(
+        2)  # This particular seed generates novel products that don't exist in the pool: propane and acetic acid
 
     # Constructed expected graph
     H = nx.MultiDiGraph()
@@ -1149,25 +1152,25 @@ def test_seb_constructing_n_molecules():
     H.add_nodes_from(nodes)
     H.add_edges_from(edges)
 
-    smiles = ['CCO', 'CC=O'] # Ethanol, acetaldehyade
-    molecule_list = [] # To store Molecule objects
+    smiles = ['CCO', 'CC=O']  # Ethanol, acetaldehyade
+    molecule_list = []  # To store Molecule objects
     # For each SMILES, construct a Molecule object, including its assembly pathway 
     # represented as a directed graph. 
-    for smiles_str in smiles: 
-        molecule = Molecule(smiles = smiles_str, assembly_version = "assemblyCpp") 
-        molecule.reconstruct_pathway() #
+    for smiles_str in smiles:
+        molecule = Molecule(smiles=smiles_str, assembly_version="assemblyCpp")
+        molecule.reconstruct_pathway()  #
         molecule.construct_layered_graph()
         molecule_list.append(molecule)
 
     # Construct MoleculeSpace
-    mol_space = MoleculeSpace(molecules = molecule_list)
-    mol_space.construct_joined_graph() #  Creates the estimated joint assembly
-    
+    mol_space = MoleculeSpace(molecules=molecule_list)
+    mol_space.construct_joined_graph()  # Creates the estimated joint assembly
+
     # Testing novel molecule generation
-    molecule_generation = MoleculeGenerationAssemblyPool(mol_space) # Insert assembly pool? Or the whole mol space? 
-    molecule_generation.random_construct_n_molecules(2, 1, X = 1)
-    molecule_generation.assembled_molecules # Output, a defaultdict that includes the fragments
-    
+    molecule_generation = MoleculeGenerationAssemblyPool(mol_space)  # Insert assembly pool? Or the whole mol space?
+    molecule_generation.random_construct_n_molecules(2, 1, X=1)
+    molecule_generation.assembled_molecules  # Output, a defaultdict that includes the fragments
+
     # Grab assembled molecules (SMILES) only from results
     assembled_molecules = [sublist[0][2] for sublist in molecule_generation.assembled_molecules.values()]
 
@@ -1176,4 +1179,3 @@ def test_seb_constructing_n_molecules():
 
     assert assembled_molecules == ['CCC', 'O=CO']
     assert nx.is_isomorphic(diverged_assembly_pool, H)
-

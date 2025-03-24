@@ -15,7 +15,8 @@ from tqdm import tqdm
 
 
 def v_string_convert(v_string, input_type):
-    """v_string_convert transforms a string "[0 1 2]" into a list of ints of strings [0, 1, 2]
+    """
+    v_string_convert transforms a string "[0 1 2]" into a list of ints of strings [0, 1, 2]
 
     :param v_string: input string "[0 1 2]" or "[A B C]"
     :param input_type: use either a integer or string conversion
@@ -43,7 +44,8 @@ def v_string_convert(v_string, input_type):
 
 
 def e_string_convert(e_string):
-    """e_string_convert transforms a string "[[0 1] [1 2]]" into a list of list of ints [[0, 1],[1,2]]
+    """
+    e_string_convert transforms a string "[[0 1] [1 2]]" into a list of list of ints [[0, 1],[1,2]]
 
     :param e_string: input string "[[0 1] [1 2]]"
     :return: outputs a list of list of ints [[0, 1],[1,2]]
@@ -54,7 +56,8 @@ def e_string_convert(e_string):
 
 
 def dup_string_convert(e_string):
-    """dup_string_convert transforms a string "[[1 2] [3 4]] [[5 6] [7 8]]" into a list of list of ints [[[1, 2],[3, 4]],[[5, 6],[7, 8]]]
+    """
+    dup_string_convert transforms a string "[[1 2] [3 4]] [[5 6] [7 8]]" into a list of list of ints [[[1, 2],[3, 4]],[[5, 6],[7, 8]]]
 
     :param e_string: input string "[[1 2] [3 4]] [[5 6] [7 8]]"
     :return: outputs an ordered pair of list of list of ints [[[1, 2],[3, 4]],[[5, 6],[7, 8]]]
@@ -67,7 +70,8 @@ def dup_string_convert(e_string):
 
 
 def parse_log(file_name):
-    """parse_log takes a file from the AssemblyGo log output and outputs all relevant information for its pathway reconstruction
+    """
+    parse_log takes a file from the AssemblyGo log output and outputs all relevant information for its pathway reconstruction
 
     :param e_string: input file location e.g. "/your_file_location"
     :return v: outputs a list of ints for the original graph vertex labels [0, 1, 2]
@@ -172,8 +176,6 @@ def print_array_2(array):
 
 def encode_path_data(file_name):
     v, e, v_c, e_c, vr, er, vr_c, er_c, repeated, equivalences, runtime = parse_log(file_name)
-    # if not os.path.exists('paths_encoded'):
-    #    os.makedirs('paths_encoded')
     with open('encoded_{}'.format(file_name), 'w') as f:
         f.write("10\n")
         f.write(str(runtime) + "\n")
@@ -243,7 +245,8 @@ def transfrom_array(array, array_mod, fromm, repa, replace, e):
 
 
 def fix_repeated_equiv(er, repeated, equivalences, e):
-    """Sometimes the go_code has some indexing issues, here I try to fix them. However this doesn't solve all the problems. It solves around 95% of the problems. The solution if you
+    """
+    Sometimes the go_code has some indexing issues, here I try to fix them. However this doesn't solve all the problems. It solves around 95% of the problems. The solution if you
     encounter a problem in your output is just to try again. This is the case since the go algorithm is distributed, therefore non-deterministic. So if you try it many times, it
     may find a well formated pathway eventually.
     """
@@ -342,7 +345,8 @@ def fix_repeated_equiv(er, repeated, equivalences, e):
 
 
 def select_length(e):
-    """select_length takes a dictionary and return the entry for the 'len' entry
+    """
+    select_length takes a dictionary and return the entry for the 'len' entry
 
     :param e: dictionary of arrays lengths and indexes
     :return: entry for e['len']
@@ -351,7 +355,8 @@ def select_length(e):
 
 
 def equal(lista, listb):
-    """equal takes two lists [A,B,C,D] and [A,C,B,D] and test if they contain the same elements, setwise equality
+    """
+    equal takes two lists [A,B,C,D] and [A,C,B,D] and test if they contain the same elements, setwise equality
 
     :param lista: input list [A,B,C,D]
     :param listb: input list [A,C,B,D]
@@ -364,7 +369,8 @@ def equal(lista, listb):
 
 
 def check_edge_in_lista(edges, lista):
-    """check_edge_in_lista takes a list of lists [[A,B,C,D], [A,C,B,D]] and a list [A,C,B,D] and checks if the list is contained in the list of lists
+    """
+    check_edge_in_lista takes a list of lists [[A,B,C,D], [A,C,B,D]] and a list [A,C,B,D] and checks if the list is contained in the list of lists
 
     :param lista: input list of lists [[A,B,C,D], [A,C,B,D]]
     :param edges: input list [A,C,B,D]
@@ -377,7 +383,8 @@ def check_edge_in_lista(edges, lista):
 
 
 def equal_two(lista, listb):
-    """equal takes two lists [A,B,C,D] and [A,C,B,D] and test if they contain the same elements, setwise equality
+    """
+    equal takes two lists [A,B,C,D] and [A,C,B,D] and test if they contain the same elements, setwise equality
 
     :param lista: input list [A,B,C,D]
     :param listb: input list [A,C,B,D]
@@ -390,7 +397,8 @@ def equal_two(lista, listb):
 
 
 def check_edge_in_list(edges, lista):
-    """check_edge_in_lista takes a list of lists [[A,B,C,D], [A,C,B,D]] and a list [A,C,B,D] and checks if the list is contained in the list of lists
+    """
+    check_edge_in_lista takes a list of lists [[A,B,C,D], [A,C,B,D]] and a list [A,C,B,D] and checks if the list is contained in the list of lists
 
     :param lista: input list of lists [[A,B,C,D], [A,C,B,D]]
     :param edges: input list [A,C,B,D]
@@ -403,7 +411,8 @@ def check_edge_in_list(edges, lista):
 
 
 def index_set(lists, listb):
-    """index_set takes a list of list of lists [[[1,2],[2,3]],[[3,4],[5,6]]] and a list of lists [[2,3],[1,2]] and returns the first index where the list and the element of the list of list
+    """
+    index_set takes a list of list of lists [[[1,2],[2,3]],[[3,4],[5,6]]] and a list of lists [[2,3],[1,2]] and returns the first index where the list and the element of the list of list
         have a set equality
 
     :param lists: input list of list of lists [[[1,2],[2,3]],[[3,4],[5,6]]]
@@ -418,7 +427,8 @@ def index_set(lists, listb):
 
 
 def repeated_sizes(repeated):
-    """repeated_sizes takes a list of sorted equivalences [[[[0, 2], [0, 15]], [[1, 3], [1, 16]]],[[[2, 49], [31, 49]], [[3, 50], [37, 50]]] [[[63, 75], [67, 70], [70, 75]], [[49, 50], [50, 53], [52, 53]]]],and returns the set of  lenghts of the equivalence array.
+    """
+    repeated_sizes takes a list of sorted equivalences [[[[0, 2], [0, 15]], [[1, 3], [1, 16]]],[[[2, 49], [31, 49]], [[3, 50], [37, 50]]] [[[63, 75], [67, 70], [70, 75]], [[49, 50], [50, 53], [52, 53]]]],and returns the set of  lenghts of the equivalence array.
 
     :param repeated: [[[[0, 2], [0, 15]], [[1, 3], [1, 16]]],[[[2, 49], [31, 49]], [[3, 50], [37, 50]]] [[[63, 75], [67, 70], [70, 75]], [[49, 50], [50, 53], [52, 53]]]]
     :return: len of each equivalence [2,3]
@@ -429,7 +439,8 @@ def repeated_sizes(repeated):
 
 
 def equivalence(pieces, equivalences):
-    """equivalence transforms a list of pieces of the remnant graph that can have a label not found in the original graph, to thier equivalent set of pieces all from the original graph
+    """
+    equivalence transforms a list of pieces of the remnant graph that can have a label not found in the original graph, to thier equivalent set of pieces all from the original graph
 
     :param pieces: input list [[[9 17]],[[24 25],[25 26],[26 21]],[[28 29] [14 29]]
     :param equivalences: input list [[17 26],[19 27],[12 28],[18 29]]
@@ -472,7 +483,6 @@ class assemblyConstruction:
         atoms_list = []
         atoms_pre = []
         full_atoms_list = []
-        full_atoms_list = []
         for i, bond in enumerate(e):
             atom_list = [[v_l[bond[0]], v_l[bond[1]]], e_l[i]]
             atom_set = [{v_l[bond[0]], v_l[bond[1]]}, e_l[i]]
@@ -487,7 +497,8 @@ class assemblyConstruction:
     def consistent_join(
             self, pieces_mod, steps_mod, repeated_mo1_cp, step, digraph, indexes
     ):
-        """final takes a set of graph pieces[[[18 25],[25 17]],[[12 18],[14 18],[18 17]],[[14 26]]] and "intelligently" join one pair of edges at a time depending
+        """
+        final takes a set of graph pieces[[[18 25],[25 17]],[[12 18],[14 18],[18 17]],[[14 26]]] and "intelligently" join one pair of edges at a time depending
             if the join version is still a connected graph, for example [[18 25],[25 17],[14 26]] is NOT valid
             but [[14 26],[14 18],[18 17],[14 26]] would be
 
@@ -510,9 +521,6 @@ class assemblyConstruction:
                 pici_r = np.reshape(pici, (np.shape(pici)[0] * 2))
                 for idx, ed in enumerate(pici_r):
                     if ed in pic_r and not (pic == pici):
-                        # temporary fix for strings
-                        #                        if (idx%2==0 and ed==0 and self.ifstring):
-                        #                            continue
                         step = step + 1
                         if self.ifstring:
                             steps_mod.append(
@@ -629,14 +637,12 @@ class assemblyConstruction:
     def repeated_construction(
             self, pieces_mod, steps_mod, sorted_repeated_mod1, step, digraph
     ):
-        """repeated_construction takes list of sorted equivalences [[[[0,2],[0,15]],[[1,3],[1,16]]],[[[2,49],[31,49]],[[3,50],[37,50]]][[[63,75],[67,70],[70,75]],[[49,50],[50,53],[52,53]]]]
+        """
+        repeated_construction takes list of sorted equivalences [[[[0,2],[0,15]],[[1,3],[1,16]]],[[[2,49],[31,49]],[[3,50],[37,50]]][[[63,75],[67,70],[70,75]],[[49,50],[50,53],[52,53]]]]
         and if the right side of the equivalence is on pices_mod, it adds the left side to pices_mod and captures the index for the entry of the equivalences list.
         If right side is not on the pieces_mod, it constructs it from the known pieces and/or equivalences(final function) and it adds the final pice the pieces_mod,
         and the index of the equivalence in the steps_mod.
         """
-        # print(pieces_mod)
-        # print(sorted_repeated_mod1)
-        # print(steps_mod)
         step_ind = [1 for i in range(len(sorted_repeated_mod1))]
         indexes = [0 for i in range(len(sorted_repeated_mod1))]
         sorted_repeated_mod1_cp = copy.deepcopy(sorted_repeated_mod1)
@@ -648,11 +654,6 @@ class assemblyConstruction:
                     0
                 ] != len(repeat[0]):
                     continue
-                # print(repeated_sizes(sorted_repeated_mod1))
-                # print(len(repeat[0]))
-                # print(repeat[1])
-                # print(pieces_mod)
-                # print(steps_mod)
                 if check_edge_in_lista(
                         repeat[1], pieces_mod
                 ) or check_edge_in_lista(repeat[1], steps_mod):
@@ -682,10 +683,8 @@ class assemblyConstruction:
                     if indices == []:
                         continue
                     cum = [pieces_mod[i] for i in indices]
-                    # print(cum)
                     for idx in indices:
                         pieces_mod.remove(pieces_mod_cp[idx])
-                    # We consistently join the remant pieces in such a way that the constructed molecule never has disconnected pieces
                     counter = 0
                     while not (len(cum) == 1):
                         counter = counter + 1
@@ -700,7 +699,6 @@ class assemblyConstruction:
                             digraph,
                             indexes,
                         )
-                    # Construct repeat[1]
                     pieces_mod.append(cum[0])
                     pieces_mod.append(repeat[0])
                     step_ind[j] = 0
@@ -718,11 +716,11 @@ class assemblyConstruction:
 
     def generate_pathway(self):
         ## Construct Remant Graph
-        # The Remnant Graph are usually are usually disjoing pieces
+        # The Remnant Graph are usually disjoing pieces
         step = 0
         # The digraph contains the information of the assembly path
         digraph = []
-        # The steps contains all the the new assembled pieces at each step
+        # The steps contains all the new assembled pieces at each step
         steps = []
         # We construct each piece of the remnant graph one edge at a time
         pieces = [[edge] for edge in self.remnant_e]
@@ -804,7 +802,7 @@ class assemblyConstruction:
         return None
 
     def pathway_log_string(self, file_name="pathway_log") -> str:
-        pathway_file = []  # open("{}.txt".format(file_name), "w")
+        pathway_file = []
         pathway_file.append("#####Graph#####\n")
         pathway_file.append(str(self.v) + "\n")
         pathway_file.append(str(self.e) + "\n")
@@ -883,12 +881,6 @@ class assemblyConstruction:
         _ = self.pathway_inchi_fragments()
 
         if mode == 1:
-            # if not os.path.exists('path-images/{}'.format(Path(filename).stem)):
-            #    os.makedirs('path-images/{}'.format(Path(filename).stem))
-            # for i,atom in enumerate(molecules_atoms):
-            #    Draw.MolToFile(atom,'path-images/{}/atom{}.png'.format(Path(filename).stem,i))
-            # for i,step in enumerate(molecules_steps):
-            #    Draw.MolToFile(step,'path-images/{}/step{}.png'.format(Path(filename).stem,i+1))
             if not os.path.exists("path-images/path"):
                 os.makedirs("path-images/path")
             for i, atom in enumerate(self.molecules_atoms):
@@ -899,8 +891,6 @@ class assemblyConstruction:
                 )
         ###### Draw Molecules Mode 1 #####
         if mode == 2:
-            # if not os.path.exists('path-images/{}'.format(Path(filename).stem)):
-            #    os.makedirs('path-images/{}'.format(Path(filename).stem))
             if not os.path.exists("path-images/path"):
                 os.makedirs("path-images/path")
             mol = self.molecules_steps[-1]
@@ -941,8 +931,7 @@ class assemblyConstruction:
                     bond_cols[bd] = (1.0, 1.0, 1.0)
                 d = rdMolDraw2D.MolDraw2DCairo(
                     500, 500
-                )  # or MolDraw2DCairo to get PNGs
-                # d.drawOptions().useBWAtomPalette()
+                )
                 d.drawOptions().noAtomLabels = True
                 d.drawOptions().fillHighlights = True
                 d.drawOptions().continuousHighlight = False
@@ -966,7 +955,6 @@ class assemblyConstruction:
     def export_mathematica(self, image_size=80, aspect_ratio=1):
         _ = self.pathway_inchi_fragments()
         pathway_file = open("pathway_mathematica.nb", "w")
-        # print("*Atoms List*")
         pathway_file.write(
             "stripMetadata[expression_] := If[Head[expression] === Rule, Last[expression], expression];\n"
         )
@@ -983,7 +971,6 @@ class assemblyConstruction:
                 "atom{} = Molecule[{{ {} }}, {{ {} }}];\n".format(*out)
             )
             vertex_string = vertex_string + "atom{},".format(i)
-        # print("*Steps List*")
         for i, step_mol in enumerate(self.vs_atoms):
             ato = ""
             for ati in step_mol:
@@ -999,9 +986,7 @@ class assemblyConstruction:
             )
             vertex_string = vertex_string + "step{},".format(i + 1)
         vertex_string = vertex_string[:-1] + "};"
-        # print("*Vertex List*")
         pathway_file.write(vertex_string + "\n")
-        # print("*Digraph List*")
         dig = ""
         for ed in self.digraph:
             dig = dig + "{} \[DirectedEdge] {},".format(ed[0], ed[1])
@@ -1105,12 +1090,6 @@ def parse_db_path(file_name):
             additional = np.array(additional)
             new = np.delete(equivalence, indices, 0)
             if len(additional) != 0:
-                #    new = np.stack(new, axis=0)
-                #    add = additional
-                #    for i,rep in enumerate(additional[:,1]):
-                #        if rep in new[:,1]:
-                #            add = np.delete(additional, i, 0)
-
                 if new.size == 0:
                     equivalences = additional
                 else:
@@ -1431,8 +1410,6 @@ def draw_pathway(pathway, mode, fname="temp"):
 
 
 def parse_pathway_file_ian(data):
-    # f = open(file)
-    # data = json.load(file)
     v = data["file_graph"][0]['Vertices']
     e = data["file_graph"][0]['Edges']
     v_l = data["file_graph"][0]['VertexColours']
