@@ -489,7 +489,8 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
                                     timeout=100.0,
                                     debug=False,
                                     directed=False,
-                                    mode="mol"):
+                                    mode="mol",
+                                    return_log_file=False):
     """
     Calculate the assembly index of a string or a set of strings. 
     This function uses the molecular assembly calculator by constructing molecular graphs which correspond to the
@@ -538,26 +539,139 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
             for u, v, data in graph.edges(data=True):
                 print(f"Edge {u}-{v}: {data.get('color', 'No color')}", flush=True)
 
-        graph_ai, graph_virtual_obj, graph_path = calculate_assembly_index(graph,
+        if return_log_file:
+            graph_ai, graph_virtual_obj, graph_path, log_file = calculate_assembly_index(graph,
                                                                            dir_code=dir_code,
                                                                            timeout=timeout,
                                                                            debug=debug,
                                                                            joint_corr=False,
-                                                                           strip_hydrogen=False)
+                                                                           strip_hydrogen=False,
+                                                                           return_log_file=return_log_file)
+        else:
+            graph_ai, graph_virtual_obj, graph_path = calculate_assembly_index(graph,
+                                                                            dir_code=dir_code,
+                                                                            timeout=timeout,
+                                                                            debug=debug,
+                                                                            joint_corr=False,
+                                                                            strip_hydrogen=False)
 
         if debug:
             print(f"Graph Assembly Index: {graph_ai}", flush=True)
 
         if directed:
-            # Convert to (joint) assembly index of directed strings
-            return graph_ai - len(set(string)) - 2 * len(
-                delimiters), None, None  # Virt obj and Path parsing still needs to be added
+            # Convert to (joint) assembly index of directed strings. Note: Virt obj and Path parsing still needs to be added
+            if not return_log_file:
+                return (graph_ai - len(set(string)) - 2 * len(delimiters), None, None) 
+            else:
+                return (graph_ai - len(set(string)) - 2 * len(delimiters), None, None, log_file)
+            
         else:
-            # Convert to (joint) assembly index of undirected strings
-            return graph_ai - 2 * len(delimiters), None, None  # Virt obj, Path parsing still needs to be added
+            # Convert to (joint) assembly index of undirected strings. Note: Virt obj and Path parsing still needs to be added
+            if not return_log_file:
+                return (graph_ai - 2 * len(delimiters), None, None)  
+            else:
+                return (graph_ai - 2 * len(delimiters), None, None, log_file)
+
 
     elif mode == "str":  # Use the string assembly cpp calculator
-        raise NotImplementedError("String assembly cpp calculator not yet supported.")
+        # raise NotImplementedError("String assembly cpp calculator not yet supported.")
+
+        # Initialize variables
+        ai = -1
+        virt_obj = None
+        path = None
+        file_path_in = None
+        timed_out = False  # Flag for timeout tracking
+
+        # Get the assembly code directory
+        if dir_code is None:
+            dir_code = add_assembly_to_path()
+
+        # Create working directory
+        temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}" if debug else tempfile.mkdtemp()
+        os.makedirs(temp_dir, exist_ok=True)
+
+        # Define output and log file paths
+        file_path_out = os.path.join(file_path_in + "Out")
+        file_path_pathway = os.path.join(file_path_in + "Pathway")
+        log_file = os.path.join(temp_dir, "assembly_output.log")
+
+        # Ensure directory code is available
+        if dir_code is None:
+            raise ValueError("Assembly code directory not provided.")
+
+        # Run the assembly code and log output
+        try:
+            with open(log_file, "w") as log:
+                process = subprocess.Popen(
+                    [dir_code, file_path_in],
+                    stdout=log,
+                    stderr=subprocess.STDOUT  # Merge stdout and stderr into one log file
+                )
+
+                start_time = time.time()
+                while process.poll() is None:
+                    # Check for timeout
+                    if time.time() - start_time > timeout:
+                        print("Warning: Assembly calculation timed out. Terminating...")
+                        process.terminate()
+                        time.sleep(2)
+                        if process.poll() is None:
+                            process.kill()
+                        timed_out = True  # Mark timeout
+                        break
+                    time.sleep(1)
+
+        except Exception as e:
+            print(f"Error: {e}")
+
+        # Extract the most recent "min AI found so far" from the log file
+        last_ai = -1
+        if os.path.exists(log_file):
+            try:
+                with open(log_file, "r") as log:
+                    log_lines = log.readlines()
+
+                # Reverse scan for last occurrence of "min AI found so far"
+                for line in reversed(log_lines):
+                    match = re.search(r"min AI found so far:\s*(\d+)", line)
+                    if match:
+                        last_ai = int(match.group(1))
+                        break
+
+                ai = last_ai  # Assign found AI
+
+                # Print appropriate messages based on timeout
+                if ai == -1 and timed_out:
+                    print("No minimum AI found before timeout.")
+                elif ai != -1 and timed_out:
+                    print(f"Partial AI found = {ai}")
+
+            except Exception as e:
+                print(f"Failed to read AI from log file: {e}")
+
+            # Process pathway output if available
+            if os.path.isfile(file_path_pathway):
+                try:
+                    if isinstance(mol, nx.Graph):
+                        virt_obj = get_pathway_to_graph(file_path_pathway)
+                    elif isinstance(mol, Chem.Mol):
+                        virt_obj = get_pathway_to_mol(file_path_pathway)
+                        path = parse_pathway_file(file_path_pathway)
+                    elif ".mol" in mol:
+                        virt_obj = get_pathway_to_inchi(file_path_pathway)
+                    else:
+                        virt_obj = None
+                        raise ValueError("Input not supported")
+                except Exception as e:
+                    print(f"Failed to load pathway data: {e}", flush=True)
+
+            # Print log file path if required
+            if return_log_file:
+                print(f"Log file printed to: {log_file}", flush=True)
+
+            # Return based on flag
+            return (ai, virt_obj, path) if not return_log_file else (ai, virt_obj, path, log_file)
 
     elif mode == "cfg":  # Use the RePair upper bound
         composite_ai, virt_obj, path = CFG.ai_with_pathways(string, f_print=False)
