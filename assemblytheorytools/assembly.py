@@ -581,11 +581,17 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
 
         # Get the assembly code directory
         if dir_code is None:
-            dir_code = add_assembly_to_path()
+            dir_code = add_assembly_to_path(str_mode=True)
 
         # Create working directory
         temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}" if debug else tempfile.mkdtemp()
         os.makedirs(temp_dir, exist_ok=True)
+
+        # Need to initialize file_path_in !!!!!!!!!!
+        # Need to put string into a temporary text file
+        file_path_in = os.path.join(temp_dir, "string_in")
+        with open(file_path_in, "w") as f:
+            f.write(string)
 
         # Define output and log file paths
         file_path_out = os.path.join(file_path_in + "Out")
@@ -600,7 +606,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         try:
             with open(log_file, "w") as log:
                 process = subprocess.Popen(
-                    [dir_code, file_path_in],
+                    [dir_code, file_path_in, directed==0, 1],
                     stdout=log,
                     stderr=subprocess.STDOUT  # Merge stdout and stderr into one log file
                 )
@@ -645,22 +651,6 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
 
             except Exception as e:
                 print(f"Failed to read AI from log file: {e}")
-
-            # Process pathway output if available
-            if os.path.isfile(file_path_pathway):
-                try:
-                    if isinstance(mol, nx.Graph):
-                        virt_obj = get_pathway_to_graph(file_path_pathway)
-                    elif isinstance(mol, Chem.Mol):
-                        virt_obj = get_pathway_to_mol(file_path_pathway)
-                        path = parse_pathway_file(file_path_pathway)
-                    elif ".mol" in mol:
-                        virt_obj = get_pathway_to_inchi(file_path_pathway)
-                    else:
-                        virt_obj = None
-                        raise ValueError("Input not supported")
-                except Exception as e:
-                    print(f"Failed to load pathway data: {e}", flush=True)
 
             # Print log file path if required
             if return_log_file:
@@ -736,22 +726,28 @@ def assembly_dry_run(mol, temp_dir=None, strip_hydrogen=False):
         raise ValueError("Input not supported")
 
 
-def add_assembly_to_path():
+def add_assembly_to_path(str_mode = False):
     """
     Adds the path to the precompiled Assembly to the environment variable `ASS_PATH` based on the operating system.
 
     Raises:
         NotImplementedError: If the operating system is MacOS or Windows.
     """
-    if not os.environ.get("ASS_PATH"):
+    if str_mode:
+        key = "ASS_PATH"
+    else:
+        key = "ASS_STR_PATH"
+
+    if not os.environ.get(key):
         full_att_path = os.path.abspath(
             os.path.join(os.path.dirname(__file__), "precompiled", "asscpp_combined_static_linux"))
         if platform.system() == "Linux":
-            os.environ["ASS_PATH"] = full_att_path
+            os.environ[key] = full_att_path
         else:
             raise NotImplementedError("Pre-compiled Assembly not implemented for MacOS or Windows.")
 
-    return os.environ.get("ASS_PATH")
+    return os.environ.get(key)
+
 
 
 def load_assembly_time():
