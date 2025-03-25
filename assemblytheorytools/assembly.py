@@ -235,7 +235,7 @@ def calculate_assembly_index(mol,
                 while process.poll() is None:
                     # Check for timeout
                     if time.time() - start_time > timeout:
-                        print("Warning: Assembly calculation timed out. Terminating...")
+                        print("Warning: Assembly calculation timed out. Terminating...", flush=True)
                         process.terminate()
                         time.sleep(2)
                         if process.poll() is None:
@@ -245,7 +245,7 @@ def calculate_assembly_index(mol,
                     time.sleep(1)
 
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"Error: {e}", flush=True)
 
         # Extract the most recent "min AI found so far" from the log file
         last_ai = -1
@@ -265,12 +265,12 @@ def calculate_assembly_index(mol,
 
                 # Print appropriate messages based on timeout
                 if ai == -1 and timed_out:
-                    print("No minimum AI found before timeout.")
+                    print("No minimum AI found before timeout.", flush=True)
                 elif ai != -1 and timed_out:
-                    print(f"Partial AI found = {ai}")
+                    print(f"Partial AI found = {ai}", flush=True)
 
             except Exception as e:
-                print(f"Failed to read AI from log file: {e}")
+                print(f"Failed to read AI from log file: {e}", flush=True)
 
         # Process pathway output if available
         if os.path.isfile(file_path_pathway):
@@ -453,7 +453,7 @@ def compile_assembly_code(assembly_tar_path="assemblycpp-main", boost_version="1
 
     elif system == "darwin":  # macOS
         # macOS-specific code
-        print("Running on macOS: Using brew to install Boost and clang++ to compile.")
+        print("Running on macOS: Using brew to install Boost and clang++ to compile.", flush=True)
 
         # Install Boost using Homebrew
         subprocess.run("brew install boost", shell=True, check=True)
