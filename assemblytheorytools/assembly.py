@@ -270,7 +270,7 @@ def calculate_assembly_index(mol,
                 if ai == -1 and timed_out:
                     print("No minimum AI found before timeout.", flush=True)
                 elif ai != -1 and timed_out:
-                    print(f"Partial AI found = {ai}", flush=True)
+                    print(f"Upper Bound to AI Found: AI =< {ai}", flush=True)
 
             except Exception as e:
                 print(f"Failed to read AI from log file: {e}", flush=True)
@@ -663,9 +663,9 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
 
                 # Print appropriate messages based on timeout
                 if ai == -1 and timed_out:
-                    print("No minimum AI found before timeout.")
+                    print("No assembly paths found before timeout.")
                 elif ai != -1 and timed_out:
-                    print(f"Partial AI found = {ai - 2 * len(delimiters)}")
+                    print(f"Upper Bound to AI Found: AI =< {ai - 2 * len(delimiters)}")
                 
                 ai += - 2 * len(delimiters) # Convert to (joint) assembly index of strings
 
