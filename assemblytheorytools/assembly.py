@@ -23,8 +23,7 @@ from .tools_graph import (write_ass_graph_file,
                           nx_to_mol)
 from .tools_mol import (write_v2k_mol_file,
                         combine_mols,
-                        safe_standardize_mol,
-                        standardize_mol)
+                        safe_standardize_mol)
 from .tools_string import (prep_joint_string_ai,
                            get_dir_str_molecule,
                            get_undir_str_molecule)
@@ -197,7 +196,7 @@ def calculate_assembly_index(mol,
             write_ass_graph_file(mol, file_name=file_path_in)
         # Input is an RDKit mol
         elif isinstance(mol, Chem.Mol):
-            mol = standardize_mol(mol, add_hydrogens=True)
+            mol = safe_standardize_mol(mol, add_hydrogens=True)
             if strip_hydrogen:
                 mol = Chem.RemoveHs(mol)
             mol_file = os.path.join(temp_dir, "tmp.mol")

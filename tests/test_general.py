@@ -1000,3 +1000,40 @@ def test_get_chirality():
 
     chirality = att.get_chirality(mol)
     assert chirality == 3
+
+
+def test_jai_self():
+    print(flush=True)
+    molecules = ["O=P(O)(O)OC[C@@H](O)[C@@H](O)c1c[nH]c2ccccc12", "O=P(O)(O)OC[C@@H](O)[C@@H](O)c1c[nH]c2ccccc12"]
+    # Convert all the SMILES strings to molecule objects
+    mols = [att.smi_to_mol(smile) for smile in molecules]
+    # Combine the molecule objects into a single molecule
+    mol = att.combine_mols(mols)
+
+    # Calculate the assembly index
+    jai, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
+    ai, _, _ = att.calculate_assembly_index(mols[0], strip_hydrogen=True)
+    assert jai == ai
+
+
+def test_jai_asymmetric():
+    print(flush=True)
+    molecules = ["N[C@@H](CCO)C(=O)O", "O=C(O)CC(C(=O)O)C(O)C(=O)O"]
+    # Convert all the SMILES strings to molecule objects
+    mols = [att.smi_to_mol(smile) for smile in molecules]
+    # Combine the molecule objects into a single molecule
+    mol = att.combine_mols(mols)
+
+    # Calculate the assembly index
+    ai_1, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
+
+    molecules = ["O=C(O)CC(C(=O)O)C(O)C(=O)O", "N[C@@H](CCO)C(=O)O"]
+    # Convert all the SMILES strings to molecule objects
+    mols = [att.smi_to_mol(smile) for smile in molecules]
+    # Combine the molecule objects into a single molecule
+    mol = att.combine_mols(mols)
+
+    # Calculate the assembly index
+    ai_2, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
+
+    assert ai_1 == ai_2
