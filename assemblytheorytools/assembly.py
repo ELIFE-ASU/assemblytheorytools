@@ -492,7 +492,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
                                     timeout=100.0,
                                     debug=False,
                                     directed=False,
-                                    mode="mol",
+                                    mode="str",
                                     return_log_file=False):
     """
     Calculate the assembly index of a string or a set of strings. 
@@ -507,7 +507,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         directed (bool, optional): If True, treat strings as directed. Defaults to False, treating strings as
         undirected.
         mode ("mol"/"str"/"cfg",optional): "mol" uses the molecular assembly calculator, "str" uses the string assembly
-        calculator (not yet supported), "cfg" uses the RePair upper bound.
+        calculator, "cfg" uses the RePair upper bound.
     """
     if isinstance(input_data, str):
         # Handle the case where input_data is a single string
