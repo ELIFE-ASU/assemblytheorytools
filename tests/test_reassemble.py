@@ -18,48 +18,32 @@ import random
 from rdkit import Chem
 
 
-def react_smiles(smiles1, smiles2, random_bond=False):
-    try:
-        mol1 = Chem.MolFromSmiles(smiles1)
-        mol2 = Chem.MolFromSmiles(smiles2)
 
-        heavy_atom_smarts = Chem.MolFromSmarts("[!#1]")
-        heavy_atoms1 = mol1.GetSubstructMatches(heavy_atom_smarts)
-        heavy_atoms2 = mol2.GetSubstructMatches(heavy_atom_smarts)
-
-        idx1 = random.choice(heavy_atoms1)[0]
-        idx2 = random.choice(heavy_atoms2)[0]
-
-        emol = Chem.EditableMol(Chem.CombineMols(mol1, mol2))
-
-        # Randomize bond order (SINGLE, DOUBLE, or TRIPLE)
-        if random_bond:
-            bond_types = [
-                Chem.rdchem.BondType.SINGLE,
-                Chem.rdchem.BondType.DOUBLE,
-                Chem.rdchem.BondType.TRIPLE
-            ]
-            random_bond = random.choice(bond_types)
-            emol.AddBond(idx1, mol1.GetNumAtoms() + idx2, order=random_bond)
-        else:
-            # Use a fixed bond order (SINGLE)
-            emol.AddBond(idx1, mol1.GetNumAtoms() + idx2, order=Chem.rdchem.BondType.SINGLE)
-
-        new_mol = emol.GetMol()
-        Chem.SanitizeMol(new_mol)
-
-        #
-
-        return Chem.MolToSmiles(new_mol)
-    except:
-        return None
 
 
 def test_1():
     print(flush=True)
-    smiles1 = "CCO"  # ethanol, for example
-    smiles2 = "O"  # benzene
-    product_smiles = react_smiles(smiles1, smiles2)
+    pool = ["CCO", "O"]
+    pool = [
+        'O',  # H2O
+        'O=C=O',  # CO2
+        'N#N',  # N2
+        'C',  # CH4
+        'N',  # NH3
+        '[C-]#[O+]',  # CO
+        'O=S=O',  # SO2
+        'S',  # H2S
+        'C#N',  # HCN
+        'C=O',  # H2CO
+        'C=C',  # C2H4
+        'F',  # HF
+        'Cl',  # HCl
+        '[HH]',  # H2
+        'O=C=S'  # OCS
+    ]
+    product_smiles = att.reassemble(pool)
+    for product in product_smiles:
+        print(product, flush=True)
 
 
 def test_origami():
@@ -108,5 +92,22 @@ def test_assemble():
     assert Chem.MolToSmiles(mol) == 'C=C(O)C(O)CO'
 
 
-def test_reassemble_mols():
-    pass
+def test_reassemble_old():
+    print(flush=True)
+    molecules = ['[H]OC(=O)C([H])([H])N([H])[H]']
+    # Convert all the SMILES strings to molecule objects
+    mols = [att.smi_to_mol(smile) for smile in molecules]
+    # Combine the molecule objects into a single molecule
+    mol = att.combine_mols(mols)
+
+    # Calculate the assembly index
+    ai, virt_obj, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
+
+    mols_out = att.convert_pathway_dict_to_list(virt_obj)
+
+    re_mols = [Chem.MolToInchi(mol) for mol in mols_out]
+    print(re_mols, flush=True)
+
+    re_mols = att.reassemble_old(mols_out, n_mol_needed=2)
+    re_mols = [Chem.MolToInchi(mol) for mol in re_mols]
+    print(re_mols, flush=True)
