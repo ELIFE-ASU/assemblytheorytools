@@ -587,8 +587,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}" if debug else tempfile.mkdtemp()
         os.makedirs(temp_dir, exist_ok=True)
 
-        # Need to initialize file_path_in !!!!!!!!!!
-        # Need to put string into a temporary text file
+        # Put string into a temporary text file
         file_path_in = os.path.join(temp_dir, "string_in")
         with open(file_path_in, "w") as f:
             f.write(string)
@@ -647,6 +646,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
                 if ai == -1 and timed_out:
                     print("No minimum AI found before timeout.")
                 elif ai != -1 and timed_out:
+                    ai += - 2 * len(delimiters)
                     print(f"Partial AI found = {ai}")
 
             except Exception as e:
