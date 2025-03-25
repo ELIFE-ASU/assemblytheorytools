@@ -57,7 +57,7 @@ if __name__ == "__main__":
     plt.plot(string_lengths, ai_list, 'o-', label="AssCPP", lw=2, color='black')
     plt.plot(string_lengths, ai_cfg_list, 'o-', label="CFG", lw=2, color='red')
     plt.legend()
-    #att.n_plot("String length", "Assembly index")
+    # att.n_plot("String length", "Assembly index")
     ys = 14
     plt.tick_params(axis='both', which='major', labelsize=ys - 2, direction='in', length=6, width=2)
     plt.xlabel("String length", fontsize=ys)

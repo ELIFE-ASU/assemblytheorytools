@@ -7,6 +7,7 @@ import networkx as nx
 
 from .construction_string import generate_string_pathway_ian, get_graph_string_explicit
 
+
 def load_fasta(file_path: str) -> str:
     """
     Load a FASTA file and return its contents as a single string.

@@ -9,7 +9,6 @@ from .assembly import (calculate_assembly_index,
                        assembly_dry_run,
                        add_assembly_to_path,
                        load_assembly_time)
-
 from .complexity_scores import (molecular_weight,
                                 bertz_complexity,
                                 wiener_index,
@@ -20,9 +19,46 @@ from .complexity_scores import (molecular_weight,
                                 tanimoto_similarity,
                                 dice_morgan_similarity,
                                 get_chirality)
-
+from .construction import parse_pathway_file
+from .construction_string import (generate_string_pathway_ian,
+                                  get_graph_string_explicit)
 from .find_other_paths import (all_shortest_paths)
-
+from .pathway import (get_pathway_to_graph,
+                      get_pathway_to_mol,
+                      get_pathway_to_inchi,
+                      get_pathway_to_smi,
+                      get_mol_pathway_to_inchi,
+                      get_mol_pathway_to_smi,
+                      convert_pathway_dict_to_list)
+from .plotting import (n_plot,
+                       ax_plot,
+                       plot_mol_graph,
+                       plot_interactive_graph,
+                       plot_graph,
+                       plot_digraph,
+                       plot_digraph_with_images,
+                       plot_digraph_metro)
+from .reassembler import (assemble,
+                          origami,
+                          get_num_atom,
+                          degree_unsaturation,
+                          get_unique_mols,
+                          reassemble_old,
+                          enumerate_sterioisomers,
+                          enumerate_tautomers,
+                          enumerate_heterocycles,
+                          reassemble)
+from .tools_cell import (read_cif_file,
+                         atoms_to_mol_file,
+                         atoms_to_nx,
+                         find_clusters)
+from .tools_file import (file_list,
+                         file_list_all,
+                         filter_files,
+                         write_to_shared_file,
+                         remove_files,
+                         wipe_dir,
+                         list_subdirs)
 from .tools_graph import (nx_to_mol,
                           mol_to_nx,
                           write_ass_graph_file,
@@ -37,7 +73,6 @@ from .tools_graph import (nx_to_mol,
                           write_graphml,
                           read_graphml,
                           longest_path_length)
-
 from .tools_mol import (safe_standardize_mol,
                         standardize_mol,
                         smi_to_mol,
@@ -46,61 +81,13 @@ from .tools_mol import (safe_standardize_mol,
                         combine_mols,
                         write_v2k_mol_file,
                         split_mols)
-
-from .tools_file import (file_list,
-                         file_list_all,
-                         filter_files,
-                         write_to_shared_file,
-                         remove_files,
-                         wipe_dir,
-                         list_subdirs)
-
-from .tools_cell import (read_cif_file,
-                         atoms_to_mol_file,
-                         atoms_to_nx,
-                         find_clusters)
-
-from .pathway import (get_pathway_to_graph,
-                      get_pathway_to_mol,
-                      get_pathway_to_inchi,
-                      get_pathway_to_smi,
-                      get_mol_pathway_to_inchi,
-                      get_mol_pathway_to_smi,
-                      convert_pathway_dict_to_list)
-
-from .plotting import (n_plot,
-                       ax_plot,
-                       plot_mol_graph,
-                       plot_interactive_graph,
-                       plot_graph,
-                       plot_digraph,
-                       plot_digraph_with_images,
-                       plot_digraph_metro)
-
-from .tools_string import (load_fasta,
-                           prep_joint_string_ai,
-                           get_unique_char)
-
 from .tools_mp import (mp_calc,
                        mp_calc_star,
                        tp_calc)
-
+from .tools_string import (load_fasta,
+                           prep_joint_string_ai,
+                           get_unique_char)
 from .tools_test import (check_elements, print_graph_details)
-
-from .construction import parse_pathway_file
-from .construction_string import (generate_string_pathway_ian,
-                                  get_graph_string_explicit)
-
-from .reassembler import (assemble,
-                          origami,
-                          get_num_atom,
-                          degree_unsaturation,
-                          get_unique_mols,
-                          reassemble_old,
-                          enumerate_sterioisomers,
-                          enumerate_tautomers,
-                          enumerate_heterocycles,
-                          reassemble)
 
 __version__ = "1.3.0"
 
