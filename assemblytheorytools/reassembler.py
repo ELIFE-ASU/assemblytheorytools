@@ -1712,7 +1712,11 @@ def reassemble(mol_pool,
                max_run=10000,
                random_bond=False,
                con_filter=True,
-               max_heavy_atoms=20):
+               recycle_to_pool=True,
+               max_heavy_atoms=20,
+               sterioisomers=False,
+               tautomers=False,
+               heterocycles=False):
     """
     Reassemble molecules from a pool by randomly combining them.
 
@@ -1728,8 +1732,16 @@ def reassemble(mol_pool,
                         If False, a single bond is used. Default is False.
     con_filter (bool): If True, a conformation filter is applied to the resulting molecule.
                        If False, the molecule is sanitized without the filter. Default is True.
+    recycle_to_pool (bool): If True, the new molecules are added back to the pool for further reactions.
+                            Default is True.
     max_heavy_atoms (int): The maximum number of heavy atoms allowed in the combined molecule.
                            Default is 20.
+    sterioisomers (bool): If True, stereoisomers of the new molecule are enumerated and a random one is selected.
+                          Default is False.
+    tautomers (bool): If True, tautomers of the new molecule are enumerated and a random one is selected.
+                      Default is False.
+    heterocycles (bool): If True, heterocycles of the new molecule are enumerated and a random one is selected.
+                         Default is False.
 
     Returns:
     set: A set of SMILES strings representing the unique molecules obtained.
@@ -1738,7 +1750,7 @@ def reassemble(mol_pool,
     mol_pool = set(mol_pool)
 
     for i in range(max_run):
-        # print(f'Running iteration {i + 1} of {max_run}...', flush=True)
+        # Randomly select two molecules from the pool
         mol1 = random.choice(list(mol_pool))
         mol2 = random.choice(list(mol_pool))
 
@@ -1750,10 +1762,33 @@ def reassemble(mol_pool,
         # React the two molecules
         new_mol = react_smiles(mol1, mol2, random_bond=random_bond, con_filter=con_filter)
 
+        if sterioisomers and new_mol is not None:
+            # Enumerate stereoisomers if requested
+            new_mol_sterio = enumerate_sterioisomers(Chem.MolFromSmiles(new_mol))
+            if len(new_mol_sterio) != 0:
+                # Pick a random stereoisomer from the list
+                new_mol = Chem.MolToSmiles(random.choice(new_mol_sterio))
+
+        if tautomers and new_mol is not None:
+            # Enumerate tautomers if requested
+            new_mol_taut = enumerate_tautomers(Chem.MolFromSmiles(new_mol))
+            if len(new_mol_taut) != 0:
+                # Pick a random tautomer from the list
+                new_mol = Chem.MolToSmiles(random.choice(new_mol_taut))
+
+        if heterocycles and new_mol is not None:
+            # Enumerate heterocycles if requested
+            new_mol_het = enumerate_heterocycles(Chem.MolFromSmiles(new_mol))
+            if len(new_mol_het) != 0:
+                # Pick a random heterocycle from the list
+                new_mol = Chem.MolToSmiles(random.choice(new_mol_het))
+
         # Check if the new molecule is valid
         if new_mol is not None:
             out_pool.add(new_mol)
-            mol_pool.add(new_mol)
+            if recycle_to_pool:
+                # Add the new molecule back to the pool for further reactions
+                mol_pool.add(new_mol)
 
         # Check if we have enough unique molecules
         if len(out_pool) >= n_mol_needed:
