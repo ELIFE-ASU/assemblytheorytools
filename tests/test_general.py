@@ -1,6 +1,6 @@
 import os
 import shutil
-
+import random
 import networkx as nx
 import numpy as np
 import pytest
@@ -1025,3 +1025,16 @@ def test_reassemble():
     re_mols = att.reassemble_mols(mols_out, n_mol_needed=2)
     re_mols = [Chem.MolToInchi(mol) for mol in re_mols]
     print(re_mols, flush=True)
+
+
+def test_early_exit():
+    # I am trying to figure out how to get the early exit to work
+    # Right now I either get exact or -1. I want to get the early exit upper bound.
+    #s = ''.join(random.choices('abcd', k=50))
+    s = "abacdbdacbcdadbccbadacdbadcbadcbadcbadcbbadcbdacbdcbdacbdcbdabcdabcdbcdabcdabcdabcdabcdbcdabcadbabc"
+    L1, _, _ = att.calculate_string_assembly_index(s, directed=True, mode='str', debug=True, timeout = 2)
+    print(f"Fast Upper Bound = {L1}", flush=True)
+    L2, _, _ = att.calculate_string_assembly_index(s, directed=True, mode='str', debug=True, timeout = 20)
+    print(f"Slow Upper Bound = {L2}", flush=True)
+    assert L1 >= L2
+

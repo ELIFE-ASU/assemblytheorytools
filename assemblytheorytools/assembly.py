@@ -8,7 +8,7 @@ import warnings
 from datetime import datetime
 from typing import Union, List
 import re
-
+import signal
 import networkx as nx
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
@@ -232,7 +232,9 @@ def calculate_assembly_index(mol,
                     # Check for timeout
                     if time.time() - start_time > timeout:
                         print("Warning: Assembly calculation timed out. Terminating...")
-                        process.terminate()
+                        # process.terminate()
+                        process.send_signal(signal.SIGINT) # This simulates Ctrl+C, getting the right output from assemblyCpp
+                        process.wait()
                         time.sleep(2)
                         if process.poll() is None:
                             process.kill()
@@ -596,30 +598,41 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
 
         # Run the assembly code and log output
         try:
-
-            if debug:
-                print(f"dir_code: {dir_code}")
-                print(f"file_path_in: {file_path_in}")
-            
             with open(log_file, "w") as log:
+                # Start the process
                 process = subprocess.Popen(
                     [dir_code, file_path_in, str(int(directed == 0)), "1"],
-                    stdout=log,
-                    stderr=subprocess.STDOUT  # Merge stdout and stderr into one log file
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT
                 )
 
                 start_time = time.time()
-                while process.poll() is None:
-                    # Check for timeout
-                    if time.time() - start_time > timeout:
-                        print("Warning: Assembly calculation timed out. Terminating...")
-                        process.terminate()
-                        time.sleep(2)
-                        if process.poll() is None:
-                            process.kill()
-                        timed_out = True  # Mark timeout
-                        break
-                    time.sleep(1)
+
+                try:
+                    # Wait for process to finish or timeout
+                    stdout_data, _ = process.communicate(timeout=timeout)
+
+                except subprocess.TimeoutExpired:
+                    print("Warning: Assembly calculation timed out. Terminating...")
+
+                    # process.terminate()
+                    # Send SIGINT to simulate Ctrl+C
+                    process.send_signal(signal.SIGINT)
+                    process.wait()
+                    try:
+                        # Give it 2 seconds to exit gracefully
+                        stdout_data, _ = process.communicate(timeout=2)
+                    except subprocess.TimeoutExpired:
+                        print("Process did not terminate, killing it.")
+                        process.kill()
+                        stdout_data, _ = process.communicate()
+
+                    timed_out = True
+
+                # Write whatever output we got to the log
+                if stdout_data:
+                    log.write(stdout_data.decode(errors="replace"))
+                    log.flush()
 
         except Exception as e:
             print(f"Error: {e}")
@@ -627,10 +640,13 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         # Extract the most recent "min AI found so far" from the log file
         last_ai = -1
         if os.path.exists(log_file):
+            if debug:
+                print(f"log_file: {log_file}")
             try:
                 with open(log_file, "r") as log:
                     log_lines = log.readlines()
-
+                if debug:
+                    print(f"log_lines: {log_lines}")
                 # Reverse scan for last occurrence of "min AI found so far"
                 for line in reversed(log_lines):
                     match = re.search(r"min AI found so far:\s*(\d+)", line)
