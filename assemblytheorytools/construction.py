@@ -6,7 +6,7 @@ import numpy as np
 from rdkit import Chem
 from rdkit.Chem.rdchem import RWMol
 
-from .tools_graph import convert_edge_color
+from .tools_graph import bond_order_assout_to_int, bond_order_int_to_rdkit
 
 
 def transform_array(target_array, comp_array, source_val, target_val, new_val, pairs_list):
@@ -190,33 +190,13 @@ def select_length(dict_array):
     return dict_array["len"]
 
 
-def transform_bond_float_rdkit(bond):
-    """
-    Converts a bond type from float to RDKit bond type.
-
-    This function takes a bond type as a float and returns its corresponding RDKit bond type.
-    If the bond type is not recognized, it returns an error string.
-
-    :param bond: Bond type as a float
-    :return: RDKit bond type
-    """
-    bond = float(bond)
-    if bond == 1.0:
-        return Chem.rdchem.BondType.SINGLE
-    if bond == 2.0:
-        return Chem.rdchem.BondType.DOUBLE
-    if bond == 3.0:
-        return Chem.rdchem.BondType.TRIPLE
-    return "error"
-
-
 def tables_to_mol(tables):
     atoms_info, bonds_info = tables
     edit_mol = RWMol()
     for v in atoms_info:
         edit_mol.AddAtom(Chem.Atom(v[1]))
     for e in bonds_info:
-        edit_mol.AddBond(e[0], e[1], transform_bond_float_rdkit(e[2]))
+        edit_mol.AddBond(e[0], e[1], bond_order_int_to_rdkit(e[2]))
     mol = edit_mol.GetMol()
     return mol
 
@@ -390,7 +370,7 @@ class AssemblyConstruction:
 
         for atom in self.atoms_list:
             # tables_to_nx(([(0, atom[0][0]), (1, atom[0][1])], [(0, 1, convert_edge_color(atom[1]))]))
-            mol = tables_to_mol(([(0, atom[0][0]), (1, atom[0][1])], [(0, 1, convert_edge_color(atom[1]))]))
+            mol = tables_to_mol(([(0, atom[0][0]), (1, atom[0][1])], [(0, 1, bond_order_assout_to_int(atom[1]))]))
             molecules_vo.append(mol)
             inchi_list.append(Chem.MolToInchi(mol))
 
@@ -407,7 +387,7 @@ class AssemblyConstruction:
 
         for i, step in enumerate(steps_index_s):
             mol = tables_to_mol(([(i, at) for at in vs_atoms[i]],
-                                 [(edge[0], edge[1], convert_edge_color(edge[2])) for edge in step]))
+                                 [(edge[0], edge[1], bond_order_assout_to_int(edge[2])) for edge in step]))
             molecules_steps.append(mol)
             inchi_list.append(Chem.MolToInchi(mol))
 

@@ -10,15 +10,22 @@ from rdkit.Chem import AllChem as Chem
 from .tools_mol import safe_standardize_mol, smi_to_mol
 
 
-def convert_edge_color(edge_color: str | int) -> int:
+def bond_order_assout_to_int(edge_color: str | int) -> int:
     """
-    Convert an edge color descriptor to its corresponding numerical value.
+    Convert an edge color to an integer bond order from the Assembly CPP output file
+
+    This function maps a string representation of a bond order (e.g., "single", "double")
+    to its corresponding integer value. If the input is already an integer, it returns
+    the integer directly.
 
     Args:
-        edge_color (str or int): The descriptor of the edge color (e.g., 'single', ....) or an integer value.
+        edge_color (str | int): The edge color representing the bond order. It can be a string
+                                ("single", "double", etc.) or an integer.
 
     Returns:
-        int: The numerical value corresponding to the edge color.
+        int: The integer representation of the bond order. If the input is a string, it returns
+             the corresponding integer value. If the input is already an integer, it returns
+             the integer directly.
     """
     edge_color_map = {
         "single": 1,

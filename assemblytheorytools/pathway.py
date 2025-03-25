@@ -5,7 +5,7 @@ import networkx as nx
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 
-from .tools_graph import nx_to_mol, get_disconnected_subgraphs, convert_edge_color
+from .tools_graph import nx_to_mol, get_disconnected_subgraphs, bond_order_assout_to_int
 
 
 def add_nodes_edges(graph: nx.Graph, vertices: list, vertex_colors: list, edges: list, edge_colors: list) -> None:
@@ -28,7 +28,7 @@ def add_nodes_edges(graph: nx.Graph, vertices: list, vertex_colors: list, edges:
     # Convert edges to tuples to ensure they are hashable
     edges = [tuple(edge) for edge in edges]
     for edge, edge_color in zip(edges, edge_colors):
-        graph.add_edge(*edge, color=convert_edge_color(edge_color))
+        graph.add_edge(*edge, color=bond_order_assout_to_int(edge_color))
 
 
 def add_graph(graph_data: dict) -> list[nx.Graph]:
