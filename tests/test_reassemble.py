@@ -7,12 +7,17 @@ import assemblytheorytools as att
 def test_reassemble():
     print(flush=True)
     pool = ["CCO", "O"]
-    product_smiles = att.reassemble(pool, n_mol_needed=2)
+    product_smiles = att.reassemble(pool,
+                                    n_mol_needed=5,
+                                    recycle_to_pool=False,
+                                    sterioisomers=True,
+                                    tautomers=True,
+                                    heterocycles=True)
 
     for product in product_smiles:
         print(product, flush=True)
 
-    assert len(product_smiles) == 2
+    assert len(product_smiles) == 5
 
 
 def test_origami():
