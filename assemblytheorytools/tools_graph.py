@@ -10,6 +10,48 @@ from rdkit.Chem import AllChem as Chem
 from .tools_mol import safe_standardize_mol, smi_to_mol
 
 
+def bond_order_int_to_rdkit(bond_order: int) -> Chem.BondType:
+    """
+    Convert a bond order int to RDKit's BondType.
+
+    Args:
+        bond_order (int): The bond order to convert.
+
+    Returns:
+        Chem.BondType: The corresponding RDKit BondType.
+    """
+    converter = {
+        1: Chem.rdchem.BondType.SINGLE,
+        2: Chem.rdchem.BondType.DOUBLE,
+        3: Chem.rdchem.BondType.TRIPLE,
+        4: Chem.rdchem.BondType.QUADRUPLE,
+        5: Chem.rdchem.BondType.QUINTUPLE,
+        6: Chem.rdchem.BondType.IONIC,
+    }
+    return converter.get(bond_order, Chem.rdchem.BondType.SINGLE)
+
+
+def bond_order_rdkit_to_int(bond_type: Chem.BondType) -> int:
+    """
+    Convert RDKit's BondType to a bond order int.
+
+    Args:
+        bond_type (Chem.BondType): The RDKit BondType to convert.
+
+    Returns:
+        int: The corresponding bond order int.
+    """
+    converter = {
+        Chem.rdchem.BondType.SINGLE: 1,
+        Chem.rdchem.BondType.DOUBLE: 2,
+        Chem.rdchem.BondType.TRIPLE: 3,
+        Chem.rdchem.BondType.QUADRUPLE: 4,
+        Chem.rdchem.BondType.QUINTUPLE: 5,
+        Chem.rdchem.BondType.IONIC: 6
+    }
+    return converter.get(bond_type, 1)
+
+
 def nx_to_mol(graph: nx.Graph, add_hydrogens: bool = True) -> Chem.Mol:
     """
     Convert a NetworkX graph to an RDKit molecule.
@@ -26,16 +68,6 @@ def nx_to_mol(graph: nx.Graph, add_hydrogens: bool = True) -> Chem.Mol:
     # Dictionary to map node identifiers to atom indices in the RDKit molecule
     node_to_idx = {}
 
-    # Define the bond converter dictionary
-    converter = {
-        1: Chem.rdchem.BondType.SINGLE,
-        2: Chem.rdchem.BondType.DOUBLE,
-        3: Chem.rdchem.BondType.TRIPLE,
-        4: Chem.rdchem.BondType.QUADRUPLE,
-        5: Chem.rdchem.BondType.QUINTUPLE,
-        6: Chem.rdchem.BondType.IONIC,
-    }
-
     # Add atoms to the molecule
     for node, data in graph.nodes(data=True):
         # Get the atomic symbol from the node's 'color' attribute, default to 'C' if not present
@@ -49,7 +81,7 @@ def nx_to_mol(graph: nx.Graph, add_hydrogens: bool = True) -> Chem.Mol:
         # Get the bond order from the edge's 'color' attribute, default to 1 if not present
         bond_order = int(data.get('color', 1))
         # Map the bond order to RDKit's bond types
-        bond_type = converter.get(bond_order, Chem.rdchem.BondType.SINGLE)
+        bond_type = bond_order_int_to_rdkit(bond_order)
         # Add the bond to the molecule
         mol.AddBond(node_to_idx[u], node_to_idx[v], bond_type)
 
@@ -72,20 +104,12 @@ def mol_to_nx(mol: Chem.Mol, add_hydrogens: bool = True) -> nx.Graph:
     mol = safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
 
     graph = nx.Graph()
-    converter = {
-        Chem.rdchem.BondType.SINGLE: 1,
-        Chem.rdchem.BondType.DOUBLE: 2,
-        Chem.rdchem.BondType.TRIPLE: 3,
-        Chem.rdchem.BondType.QUADRUPLE: 4,
-        Chem.rdchem.BondType.QUINTUPLE: 5,
-        Chem.rdchem.BondType.IONIC: 6
-    }
 
     for atom in mol.GetAtoms():
         graph.add_node(atom.GetIdx(), color=atom.GetSymbol())
 
     for bond in mol.GetBonds():
-        bond_type = converter.get(bond.GetBondType(), 1)
+        bond_type = bond_order_rdkit_to_int(bond.GetBondType())
         graph.add_edge(bond.GetBeginAtomIdx(), bond.GetEndAtomIdx(), color=bond_type)
 
     if not add_hydrogens:
