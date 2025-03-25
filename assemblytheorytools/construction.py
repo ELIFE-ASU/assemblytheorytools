@@ -6,7 +6,7 @@ import numpy as np
 from rdkit import Chem
 from rdkit.Chem.rdchem import RWMol
 
-from .pathway import convert_edge_color
+from .tools_graph import convert_edge_color
 
 
 def transform_array(target_array, comp_array, source_val, target_val, new_val, pairs_list):

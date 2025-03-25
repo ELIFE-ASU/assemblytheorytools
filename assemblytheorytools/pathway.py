@@ -5,31 +5,7 @@ import networkx as nx
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 
-from .tools_graph import nx_to_mol, get_disconnected_subgraphs
-
-
-def convert_edge_color(edge_color: str | int) -> int:
-    """
-    Convert an edge color descriptor to its corresponding numerical value.
-
-    Args:
-        edge_color (str or int): The descriptor of the edge color (e.g., 'single', ....) or an integer value.
-
-    Returns:
-        int: The numerical value corresponding to the edge color.
-    """
-    edge_color_map = {
-        "single": 1,
-        "double": 2,
-        "triple": 3,
-        "quadruple": 4,
-        "quintuple": 5,
-    }
-
-    if edge_color in edge_color_map:
-        return edge_color_map[edge_color]
-    else:
-        return int(edge_color)
+from .tools_graph import nx_to_mol, get_disconnected_subgraphs, convert_edge_color
 
 
 def add_nodes_edges(graph: nx.Graph, vertices: list, vertex_colors: list, edges: list, edge_colors: list) -> None:
