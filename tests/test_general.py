@@ -598,7 +598,9 @@ def test_undir_str_ass():
     s_inpt = "abracadabra"
     ai, _, _ = att.calculate_string_assembly_index(s_inpt, directed=False, mode='mol', debug=True)
     ai_ref = 7
+    ai2, _, _ = att.calculate_string_assembly_index(s_inpt, directed=False, mode='str', debug=True)
     assert ai == ai_ref
+    assert ai2 == ai_ref
 
 
 def test_dir_str_ass():
@@ -616,7 +618,9 @@ def test_dir_str_ass():
     s_inpt = "abracadabra"
     ai, _, _ = att.calculate_string_assembly_index(s_inpt, directed=True, mode='mol', debug=True)
     ai_ref = 7
+    ai2, _, _ = att.calculate_string_assembly_index(s_inpt, directed=True, mode='str', debug=True)
     assert ai == ai_ref
+    assert ai2 == ai_ref
 
 
 def test_CFG_str_ass():

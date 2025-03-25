@@ -551,23 +551,20 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
                                                                             joint_corr=False,
                                                                             strip_hydrogen=False)
 
-        if debug:
-            print(f"Graph Assembly Index: {graph_ai}", flush=True)
-
+        # Correct for joint assembly and directed encoding
+        ai = graph_ai - 2 * len(delimiters)
         if directed:
-            # Convert to (joint) assembly index of directed strings. Note: Virt obj and Path parsing still needs to be added
-            if not return_log_file:
-                return (graph_ai - len(set(string)) - 2 * len(delimiters), None, None) 
-            else:
-                return (graph_ai - len(set(string)) - 2 * len(delimiters), None, None, log_file)
-            
-        else:
-            # Convert to (joint) assembly index of undirected strings. Note: Virt obj and Path parsing still needs to be added
-            if not return_log_file:
-                return (graph_ai - 2 * len(delimiters), None, None)  
-            else:
-                return (graph_ai - 2 * len(delimiters), None, None, log_file)
+            ai = ai - len(set(string))
 
+        if debug:
+            print(f"Assembly Index: {ai}", flush=True)
+
+        # Convert to (joint) assembly index of directed strings. Note: Virt obj and Path parsing still needs to be added
+        if return_log_file:
+            return (ai, None, None, log_file) 
+        else:
+            return (ai, None, None)
+            
 
     elif mode == "str":  # Use the string assembly cpp calculator
         # raise NotImplementedError("String assembly cpp calculator not yet supported.")
@@ -597,15 +594,16 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         file_path_pathway = os.path.join(file_path_in + "Pathway")
         log_file = os.path.join(temp_dir, "assembly_output.log")
 
-        # Ensure directory code is available
-        if dir_code is None:
-            raise ValueError("Assembly code directory not provided.")
-
         # Run the assembly code and log output
         try:
+
+            if debug:
+                print(f"dir_code: {dir_code}")
+                print(f"file_path_in: {file_path_in}")
+            
             with open(log_file, "w") as log:
                 process = subprocess.Popen(
-                    [dir_code, file_path_in, directed==0, 1],
+                    [dir_code, file_path_in, str(int(directed == 0)), "1"],
                     stdout=log,
                     stderr=subprocess.STDOUT  # Merge stdout and stderr into one log file
                 )
@@ -646,8 +644,9 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
                 if ai == -1 and timed_out:
                     print("No minimum AI found before timeout.")
                 elif ai != -1 and timed_out:
-                    ai += - 2 * len(delimiters)
-                    print(f"Partial AI found = {ai}")
+                    print(f"Partial AI found = {ai - 2 * len(delimiters)}")
+                
+                ai += - 2 * len(delimiters) # Convert to (joint) assembly index of strings
 
             except Exception as e:
                 print(f"Failed to read AI from log file: {e}")
@@ -728,15 +727,15 @@ def assembly_dry_run(mol, temp_dir=None, strip_hydrogen=False):
 
 def add_assembly_to_path(str_mode = False):
     """
-    Adds the path to the precompiled Assembly to the environment variable `ASS_PATH` based on the operating system.
+    Adds the path to a precompiled assemblyCpp executable to the environment variable `ASS_PATH` or `ASS_STR_PATH' depending upon application.
 
     Raises:
         NotImplementedError: If the operating system is MacOS or Windows.
     """
     if str_mode:
-        key = "ASS_PATH"
-    else:
         key = "ASS_STR_PATH"
+    else:
+        key = "ASS_PATH"
 
     if not os.environ.get(key):
         full_att_path = os.path.abspath(
