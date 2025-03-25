@@ -165,3 +165,25 @@ def write_v2k_mol_file(mol: Chem.Mol, file_path: str) -> None:
     with open(file_path, "w") as f:
         f.write(Chem.MolToV2KMolBlock(mol))
     return None
+
+
+def get_element_set_from_mols(mols):
+    """
+    Determine the set of unique elements present in a list of RDKit molecules.
+
+    Parameters:
+    -----------
+    mols : list
+        List of RDKit molecule objects.
+
+    Returns:
+    --------
+    set
+        Set of element symbols (strings) present in the molecules.
+    """
+    element_set = set()
+    for mol in mols:
+        if mol:
+            for atom in mol.GetAtoms():
+                element_set.add(atom.GetSymbol())
+    return element_set

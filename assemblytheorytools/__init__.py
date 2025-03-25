@@ -80,7 +80,8 @@ from .tools_mol import (safe_standardize_mol,
                         molfile_to_mol,
                         combine_mols,
                         write_v2k_mol_file,
-                        split_mols)
+                        split_mols,
+                        get_element_set_from_mols)
 from .tools_mp import (mp_calc,
                        mp_calc_star,
                        tp_calc)
