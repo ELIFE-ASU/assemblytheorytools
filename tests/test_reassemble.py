@@ -4,29 +4,15 @@ from rdkit.Chem import AllChem as Chem
 import assemblytheorytools as att
 
 
-def test_1():
+def test_reassemble():
     print(flush=True)
     pool = ["CCO", "O"]
-    pool = [
-        'O',  # H2O
-        'O=C=O',  # CO2
-        'N#N',  # N2
-        'C',  # CH4
-        'N',  # NH3
-        '[C-]#[O+]',  # CO
-        'O=S=O',  # SO2
-        'S',  # H2S
-        'C#N',  # HCN
-        'C=O',  # H2CO
-        'C=C',  # C2H4
-        'F',  # HF
-        'Cl',  # HCl
-        '[HH]',  # H2
-        'O=C=S'  # OCS
-    ]
-    product_smiles = att.reassemble(pool)
+    product_smiles = att.reassemble(pool, n_mol_needed=2)
+
     for product in product_smiles:
         print(product, flush=True)
+
+    assert len(product_smiles) == 2
 
 
 def test_origami():

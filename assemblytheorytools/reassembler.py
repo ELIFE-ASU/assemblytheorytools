@@ -1738,7 +1738,7 @@ def reassemble(mol_pool,
     mol_pool = set(mol_pool)
 
     for i in range(max_run):
-        print(f'Running iteration {i + 1} of {max_run}...', flush=True)
+        # print(f'Running iteration {i + 1} of {max_run}...', flush=True)
         mol1 = random.choice(list(mol_pool))
         mol2 = random.choice(list(mol_pool))
 
@@ -1750,12 +1750,18 @@ def reassemble(mol_pool,
         # React the two molecules
         new_mol = react_smiles(mol1, mol2, random_bond=random_bond, con_filter=con_filter)
 
+        # Check if the new molecule is valid
         if new_mol is not None:
             out_pool.add(new_mol)
             mol_pool.add(new_mol)
 
+        # Check if we have enough unique molecules
         if len(out_pool) >= n_mol_needed:
-            print(f'Found {len(out_pool)} unique molecules.')
+            print(f'Found {len(out_pool)} unique molecules.', flush=True)
             break
+
+        # Check if we hit the maximum number of iterations
+        if i == max_run - 1:
+            print(f'Maximum iterations reached: {max_run}.', flush=True)
 
     return out_pool
