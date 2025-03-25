@@ -6,6 +6,8 @@ import numpy as np
 from rdkit import Chem
 from rdkit.Chem.rdchem import RWMol
 
+from .pathway import convert_edge_color
+
 
 def transform_array(target_array, comp_array, source_val, target_val, new_val, pairs_list):
     """
@@ -188,25 +190,6 @@ def select_length(dict_array):
     return dict_array["len"]
 
 
-def transform_bond_string_float(bond):
-    """
-    Converts a bond type from string to float representation.
-
-    This function takes a bond type as a string and returns its corresponding float value.
-    If the bond type is not recognized, it returns an error string.
-
-    :param bond: Bond type as a string
-    :return: Float representation of the bond type
-    """
-    if bond == "single":
-        return 1.0
-    if bond == "double":
-        return 2.0
-    if bond == "triple":
-        return 3.0
-    return "error"
-
-
 def transform_bond_float_rdkit(bond):
     """
     Converts a bond type from float to RDKit bond type.
@@ -227,18 +210,7 @@ def transform_bond_float_rdkit(bond):
     return "error"
 
 
-def tables2mol(tables):
-    """
-    Converts atom and bond information into an RDKit molecule object.
-
-    This function takes a tuple containing atom information and bond information,
-    creates an RDKit molecule object, adds atoms and bonds to it, and returns the molecule.
-
-    :param tables: A tuple containing two lists:
-                   - atoms_info: List of tuples, where each tuple contains atom index and atom type.
-                   - bonds_info: List of tuples, where each tuple contains bond start index, bond end index, and bond type.
-    :return: An RDKit molecule object constructed from the provided atom and bond information.
-    """
+def tables_to_mol(tables):
     atoms_info, bonds_info = tables
     edit_mol = RWMol()
     for v in atoms_info:
@@ -247,6 +219,23 @@ def tables2mol(tables):
         edit_mol.AddBond(e[0], e[1], transform_bond_float_rdkit(e[2]))
     mol = edit_mol.GetMol()
     return mol
+
+
+def tables_to_nx(tables):
+    atoms_info, bonds_info = tables
+    graph = nx.Graph()
+
+    # Add nodes with atom type attributes
+    for atom_idx, atom_type in atoms_info:
+        print(atom_idx, atom_type)
+        graph.add_node(atom_idx, color=atom_type)
+
+    # Add edges with bond type attributes
+    for start_idx, end_idx, bond_type in bonds_info:
+        print(start_idx, end_idx, bond_type)
+        graph.add_edge(start_idx, end_idx, color=int(bond_type))
+
+    return graph
 
 
 class AssemblyConstruction:
@@ -286,13 +275,13 @@ class AssemblyConstruction:
 
         def add_digraph_entry(piece, step):
             if piece in left_sort:
-                digraph.append(["step{}".format(indexes[left_sort.index(piece)]), "step{}".format(step)])
+                digraph.append(["step_{}".format(indexes[left_sort.index(piece)]), "step_{}".format(step)])
             elif piece in right_sort:
-                digraph.append(["step{}".format(indexes[right_sort.index(piece)]), "step{}".format(step)])
+                digraph.append(["step_{}".format(indexes[right_sort.index(piece)]), "step_{}".format(step)])
             elif piece in steps_mod:
-                digraph.append(["step{}".format(steps_mod.index(piece) + 1), "step{}".format(step)])
+                digraph.append(["step_{}".format(steps_mod.index(piece) + 1), "step_{}".format(step)])
             else:
-                digraph.append(["step{}".format("_error"), "step{}".format(step)])
+                digraph.append(["step_{}".format("_error"), "step_{}".format(step)])
 
         for pic in pieces_mod:
             for pic_i in pieces_mod:
@@ -309,14 +298,14 @@ class AssemblyConstruction:
                     else:
                         v_object1 = self.atoms.index(
                             [{self.v_l[pic[0][0]], self.v_l[pic[0][1]]}, self.e_l[self.e.index(pic[0])]])
-                        digraph.append(["virtual_object{}".format(v_object1), "step{}".format(step)])
+                        digraph.append(["virtual_object_{}".format(v_object1), "step_{}".format(step)])
 
                     if len(pic_i) > 1:
                         add_digraph_entry(pic_i, step)
                     else:
                         v_object1 = self.atoms.index(
                             [{self.v_l[pic_i[0][0]], self.v_l[pic_i[0][1]]}, self.e_l[self.e.index(pic_i[0])]])
-                        digraph.append(["virtual_object{}".format(v_object1), "step{}".format(step)])
+                        digraph.append(["virtual_object_{}".format(v_object1), "step_{}".format(step)])
 
                     pieces_mod.remove(pic)
                     pieces_mod.remove(pic_i)
@@ -400,7 +389,8 @@ class AssemblyConstruction:
         inchi_list = []
 
         for atom in self.atoms_list:
-            mol = tables2mol(([(0, atom[0][0]), (1, atom[0][1])], [(0, 1, transform_bond_string_float(atom[1]))]))
+            # tables_to_nx(([(0, atom[0][0]), (1, atom[0][1])], [(0, 1, convert_edge_color(atom[1]))]))
+            mol = tables_to_mol(([(0, atom[0][0]), (1, atom[0][1])], [(0, 1, convert_edge_color(atom[1]))]))
             molecules_vo.append(mol)
             inchi_list.append(Chem.MolToInchi(mol))
 
@@ -416,8 +406,8 @@ class AssemblyConstruction:
         molecules_steps = []
 
         for i, step in enumerate(steps_index_s):
-            mol = tables2mol(([(i, at) for at in vs_atoms[i]],
-                              [(edge[0], edge[1], transform_bond_string_float(edge[2])) for edge in step]))
+            mol = tables_to_mol(([(i, at) for at in vs_atoms[i]],
+                                 [(edge[0], edge[1], convert_edge_color(edge[2])) for edge in step]))
             molecules_steps.append(mol)
             inchi_list.append(Chem.MolToInchi(mol))
 
@@ -448,6 +438,15 @@ def parse_pathway_file(file):
     # Make the construction object
     construction_object = AssemblyConstruction(data)
     construction_object.generate_pathway()
+    # print("construction steps.", flush=True)
+    # print(construction_object.steps, flush=True)
+    #
+    # print("digraph", flush=True)
+    # print(construction_object.digraph, flush=True)
+    #
+    # print("pieces_mod", flush=True)
+    # print(construction_object.pieces_mod, flush=True)
+
     inchi_list = construction_object.pathway_inchi_vo()
 
     # Generate the directional graph
