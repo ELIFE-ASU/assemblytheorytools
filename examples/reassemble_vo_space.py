@@ -1,13 +1,5 @@
-import os
-import shutil
-
-import networkx as nx
-import numpy as np
-import pytest
-from ase.io import read
-from ase.visualize import view
-from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
+
 import assemblytheorytools as att
 
 if __name__ == "__main__":
@@ -26,6 +18,6 @@ if __name__ == "__main__":
     re_mols = [Chem.MolToInchi(mol) for mol in mols_out]
     print(re_mols, flush=True)
 
-    re_mols = att.reassemble_mols(mols_out, n_mol_needed=4)
+    re_mols = att.reassemble_old(mols_out, n_mol_needed=4)
     re_mols = [Chem.MolToInchi(mol) for mol in re_mols]
     print(re_mols, flush=True)

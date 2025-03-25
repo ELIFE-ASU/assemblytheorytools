@@ -306,7 +306,7 @@ def test_hydrogen_stripping():
     # Directly run the mol file
     ai_mol_file, _, _ = att.calculate_assembly_index(mol_file)
     # RDkit Mol
-    ai_mol, _, _ = att.calculate_assembly_index(Chem.RemoveHs(mol))
+    ai_mol, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
 
     assert ai_graph == ai_mol_file == ai_mol == 4
 
@@ -1006,26 +1006,41 @@ def test_get_chirality():
     assert chirality == 3
 
 
-def test_reassemble():
+def test_jai_self():
     print(flush=True)
-    molecules = ['[H]OC(=O)C([H])([H])N([H])[H]']
+    molecules = ["O=P(O)(O)OC[C@@H](O)[C@@H](O)c1c[nH]c2ccccc12", "O=P(O)(O)OC[C@@H](O)[C@@H](O)c1c[nH]c2ccccc12"]
     # Convert all the SMILES strings to molecule objects
     mols = [att.smi_to_mol(smile) for smile in molecules]
     # Combine the molecule objects into a single molecule
     mol = att.combine_mols(mols)
 
     # Calculate the assembly index
-    ai, virt_obj, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
+    jai, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
+    ai, _, _ = att.calculate_assembly_index(mols[0], strip_hydrogen=True)
+    assert jai == ai
 
-    mols_out = att.convert_pathway_dict_to_list(virt_obj)
 
-    re_mols = [Chem.MolToInchi(mol) for mol in mols_out]
-    print(re_mols, flush=True)
+def test_jai_asymmetric():
+    print(flush=True)
+    molecules = ["N[C@@H](CCO)C(=O)O", "O=C(O)CC(C(=O)O)C(O)C(=O)O"]
+    # Convert all the SMILES strings to molecule objects
+    mols = [att.smi_to_mol(smile) for smile in molecules]
+    # Combine the molecule objects into a single molecule
+    mol = att.combine_mols(mols)
 
-    re_mols = att.reassemble_mols(mols_out, n_mol_needed=2)
-    re_mols = [Chem.MolToInchi(mol) for mol in re_mols]
-    print(re_mols, flush=True)
+    # Calculate the assembly index
+    ai_1, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
 
+    molecules = ["O=C(O)CC(C(=O)O)C(O)C(=O)O", "N[C@@H](CCO)C(=O)O"]
+    # Convert all the SMILES strings to molecule objects
+    mols = [att.smi_to_mol(smile) for smile in molecules]
+    # Combine the molecule objects into a single molecule
+    mol = att.combine_mols(mols)
+
+    # Calculate the assembly index
+    ai_2, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
+
+    assert ai_1 == ai_2
 
 def test_early_exit():
     # I am trying to figure out how to get the early exit to work
@@ -1037,4 +1052,3 @@ def test_early_exit():
     L2, _, _ = att.calculate_string_assembly_index(s, directed=True, mode='str', debug=True, timeout = 20)
     print(f"Slow Upper Bound = {L2}", flush=True)
     assert L1 >= L2
-

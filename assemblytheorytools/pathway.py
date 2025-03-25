@@ -100,9 +100,9 @@ def get_conversion_dict(data: dict) -> tuple[dict[int, str], dict[tuple[int, int
 
 
 def extract_duplicates(
-    edges: list[tuple[int, int]],
-    vert_col_dict: dict[int, str],
-    edge_col_dict: dict[tuple[int, int], str]
+        edges: list[tuple[int, int]],
+        vert_col_dict: dict[int, str],
+        edge_col_dict: dict[tuple[int, int], str]
 ) -> tuple[list[int], list[str], list[tuple[int, int]], list[str]]:
     """
     Extract unique vertices and their colors, and get the colors of the edges.

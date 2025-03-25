@@ -35,6 +35,3 @@ def print_graph_details(graph):
         edge_colors = [graph.get_edge_data(*edge)['color'] for edge in edge_connections]
         print(f"({node_index}, {node_color}): {edge_connections}, {edge_colors}", flush=True)
     print("}", flush=True)
-
-
-

@@ -2,11 +2,12 @@ from typing import List
 
 import ase
 import networkx as nx
+import numpy as np
 from ase.atoms import Atoms
 from ase.io import cif
 from ase.neighborlist import NeighborList, natural_cutoffs
 from scipy import sparse
-import numpy as np
+
 
 def read_cif_file(cif_file: str) -> Atoms:
     """
@@ -117,6 +118,7 @@ def atoms_to_nx(atoms: Atoms) -> nx.Graph:
         graph.add_edge(bond[0], bond[1], color='1')
 
     return graph
+
 
 def find_clusters(atoms, cutoff_smear=1.5):
     # Get the natural cutoffs

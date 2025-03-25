@@ -1,5 +1,6 @@
 import os
 import platform
+import re
 import shutil
 import subprocess
 import tempfile
@@ -22,7 +23,8 @@ from .tools_graph import (write_ass_graph_file,
                           remove_hydrogen_from_graph,
                           nx_to_mol)
 from .tools_mol import (write_v2k_mol_file,
-                        combine_mols)
+                        combine_mols,
+                        safe_standardize_mol)
 from .tools_string import (prep_joint_string_ai,
                            get_dir_str_molecule,
                            get_undir_str_molecule)
@@ -187,23 +189,26 @@ def calculate_assembly_index(mol,
         temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}" if debug else tempfile.mkdtemp()
         os.makedirs(temp_dir, exist_ok=True)
 
-        # Process input based on type
+        # Input is a graph
         if isinstance(mol, nx.Graph):
             if strip_hydrogen:
                 mol = remove_hydrogen_from_graph(mol)
             file_path_in = os.path.join(temp_dir, "graph_in")
             write_ass_graph_file(mol, file_name=file_path_in)
-
+        # Input is an RDKit mol
         elif isinstance(mol, Chem.Mol):
+            mol = safe_standardize_mol(mol, add_hydrogens=True)
             if strip_hydrogen:
                 mol = Chem.RemoveHs(mol)
             mol_file = os.path.join(temp_dir, "tmp.mol")
             write_v2k_mol_file(mol, mol_file)
             file_path_in = os.path.splitext(mol_file)[0]
-
+        # Input is a mol file
         elif isinstance(mol, str) and mol.endswith(".mol"):
             if strip_hydrogen:
-                mol_ob = Chem.MolFromMolFile(mol, sanitize=False, removeHs=True)
+                mol_ob = Chem.MolFromMolFile(mol)
+                mol_ob = safe_standardize_mol(mol_ob, add_hydrogens=True)
+                mol_ob = Chem.RemoveHs(mol_ob)
                 mol = os.path.join(temp_dir, "tmp.mol")
                 Chem.MolToMolFile(mol_ob, mol)
             else:
@@ -243,7 +248,7 @@ def calculate_assembly_index(mol,
                     time.sleep(1)
 
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"Error: {e}", flush=True)
 
         # Extract the most recent "min AI found so far" from the log file
         last_ai = -1
@@ -263,12 +268,12 @@ def calculate_assembly_index(mol,
 
                 # Print appropriate messages based on timeout
                 if ai == -1 and timed_out:
-                    print("No minimum AI found before timeout.")
+                    print("No minimum AI found before timeout.", flush=True)
                 elif ai != -1 and timed_out:
-                    print(f"Partial AI found = {ai}")
+                    print(f"Partial AI found = {ai}", flush=True)
 
             except Exception as e:
-                print(f"Failed to read AI from log file: {e}")
+                print(f"Failed to read AI from log file: {e}", flush=True)
 
         # Process pathway output if available
         if os.path.isfile(file_path_pathway):
@@ -296,7 +301,7 @@ def calculate_assembly_index(mol,
 
         # Return based on flag
         return (ai, virt_obj, path) if not return_log_file else (ai, virt_obj, path, log_file)
-      
+
 
 def calculate_assembly_semi_metric(graph1,
                                    graph2,
@@ -451,7 +456,7 @@ def compile_assembly_code(assembly_tar_path="assemblycpp-main", boost_version="1
 
     elif system == "darwin":  # macOS
         # macOS-specific code
-        print("Running on macOS: Using brew to install Boost and clang++ to compile.")
+        print("Running on macOS: Using brew to install Boost and clang++ to compile.", flush=True)
 
         # Install Boost using Homebrew
         subprocess.run("brew install boost", shell=True, check=True)
