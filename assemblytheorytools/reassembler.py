@@ -1641,20 +1641,43 @@ def enumerate_heterocycles(mol, depth=None):
 
 
 def react_smiles(smiles1, smiles2, random_bond=False, con_filter=True):
+    """
+    React two molecules represented by their SMILES strings.
+
+    This function takes two SMILES strings, converts them to RDKit molecule objects,
+    and combines them by adding a bond between two randomly chosen heavy atoms.
+    The bond order can be randomized or fixed as a single bond. Optionally, a conformation
+    filter can be applied to the resulting molecule.
+
+    Parameters:
+    smiles1 (str): The SMILES string of the first molecule.
+    smiles2 (str): The SMILES string of the second molecule.
+    random_bond (bool): If True, the bond order is randomized (SINGLE, DOUBLE, or TRIPLE).
+                        If False, a single bond is used. Default is False.
+    con_filter (bool): If True, a conformation filter is applied to the resulting molecule.
+                       If False, the molecule is sanitized without the filter. Default is True.
+
+    Returns:
+    str: The SMILES string of the new molecule, or None if an error occurs.
+    """
     try:
+        # Convert SMILES strings to RDKit molecule objects
         mol1 = Chem.MolFromSmiles(smiles1)
         mol2 = Chem.MolFromSmiles(smiles2)
 
+        # Define SMARTS pattern to match heavy atoms (non-hydrogen atoms)
         heavy_atom_smarts = Chem.MolFromSmarts("[!#1]")
         heavy_atoms1 = mol1.GetSubstructMatches(heavy_atom_smarts)
         heavy_atoms2 = mol2.GetSubstructMatches(heavy_atom_smarts)
 
+        # Randomly select one heavy atom from each molecule
         idx1 = random.choice(heavy_atoms1)[0]
         idx2 = random.choice(heavy_atoms2)[0]
 
+        # Combine the two molecules into one editable molecule
         emol = Chem.EditableMol(Chem.CombineMols(mol1, mol2))
 
-        # Randomize bond order (SINGLE, DOUBLE, or TRIPLE)
+        # Randomize bond order (SINGLE, DOUBLE, or TRIPLE) if specified
         if random_bond:
             bond_types = [
                 Chem.rdchem.BondType.SINGLE,
@@ -1670,16 +1693,17 @@ def react_smiles(smiles1, smiles2, random_bond=False, con_filter=True):
         # Finalize the molecule
         new_mol = emol.GetMol()
 
-        # Apply the filter if specified
+        # Apply the conformation filter if specified
         if con_filter:
             new_mol = conformation_filter(new_mol)
         else:
             # Sanitize the new molecule
             Chem.SanitizeMol(new_mol)
 
-        return Chem.MolToSmiles(
-            new_mol)  # , isomericSmiles=True, kekuleSmiles=True, canonical=True, allHsExplicit=True)
+        # Return the SMILES string of the new molecule
+        return Chem.MolToSmiles(new_mol)
     except:
+        # Return None if an error occurs
         return None
 
 
@@ -1688,8 +1712,28 @@ def reassemble(mol_pool,
                max_run=10000,
                random_bond=False,
                con_filter=True,
-               max_heavy_atoms=20,
-               ):
+               max_heavy_atoms=20):
+    """
+    Reassemble molecules from a pool by randomly combining them.
+
+    This function takes a pool of molecules and attempts to combine them into new molecules
+    by randomly selecting pairs and reacting them. The process continues until a specified
+    number of unique molecules is obtained or a maximum number of iterations is reached.
+
+    Parameters:
+    mol_pool (set): A set of SMILES strings representing the initial pool of molecules.
+    n_mol_needed (int): The number of unique molecules needed. Default is 20.
+    max_run (int): The maximum number of iterations to attempt. Default is 10000.
+    random_bond (bool): If True, the bond order is randomized (SINGLE, DOUBLE, or TRIPLE).
+                        If False, a single bond is used. Default is False.
+    con_filter (bool): If True, a conformation filter is applied to the resulting molecule.
+                       If False, the molecule is sanitized without the filter. Default is True.
+    max_heavy_atoms (int): The maximum number of heavy atoms allowed in the combined molecule.
+                           Default is 20.
+
+    Returns:
+    set: A set of SMILES strings representing the unique molecules obtained.
+    """
     out_pool = set()
     mol_pool = set(mol_pool)
 

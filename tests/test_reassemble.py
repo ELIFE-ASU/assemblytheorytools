@@ -1,24 +1,7 @@
-import os
-import shutil
-
-import networkx as nx
-import numpy as np
-import pytest
-from ase.io import read
-from ase.visualize import view
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
-from rdkit.Chem import Draw
+
 import assemblytheorytools as att
-import matplotlib.pyplot as plt
-
-from rdkit import Chem
-from rdkit.Chem import AllChem
-import random
-from rdkit import Chem
-
-
-
 
 
 def test_1():
