@@ -306,7 +306,7 @@ def test_hydrogen_stripping():
     # Directly run the mol file
     ai_mol_file, _, _ = att.calculate_assembly_index(mol_file)
     # RDkit Mol
-    ai_mol, _, _ = att.calculate_assembly_index(Chem.RemoveHs(mol))
+    ai_mol, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
 
     assert ai_graph == ai_mol_file == ai_mol == 4
 

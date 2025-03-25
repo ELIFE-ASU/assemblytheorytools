@@ -50,7 +50,7 @@ def standardize_mol(mol: Chem.Mol, add_hydrogens: bool = True) -> Chem.Mol:
     # Normalize the molecule in place using RDKit's MolStandardize
     rdMolStandardize.NormalizeInPlace(mol)
     # Update the molecule's property cache without strict checking
-    mol.UpdatePropertyCache(strict=False)
+    mol.UpdatePropertyCache(strict=True)
     # Kekulize the molecule (convert aromatic bonds to alternating single and double bonds)
     Chem.Kekulize(mol)
     if add_hydrogens:

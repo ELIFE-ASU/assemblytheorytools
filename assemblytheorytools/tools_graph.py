@@ -68,6 +68,9 @@ def mol_to_nx(mol: Chem.Mol, add_hydrogens: bool = True) -> nx.Graph:
     Returns:
         nx.Graph: The resulting NetworkX graph where nodes represent atoms and edges represent bonds.
     """
+
+    mol = safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
+
     graph = nx.Graph()
     converter = {
         Chem.rdchem.BondType.SINGLE: 1,

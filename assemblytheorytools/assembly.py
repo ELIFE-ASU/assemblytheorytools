@@ -1,5 +1,6 @@
 import os
 import platform
+import re
 import shutil
 import subprocess
 import tempfile
@@ -7,7 +8,6 @@ import time
 import warnings
 from datetime import datetime
 from typing import Union, List
-import re
 
 import networkx as nx
 from rdkit import Chem
@@ -22,7 +22,9 @@ from .tools_graph import (write_ass_graph_file,
                           remove_hydrogen_from_graph,
                           nx_to_mol)
 from .tools_mol import (write_v2k_mol_file,
-                        combine_mols)
+                        combine_mols,
+                        safe_standardize_mol,
+                        standardize_mol)
 from .tools_string import (prep_joint_string_ai,
                            get_dir_str_molecule,
                            get_undir_str_molecule)
@@ -187,23 +189,26 @@ def calculate_assembly_index(mol,
         temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}" if debug else tempfile.mkdtemp()
         os.makedirs(temp_dir, exist_ok=True)
 
-        # Process input based on type
+        # Input is a graph
         if isinstance(mol, nx.Graph):
             if strip_hydrogen:
                 mol = remove_hydrogen_from_graph(mol)
             file_path_in = os.path.join(temp_dir, "graph_in")
             write_ass_graph_file(mol, file_name=file_path_in)
-
+        # Input is an RDKit mol
         elif isinstance(mol, Chem.Mol):
+            mol = standardize_mol(mol, add_hydrogens=True)
             if strip_hydrogen:
                 mol = Chem.RemoveHs(mol)
             mol_file = os.path.join(temp_dir, "tmp.mol")
             write_v2k_mol_file(mol, mol_file)
             file_path_in = os.path.splitext(mol_file)[0]
-
+        # Input is a mol file
         elif isinstance(mol, str) and mol.endswith(".mol"):
             if strip_hydrogen:
-                mol_ob = Chem.MolFromMolFile(mol, sanitize=False, removeHs=True)
+                mol_ob = Chem.MolFromMolFile(mol)
+                mol_ob = safe_standardize_mol(mol_ob, add_hydrogens=True)
+                mol_ob = Chem.RemoveHs(mol_ob)
                 mol = os.path.join(temp_dir, "tmp.mol")
                 Chem.MolToMolFile(mol_ob, mol)
             else:
@@ -298,7 +303,7 @@ def calculate_assembly_index(mol,
 
         # Return based on flag
         return (ai, virt_obj, path) if not return_log_file else (ai, virt_obj, path, log_file)
-      
+
 
 def calculate_assembly_semi_metric(graph1,
                                    graph2,
