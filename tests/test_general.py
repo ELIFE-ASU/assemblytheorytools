@@ -1042,13 +1042,14 @@ def test_jai_asymmetric():
 
     assert ai_1 == ai_2
 
-def test_early_exit():
+
+def test_string_early_exit():
     # I am trying to figure out how to get the early exit to work
     # Right now I either get exact or -1. I want to get the early exit upper bound.
-    #s = ''.join(random.choices('abcd', k=50))
+    # s = ''.join(random.choices('abcd', k=50))
     s = "abacdbdacbcdadbccbadacdbadcbadcbadcbadcbbadcbdacbdcbdacbdcbdabcdabcdbcdabcdabcdabcdabcdbcdabcadbabc"
-    L1, _, _ = att.calculate_string_assembly_index(s, directed=True, mode='str', debug=True, timeout = 2)
+    L1, _, _ = att.calculate_string_assembly_index(s, directed=True, mode='str', debug=True, timeout=2)
     print(f"Fast Upper Bound = {L1}", flush=True)
-    L2, _, _ = att.calculate_string_assembly_index(s, directed=True, mode='str', debug=True, timeout = 20)
+    L2, _, _ = att.calculate_string_assembly_index(s, directed=True, mode='str', debug=True, timeout=20)
     print(f"Slow Upper Bound = {L2}", flush=True)
     assert L1 >= L2

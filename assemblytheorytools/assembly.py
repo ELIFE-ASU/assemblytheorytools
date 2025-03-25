@@ -2,14 +2,14 @@ import os
 import platform
 import re
 import shutil
+import signal
 import subprocess
 import tempfile
 import time
 import warnings
 from datetime import datetime
 from typing import Union, List
-import re
-import signal
+
 import networkx as nx
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
@@ -238,7 +238,8 @@ def calculate_assembly_index(mol,
                     if time.time() - start_time > timeout:
                         print("Warning: Assembly calculation timed out. Terminating...")
                         # process.terminate()
-                        process.send_signal(signal.SIGINT) # This simulates Ctrl+C, getting the right output from assemblyCpp
+                        process.send_signal(
+                            signal.SIGINT)  # This simulates Ctrl+C, getting the right output from assemblyCpp
                         process.wait()
                         time.sleep(2)
                         if process.poll() is None:
@@ -544,19 +545,19 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
 
         if return_log_file:
             graph_ai, graph_virtual_obj, graph_path, log_file = calculate_assembly_index(graph,
-                                                                           dir_code=dir_code,
-                                                                           timeout=timeout,
-                                                                           debug=debug,
-                                                                           joint_corr=False,
-                                                                           strip_hydrogen=False,
-                                                                           return_log_file=return_log_file)
+                                                                                         dir_code=dir_code,
+                                                                                         timeout=timeout,
+                                                                                         debug=debug,
+                                                                                         joint_corr=False,
+                                                                                         strip_hydrogen=False,
+                                                                                         return_log_file=return_log_file)
         else:
             graph_ai, graph_virtual_obj, graph_path = calculate_assembly_index(graph,
-                                                                            dir_code=dir_code,
-                                                                            timeout=timeout,
-                                                                            debug=debug,
-                                                                            joint_corr=False,
-                                                                            strip_hydrogen=False)
+                                                                               dir_code=dir_code,
+                                                                               timeout=timeout,
+                                                                               debug=debug,
+                                                                               joint_corr=False,
+                                                                               strip_hydrogen=False)
 
         # Correct for joint assembly and directed encoding
         ai = graph_ai - 2 * len(delimiters)
@@ -568,10 +569,10 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
 
         # Convert to (joint) assembly index of directed strings. Note: Virt obj and Path parsing still needs to be added
         if return_log_file:
-            return (ai, None, None, log_file) 
+            return (ai, None, None, log_file)
         else:
             return (ai, None, None)
-            
+
 
     elif mode == "str":  # Use the string assembly cpp calculator
         # raise NotImplementedError("String assembly cpp calculator not yet supported.")
@@ -666,8 +667,8 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
                     print("No assembly paths found before timeout.")
                 elif ai != -1 and timed_out:
                     print(f"Upper Bound to AI Found: AI =< {ai - 2 * len(delimiters)}")
-                
-                ai += - 2 * len(delimiters) # Convert to (joint) assembly index of strings
+
+                ai += - 2 * len(delimiters)  # Convert to (joint) assembly index of strings
 
             except Exception as e:
                 print(f"Failed to read AI from log file: {e}")
@@ -683,7 +684,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         composite_ai, virt_obj, path = CFG.ai_with_pathways(string, f_print=False)
         if directed:
             # Convert to (joint) assembly index of directed strings
-            return composite_ai - 2 * len(delimiters), virt_obj, path # Note: there is no log file for CFG
+            return composite_ai - 2 * len(delimiters), virt_obj, path  # Note: there is no log file for CFG
         else:
             ValueError(
                 "Current CFG code only works for directed strings. Directed string assembly index is an upper bound to undirected string assembly index, so you may still use the directed calculator.")
@@ -746,7 +747,7 @@ def assembly_dry_run(mol, temp_dir=None, strip_hydrogen=False):
         raise ValueError("Input not supported")
 
 
-def add_assembly_to_path(str_mode = False):
+def add_assembly_to_path(str_mode=False):
     """
     Adds the path to a precompiled assemblyCpp executable to the environment variable `ASS_PATH` or `ASS_STR_PATH' depending upon application.
 
@@ -767,7 +768,6 @@ def add_assembly_to_path(str_mode = False):
             raise NotImplementedError("Pre-compiled Assembly not implemented for MacOS or Windows.")
 
     return os.environ.get(key)
-
 
 
 def load_assembly_time():
