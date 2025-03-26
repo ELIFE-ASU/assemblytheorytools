@@ -105,9 +105,16 @@ calculating molecular complexity scores, manipulating molecular graphs, analyzin
 and visualizing molecular structures. It integrates with RDKit and NetworkX to provide
 powerful molecular and graph analysis capabilities.
 
+Contributors:
+------------
+Louie Slocombe
+Joey Fedrow
+Estelle Janin
+Gage Siebert
+
 Key Features:
 ------------
-- Assembly theory calculations: Calculate assembly indices, joint corrections, and 
+- Assembly theory calculations: Calculate assembly indices, joint corrections, and
   assembly semi-metrics for molecules and strings.
 - Molecular complexity measures: Calculate various descriptors like molecular weight,
   Bertz complexity, Wiener index, Balaban index, Randic index, and Kirchhoff index.
@@ -115,26 +122,32 @@ Key Features:
   isomorphism, and modify molecular graphs.
 - Molecular tools: Standardize molecules, convert between different molecular
   representations (SMILES, InChI, mol files), and combine/split molecules.
-- Pathway analysis: Convert pathways to graphs, molecules, and various string 
+- Pathway analysis: Convert pathways to graphs, molecules, and various string
   representations.
 - Visualization: Plot molecular graphs, interactive network diagrams, directed graphs,
   and metro-style pathway visualizations.
 - Parallel processing: Multiprocessing tools for efficient calculations on large datasets.
 - File handling: Tools for reading/writing various file formats including CIF, GraphML,
   and mol files.
+- Data sampling: Various sampling techniques including bootstrapping, KDE resampling,
+  and importance sampling.
 
 Submodules:
 ----------
-- assembly: Assembly theory calculations and command execution
+- assembly: Assembly theory calculations, command execution, and utility functions
 - complexity_scores: Molecular complexity metrics and similarity measures
+- construction: Pathway construction, parsing, and assembly digraph generation
+- construction_string: String pathway generation and manipulation utilities
 - find_other_paths: Path-finding algorithms for graphs
-- tools_graph: Graph manipulation and conversion utilities
-- tools_mol: Molecular manipulation and conversion utilities
-- tools_file: File handling utilities
-- tools_cell: Crystal structure handling utilities
 - pathway: Pathway analysis and conversion utilities
 - plotting: Visualization tools for graphs and molecules
-- tools_string: String processing utilities
+- reassembler: Molecular reassembly and modification utilities
+- tools_cell: Crystal structure handling utilities
+- tools_data: Statistical sampling and data manipulation utilities
+- tools_file: File handling utilities
+- tools_graph: Graph manipulation and conversion utilities
+- tools_mol: Molecular manipulation and conversion utilities
 - tools_mp: Multiprocessing utilities
-- construction: Pathway construction and parsing utilities
+- tools_string: String processing utilities
+- tools_test: Testing and debugging utilities
 """
