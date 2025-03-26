@@ -555,7 +555,7 @@ def parse_pathway_file(file, vo_type="smiles", debug=False):
     construction_object = AssemblyConstruction(data, vo_type=vo_type)
     graph, vo_list = construction_object.get_assembly_digraph()
 
-    if f_debug:
+    if debug:
         # Loop over the nodes and print the type and smiles
         for node in graph.nodes(data=True):
             print(f"Node: {node[0]}, Type: {node[1]['type']}, VO: {node[1]['vo']}", flush=True)

@@ -52,6 +52,7 @@ from .tools_cell import (read_cif_file,
                          atoms_to_mol_file,
                          atoms_to_nx,
                          find_clusters)
+from .tools_data import (sample_boostrapping, sample_kde_resampling, sample_importance_sampling)
 from .tools_file import (file_list,
                          file_list_all,
                          filter_files,
@@ -89,8 +90,6 @@ from .tools_string import (load_fasta,
                            prep_joint_string_ai,
                            get_unique_char)
 from .tools_test import (check_elements, print_graph_details)
-
-from .tools_data import (sample_boostrapping, sample_kde_resampling, sample_importance_sampling)
 
 __version__ = "1.3.0"
 
