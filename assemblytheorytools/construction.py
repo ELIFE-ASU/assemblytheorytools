@@ -219,7 +219,7 @@ def tables_to_nx(tables):
 
 
 class AssemblyConstruction:
-    def __init__(self, data, if_string=False):
+    def __init__(self, data, if_string=False, vo_type="graph"):
         self.v = data["file_graph"][0]['Vertices']
         self.e = data["file_graph"][0]['Edges']
         self.v_l = data["file_graph"][0]['VertexColours']
@@ -232,6 +232,7 @@ class AssemblyConstruction:
             self.remnant_e, self.duplicates, self.equivalences, self.e
         )
         self.if_string = if_string
+        self.vo_type = vo_type
 
         # Construct the atoms list
         self.atoms = []
@@ -368,8 +369,20 @@ class AssemblyConstruction:
         # Generate the virtual objects
         molecules_vo = []
         for atom in self.atoms_list:
-            mol = tables_to_mol(([(0, atom[0][0]), (1, atom[0][1])], [(0, 1, bond_order_assout_to_int(atom[1]))]))
-            molecules_vo.append(Chem.MolToSmiles(mol, allHsExplicit=False))
+            if self.vo_type == "graph":
+                mol = tables_to_nx(([(0, atom[0][0]), (1, atom[0][1])], [(0, 1, bond_order_assout_to_int(atom[1]))]))
+            elif self.vo_type == "mol":
+                mol = tables_to_mol(([(0, atom[0][0]), (1, atom[0][1])], [(0, 1, bond_order_assout_to_int(atom[1]))]))
+            elif self.vo_type == "smiles":
+                mol = tables_to_mol(([(0, atom[0][0]), (1, atom[0][1])], [(0, 1, bond_order_assout_to_int(atom[1]))]))
+                mol = Chem.MolToSmiles(mol)
+            elif self.vo_type == "inchi":
+                mol = tables_to_mol(([(0, atom[0][0]), (1, atom[0][1])], [(0, 1, bond_order_assout_to_int(atom[1]))]))
+                mol = Chem.MolToInchi(mol)
+            else:
+                raise ValueError("Invalid vo_type. Choose from 'graph', 'mol', 'smiles', or 'inchi'.")
+
+            molecules_vo.append(mol)
 
         # Generate the steps
         steps_index_s = []
@@ -383,9 +396,23 @@ class AssemblyConstruction:
         # Generate the molecules for each step
         molecules_steps = []
         for i, step in enumerate(steps_index_s):
-            mol = tables_to_mol(([(i, at) for at in vs_atoms[i]],
-                                 [(edge[0], edge[1], bond_order_assout_to_int(edge[2])) for edge in step]))
-            molecules_steps.append(Chem.MolToSmiles(mol, allHsExplicit=False))
+            if self.vo_type == "graph":
+                mol = tables_to_nx(([(i, at) for at in vs_atoms[i]],
+                                    [(edge[0], edge[1], bond_order_assout_to_int(edge[2])) for edge in step]))
+            elif self.vo_type == "mol":
+                mol = tables_to_mol(([(i, at) for at in vs_atoms[i]],
+                                     [(edge[0], edge[1], bond_order_assout_to_int(edge[2])) for edge in step]))
+            elif self.vo_type == "smiles":
+                mol = tables_to_mol(([(i, at) for at in vs_atoms[i]],
+                                     [(edge[0], edge[1], bond_order_assout_to_int(edge[2])) for edge in step]))
+                mol = Chem.MolToSmiles(mol)
+            elif self.vo_type == "inchi":
+                mol = tables_to_mol(([(i, at) for at in vs_atoms[i]],
+                                     [(edge[0], edge[1], bond_order_assout_to_int(edge[2])) for edge in step]))
+                mol = Chem.MolToInchi(mol)
+            else:
+                raise ValueError("Invalid vo_type. Choose from 'graph', 'mol', 'smiles', or 'inchi'.")
+            molecules_steps.append(mol)
 
         self.molecules_vo = molecules_vo
         self.molecules_steps = molecules_steps
@@ -450,28 +477,26 @@ class AssemblyConstruction:
         # Add all edges from digraph
         graph.add_edges_from(self.digraph)
 
-        return graph
+        # Combine molecules_vo and molecules_steps into a single list and find the set of unique elements
+        all_molecules = self.molecules_vo + self.molecules_steps
+        unique_molecules = set(all_molecules)
+
+        return graph, list(unique_molecules)
 
 
-def parse_pathway_file(file):
+def parse_pathway_file(file, vo_type="smiles"):
     # Load the pathway file
     with open(file) as f:
         data = json.load(f)
+
     # Make the construction object
-    construction_object = AssemblyConstruction(data)
-
-    construction_object.generate_pathway()
-
-    construction_object.generate_vo()
-    inchi_list = construction_object.molecules_vo
-
-    construction_object = AssemblyConstruction(data)
-    graph = construction_object.get_assembly_digraph()
+    construction_object = AssemblyConstruction(data, vo_type=vo_type)
+    graph, vo_list = construction_object.get_assembly_digraph()
 
     # loop over the nodes and print the type and smiles
     for node in graph.nodes(data=True):
         node_type = node[1]['type']
         vo = node[1]['vo']
-        print(f"Node: {node[0]}, Type: {node_type}, SMILES: {vo}")
+        print(f"Node: {node[0]}, Type: {node_type}, SMILES: {vo}", flush=True)
 
-    return graph, inchi_list
+    return graph, vo_list
