@@ -12,6 +12,10 @@ Currently supports and connects to:
 - Minerals see [https://github.com/ELIFE-ASU/Mineral-evo](https://github.com/ELIFE-ASU/Mineral-evo).
 - For Proteins see [https://github.com/ELIFE-ASU/ProteinAssembly](https://github.com/ELIFE-ASU/ProteinAssembly).
 
+# Contributions
+Contributions of all kinds—bug reports, feature suggestions, code improvements, and documentation updates - are welcome! Please follow standard Python practices, write clear commit messages, and ensure all code is well-documented and tested. To contribute, branch the repo, make changes, and submit a pull request. 
+
+
 # For Local Installation 
 ## Fresh environment
 It is recommended that you start from a fresh environment to prevent issues.
