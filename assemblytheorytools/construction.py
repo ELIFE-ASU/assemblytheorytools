@@ -532,7 +532,7 @@ class AssemblyConstruction:
         return graph, list(unique_molecules)
 
 
-def parse_pathway_file(file, vo_type="smiles"):
+def parse_pathway_file(file, vo_type="smiles", debug=False):
     """
     Parses a pathway file and constructs a directed graph representation of the assembly pathway.
 
@@ -542,6 +542,7 @@ def parse_pathway_file(file, vo_type="smiles"):
     Args:
         file (str): The path to the pathway file to be loaded.
         vo_type (str): The type of virtual object representation to use. Default is "smiles".
+        debug (bool): A flag indicating whether to print debug information. Default is False.
 
     Returns:
         tuple: A tuple containing the directed graph (nx.DiGraph) and a list of unique virtual objects.
@@ -554,8 +555,9 @@ def parse_pathway_file(file, vo_type="smiles"):
     construction_object = AssemblyConstruction(data, vo_type=vo_type)
     graph, vo_list = construction_object.get_assembly_digraph()
 
-    # Loop over the nodes and print the type and smiles
-    for node in graph.nodes(data=True):
-        print(f"Node: {node[0]}, Type: {node[1]['type']}, VO: {node[1]['vo']}", flush=True)
+    if f_debug:
+        # Loop over the nodes and print the type and smiles
+        for node in graph.nodes(data=True):
+            print(f"Node: {node[0]}, Type: {node[1]['type']}, VO: {node[1]['vo']}", flush=True)
 
     return graph, vo_list
