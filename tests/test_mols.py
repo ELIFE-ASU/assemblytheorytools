@@ -428,31 +428,19 @@ def test_construction_pathway_file():
     pathway_str = "data/pathway/tmpPathway"
 
     # Try to load the pathway
-    digraph, inchi_list = att.parse_pathway_file(pathway_str)
+    digraph, vo_list = att.parse_pathway_file(pathway_str, vo_type='inchi')
 
-    print(inchi_list)
-    print(digraph.nodes(data=True))
-    # # Get the inchi from the digraph
-    # for i,_ in enumerate(digraph.nodes()):
-    #     print(digraph.nodes[i]["inchi"])
-
-    inchi_list_ref = ['InChI=1S/C2H6/c1-2/h1-2H3',
-                      'InChI=1S/CH4/h1H4',
-                      'InChI=1S/CH2O/c1-2/h1H2',
-                      'InChI=1S/CH4/h1H4',
-                      'InChI=1S/CH4/h1H4',
-                      'InChI=1S/C2H6/c1-2/h1-2H3',
-                      'InChI=1S/C2H6/c1-2/h1-2H3',
-                      'InChI=1S/C2H4O/c1-2-3/h2H,1H3']
+    vo_list_ref = ['InChI=1S/C2H6/c1-2/h1-2H3',
+                   'InChI=1S/CH2O/c1-2/h1H2',
+                   'InChI=1S/CH4/h1H4',
+                   'InChI=1S/C2H4O/c1-2-3/h2H,1H3']
 
     # Check the number of nodes
     assert digraph.number_of_nodes() == 8
     # Check the number of edges
     assert digraph.number_of_edges() == 9
 
-    # Check the inchi
-    for ref, node in zip(inchi_list_ref, inchi_list):
-        assert ref == node
+    assert att.check_elements(vo_list, vo_list_ref)
 
 
 def test_construction_pathway_smi():
@@ -461,53 +449,33 @@ def test_construction_pathway_smi():
     smi = "CC=O"  # Acetaldehyde
     mol = att.smi_to_mol(smi)
     ai, virt_obj, pathway = att.calculate_assembly_index(mol, debug=False)
-    pathway, inchi_list = pathway
-    inchi_list_ref = ['InChI=1S/C2H6/c1-2/h1-2H3',
-                      'InChI=1S/CH4/h1H4',
-                      'InChI=1S/CH2O/c1-2/h1H2',
-                      'InChI=1S/CH4/h1H4',
-                      'InChI=1S/CH4/h1H4',
-                      'InChI=1S/C2H6/c1-2/h1-2H3',
-                      'InChI=1S/C2H6/c1-2/h1-2H3',
-                      'InChI=1S/C2H4O/c1-2-3/h2H,1H3']
+    pathway, vo_list = pathway
+
+    vo_list_ref = ['[H]C([H])([H])C([H])([H])[H]', '[H]C(=O)C([H])([H])[H]', '[H]C([H])=O', '[H]C([H])([H])[H]']
     assert ai == 5
-    assert len(virt_obj) == len(set(inchi_list_ref))
+    assert len(virt_obj) == len(set(vo_list_ref))
     assert pathway.number_of_nodes() == 8
     assert pathway.number_of_edges() == 9
 
-    # Check the information on each node
-    for ref, node in zip(inchi_list_ref, inchi_list):
-        assert ref == node
+    assert att.check_elements(vo_list, vo_list_ref)
 
 
 def test_construction_pathway_joint():
     print(flush=True)
     smi = "CC=O.OCC"
-    inchi_acetaldehyde = "InChI=1S/C2H4O/c1-2-3/h2H,1H3"
-    inchi_ethanol = "InChI=1S/C2H6O/c1-2-3/h3H,2H2,1H3"
     mol = att.smi_to_mol(smi)
     ai, virt_obj, pathway = att.calculate_assembly_index(mol, debug=False)
-    pathway, inchi_list = pathway
-    inchi_list_ref = ['InChI=1S/C2H6/c1-2/h1-2H3',
-                      'InChI=1S/CH4/h1H4',
-                      'InChI=1S/CH2O/c1-2/h1H2',
-                      'InChI=1S/CH4O/c1-2/h2H,1H3',
-                      'InChI=1S/H2O/h1H2',
-                      'InChI=1S/C2H6/c1-2/h1-2H3',
-                      'InChI=1S/C2H6/c1-2/h1-2H3',
-                      'InChI=1S/C2H6/c1-2/h1-2H3',
-                      'InChI=1S/C2H6/c1-2/h1-2H3',
-                      'InChI=1S/CH4O/c1-2/h2H,1H3',
-                      'InChI=1S/CH4O/c1-2/h2H,1H3',
-                      'InChI=1S/C2H6O/c1-2-3/h3H,2H2,1H3',
-                      'InChI=1S/C2H4O/c1-2-3/h2H,1H3']
+    pathway, vo_list = pathway
+
+    vo_list_ref = ['[H]C([H])([H])[H]',
+                   '[H]C(=O)C([H])([H])[H]',
+                   '[H]OC([H])([H])C([H])([H])[H]',
+                   '[H]OC([H])([H])[H]',
+                   '[H]C([H])([H])C([H])([H])[H]',
+                   '[H]C([H])=O',
+                   '[H]O[H]']
     assert ai == 8
-    assert inchi_list[-2] == inchi_ethanol
-    assert inchi_list[-1] == inchi_acetaldehyde
     assert pathway.number_of_nodes() == 13
     assert pathway.number_of_edges() == 16
 
-    # Check the information on each node
-    for ref, node in zip(inchi_list_ref, inchi_list):
-        assert ref == node
-    pass
+    assert att.check_elements(vo_list, vo_list_ref)
