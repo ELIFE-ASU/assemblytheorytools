@@ -5,6 +5,7 @@ import networkx as nx
 import numpy as np
 from rdkit import Chem
 from rdkit.Chem.rdchem import RWMol
+from rdkit.Chem.rdmolfiles import MolToSmiles
 
 
 def transform_array(target_array, comp_array, source_val, target_val, new_val, pairs_list):
@@ -309,14 +310,20 @@ class AssemblyConstruction:
                     else:
                         v_object1 = self.atoms.index(
                             [{self.v_l[pic[0][0]], self.v_l[pic[0][1]]}, self.e_l[self.e.index(pic[0])]])
-                        digraph.append(["virtual_object{}".format(v_object1), "step{}".format(step)])
+                        mol = tables2mol(([(0, self.v_l[pic[0][0]]), (1, self.v_l[pic[0][1]])],
+                                          [(0, 1, transform_bond_string_float(self.e_l[self.e.index(pic[0])]))]))
+                        smiles = MolToSmiles(mol)
+                        digraph.append([smiles, "step{}".format(step)])
 
                     if len(pic_i) > 1:
                         add_digraph_entry(pic_i, step)
                     else:
                         v_object1 = self.atoms.index(
                             [{self.v_l[pic_i[0][0]], self.v_l[pic_i[0][1]]}, self.e_l[self.e.index(pic_i[0])]])
-                        digraph.append(["virtual_object{}".format(v_object1), "step{}".format(step)])
+                        mol = tables2mol(([(0, self.v_l[pic_i[0][0]]), (1, self.v_l[pic_i[0][1]])],
+                                          [(0, 1, transform_bond_string_float(self.e_l[self.e.index(pic_i[0])]))]))
+                        smiles = MolToSmiles(mol)
+                        digraph.append([smiles, "step{}".format(step)])
 
                     pieces_mod.remove(pic)
                     pieces_mod.remove(pic_i)
@@ -393,7 +400,16 @@ class AssemblyConstruction:
         self.digraph = digraph
         self.pieces_mod = pieces_mod
 
-        return None
+        steps_info = []
+        for i, step in enumerate(steps_mod):
+            fragment_smiles = []
+            for edge in step:
+                mol = tables2mol(([(0, self.v_l[edge[0]]), (1, self.v_l[edge[1]])],
+                                  [(0, 1, transform_bond_string_float(self.e_l[self.e.index(edge)]))]))
+                fragment_smiles.append(MolToSmiles(mol))
+            steps_info.append(f"Step {i + 1}: {' + '.join(fragment_smiles)}")
+
+        return digraph, steps_mod, steps_info
 
     def pathway_inchi_vo(self):
         molecules_vo = []
@@ -447,10 +463,10 @@ def parse_pathway_file(file):
         data = json.load(f)
     # Make the construction object
     construction_object = AssemblyConstruction(data)
-    construction_object.generate_pathway()
+    digraph, steps_mod, steps_info = construction_object.generate_pathway()
     inchi_list = construction_object.pathway_inchi_vo()
 
     # Generate the directional graph
-    graph = generate_directional_graph(construction_object.digraph)
+    graph = generate_directional_graph(digraph)
 
-    return graph, inchi_list
+    return graph, inchi_list, steps_info

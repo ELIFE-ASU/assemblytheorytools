@@ -296,17 +296,26 @@ def plot_digraph(digraph: nx.DiGraph,
     return None
 
 
-def plot_digraph_metro(digraph: nx.DiGraph, filename: str = 'metro') -> None:
+def plot_digraph_metro(digraph: nx.DiGraph, steps_info: list[str], filename: str = 'metro') -> None:
     """
     Plot a directed graph using the Metro style and save it as SVG and PNG files.
 
     Args:
         digraph (nx.DiGraph): The directed graph to be plotted.
+        steps_info (list[str]): List of step information to be used for labeling the steps.
         filename (str, optional): The base name of the files where the plot will be saved. Default is 'metro'.
 
     Returns:
         None
     """
+    # Create a mapping from step labels to steps_info
+    step_labels = {f"step{i+1}": info for i, info in enumerate(steps_info)}
+
+    # Update the digraph with the step info
+    for node in digraph.nodes:
+        if node in step_labels:
+            digraph.nodes[node]['label'] = step_labels[node]
+
     r = dagviz.render_svg(digraph,
                           style=dagviz.style.metro.svg_renderer(dagviz.style.metro.StyleConfig(node_stroke="black")))
     # Save the SVG
