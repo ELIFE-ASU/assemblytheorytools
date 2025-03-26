@@ -192,18 +192,53 @@ def select_length(dict_array):
 
 
 def tables_to_mol(tables, add_hydrogens=True):
+    """
+    Converts atom and bond information into an RDKit molecule object.
+
+    This function takes a tuple containing atom and bond information, constructs an RDKit RWMol object,
+    adds atoms and bonds to it, and then performs light sanitization.
+
+    Args:
+        tables (tuple): A tuple containing two lists:
+            - atoms_info (list): A list of tuples where each tuple contains an atom index and atom type.
+            - bonds_info (list): A list of tuples where each tuple contains two atom indices and a bond type.
+        add_hydrogens (bool): A flag indicating whether to add hydrogens to the molecule. Default is True.
+
+    Returns:
+        Chem.Mol: An RDKit molecule object with the specified atoms and bonds.
+    """
     atoms_info, bonds_info = tables
     edit_mol = RWMol()
+
+    # Add atoms to the molecule
     for v in atoms_info:
         edit_mol.AddAtom(Chem.Atom(v[1]))
+
+    # Add bonds to the molecule
     for e in bonds_info:
         edit_mol.AddBond(e[0], e[1], bond_order_int_to_rdkit(e[2]))
+
     mol = edit_mol.GetMol()
-    # light sanitization
+
+    # Perform light sanitization
     return safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
 
 
 def tables_to_nx(tables):
+    """
+    Converts atom and bond information into a NetworkX graph object.
+
+    This function takes a tuple containing atom and bond information, constructs a NetworkX graph object,
+    adds nodes and edges to it, and assigns attributes to them.
+
+    Args:
+        tables (tuple): A tuple containing two lists:
+            - atoms_info (list): A list of tuples where each tuple contains an atom index and atom type.
+            - bonds_info (list): A list of tuples where each tuple contains two atom indices and a bond type.
+
+    Returns:
+        nx.Graph: A NetworkX graph object with the specified nodes and edges.
+    """
     atoms_info, bonds_info = tables
     graph = nx.Graph()
 
@@ -477,6 +512,19 @@ class AssemblyConstruction:
         # Add all edges from digraph
         graph.add_edges_from(self.digraph)
 
+        # Add the label attribute to the nodes
+        for node in graph.nodes(data=True):
+            if self.vo_type == "graph":
+                graph.nodes[node[0]]["label"] = node[0]
+            elif self.vo_type == "mol":
+                graph.nodes[node[0]]["label"] = Chem.MolToSmiles(node[1]["vo"])
+            elif self.vo_type == "smiles":
+                graph.nodes[node[0]]["label"] = node[1]["vo"]
+            elif self.vo_type == "inchi":
+                graph.nodes[node[0]]["label"] = node[1]["vo"]
+            else:
+                raise ValueError("Invalid vo_type. Choose from 'graph', 'mol', 'smiles', or 'inchi'.")
+
         # Combine molecules_vo and molecules_steps into a single list and find the set of unique elements
         all_molecules = self.molecules_vo + self.molecules_steps
         unique_molecules = set(all_molecules)
@@ -485,6 +533,19 @@ class AssemblyConstruction:
 
 
 def parse_pathway_file(file, vo_type="smiles"):
+    """
+    Parses a pathway file and constructs a directed graph representation of the assembly pathway.
+
+    This function loads a pathway file, creates an AssemblyConstruction object, generates the assembly
+    directed graph, and prints the type and virtual object (VO) for each node in the graph.
+
+    Args:
+        file (str): The path to the pathway file to be loaded.
+        vo_type (str): The type of virtual object representation to use. Default is "smiles".
+
+    Returns:
+        tuple: A tuple containing the directed graph (nx.DiGraph) and a list of unique virtual objects.
+    """
     # Load the pathway file
     with open(file) as f:
         data = json.load(f)
@@ -493,10 +554,8 @@ def parse_pathway_file(file, vo_type="smiles"):
     construction_object = AssemblyConstruction(data, vo_type=vo_type)
     graph, vo_list = construction_object.get_assembly_digraph()
 
-    # loop over the nodes and print the type and smiles
+    # Loop over the nodes and print the type and smiles
     for node in graph.nodes(data=True):
-        node_type = node[1]['type']
-        vo = node[1]['vo']
-        print(f"Node: {node[0]}, Type: {node_type}, SMILES: {vo}", flush=True)
+        print(f"Node: {node[0]}, Type: {node[1]['type']}, VO: {node[1]['vo']}", flush=True)
 
     return graph, vo_list
