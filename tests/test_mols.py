@@ -479,3 +479,5 @@ def test_construction_pathway_joint():
     assert pathway.number_of_edges() == 16
 
     assert att.check_elements(vo_list, vo_list_ref)
+
+    att.plot_digraph_metro(pathway, filename="test")
