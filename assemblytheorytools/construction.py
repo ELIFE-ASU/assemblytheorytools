@@ -7,6 +7,7 @@ from rdkit import Chem
 from rdkit.Chem.rdchem import RWMol
 
 from .tools_graph import bond_order_assout_to_int, bond_order_int_to_rdkit
+from .tools_mol import safe_standardize_mol
 
 
 def transform_array(target_array, comp_array, source_val, target_val, new_val, pairs_list):
@@ -190,7 +191,7 @@ def select_length(dict_array):
     return dict_array["len"]
 
 
-def tables_to_mol(tables):
+def tables_to_mol(tables, add_hydrogens=True):
     atoms_info, bonds_info = tables
     edit_mol = RWMol()
     for v in atoms_info:
@@ -198,7 +199,8 @@ def tables_to_mol(tables):
     for e in bonds_info:
         edit_mol.AddBond(e[0], e[1], bond_order_int_to_rdkit(e[2]))
     mol = edit_mol.GetMol()
-    return mol
+    # light sanitization
+    return safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
 
 
 def tables_to_nx(tables):
@@ -207,12 +209,10 @@ def tables_to_nx(tables):
 
     # Add nodes with atom type attributes
     for atom_idx, atom_type in atoms_info:
-        print(atom_idx, atom_type)
         graph.add_node(atom_idx, color=atom_type)
 
     # Add edges with bond type attributes
     for start_idx, end_idx, bond_type in bonds_info:
-        print(start_idx, end_idx, bond_type)
         graph.add_edge(start_idx, end_idx, color=int(bond_type))
 
     return graph
@@ -364,51 +364,93 @@ class AssemblyConstruction:
 
         return None
 
-    def pathway_inchi_vo(self):
+    def generate_vo(self):
+        # Generate the virtual objects
         molecules_vo = []
-        inchi_list = []
-
         for atom in self.atoms_list:
-            # tables_to_nx(([(0, atom[0][0]), (1, atom[0][1])], [(0, 1, convert_edge_color(atom[1]))]))
             mol = tables_to_mol(([(0, atom[0][0]), (1, atom[0][1])], [(0, 1, bond_order_assout_to_int(atom[1]))]))
-            molecules_vo.append(mol)
-            inchi_list.append(Chem.MolToInchi(mol))
+            molecules_vo.append(Chem.MolToSmiles(mol, allHsExplicit=False))
 
+        # Generate the steps
         steps_index_s = []
         vs_atoms = []
-
         for step in self.steps:
             indices = list(set(np.reshape(step, -1)))
             steps_index_s.append(
                 [[indices.index(edge[0]), indices.index(edge[1]), self.e_l[self.e.index(edge)]] for edge in step])
             vs_atoms.append([self.v_l[at] for at in indices])
 
+        # Generate the molecules for each step
         molecules_steps = []
-
         for i, step in enumerate(steps_index_s):
             mol = tables_to_mol(([(i, at) for at in vs_atoms[i]],
                                  [(edge[0], edge[1], bond_order_assout_to_int(edge[2])) for edge in step]))
-            molecules_steps.append(mol)
-            inchi_list.append(Chem.MolToInchi(mol))
+            molecules_steps.append(Chem.MolToSmiles(mol, allHsExplicit=False))
 
         self.molecules_vo = molecules_vo
         self.molecules_steps = molecules_steps
         self.steps_indx_s = steps_index_s
         self.vs_atoms = vs_atoms
 
-        return inchi_list
+        return None
 
+    def get_assembly_digraph(self):
+        """
+        Creates a directed graph representation of the assembly pathway.
 
-def generate_directional_graph(digraph):
-    """
-    Generates a directional NetworkX graph from the given digraph.
+        Each node is connected according to self.digraph and contains attributes:
+        - type: 'virtual_object' or 'step'
+        - smiles: The corresponding SMILES string from molecules_vo or molecules_steps
 
-    :param digraph: List of tuples representing directed edges.
-    :return: A directional NetworkX graph.
-    """
-    graph = nx.DiGraph()
-    graph.add_edges_from(digraph)
-    return graph
+        Returns:
+            nx.DiGraph: A directed graph representing the assembly pathway.
+        """
+        self.generate_pathway()
+        self.generate_vo()
+
+        graph = nx.DiGraph()
+
+        # Add all nodes with their corresponding molecule information
+        for edge in self.digraph:
+            source, target = edge
+
+            # Handle virtual object nodes
+            if source.startswith("virtual_object_"):
+                vo_index = int(source.split("_")[-1])
+                if vo_index < len(self.molecules_vo):
+                    graph.add_node(source,
+                                   type="virtual_object",
+                                   vo=self.molecules_vo[vo_index])
+
+            # Handle step nodes
+            if source.startswith("step_"):
+                if source.split("_")[-1].isdigit():
+                    step_index = int(source.split("_")[-1]) - 1
+                    if 0 <= step_index < len(self.molecules_steps):
+                        graph.add_node(source,
+                                       type="step",
+                                       vo=self.molecules_steps[step_index])
+
+            # Do the same for target nodes
+            if target.startswith("virtual_object_"):
+                vo_index = int(target.split("_")[-1])
+                if vo_index < len(self.molecules_vo):
+                    graph.add_node(target,
+                                   type="virtual_object",
+                                   vo=self.molecules_vo[vo_index])
+
+            if target.startswith("step_"):
+                if target.split("_")[-1].isdigit():
+                    step_index = int(target.split("_")[-1]) - 1
+                    if 0 <= step_index < len(self.molecules_steps):
+                        graph.add_node(target,
+                                       type="step",
+                                       vo=self.molecules_steps[step_index])
+
+        # Add all edges from digraph
+        graph.add_edges_from(self.digraph)
+
+        return graph
 
 
 def parse_pathway_file(file):
@@ -417,19 +459,19 @@ def parse_pathway_file(file):
         data = json.load(f)
     # Make the construction object
     construction_object = AssemblyConstruction(data)
+
     construction_object.generate_pathway()
-    # print("construction steps.", flush=True)
-    # print(construction_object.steps, flush=True)
-    #
-    # print("digraph", flush=True)
-    # print(construction_object.digraph, flush=True)
-    #
-    # print("pieces_mod", flush=True)
-    # print(construction_object.pieces_mod, flush=True)
 
-    inchi_list = construction_object.pathway_inchi_vo()
+    construction_object.generate_vo()
+    inchi_list = construction_object.molecules_vo
 
-    # Generate the directional graph
-    graph = generate_directional_graph(construction_object.digraph)
+    construction_object = AssemblyConstruction(data)
+    graph = construction_object.get_assembly_digraph()
+
+    # loop over the nodes and print the type and smiles
+    for node in graph.nodes(data=True):
+        node_type = node[1]['type']
+        vo = node[1]['vo']
+        print(f"Node: {node[0]}, Type: {node_type}, SMILES: {vo}")
 
     return graph, inchi_list
