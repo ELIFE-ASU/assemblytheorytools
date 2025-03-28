@@ -13,9 +13,7 @@ from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
 from typing import Optional
-
 from rdkit import Chem
-
 from .seb_pathway_tools import *
 
 bond_types = {
@@ -673,12 +671,11 @@ class MoleculeSpace(ConstructionObject):
     A class to represent a space of molecules.
     """
 
-    def __init__(self, molecules: list[Molecule], disable_tqdm: bool = False):
+    def __init__(self, molecules: list[Molecule]):
         self.molecules: list[Molecule] = molecules
-        self.disable_tqdm: bool = disable_tqdm
         self.molecule_smiles: list[str] = [
             molecule.get_smiles()
-            for molecule in tqdm(self.molecules, disable=disable_tqdm)
+            for molecule in self.molecules
         ]
         self.molecule_fingerprints: (
             list
@@ -772,7 +769,7 @@ class MoleculeSpace(ConstructionObject):
         if self.molecule_smiles is None:
             self.molecule_smiles = [
                 molecule.get_smiles()
-                for molecule in tqdm(self.molecules, disable=self.disable_tqdm)
+                for molecule in self.molecules
             ]
         self.leaf_nodes = self.molecule_smiles
         return None
@@ -792,7 +789,6 @@ class MoleculeSpace(ConstructionObject):
         self.joined_assembly_graph = compose_all(
             [mol.G for mol in self.molecules],
             calc_fingerprints=calc_fingerprints,
-            disable_tqdm=self.disable_tqdm,
         )
         self._set_root_nodes()
         self._set_leaf_nodes()
@@ -879,7 +875,7 @@ class MoleculeSpace(ConstructionObject):
                 removed_observed += 1
 
         # second loop to remove nodes that are not leaf nodes but have to be removed
-        for node in tqdm(self.joined_assembly_graph.nodes, disable=self.disable_tqdm):
+        for node in self.joined_assembly_graph.nodes:
             try:
                 if (
                         temp_graph.nodes[node]["level"]
