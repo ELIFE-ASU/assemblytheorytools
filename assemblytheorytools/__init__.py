@@ -91,7 +91,7 @@ from .tools_string import (load_fasta,
                            get_unique_char)
 from .tools_test import (check_elements, print_graph_details)
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 
 """
 AssemblyTheoryTools
