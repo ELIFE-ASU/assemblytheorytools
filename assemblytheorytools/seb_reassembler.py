@@ -1,5 +1,12 @@
 import ast
 import random
+from rdkit import Chem
+from rdkit.Chem import Draw
+import networkx as nx
+import numpy as np
+from collections import defaultdict
+from typing import Optional
+import subprocess
 import signal
 import subprocess
 from collections import defaultdict
@@ -21,39 +28,25 @@ bond_types = {
 
 class ConstructionObject:
     def reconstruct_joint_assembly_space(self, assembly_out: dict) -> tuple:
+    # It will be better to just make the assembly_out BE the CPP output, and not 
+    # have CPP as a subdirectory within in.
         """
         Get the estimated joint assembly space of a molecule space.
 
         Args:
-            assembly_out: dict; output of assemblycalculator.molecular_exact with 'go_output' set to True
+            assembly_out: dict: output of assembly CPP
 
         Returns:
             joint_assembly_space: list[str]; the joint assembly space of the molecule space
                                 as a list of inchi strings
         """
 
-        ### When from assembly go
-        if "go_output" in assembly_out:
-            fname = (
-                assembly_out["go_output"]
-                .split("\n")[0]
-                .split("/")[-1]
-                .replace(".mol", "")
-                .replace("-", "")
-            )
-            assembly_out["pathway"] = pt.encode_go_output(
-                assembly_out["go_output"], fname=fname
-            )
-            _, object = pt.draw_pathway(
-                assembly_out["pathway"], mode=1, fname=fname
-            )
-
-        # when from CPP
-        elif "cpp_output" in assembly_out:
+        # Check that output is from CPP
+        if "cpp_output" in assembly_out:
             _, object = parse_pathway_file_ian(assembly_out["cpp_output"])
         else:
             raise ValueError(
-                "assembly_out should contain 'go_output' or 'cpp_output'"
+                "assembly_out should contain 'cpp_output'"
             )
 
         pathway_log_string = object.pathway_log_string()
@@ -558,7 +551,7 @@ class Molecule(ConstructionObject):
         """
         Calculates the assembly index and pathway of the given molecular string by
         converting a SMILES string to a mol file, then calculating the assembly index
-        using assemblyCpp or assemblygo, which have to be installed in the system
+        using assemblyCpp, which have to be installed in the system
 
         Args:
             mol_file_path: str; path to the mol file
@@ -612,7 +605,14 @@ class Molecule(ConstructionObject):
                     f.seek(0)  # Reset file pointer
                     self.assembly_output = {"cpp_output": f.read()}
 
+        else:
+            raise(ValueError("assembly_version must be 'assemblyCpp'"))
+
         return None
+
+
+
+
 
     def calc_pathway(self) -> None:
         """
