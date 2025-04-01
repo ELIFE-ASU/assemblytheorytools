@@ -757,12 +757,12 @@ def add_assembly_to_path(str_mode=False):
     Raises:
         NotImplementedError: If the operating system is MacOS or Windows.
     """
-   if str_mode:
+    if str_mode:
         key = "ASS_STR_PATH"
-        exec_name = "asscpp_combined_static_strings"  
+        exec_name = "asscpp_combined_static_strings"
     else:
         key = "ASS_PATH"
-        exec_name = "asscpp_combined_static_linux"  
+        exec_name = "asscpp_combined_static_linux"
 
     if not os.environ.get(key):
         full_att_path = os.path.abspath(
@@ -774,6 +774,7 @@ def add_assembly_to_path(str_mode=False):
             raise NotImplementedError("Pre-compiled Assembly not implemented for MacOS or Windows.")
 
     return os.environ.get(key)
+
 
 def load_assembly_time():
     """
