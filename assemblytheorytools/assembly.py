@@ -752,10 +752,16 @@ def assembly_dry_run(mol, temp_dir=None, strip_hydrogen=False):
 
 def add_assembly_to_path(str_mode=False):
     """
-    Adds the path to a precompiled assemblyCpp executable to the environment variable `ASS_PATH` or `ASS_STR_PATH' depending upon application.
+    Adds the path to a precompiled assemblyCpp executable to the environment variable `ASS_PATH` or `ASS_STR_PATH` depending upon application.
+
+    Args:
+        str_mode (bool): If True, sets the path for the string mode executable. Defaults to False.
 
     Raises:
         NotImplementedError: If the operating system is MacOS or Windows.
+
+    Returns:
+        str: The path to the precompiled assemblyCpp executable.
     """
     if str_mode:
         key = "ASS_STR_PATH"
