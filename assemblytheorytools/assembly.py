@@ -230,17 +230,16 @@ def calculate_assembly_index(mol,
                 process = subprocess.Popen(
                     [dir_code, file_path_in],
                     stdout=log,
-                    stderr=subprocess.STDOUT  # Merge stdout and stderr into one log file
+                    stderr=log
                 )
                 while process.poll() is None:
                     # Check for timeout
                     if time.time() - start_time > timeout:
                         print("Warning: Assembly calculation timed out. Terminating...", flush=True)
-                        # process.terminate()
                         process.send_signal(
                             signal.SIGINT)  # This simulates Ctrl+C, getting the right output from assemblyCpp
                         process.wait()
-                        time.sleep(1)
+                        time.sleep(0.5)
                         if process.poll() is None:
                             process.kill()
                         timed_out = True  # Mark timeout
