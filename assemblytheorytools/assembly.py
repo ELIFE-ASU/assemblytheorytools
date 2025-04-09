@@ -226,27 +226,25 @@ def calculate_assembly_index(mol,
         # Run the assembly code and log output
         try:
             with open(log_file, "w") as log:
+                start_time = time.time()
                 process = subprocess.Popen(
                     [dir_code, file_path_in],
                     stdout=log,
                     stderr=subprocess.STDOUT  # Merge stdout and stderr into one log file
                 )
-
-                start_time = time.time()
                 while process.poll() is None:
                     # Check for timeout
                     if time.time() - start_time > timeout:
-                        print("Warning: Assembly calculation timed out. Terminating...")
+                        print("Warning: Assembly calculation timed out. Terminating...", flush=True)
                         # process.terminate()
                         process.send_signal(
                             signal.SIGINT)  # This simulates Ctrl+C, getting the right output from assemblyCpp
                         process.wait()
-                        time.sleep(2)
+                        time.sleep(1)
                         if process.poll() is None:
                             process.kill()
                         timed_out = True  # Mark timeout
                         break
-                    time.sleep(1)
 
         except Exception as e:
             print(f"Error: {e}", flush=True)
@@ -420,40 +418,31 @@ def compile_assembly_code(assembly_tar_path="assemblycpp-main", boost_version="1
 
         # Uncompress the assembly code
         run_command_simple(f"{uncompress} {assembly_tar_path}.tar.gz")
-        time.sleep(1)
 
         # Get the Boost library
         subprocess.run(
             f"wget 'https://archives.boost.io/release/{boost_version.replace('_', '.')}/source/{boost_code}.tar.gz'",
             shell=True, check=True)
-        time.sleep(1)
 
         # Unzip the Boost code
         run_command_simple(f"{uncompress} {boost_code}.tar.gz")
-        time.sleep(1)
 
         # Compile the assembly code
         t0 = time.time()
         run_command_simple(f"g++ {assembly_tar_path}/v5_combined_linux/main.cpp -O3 -o {exe_dir} -I{boost_code}/")
         t1 = time.time()
         print(f"Compilation time: {t1 - t0:.2f} seconds", flush=True)
-        time.sleep(1)
 
         # Set the permissions to allow execution
         os.chmod(exe_dir, 0o755)
-        time.sleep(1)
 
         # Remove unnecessary files and folders
         run_command_simple(f"{remove} {boost_code}.tar.gz")
-        time.sleep(1)
         run_command_simple(f"{remove} {boost_code}/")
-        time.sleep(1)
         run_command_simple(f"{remove} {assembly_tar_path}/")
-        time.sleep(1)
 
         # Add the executable path to the user's shell configuration
         add_to_bashrc(f"ASS_PATH={exe_dir}", file=".bashrc")
-        time.sleep(1)
         add_to_bashrc(f"ASS_PATH={exe_dir}", file=".profile")
 
         print("Done!", flush=True)
