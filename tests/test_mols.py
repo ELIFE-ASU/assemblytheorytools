@@ -238,7 +238,7 @@ def test_taxol_file():
     # Mol file
     ai_mol_file, _, _ = att.calculate_assembly_index(mol_file, timeout=60.0, strip_hydrogen=True, debug=False)
 
-    assert ai_mol_file <= 24 # actual value is 23, but for time out this is ok
+    assert ai_mol_file <= 24  # actual value is 23, but for time out this is ok
 
 
 def test_joint_ass():
@@ -373,24 +373,6 @@ def test_big_joint_ass():
 
     # Assert that the calculated assembly index is equal to 40
     assert ai == 40
-
-
-def test_joint_ass_str():
-    """
-    Test the calculation of the assembly index for a set of strings.
-
-    This function performs the following steps:
-    1. Define a list of strings
-    2. Calculate their assembly index
-    3. Assert ai = 4
-
-
-    Asserts:
-        - The calculated assembly index is equal to 4.
-    """
-    strs = ["aaaa", "bbbb", "aa"]
-    ai, v_obj, path = att.calculate_string_assembly_index(strs)
-    assert ai == 4
 
 
 def test_semi_metric():

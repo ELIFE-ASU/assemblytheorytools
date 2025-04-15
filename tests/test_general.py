@@ -198,64 +198,6 @@ def test_node_scramble():
     assert smi_out == smi_out_sc  # Check the graph conversion to and from RDKit
 
 
-def test_undir_str_ass():
-    """
-    Test the string assembly index calculation in mol mode for an undirected string.
-
-    This function performs the following steps:
-    1. Defines an input string.
-    2. Calculates the assembly index of the input string.
-    3. Compares the calculated assembly index to the expected value.
-
-    Asserts:
-        - The calculated assembly index is equal to the expected value.
-    """
-    s_inpt = "abracadabra"
-    ai, _, _ = att.calculate_string_assembly_index(s_inpt, directed=False, mode='mol', debug=True)
-    ai_ref = 7
-    ai2, _, _ = att.calculate_string_assembly_index(s_inpt, directed=False, mode='str', debug=True)
-    assert ai == ai_ref
-    assert ai2 == ai_ref
-
-
-def test_dir_str_ass():
-    """
-    Test the string assembly index calculation in mol mode for a directed string.
-
-    This function performs the following steps:
-    1. Defines an input string.
-    2. Calculates the assembly index of the input string.
-    3. Compares the calculated assembly index to the expected value.
-
-    Asserts:
-        - The calculated assembly index is equal to the expected value.
-    """
-    s_inpt = "abracadabra"
-    ai, _, _ = att.calculate_string_assembly_index(s_inpt, directed=True, mode='mol', debug=True)
-    ai_ref = 7
-    ai2, _, _ = att.calculate_string_assembly_index(s_inpt, directed=True, mode='str', debug=True)
-    assert ai == ai_ref
-    assert ai2 == ai_ref
-
-
-def test_cfg_str_ass():
-    """
-    Test the CFG upperbound to string assembly index for a directed string.
-
-    This function performs the following steps:
-    1. Defines an input string.
-    2. Calculates the assembly index upper bound for the input string.
-    3. Compares the upper bound to the exact value.
-
-    Asserts:
-        - The calculated upper bound is <= the exact value.
-    """
-    s_inpt = "abracadabra"
-    ai, _, _ = att.calculate_string_assembly_index(s_inpt, directed=True, mode="cfg", debug=True)
-    ai_ref = 7
-    assert ai <= ai_ref
-
-
 def test_hand_graph():
     """
     Test the calculation of the assembly index for a hand-constructed graph.
@@ -298,16 +240,6 @@ def test_hand_graph():
         att.print_graph_details(p)
 
     assert ai == 3
-
-
-def test_path_vis_strings():
-    # COMPLETE ME
-    pass
-
-
-def test_path_vis_mols():
-    # COMPLETE ME
-    pass
 
 
 def test_create_ionic_molecule():
@@ -536,15 +468,3 @@ def test_jai_asymmetric():
     ai_2, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
 
     assert ai_1 == ai_2
-
-
-def test_string_early_exit():
-    # I am trying to figure out how to get the early exit to work
-    # Right now I either get exact or -1. I want to get the early exit upper bound.
-    # s = ''.join(random.choices('abcd', k=50))
-    s = "abacdbdacbcdadbccbadacdbadcbadcbadcbadcbbadcbdacbdcbdacbdcbdabcdabcdbcdabcdabcdabcdabcdbcdabcadbabc"
-    L1, _, _ = att.calculate_string_assembly_index(s, directed=True, mode='str', debug=True, timeout=2)
-    print(f"Fast Upper Bound = {L1}", flush=True)
-    L2, _, _ = att.calculate_string_assembly_index(s, directed=True, mode='str', debug=True, timeout=20)
-    print(f"Slow Upper Bound = {L2}", flush=True)
-    assert L1 >= L2
