@@ -501,6 +501,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         mode ("mol"/"str"/"cfg",optional): "mol" uses the molecular assembly calculator, "str" uses the string assembly
         calculator, "cfg" uses the RePair upper bound.
     """
+    log_file = None
     if isinstance(input_data, str):
         # Handle the case where input_data is a single string
         string = input_data
@@ -560,10 +561,9 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
 
         # Convert to (joint) assembly index of directed strings. Note: Virt obj and Path parsing still needs to be added
         if return_log_file:
-            return (ai, None, None, log_file)
+            return ai, None, None, log_file
         else:
-            return (ai, None, None)
-
+            return ai, None, None
 
     elif mode == "str":  # Use the string assembly cpp calculator
         # raise NotImplementedError("String assembly cpp calculator not yet supported.")
@@ -672,8 +672,8 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
             return (ai, virt_obj, path) if not return_log_file else (ai, virt_obj, path, log_file)
 
     elif mode == "cfg":  # Use the RePair upper bound
-        composite_ai, virt_obj, path = CFG.ai_with_pathways(string, f_print=False)
         if directed:
+            composite_ai, virt_obj, path = CFG.ai_with_pathways(string, f_print=False)
             # Convert to (joint) assembly index of directed strings
             return composite_ai - 2 * len(delimiters), virt_obj, path  # Note: there is no log file for CFG
         else:

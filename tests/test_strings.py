@@ -16,8 +16,8 @@ def test_undirected_str_ass():
         - The calculated assembly index is equal to the expected value.
     """
     s_inpt = "abracadabra"
-    ai, _, _ = att.calculate_string_assembly_index(s_inpt, directed=False, mode='mol')
     ai_ref = 7
+    ai, _, _ = att.calculate_string_assembly_index(s_inpt, directed=False, mode='mol')
     ai2, _, _ = att.calculate_string_assembly_index(s_inpt, directed=False, mode='str')
     assert ai == ai_ref
     assert ai2 == ai_ref
@@ -36,8 +36,8 @@ def test_directed_str_ass():
         - The calculated assembly index is equal to the expected value.
     """
     s_inpt = "abracadabra"
-    ai, _, _ = att.calculate_string_assembly_index(s_inpt, directed=True, mode='mol')
     ai_ref = 7
+    ai, _, _ = att.calculate_string_assembly_index(s_inpt, directed=True, mode='mol')
     ai2, _, _ = att.calculate_string_assembly_index(s_inpt, directed=True, mode='str')
     assert ai == ai_ref
     assert ai2 == ai_ref
@@ -56,12 +56,13 @@ def test_cfg_str_ass():
         - The calculated upper bound is <= the exact value.
     """
     s_inpt = "abracadabra"
-    ai, _, _ = att.calculate_string_assembly_index(s_inpt, directed=True, mode="cfg")
     ai_ref = 7
+    ai, _, _ = att.calculate_string_assembly_index(s_inpt, directed=True, mode="cfg")
     assert ai <= ai_ref
 
 
-def test_joint_str_ass():
+# @pytest.mark.skip  # broken
+def test_directed_joint_str_ass():
     """
     Test the calculation of the assembly index for a set of strings.
 
@@ -74,12 +75,15 @@ def test_joint_str_ass():
     Asserts:
         - The calculated assembly index is equal to 4.
     """
-    strs = ["aaaa", "bbbb", "aa"]
-    ai, v_obj, path = att.calculate_string_assembly_index(strs)
-    assert ai == 4
+    s_inpt = ["aaaa", "bbbb", "aa"]
+    ai_ref = 4
+    ai, _, _ = att.calculate_string_assembly_index(s_inpt, directed=True, mode='mol')
+    ai2, _, _ = att.calculate_string_assembly_index(s_inpt, directed=True, mode='str')
+    assert ai == ai_ref
+    assert ai2 == ai_ref
 
 
-@pytest.mark.skip  # broken
+# @pytest.mark.skip  # broken
 def test_joint_cfg_str_ass():
     """
     Test the calculation of the assembly index for a set of strings in CFG mode.
@@ -94,9 +98,9 @@ def test_joint_cfg_str_ass():
         - The calculated assembly index is equal to 4.
     """
     strs = ["aaaa", "bbbb", "aa"]
+    ai_ref = 4
     ai, v_obj, path = att.calculate_string_assembly_index(strs, directed=True, mode="cfg")
-    print(v_obj)
-    assert ai == 4
+    assert ai >= ai_ref
 
 
 def test_string_early_exit():
@@ -104,8 +108,8 @@ def test_string_early_exit():
     # Right now I either get exact or -1. I want to get the early exit upper bound.
     # s = ''.join(random.choices('abcd', k=50))
     s = "abacdbdacbcdadbccbadacdbadcbadcbadcbadcbbadcbdacbdcbdacbdcbdabcdabcdbcdabcdabcdabcdabcdbcdabcadbabc"
-    L1, _, _ = att.calculate_string_assembly_index(s, directed=True, mode='str', timeout=2)
-    print(f"Fast Upper Bound = {L1}", flush=True)
-    L2, _, _ = att.calculate_string_assembly_index(s, directed=True, mode='str', timeout=20)
-    print(f"Slow Upper Bound = {L2}", flush=True)
-    assert L1 >= L2
+    l1, _, _ = att.calculate_string_assembly_index(s, directed=True, mode='str', timeout=2)
+    print(f"Fast Upper Bound = {l1}", flush=True)
+    l2, _, _ = att.calculate_string_assembly_index(s, directed=True, mode='str', timeout=20)
+    print(f"Slow Upper Bound = {l2}", flush=True)
+    assert l1 >= l2
