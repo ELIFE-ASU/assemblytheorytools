@@ -38,33 +38,43 @@ def smi_to_atoms(smiles: str) -> Atoms:
     return mol_to_atoms(mol)
 
 
-def mol_to_atoms(mol: Mol) -> Atoms:
+def mol_to_atoms(mol: Mol, optimise: bool = True) -> Atoms:
     """
     Convert an RDKit molecule to an ASE Atoms object via an SDF file.
 
     Parameters:
     -----------
-    mol : rdkit.Chem.Mol
+    mol : rdkit.Chem.rdchem.Mol
         RDKit molecule object to be converted.
+    optimise : bool, optional
+        Whether to optimise the molecule geometry before conversion (default is True).
 
     Returns:
     --------
     ase.Atoms
         Atoms object representing the molecule.
     """
-    AllChem.EmbedMolecule(mol, randomSeed=42)
-    AllChem.MMFFOptimizeMolecule(mol)
+    # If optimisation is enabled, embed and optimise the molecule using RDKit
+    if optimise:
+        AllChem.EmbedMolecule(mol, randomSeed=42)  # Generate 3D coordinates for the molecule
+        AllChem.MMFFOptimizeMolecule(mol)  # Perform geometry optimisation using MMFF force field
 
+    # Create a temporary file to store the molecule in SDF format
     with tempfile.NamedTemporaryFile(suffix='.sdf', delete=False) as temp_file:
-        sdf_path = temp_file.name
+        sdf_path = temp_file.name  # Get the path to the temporary file
 
+    # Write the RDKit molecule to the SDF file
     writer = Chem.SDWriter(sdf_path)
     writer.write(mol)
     writer.close()
 
+    # Read the SDF file and convert it to an ASE Atoms object
     atoms = read(sdf_path)
+
+    # Remove the temporary SDF file to clean up
     os.remove(sdf_path)
 
+    # Return the ASE Atoms object
     return atoms
 
 
