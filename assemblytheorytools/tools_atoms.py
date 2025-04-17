@@ -1,15 +1,17 @@
 import os
 import tempfile
 
+from ase.atoms import Atoms
 from ase.calculators.orca import ORCA
 from ase.calculators.orca import OrcaProfile
 from ase.io import read
 from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem import Descriptors
+from rdkit.Chem.rdchem import Mol
 
 
-def smi_to_atoms(smiles):
+def smi_to_atoms(smiles: str) -> Atoms:
     """
     Convert a SMILES string to an ASE Atoms object via an SDF file.
 
@@ -17,12 +19,10 @@ def smi_to_atoms(smiles):
     -----------
     smiles : str
         SMILES string representing the molecule.
-    sanitize : bool, optional
-        Whether to sanitize the molecule during conversion. Default is True.
 
     Returns:
     --------
-    ase.Atoms
+    Atoms
         Atoms object representing the molecule.
 
     Raises:
@@ -38,7 +38,7 @@ def smi_to_atoms(smiles):
     return mol_to_atoms(mol)
 
 
-def mol_to_atoms(mol):
+def mol_to_atoms(mol: Mol) -> Atoms:
     """
     Convert an RDKit molecule to an ASE Atoms object via an SDF file.
 
@@ -68,7 +68,7 @@ def mol_to_atoms(mol):
     return atoms
 
 
-def get_spin_multiplicity(mol):
+def get_spin_multiplicity(mol: Mol) -> int:
     """
     Calculate the spin multiplicity of a molecule based on the number of radical electrons.
 
@@ -85,7 +85,6 @@ def get_spin_multiplicity(mol):
     int
         The spin multiplicity of the molecule (1 for singlet, 2 for doublet, etc.)
     """
-
     # Get the number of radical electrons
     num_radical_electrons = Descriptors.NumRadicalElectrons(mol)
 
@@ -182,7 +181,33 @@ def orca_calc_preset(orca_path=None,
     return calc
 
 
-def get_virtual_objects_energy(mol):
+def get_virtual_objects_energy(mol: Mol) -> float:
+    """
+    Calculate the potential energy of a molecule using the ORCA quantum chemistry package.
+
+    This function performs the following steps:
+    1. Sanitizes the molecule by adding hydrogens and ensuring it is chemically valid.
+    2. Determines the formal charge of the molecule.
+    3. Calculates the spin multiplicity based on the number of unpaired electrons.
+    4. Converts the RDKit molecule to an ASE Atoms object.
+    5. Sets up an ORCA calculator with specified parameters.
+    6. Attaches the calculator to the Atoms object and performs the energy calculation.
+
+    Parameters:
+    -----------
+    mol : rdkit.Chem.rdchem.Mol
+        An RDKit molecule object to calculate the energy for.
+
+    Returns:
+    --------
+    float
+        The calculated potential energy of the molecule in eV.
+
+    Raises:
+    -------
+    ValueError
+        If the molecule cannot be sanitized or converted to an Atoms object.
+    """
     # Sanitize the molecule
     mol = Chem.AddHs(mol)
     Chem.SanitizeMol(mol)
