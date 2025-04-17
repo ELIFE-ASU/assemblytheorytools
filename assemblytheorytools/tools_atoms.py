@@ -203,6 +203,7 @@ def get_virtual_objects_energy(mol):
         multiplicity=multiplicity,
         basis_set='6-311G',
         nprocs=1,
+        calc_extra='OPT'
     )
 
     # Attach the calculator to the atoms object
