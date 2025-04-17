@@ -10,6 +10,8 @@ from rdkit.Chem import AllChem
 from rdkit.Chem import Descriptors
 from rdkit.Chem.rdchem import Mol
 
+from .tools_mol import standardize_mol
+
 
 def smi_to_atoms(smiles: str) -> Atoms:
     """
@@ -31,7 +33,7 @@ def smi_to_atoms(smiles: str) -> Atoms:
         If SMILES parsing fails.
     """
     mol = Chem.MolFromSmiles(smiles, sanitize=True)
-    mol = Chem.AddHs(mol)
+    mol = standardize_mol(mol)
     if mol is None:
         raise ValueError(f"Failed to parse SMILES string: {smiles}")
 
@@ -54,10 +56,11 @@ def mol_to_atoms(mol: Mol, optimise: bool = True) -> Atoms:
     ase.Atoms
         Atoms object representing the molecule.
     """
+    mol = standardize_mol(mol)
     # If optimisation is enabled, embed and optimise the molecule using RDKit
     if optimise:
-        AllChem.EmbedMolecule(mol, randomSeed=42)  # Generate 3D coordinates for the molecule
-        AllChem.MMFFOptimizeMolecule(mol)  # Perform geometry optimisation using MMFF force field
+        AllChem.EmbedMolecule(mol, maxAttempts=5000, useRandomCoords=True, randomSeed=0xf00d)
+        AllChem.MMFFOptimizeMolecule(mol)
 
     # Create a temporary file to store the molecule in SDF format
     with tempfile.NamedTemporaryFile(suffix='.sdf', delete=False) as temp_file:
