@@ -147,6 +147,7 @@ def test_all_paths_simple():
                 'InChI=1S/C5H6/c1-3-5-4-2/h1,4H,2,5H2']
     # Assert that each calculated path is in the list of expected paths
     for p in paths:
+        print(p,flush=True)
         assert p in expected
 
 

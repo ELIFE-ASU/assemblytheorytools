@@ -254,12 +254,12 @@ def all_shortest_paths(mol: Mol, f_graph_care: bool = False, max_attempts: int =
         if f_graph_care:
             Chem.Kekulize(mol_renum)
 
-        ai, virt_obj, path = calculate_assembly_index(mol_renum)
-        path = get_mol_pathway_to_inchi(path)
-        path = convert_pathway_dict_to_list(path)
+        ai, virt_obj, _ = calculate_assembly_index(mol_renum)
+        virt_obj = get_mol_pathway_to_inchi(virt_obj)
+        virt_obj = convert_pathway_dict_to_list(virt_obj)
 
         new_inchi_found = False
-        for inchi in path:
+        for inchi in virt_obj:
             if inchi not in out_list:
                 out_list.append(inchi)
                 new_inchi_found = True
