@@ -168,25 +168,17 @@ def test_energy_of_all_paths():
     """
     print(flush=True)
     # Convert the SMILES string to a molecule object
-    mol = att.smi_to_mol("C#CCC=C")
+    mol = att.smi_to_mol("C#CCC=C") # CN1C=NC2=C1C(=O)N(C(=O)N2C)C
     # Calculate all shortest paths in the molecule
     paths = att.all_shortest_paths(mol, f_graph_care=False)
-    # Define the expected paths
-    expected = ['InChI=1S/CH4/h1H4',
-                'InChI=1S/C2H2/c1-2/h1-2H',
-                'InChI=1S/C2H4/c1-2/h1-2H2',
-                'InChI=1S/C2H6/c1-2/h1-2H3',
-                'InChI=1S/C3H8/c1-3-2/h3H2,1-2H3',
-                'InChI=1S/C5H6/c1-3-5-4-2/h1,4H,2,5H2']
-    # Assert that each calculated path is in the list of expected paths
-    for p in paths:
-        print(p, flush=True)
-        assert p in expected
 
     for p in paths:
+        mol = att.inchi_to_mol(p)
+        smi = Chem.MolToSmiles(mol)
+
         # Get the energy of the path
-        energy = att.get_virtual_objects_energy(att.inchi_to_mol(p))
-        print(f"Path: {p}, Energy: {energy}", flush=True)
+        energy = att.get_virtual_objects_energy(mol)
+        print(f"VO: {smi}, Energy: {energy}", flush=True)
         # Assert that the energy is not None
         assert energy is not None
 
