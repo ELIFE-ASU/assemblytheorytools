@@ -168,7 +168,7 @@ def test_energy_of_all_paths():
     """
     print(flush=True)
     # Convert the SMILES string to a molecule object
-    mol = att.smi_to_mol("C#CCC=C") # CN1C=NC2=C1C(=O)N(C(=O)N2C)C
+    mol = att.smi_to_mol("C#CCC=C")  # CN1C=NC2=C1C(=O)N(C(=O)N2C)C
     # Calculate all shortest paths in the molecule
     paths = att.all_shortest_paths(mol, f_graph_care=False)
 
@@ -525,3 +525,16 @@ def test_smi_to_atoms():
     assert atoms.get_chemical_formula() == 'C6H6'
     # Assert that the total number of atoms is correct
     assert len(atoms) == 12
+
+
+def test_compression_zlib():
+    print(flush=True)
+    smi = "C1=CC=C(C=C1)C(=O)O"
+    mol = att.smi_to_mol(smi)
+    compressed = att.compression_zlib(mol, add_hydrogens=False)
+    bad_compressed = att.compression_zlib(mol, add_hydrogens=False, level=0)
+    h_compressed = att.compression_zlib(mol, add_hydrogens=True)
+
+    assert compressed < bad_compressed
+    assert compressed == 13
+    assert h_compressed == 29

@@ -1,5 +1,6 @@
 import traceback
 from typing import Dict, Any, Optional
+import zlib, bz2, lzma
 
 import networkx as nx
 import numpy as np
@@ -10,6 +11,8 @@ from rdkit.Chem import AllChem as Chem
 from rdkit.Chem import Descriptors
 from rdkit.Chem.GraphDescriptors import BertzCT
 from rdkit.Chem.rdchem import Mol
+
+from .tools_mol import standardize_mol
 
 
 def molecular_weight(mol: Mol) -> float:
@@ -220,3 +223,54 @@ def get_chirality(mol: Mol) -> int:
                                        includeUnassigned=True,
                                        includeCIP=False))
     return nc
+
+
+def compression_zlib(mol: Mol,
+                     add_hydrogens: bool = True,
+                     level: int = 9,
+                     check: bool = True,
+                     rm_overhead: bool = True) -> int:
+    # Standardize the molecule
+    mol = standardize_mol(mol, add_hydrogens=add_hydrogens)
+
+    # Remove all hydrogens from the molecule
+    if not add_hydrogens:
+        mol = Chem.RemoveHs(mol)
+    # Convert the molecule to SMILES
+    smiles = Chem.MolToSmiles(mol,
+                              canonical=True,
+                              kekuleSmiles=True,
+                              isomericSmiles=True,
+                              allHsExplicit=add_hydrogens)
+    # Compress the SMILES string using zlib
+    compressed = zlib.compress(smiles.encode("utf-8"), level=level)
+    val = len(compressed)
+
+    # Check if the compressed data can be decompressed and matches the original data
+    if check:
+        try:
+            zlib.decompress(compressed).decode("utf-8")
+        except Exception as e:
+            print(f"Decompression failed: {e}")
+            raise
+
+    # Calculate the overhead of the compression
+    if rm_overhead:
+        overhead = zlib.compress("".encode("utf-8"), level=level)
+        val -= len(overhead)
+
+    return val
+
+
+def compression_bz2(mol: Mol, add_hydrogens: bool = True) -> int:
+    mol = standardize_mol(mol, add_hydrogens=add_hydrogens)
+    smiles = Chem.MolToSmiles(mol)
+    compressed = bz2.compress(smiles.encode("utf-8"))
+    return len(compressed)
+
+
+def compression_lzma(mol: Mol, add_hydrogens: bool = True) -> int:
+    mol = standardize_mol(mol, add_hydrogens=add_hydrogens)
+    smiles = Chem.MolToSmiles(mol)
+    compressed = lzma.compress(smiles.encode("utf-8"))
+    return len(compressed)
