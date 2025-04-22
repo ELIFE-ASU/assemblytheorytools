@@ -625,3 +625,68 @@ def test_compression_lzma_smi():
     # Assert expected compressed sizes
     assert compressed == 44
     assert h_compressed == 60
+
+
+def test_compression_zlib_graph():
+    """
+    Test the compression and decompression of a graph using zlib.
+
+    This function performs the following steps:
+    1. Creates a simple graph with colored nodes and edges.
+    2. Compresses the graph using `compress_zlib_graph`.
+    3. Decompresses the graph and verifies the node and edge attributes.
+    4. Converts a molecule's SMILES representation to a NetworkX graph.
+    5. Compresses the molecule's graph representation with and without hydrogens.
+    6. Compresses the molecule's graph representation with a low compression level.
+    7. Asserts that the compressed size with higher compression is smaller.
+    8. Asserts that the compressed sizes match the expected values.
+
+    Asserts:
+        - The compressed size with higher compression is smaller than with lower compression.
+        - The compressed size without hydrogens matches the expected value (111).
+        - The compressed size with hydrogens matches the expected value (111).
+    """
+    print(flush=True)
+    # Create a simple graph with colors
+    graph = nx.Graph()
+    graph.add_node(1, color='red')
+    graph.add_node(2, color='blue')
+    graph.add_edge(1, 2, color='green')
+
+    # Compress
+    compressed = att.compress_zlib_graph(graph)
+    print(f"Compressed size: {len(compressed)} bytes", flush=True)
+
+    # Decompress
+    G2 = att.decompress_zlib_graph(compressed)
+    print("Node colors:", nx.get_node_attributes(G2, 'color'), flush=True)
+    print("Edge colors:", nx.get_edge_attributes(G2, 'color'), flush=True)
+
+    smi = "C1=CC=C(C=C1)C(=O)O"  # SMILES for benzoic acid
+    mol = att.smi_to_mol(smi)  # Convert the SMILES string to a molecule object
+    graph = att.mol_to_nx(mol, add_hydrogens=True)
+    print(graph, flush=True)
+    print(graph.nodes(data=True), flush=True)
+
+    # Compress
+    compressed = att.compress_zlib_graph(graph)
+    print(f"Compressed size: {len(compressed)} bytes", flush=True)
+
+    # Decompress
+    G2 = att.decompress_zlib_graph(compressed)
+    print("Node colors:", nx.get_node_attributes(G2, 'color'), flush=True)
+    print("Edge colors:", nx.get_edge_attributes(G2, 'color'), flush=True)
+
+    # Compress the molecule's SMILES representation without hydrogens
+    compressed = att.compression_zlib_graph(graph, add_hydrogens=False)
+    # Compress the molecule's SMILES representation with a low compression level
+    bad_compressed = att.compression_zlib_graph(graph, add_hydrogens=False, level=0)
+    # Compress the molecule's SMILES representation with hydrogens
+    h_compressed = att.compression_zlib_graph(graph, add_hydrogens=True)
+    print(compressed, bad_compressed, h_compressed)
+    # Assert that the compressed size with higher compression is smaller
+    assert compressed < bad_compressed
+    # Assert that the compressed size without hydrogens matches the expected value
+    assert compressed == 111
+    # Assert that the compressed size with hydrogens matches the expected value
+    assert h_compressed == 111

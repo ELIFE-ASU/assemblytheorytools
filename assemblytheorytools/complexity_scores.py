@@ -1,4 +1,5 @@
 import bz2
+import json
 import lzma
 import traceback
 import zlib
@@ -7,6 +8,7 @@ from typing import Dict, Any, Optional
 import networkx as nx
 import numpy as np
 import rdkit
+from networkx.readwrite import json_graph
 from rdkit import Chem
 from rdkit import DataStructs
 from rdkit.Chem import AllChem as Chem
@@ -14,6 +16,7 @@ from rdkit.Chem import Descriptors
 from rdkit.Chem.GraphDescriptors import BertzCT
 from rdkit.Chem.rdchem import Mol
 
+from .tools_graph import remove_hydrogen_from_graph
 from .tools_mol import standardize_mol
 
 
@@ -423,6 +426,88 @@ def compression_lzma_smi(mol: Mol,
     # Calculate the overhead of the compression
     if rm_overhead:
         overhead = lzma.compress("".encode("utf-8"))
+        val -= len(overhead)
+
+    return val
+
+
+def compress_zlib_graph(graph: nx.Graph, level: int = 9) -> bytes:
+    # Convert graph to node-link data (JSON-serializable)
+    data = json_graph.node_link_data(graph)
+
+    # Serialize to JSON string
+    json_str = json.dumps(data)
+
+    # Compress the JSON bytes
+    return zlib.compress(json_str.encode('utf-8'), level)
+
+
+def decompress_zlib_graph(compressed_data: bytes) -> nx.Graph:
+    # Decompress to JSON string
+    json_str = zlib.decompress(compressed_data).decode('utf-8')
+
+    # Parse JSON back to node-link format and rebuild graph
+    data = json.loads(json_str)
+    return json_graph.node_link_graph(data)
+
+
+def compression_zlib_graph(graph: nx.Graph,
+                           add_hydrogens: bool = True,
+                           level: int = 9,
+                           check: bool = True,
+                           rm_overhead: bool = True
+                           ) -> int:
+    """
+    Compresses a graph representation using zlib.
+
+    This function serializes a graph into a JSON-compatible format, compresses it using zlib,
+    and optionally removes compression overhead. It can also verify the integrity of the
+    compressed data.
+
+    Parameters:
+    -----------
+    graph : nx.Graph
+        The NetworkX graph object to be compressed.
+    add_hydrogens : bool, optional
+        Whether to include hydrogens in the graph representation (default is True).
+    level : int, optional
+        The compression level for zlib (default is 9, maximum compression).
+    check : bool, optional
+        Whether to verify that the compressed data can be decompressed and matches the original (default is True).
+    rm_overhead : bool, optional
+        Whether to remove the overhead of compressing an empty graph (default is True).
+
+    Returns:
+    --------
+    int
+        The length of the compressed graph data, adjusted for overhead if specified.
+
+    Raises:
+    -------
+    Exception
+        If decompression fails during the integrity check.
+    """
+    # Remove hydrogens from the graph if specified
+    if not add_hydrogens:
+        graph = remove_hydrogen_from_graph(graph)
+
+    # Compress the graph using zlib
+    comp = compress_zlib_graph(graph, level=level)
+
+    # Get the length of the compressed data
+    val = len(comp)
+
+    # Check if the compressed data can be decompressed and matches the original data
+    if check:
+        try:
+            decompress_zlib_graph(comp)
+        except Exception as e:
+            print(f"Decompression failed: {e}")
+            raise
+
+    # Calculate the overhead of the compression
+    if rm_overhead:
+        overhead = compress_zlib_graph(nx.Graph())
         val -= len(overhead)
 
     return val
