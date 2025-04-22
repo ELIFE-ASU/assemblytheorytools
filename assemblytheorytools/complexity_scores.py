@@ -1,6 +1,8 @@
+import bz2
+import lzma
 import traceback
+import zlib
 from typing import Dict, Any, Optional
-import zlib, bz2, lzma
 
 import networkx as nx
 import numpy as np
@@ -225,23 +227,55 @@ def get_chirality(mol: Mol) -> int:
     return nc
 
 
-def compression_zlib(mol: Mol,
-                     add_hydrogens: bool = True,
-                     level: int = 9,
-                     check: bool = True,
-                     rm_overhead: bool = True) -> int:
+def compression_zlib_smi(mol: Mol,
+                         add_hydrogens: bool = True,
+                         level: int = 9,
+                         check: bool = True,
+                         rm_overhead: bool = True) -> int:
+    """
+    Compresses the SMILES representation of a molecule using zlib.
+
+    This function standardizes the molecule, converts it to a SMILES string,
+    compresses the string using zlib, and optionally removes compression overhead.
+    It can also verify the integrity of the compressed data.
+
+    Parameters:
+    -----------
+    mol : rdkit.Chem.rdchem.Mol
+        The RDKit molecule object to be compressed.
+    add_hydrogens : bool, optional
+        Whether to add explicit hydrogens to the molecule during standardization (default is True).
+    level : int, optional
+        The compression level for zlib (default is 9, maximum compression).
+    check : bool, optional
+        Whether to verify that the compressed data can be decompressed and matches the original (default is True).
+    rm_overhead : bool, optional
+        Whether to remove the overhead of compressing an empty string (default is True).
+
+    Returns:
+    --------
+    int
+        The length of the compressed SMILES string, adjusted for overhead if specified.
+
+    Raises:
+    -------
+    Exception
+        If decompression fails during the integrity check.
+    """
     # Standardize the molecule
     mol = standardize_mol(mol, add_hydrogens=add_hydrogens)
 
     # Remove all hydrogens from the molecule
     if not add_hydrogens:
         mol = Chem.RemoveHs(mol)
+
     # Convert the molecule to SMILES
     smiles = Chem.MolToSmiles(mol,
                               canonical=True,
                               kekuleSmiles=True,
                               isomericSmiles=True,
                               allHsExplicit=add_hydrogens)
+
     # Compress the SMILES string using zlib
     compressed = zlib.compress(smiles.encode("utf-8"), level=level)
     val = len(compressed)
@@ -262,15 +296,133 @@ def compression_zlib(mol: Mol,
     return val
 
 
-def compression_bz2(mol: Mol, add_hydrogens: bool = True) -> int:
+def compression_bz2_smi(mol: Mol,
+                        add_hydrogens: bool = True,
+                        check: bool = True,
+                        rm_overhead: bool = True) -> int:
+    """
+    Compresses the SMILES representation of a molecule using bz2.
+
+    This function standardizes the molecule, converts it to a SMILES string,
+    compresses the string using bz2, and optionally removes compression overhead.
+    It can also verify the integrity of the compressed data.
+
+    Parameters:
+    -----------
+    mol : rdkit.Chem.rdchem.Mol
+        The RDKit molecule object to be compressed.
+    add_hydrogens : bool, optional
+        Whether to add explicit hydrogens to the molecule during standardization (default is True).
+    check : bool, optional
+        Whether to verify that the compressed data can be decompressed and matches the original (default is True).
+    rm_overhead : bool, optional
+        Whether to remove the overhead of compressing an empty string (default is True).
+
+    Returns:
+    --------
+    int
+        The length of the compressed SMILES string, adjusted for overhead if specified.
+
+    Raises:
+    -------
+    Exception
+        If decompression fails during the integrity check.
+    """
+    # Standardize the molecule
     mol = standardize_mol(mol, add_hydrogens=add_hydrogens)
-    smiles = Chem.MolToSmiles(mol)
+
+    # Remove all hydrogens from the molecule
+    if not add_hydrogens:
+        mol = Chem.RemoveHs(mol)
+
+    # Convert the molecule to SMILES
+    smiles = Chem.MolToSmiles(mol,
+                              canonical=True,
+                              kekuleSmiles=True,
+                              isomericSmiles=True,
+                              allHsExplicit=add_hydrogens)
+
+    # Compress the SMILES string using bz2
     compressed = bz2.compress(smiles.encode("utf-8"))
-    return len(compressed)
+    val = len(compressed)
+
+    # Check if the compressed data can be decompressed and matches the original data
+    if check:
+        try:
+            bz2.decompress(compressed).decode("utf-8")
+        except Exception as e:
+            print(f"Decompression failed: {e}")
+            raise
+
+    # Calculate the overhead of the compression
+    if rm_overhead:
+        overhead = bz2.compress("".encode("utf-8"))
+        val -= len(overhead)
+
+    return val
 
 
-def compression_lzma(mol: Mol, add_hydrogens: bool = True) -> int:
+def compression_lzma_smi(mol: Mol,
+                         add_hydrogens: bool = True,
+                         check: bool = True,
+                         rm_overhead: bool = True) -> int:
+    """
+    Compresses the SMILES representation of a molecule using lzma.
+
+    This function standardizes the molecule, converts it to a SMILES string,
+    compresses the string using lzma, and optionally removes compression overhead.
+    It can also verify the integrity of the compressed data.
+
+    Parameters:
+    -----------
+    mol : rdkit.Chem.rdchem.Mol
+        The RDKit molecule object to be compressed.
+    add_hydrogens : bool, optional
+        Whether to add explicit hydrogens to the molecule during standardization (default is True).
+    check : bool, optional
+        Whether to verify that the compressed data can be decompressed and matches the original (default is True).
+    rm_overhead : bool, optional
+        Whether to remove the overhead of compressing an empty string (default is True).
+
+    Returns:
+    --------
+    int
+        The length of the compressed SMILES string, adjusted for overhead if specified.
+
+    Raises:
+    -------
+    Exception
+        If decompression fails during the integrity check.
+    """
+    # Standardize the molecule
     mol = standardize_mol(mol, add_hydrogens=add_hydrogens)
-    smiles = Chem.MolToSmiles(mol)
+
+    # Remove all hydrogens from the molecule
+    if not add_hydrogens:
+        mol = Chem.RemoveHs(mol)
+
+    # Convert the molecule to SMILES
+    smiles = Chem.MolToSmiles(mol,
+                              canonical=True,
+                              kekuleSmiles=True,
+                              isomericSmiles=True,
+                              allHsExplicit=add_hydrogens)
+
+    # Compress the SMILES string using lzma
     compressed = lzma.compress(smiles.encode("utf-8"))
-    return len(compressed)
+    val = len(compressed)
+
+    # Check if the compressed data can be decompressed and matches the original data
+    if check:
+        try:
+            lzma.decompress(compressed).decode("utf-8")
+        except Exception as e:
+            print(f"Decompression failed: {e}")
+            raise
+
+    # Calculate the overhead of the compression
+    if rm_overhead:
+        overhead = lzma.compress("".encode("utf-8"))
+        val -= len(overhead)
+
+    return val

@@ -19,9 +19,9 @@ from .complexity_scores import (molecular_weight,
                                 tanimoto_similarity,
                                 dice_morgan_similarity,
                                 get_chirality,
-                                compression_zlib,
-                                compression_bz2,
-                                compression_lzma)
+                                compression_zlib_smi,
+                                compression_bz2_smi,
+                                compression_lzma_smi)
 from .construction import parse_pathway_file
 from .construction_string import (generate_string_pathway_ian,
                                   get_graph_string_explicit)

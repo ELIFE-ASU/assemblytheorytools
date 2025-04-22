@@ -527,14 +527,101 @@ def test_smi_to_atoms():
     assert len(atoms) == 12
 
 
-def test_compression_zlib():
-    print(flush=True)
-    smi = "C1=CC=C(C=C1)C(=O)O"
-    mol = att.smi_to_mol(smi)
-    compressed = att.compression_zlib(mol, add_hydrogens=False)
-    bad_compressed = att.compression_zlib(mol, add_hydrogens=False, level=0)
-    h_compressed = att.compression_zlib(mol, add_hydrogens=True)
+def test_compression_zlib_smi():
+    """
+    Test the compression of a molecule's SMILES representation using zlib.
 
+    This function performs the following steps:
+    1. Converts a SMILES string to a molecule object.
+    2. Compresses the molecule's SMILES representation using `compression_zlib_smi`.
+    3. Compresses the molecule with and without hydrogens.
+    4. Compresses the molecule with a low compression level.
+    5. Asserts that the compressed size is smaller with higher compression levels.
+    6. Asserts that the compressed size is smaller when hydrogens are excluded.
+    7. Asserts that the compressed sizes match expected values.
+
+    Asserts:
+        - The compressed size with higher compression is smaller than with lower compression.
+        - The compressed size without hydrogens is smaller than with hydrogens.
+        - The compressed sizes match the expected values (13 and 29).
+    """
+    print(flush=True)
+    smi = "C1=CC=C(C=C1)C(=O)O"  # SMILES for benzoic acid
+    mol = att.smi_to_mol(smi)  # Convert the SMILES string to a molecule object
+
+    # Compress the molecule's SMILES representation without hydrogens
+    compressed = att.compression_zlib_smi(mol, add_hydrogens=False)
+    # Compress the molecule's SMILES representation with a low compression level
+    bad_compressed = att.compression_zlib_smi(mol, add_hydrogens=False, level=0)
+    # Compress the molecule's SMILES representation with hydrogens
+    h_compressed = att.compression_zlib_smi(mol, add_hydrogens=True)
+
+    # Assert that the compressed size with higher compression is smaller
     assert compressed < bad_compressed
+    # Assert that the compressed size without hydrogens matches the expected value
     assert compressed == 13
+    # Assert that the compressed size with hydrogens matches the expected value
     assert h_compressed == 29
+
+
+def test_compression_bz2_smi():
+    """
+    Test the compression of a molecule's SMILES representation using bz2.
+
+    This function performs the following steps:
+    1. Defines a SMILES string for benzoic acid.
+    2. Converts the SMILES string to a molecule object.
+    3. Compresses the molecule's SMILES representation with and without hydrogens.
+    4. Asserts that the compressed size is smaller when hydrogens are excluded.
+    5. Asserts that the compressed sizes match the expected values.
+
+    Asserts:
+        - The compressed size without hydrogens is smaller than with hydrogens.
+        - The compressed size without hydrogens matches the expected value (35).
+        - The compressed size with hydrogens matches the expected value (48).
+    """
+    print(flush=True)
+    smi = "C1=CC=C(C=C1)C(=O)O"  # SMILES for benzoic acid
+    mol = att.smi_to_mol(smi)
+
+    # Compress the molecule's SMILES representation
+    compressed = att.compression_bz2_smi(mol, add_hydrogens=False)
+    h_compressed = att.compression_bz2_smi(mol, add_hydrogens=True)
+
+    # Assert that the compressed size is smaller without hydrogens
+    assert compressed < h_compressed
+    # Assert expected compressed sizes
+    assert compressed == 35
+    assert h_compressed == 48
+
+
+def test_compression_lzma_smi():
+    """
+    Test the compression of a molecule's SMILES representation using lzma.
+
+    This function performs the following steps:
+    1. Defines a SMILES string for benzoic acid.
+    2. Converts the SMILES string to a molecule object.
+    3. Compresses the molecule's SMILES representation with and without hydrogens.
+    4. Asserts that the compressed size is smaller when hydrogens are excluded.
+    5. Asserts that the compressed sizes match the expected values.
+
+    Asserts:
+        - The compressed size without hydrogens is smaller than with hydrogens.
+        - The compressed size without hydrogens matches the expected value (44).
+        - The compressed size with hydrogens matches the expected value (60).
+    """
+    print(flush=True)
+    smi = "C1=CC=C(C=C1)C(=O)O"  # SMILES for benzoic acid
+    mol = att.smi_to_mol(smi)  # Convert the SMILES string to a molecule object
+
+    # Compress the molecule's SMILES representation without hydrogens
+    compressed = att.compression_lzma_smi(mol, add_hydrogens=False)
+    # Compress the molecule's SMILES representation with hydrogens
+    h_compressed = att.compression_lzma_smi(mol, add_hydrogens=True)
+
+    # Assert that the compressed size is smaller without hydrogens
+    assert compressed < h_compressed
+    # Assert expected compressed sizes
+    assert compressed == 44
+    assert h_compressed == 60
