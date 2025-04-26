@@ -61,7 +61,7 @@ def test_cfg_str_ass():
     assert ai <= ai_ref
 
 
-# @pytest.mark.skip  # broken
+# @pytest.mark.skip 
 def test_directed_joint_str_ass():
     """
     Test the calculation of the assembly index for a set of strings.
@@ -70,7 +70,6 @@ def test_directed_joint_str_ass():
     1. Define a list of strings
     2. Calculate their assembly index
     3. Assert ai = 4
-
 
     Asserts:
         - The calculated assembly index is equal to 4.
@@ -99,7 +98,7 @@ def test_joint_cfg_str_ass():
     """
     strs = ["aaaa", "bbbb", "aa"]
     ai_ref = 4
-    ai, v_obj, path = att.calculate_string_assembly_index(strs, directed=True, mode="cfg")
+    ai, v_obj, path = att.calculate_string_assembly_index(strs, directed=True, mode="cfg", debug=True)
     assert ai >= ai_ref
 
 
