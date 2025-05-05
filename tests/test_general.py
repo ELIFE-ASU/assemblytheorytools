@@ -362,7 +362,7 @@ def test_cif_loading():
 
         view(atoms)
         tmp_file = file.split('.')[0] + ".mol"
-        att.atoms_to_mol_file(atoms, fname=tmp_file)
+        att.atoms_to_mol_file(atoms, file_name=tmp_file)
         atoms2 = read(tmp_file)
         view(atoms2)
         # os.remove(tmp_file)
@@ -398,7 +398,7 @@ def test_cif_ai():
     # input mol file
     atoms = att.read_cif_file(file)
     tmp_file = file.split('.')[0] + ".mol"
-    att.atoms_to_mol_file(atoms, fname=tmp_file)
+    att.atoms_to_mol_file(atoms, file_name=tmp_file)
     ai_mol, _, _ = att.calculate_assembly_index(tmp_file, joint_corr=False)
 
     os.remove(tmp_file)

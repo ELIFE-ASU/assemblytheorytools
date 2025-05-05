@@ -9,7 +9,7 @@ def check_elements(input_list, reference_list):
     Returns:
         bool: True if all elements in input_list are in reference_list, False otherwise.
     """
-    # Handle empty list case
+    # Handle an empty list case
     if not input_list:
         return False
 
@@ -19,7 +19,7 @@ def check_elements(input_list, reference_list):
 
 def print_graph_details(graph):
     """
-    Print the details of a graph, including node indices, node colors, edge connections, and edge colors.
+    Print the details of a graph, including node indices, node colours, edge connections, and edge colours.
 
     Args:
         graph (networkx.Graph): The graph whose details are to be printed.

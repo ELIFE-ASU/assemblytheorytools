@@ -112,12 +112,12 @@ def sample_importance_sampling(data, n_sample, n_bins=50):
         hist, x_edges, y_edges = np.histogram2d(data[:, 0], data[:, 1], bins=n_bins, density=True)
         x_centers = (x_edges[:-1] + x_edges[1:]) / 2
         y_centers = (y_edges[:-1] + y_edges[1:]) / 2
-        X, Y = np.meshgrid(x_centers, y_centers)
+        xx, yy = np.meshgrid(x_centers, y_centers)
         probabilities = hist.flatten()
         probabilities /= probabilities.sum()
         selected_indices = np.random.choice(len(probabilities), size=n_sample, p=probabilities)
         sample_indices = [
-            np.argmin(np.linalg.norm(data - np.array([X.flatten()[idx], Y.flatten()[idx]]), axis=1))
+            np.argmin(np.linalg.norm(data - np.array([xx.flatten()[idx], yy.flatten()[idx]]), axis=1))
             for idx in selected_indices
         ]
         sample = data[sample_indices]

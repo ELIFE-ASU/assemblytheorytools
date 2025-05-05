@@ -15,7 +15,7 @@ def read_cif_file(cif_file: str) -> Atoms:
     https://github.com/MaterSim/PyXtal
     https://github.com/GKieslich/crystIT
     https://github.com/torbjornbjorkman/cif2cell/tree/master
-    Read in a CIF file and return the atoms object.
+    Read in a CIF file and return the atom object.
 
     Args:
         cif_file (str): The path to the CIF file.
@@ -28,13 +28,13 @@ def read_cif_file(cif_file: str) -> Atoms:
     return atoms
 
 
-def atoms_to_mol_file(atoms: Atoms, fname: str = "mol.mol") -> None:
+def atoms_to_mol_file(atoms: Atoms, file_name: str = "mol.mol") -> None:
     """
     Write a molecule to a .mol file from an ASE atoms object.
 
     Args:
         atoms (ase.Atoms): The input set of atoms.
-        fname (str, optional): The name of the output .mol file. Defaults to "mol.mol".
+        file_name (str, optional): The name of the output .mol file. Defaults to "mol.mol".
 
     Returns:
         None
@@ -66,7 +66,7 @@ def atoms_to_mol_file(atoms: Atoms, fname: str = "mol.mol") -> None:
     out_str += "M  END\n"
 
     # Write the molecule to a file
-    with open(fname, "w") as f:
+    with open(file_name, "w") as f:
         f.write(out_str)
     return None
 
@@ -125,7 +125,7 @@ def find_clusters(atoms, cutoff_smear=1.5):
     cutoffs = natural_cutoffs(atoms)
     # Apply the smear to the cutoffs
     cutoffs = [cutoff_smear * cutoff for cutoff in cutoffs]
-    # Get the neighbor list
+    # Get the neighbour list
     neighbor_list = NeighborList(cutoffs, self_interaction=False, bothways=True)
     neighbor_list.update(atoms)
     # Get the connectivity matrix

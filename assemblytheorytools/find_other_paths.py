@@ -222,7 +222,8 @@ def plot_simple_idx_compare(mol_list: List[Mol], labels: Optional[List[str]] = N
     """
     if labels is None:
         labels = [f"Path {i + 1}" for i in range(len(mol_list))]
-    Draw.MolsToGridImage([mol_with_atom_index(mol) for mol in mol_list], subImgSize=image_size).save(outfile)
+    Draw.MolsToGridImage([mol_with_atom_index(mol) for mol in mol_list], subImgSize=image_size, legends=labels).save(
+        outfile)
     return None
 
 

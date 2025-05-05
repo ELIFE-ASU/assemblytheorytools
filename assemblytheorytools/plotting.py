@@ -92,7 +92,7 @@ def plot_graph(graph: nx.Graph,
                width: int = 2,
                linewidths: int = 2,
                filename: str = "graph",
-               seed: int = 1734289230) -> None:
+               seed: int = 42) -> None:
     """
     Plot a graph using NetworkX and Matplotlib with various layout options.
 
@@ -106,7 +106,7 @@ def plot_graph(graph: nx.Graph,
         width (int, optional): Width of the edges. Default is 2.
         linewidths (int, optional): Width of the node borders. Default is 2.
         filename (str, optional): Base name of the file where the plot will be saved. Default is 'graph'.
-        seed (int, optional): Seed for the layout algorithm (if applicable). Default is 1734289230.
+        seed (int, optional): Seed for the layout algorithm (if applicable). Default is 42.
 
     Returns:
         None
@@ -264,7 +264,7 @@ def plot_digraph(digraph: nx.DiGraph,
                  width: int = 2,
                  linewidths: int = 2,
                  filename: str = "digraph",
-                 seed: int = 1734289230) -> None:
+                 seed: int = 42) -> None:
     """
     Plot a directed graph using NetworkX and Matplotlib with various layout options.
 
@@ -278,7 +278,7 @@ def plot_digraph(digraph: nx.DiGraph,
         width (int, optional): Width of the edges. Default is 2.
         linewidths (int, optional): Width of the node borders. Default is 2.
         filename (str, optional): Base name of the file where the plot will be saved. Default is 'digraph'.
-        seed (int, optional): Seed for the layout algorithm (if applicable). Default is 1734289230.
+        seed (int, optional): Seed for the layout algorithm (if applicable). Default is 42.
 
     Returns:
         None
@@ -366,7 +366,7 @@ def match_node_to_image(graph: nx.Graph, image_paths: list[str]) -> dict[str, st
     Returns:
         dict[str, str]: A dictionary mapping node labels to their corresponding image paths.
     """
-    # Initialize an empty dictionary to store the node-to-image mapping
+    # Initialise an empty dictionary to store the node-to-image mapping
     node_image_mapping = {}
 
     # Iterate over each image path

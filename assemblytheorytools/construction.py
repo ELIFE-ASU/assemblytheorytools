@@ -196,7 +196,7 @@ def tables_to_mol(tables, add_hydrogens=True):
     Converts atom and bond information into an RDKit molecule object.
 
     This function takes a tuple containing atom and bond information, constructs an RDKit RWMol object,
-    adds atoms and bonds to it, and then performs light sanitization.
+    adds atoms and bonds to it, and then performs light sanitisation.
 
     Args:
         tables (tuple): A tuple containing two lists:
@@ -220,7 +220,7 @@ def tables_to_mol(tables, add_hydrogens=True):
 
     mol = edit_mol.GetMol()
 
-    # Perform light sanitization
+    # Perform light sanitisation
     return safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
 
 

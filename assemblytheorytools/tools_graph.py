@@ -12,14 +12,14 @@ from .tools_mol import safe_standardize_mol, smi_to_mol
 
 def bond_order_assout_to_int(edge_color: str | int) -> int:
     """
-    Convert an edge color to an integer bond order from the Assembly CPP output file
+    Convert an edge colour to an integer bond order from the Assembly CPP output file
 
-    This function maps a string representation of a bond order (e.g., "single", "double")
+    This function maps a string representation of a bond order (e.g. "single", "double")
     to its corresponding integer value. If the input is already an integer, it returns
     the integer directly.
 
     Args:
-        edge_color (str | int): The edge color representing the bond order. It can be a string
+        edge_color (str | int): The edge colour representing the bond order. It can be a string
                                 ("single", "double", etc.) or an integer.
 
     Returns:
@@ -101,7 +101,7 @@ def nx_to_mol(graph: nx.Graph, add_hydrogens: bool = True) -> Chem.Mol:
 
     # Add atoms to the molecule
     for node, data in graph.nodes(data=True):
-        # Get the atomic symbol from the node's 'color' attribute, default to 'C' if not present
+        # Get the atomic symbol from the node's 'colour' attribute, default to 'C' if not present
         atom_symbol = data.get('color', 'C')
         atom = Chem.Atom(atom_symbol.strip())
         idx = mol.AddAtom(atom)
@@ -116,7 +116,7 @@ def nx_to_mol(graph: nx.Graph, add_hydrogens: bool = True) -> Chem.Mol:
         # Add the bond to the molecule
         mol.AddBond(node_to_idx[u], node_to_idx[v], bond_type)
 
-    # Sanitize the molecule to generate implicit hydrogens and conformations
+    # Sanitise the molecule to generate implicit hydrogens and conformations
     return safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
 
 
@@ -175,23 +175,23 @@ def write_ass_graph_file(graph: nx.Graph, file_name: str = "graph_info") -> None
         file_name (str, optional): The name of the file to write the graph information to. Defaults to "graph_info".
 
     Writes:
-        A file containing the graph's name, number of vertices, edges, vertex colors, and edge colors.
+        A file containing the graph's name, number of vertices, edges, vertex colours, and edge colours.
     """
     # Get the number of vertices
     num_vertices = graph.number_of_nodes()
     # Get the edges
     edges = list(graph.edges())
-    # Get vertex colors
+    # Get vertex colours
     vertex_colors = nx.get_node_attributes(graph, 'color')
-    # Get edge colors
+    # Get edge colours
     edge_colors = nx.get_edge_attributes(graph, 'color')
 
-    # Assert that all node colors are strings and do not contain spaces
+    # Assert that all node colours are strings and do not contain spaces
     for node, color in vertex_colors.items():
         assert isinstance(color, str), f"Node color for node {node} is not a string. Not allowed for Assembly CPP."
         assert ' ' not in color, f"Node color for node {node} contains a space. Not allowed for Assembly CPP."
 
-    # Assert that all edge colors are integers
+    # Assert that all edge colours are integers
     for edge, color in edge_colors.items():
         assert isinstance(color, int), f"Edge color for edge {edge} is not an integer. Not allowed for Assembly CPP."
 
@@ -390,7 +390,7 @@ def create_ionic_molecule(smiles: str) -> Tuple[nx.Graph, List[Chem.Mol]]:
         # Update offset for the next graph
         offset += graph.number_of_nodes()
 
-    return combined, mols  # Return combined graph and both molecules
+    return combined, mols  # Return the combined graph and both molecules
 
 
 def longest_path_length(digraph: nx.DiGraph) -> int:
