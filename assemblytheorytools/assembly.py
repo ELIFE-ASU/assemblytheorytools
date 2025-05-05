@@ -786,7 +786,7 @@ def load_assembly_time():
     4. Removes the identified folder.
 
     Returns:
-        float: The time to completion extracted from the file.
+        float: The time to completion extracted from the file in seconds.
     """
     # Get the most recent folder starting with "ai_calc_"
     assembly_folders = [folder for folder in os.listdir(os.getcwd()) if folder.startswith("ai_calc_")]
@@ -803,4 +803,4 @@ def load_assembly_time():
 
     # Remove the assembly folder
     shutil.rmtree(assembly_path)
-    return float(time_to_completion)
+    return float(time_to_completion) * 1e-6
