@@ -278,13 +278,13 @@ def calculate_assembly_index(mol,
             try:
                 if isinstance(mol, nx.Graph):
                     virt_obj = get_pathway_to_graph(file_path_pathway)
-                    path = parse_pathway_file(file_path_pathway, vo_type='graph', debug=debug)
+                    path = parse_pathway_file(file_path_pathway, vo_type='graph')
                 elif isinstance(mol, Chem.Mol):
                     virt_obj = get_pathway_to_mol(file_path_pathway)
-                    path = parse_pathway_file(file_path_pathway, vo_type='smiles', debug=debug)
+                    path = parse_pathway_file(file_path_pathway, vo_type='smiles')
                 elif ".mol" in mol:
                     virt_obj = get_pathway_to_inchi(file_path_pathway)
-                    path = parse_pathway_file(file_path_pathway, vo_type='smiles', debug=debug)
+                    path = parse_pathway_file(file_path_pathway, vo_type='smiles')
                 else:
                     virt_obj = None
                     path = (None, None)
