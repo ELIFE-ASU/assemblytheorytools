@@ -13,7 +13,6 @@ from rdkit.Chem.Draw import rdMolDraw2D
 from rdkit.Chem.rdchem import RWMol
 
 
-# In Class AssemblyConstruction
 def select_length(e):
     """
     select_length takes a dictionary and return the entry for the 'len' entry
@@ -50,36 +49,6 @@ def check_edge_in_lista(edges, lista):
         if equal(l, edges):
             return True
     return False
-
-
-
-
-# These are not ultimately used in any function...
-# def equal_two(lista, listb):
-#     """
-#     equal takes two lists [A,B,C,D] and [A,C,B,D] and test if they contain the same elements, setwise equality
-
-#     :param lista: input list [A,B,C,D]
-#     :param listb: input list [A,C,B,D]
-#     :return: outputs if the two lists are equal or not
-#     """
-#     if set(row for row in lista) == set(row for row in listb):
-#         return True
-#     else:
-#         return False
-
-# def check_edge_in_list(edges, lista):
-#     """
-#     check_edge_in_lista takes a list of lists [[A,B,C,D], [A,C,B,D]] and a list [A,C,B,D] and checks if the list is contained in the list of lists
-
-#     :param lista: input list of lists [[A,B,C,D], [A,C,B,D]]
-#     :param edges: input list [A,C,B,D]
-#     :return: outputs if the list is contained in the list of lists
-#     """
-#     for l in lista:
-#         if equal_two(l, edges):
-#             return True
-#     return False
 
 
 def index_set(lists, listb):
@@ -130,7 +99,6 @@ def equivalence(pieces, equivalences):
                     np.array(equivalences)[:, 1].tolist().index(edge[1])
                 ][0]
     return pieces_mod
-
 
 
 # Questioning if this is even needed! 
