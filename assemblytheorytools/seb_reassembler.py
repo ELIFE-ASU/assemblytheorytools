@@ -769,8 +769,7 @@ class MoleculeSpace(ConstructionObject):
             None. Updates the `self.joined_assembly_graph` attribute.
         """
         self.joined_assembly_graph = compose_all(
-            [mol.G for mol in self.molecules],
-            calc_fingerprints=calc_fingerprints,
+            [mol.G for mol in self.molecules]
         )
         self._set_root_nodes()
         self._set_leaf_nodes()
