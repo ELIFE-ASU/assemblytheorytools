@@ -213,106 +213,6 @@ def transfrom_array(array, array_mod, fromm, repa, replace, e):
     return array
 
 
-# def fix_repeated_equiv(er, repeated, equivalences, e):
-#     """
-#     Sometimes the go_code has some indexing issues, here I try to fix them. However this doesn't solve all the problems. It solves around 95% of the problems. The solution if you
-#     encounter a problem in your output is just to try again. This is the case since the go algorithm is distributed, therefore non-deterministic. So if you try it many times, it
-#     may find a well formated pathway eventually.
-#     """
-#     equivalences = np.unique(equivalences, axis=0).tolist()
-#     equiv_np = np.array(equivalences)
-#     if len(equiv_np) != 0:
-#         sorted_eq = equiv_np[equiv_np[:, 0].argsort()]
-#     else:
-#         sorted_eq = equiv_np
-#     repeated_eq_1 = []
-#     for i, array in enumerate(sorted_eq):
-#         check = np.concatenate(
-#             (sorted_eq[:, 1][0:i], sorted_eq[:, 1][i + 1:]), axis=0
-#         )
-#         if array[1] in check:
-#             repeated_eq_1.append(array.tolist())
-
-#     repeated_eq_2 = []
-#     for i, array in enumerate(sorted_eq):
-#         check_2 = np.concatenate(
-#             (sorted_eq[:, 0][0:i], sorted_eq[:, 0][i + 1:]), axis=0
-#         )
-#         if array[0] in check_2:
-#             repeated_eq_2.append(array.tolist())
-#     inter = np.intersect1d(repeated_eq_1, repeated_eq_2).tolist()
-#     idx = [sorted_eq.tolist().index(rem) for rem in repeated_eq_1]
-#     remove = np.delete(sorted_eq, idx, axis=0)
-#     if repeated_eq_1 != []:
-#         repeated_mod = [equivalence(rep, remove) for rep in repeated]
-#         er_mod = equivalence([er], remove)[0]
-#         if repeated_eq_2 == [] or (
-#                 repeated_eq_2[0][0] == repeated_eq_2[0][0] and inter == []
-#         ):
-#             rep_eq_1_np = np.array(repeated_eq_1)
-#             sort_repeated_eq_1 = rep_eq_1_np[rep_eq_1_np[:, 1].argsort()]
-#             add = []
-#             for i in range(int(sort_repeated_eq_1.shape[0] / 2)):
-#                 replace = equiv_np[equiv_np[:, 1].argsort()][-1][1] + 1 + i
-#                 repa = sort_repeated_eq_1[2 * i][1]
-#                 fromm = sort_repeated_eq_1[2 * i][0]
-#                 add = add + [
-#                     [fromm, replace],
-#                     sort_repeated_eq_1.tolist()[2 * i + 1],
-#                 ]
-#                 er = transfrom_array(er, er_mod, fromm, repa, replace, e)
-#                 for i, rep in enumerate(repeated_mod):
-#                     for j, _ in enumerate(rep):
-#                         repeated[i][j] = transfrom_array(
-#                             repeated[i][j],
-#                             repeated_mod[i][j],
-#                             fromm,
-#                             repa,
-#                             replace,
-#                             e,
-#                         )
-#             equivalences = remove.tolist() + add
-#         else:
-#             for item in repeated_eq_2:
-#                 if inter[0] == item[0] and inter[1] != item[1]:
-#                     replace = item[1]
-#                     repa = inter[1]
-#                     fromm = item[0]
-#             equivalences = (
-#                     remove.tolist()
-#                     + np.delete(
-#                 repeated_eq_1, repeated_eq_1.index(inter), axis=0
-#             ).tolist()
-#             )
-#             er = transfrom_array(er, er_mod, fromm, repa, replace, e)
-#             for i, rep in enumerate(repeated_mod):
-#                 for j, _ in enumerate(rep):
-#                     repeated[i][j] = transfrom_array(
-#                         repeated[i][j],
-#                         repeated_mod[i][j],
-#                         fromm,
-#                         repa,
-#                         replace,
-#                         e,
-#                     )
-
-#             equiv_np = np.array(equivalences)
-#             sorted_eq = equiv_np[equiv_np[:, 0].argsort()]
-#             repeated_eq_1 = []
-#             for i, array in enumerate(sorted_eq):
-#                 check = np.concatenate(
-#                     (sorted_eq[:, 1][0:i], sorted_eq[:, 1][i + 1:]), axis=0
-#                 )
-#                 if array[1] in check:
-#                     repeated_eq_1.append(array.tolist())
-#             if repeated_eq_1 != []:
-#                 er, repeated, equivalences = fix_repeated_equiv(
-#                     er, repeated, equivalences
-#                 )
-
-#     return er, repeated, equivalences
-
-
 def select_length(e):
     """
     select_length takes a dictionary and return the entry for the 'len' entry
@@ -1273,9 +1173,6 @@ def draw_pathway(pathway, mode, fname="temp"):
     v, e, v_l, e_l, remnant_e, equivalences, duplicates = parse_pathway(
         pathway, fname=fname
     )
-    remnant_e, duplicates, equivalences = fix_repeated_equiv(
-        remnant_e, duplicates, equivalences, e
-    )  # Fixing sometimes errors in the go output#
 
     construction_object = assemblyConstruction(
         v, e, v_l, e_l, remnant_e, equivalences, duplicates
@@ -1303,9 +1200,7 @@ def parse_pathway_file_ian(data):
     duplicates = [[dup["Right"], dup['Left']] for dup in data["duplicates"]]
     equivalences = [[1, 1]]
     mode = 1
-    # remnant_e, duplicates, equivalences = fix_repeated_equiv(
-    #     remnant_e, duplicates, equivalences, e
-    # )  # Fixing sometimes errors in the go output
+
     construction_object = assemblyConstruction(
         v, e, v_l, e_l, remnant_e, equivalences, duplicates
     )
