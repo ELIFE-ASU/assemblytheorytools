@@ -1,18 +1,16 @@
 import copy
 import os
 import re
-
 import igraph
 import networkx as nx
 import numpy as np
+from collections import defaultdict
 from rdkit import Chem
 from rdkit.Chem import Draw
 from rdkit.Chem import MolFromSmiles
 from rdkit.Chem import rdFingerprintGenerator
 from rdkit.Chem.Draw import rdMolDraw2D
 from rdkit.Chem.rdchem import RWMol
-from tqdm import tqdm
-
 
 def v_string_convert(v_string, input_type):
     """
@@ -202,35 +200,6 @@ def encode_path_data(file_name):
     return None
 
 
-def transfrom_bond(bond):
-    if bond == 1.0:
-        return Chem.rdchem.BondType.SINGLE
-    if bond == 2.0:
-        return Chem.rdchem.BondType.DOUBLE
-    if bond == 3.0:
-        return Chem.rdchem.BondType.TRIPLE
-    return "error"
-
-
-def tables2mol(tables):
-    atoms_info, bonds_info = tables
-    emol = RWMol()
-    for v in atoms_info:
-        emol.AddAtom(Chem.Atom(v[1]))
-    for e in bonds_info:
-        emol.AddBond(e[0], e[1], transfrom_bond(e[2]))
-    mol = emol.GetMol()
-    return mol
-
-
-def transfrom_bond_float(bond):
-    if bond == "single":
-        return 1.0
-    if bond == "double":
-        return 2.0
-    if bond == "triple":
-        return 3.0
-    return "error"
 
 
 def transfrom_array(array, array_mod, fromm, repa, replace, e):
@@ -460,6 +429,8 @@ def equivalence(pieces, equivalences):
     return pieces_mod
 
 
+
+# Questioning if this is even needed! 
 class assemblyConstruction:
     def __init__(
             self,
@@ -1131,8 +1102,7 @@ def compose_all(
         graphs,
         attribute="level",
         calc_fingerprints=False,
-        get_atomic_count=True,
-        disable_tqdm=False,
+        get_atomic_count=True
 ):
     """
     THIS IS A MODIFIED VERSION OF networkx.compose_all
@@ -1169,12 +1139,12 @@ def compose_all(
     """
     R: nx.MultiDiGraph = None
     updated_nodes_data, node_counts = accumulate_nodes_data(
-        graphs, attribute=attribute, disable_tqdm=disable_tqdm
+        graphs, attribute=attribute
     )
     updated_edges_data = accumulate_edges_data(graphs)
 
     # add graph attributes, H attributes take precedent over G attributes
-    for i, G in tqdm(enumerate(graphs), disable=disable_tqdm):
+    for i, G in enumerate(graphs):
         G = nx.DiGraph(G)  # necessary to accumulate edge data properly
         if i == 0:
             # create new graph
@@ -1219,7 +1189,7 @@ def accumulate_edges_data(graphs):
     return edge_counts
 
 
-def accumulate_nodes_data(graphs, attribute="level", disable_tqdm=False):
+def accumulate_nodes_data(graphs, attribute="level"):
     """
     Returns a dict of nodes, their level attribute and the
     number of times they were used in the construction of the graph [count]
@@ -1239,7 +1209,7 @@ def accumulate_nodes_data(graphs, attribute="level", disable_tqdm=False):
 
     nodes_data = {}
     node_counts = {}
-    for graph in tqdm(graphs, disable=disable_tqdm):
+    for graph in graphs:
         for node in graph.nodes(data=True):
             if node[0] not in nodes_data:
                 nodes_data[node[0]] = node[1][attribute]
@@ -1272,59 +1242,6 @@ def accumulate_node_usage(graph, attribute="usage"):
     return node_usage
 
 
-def get_fingerprints(
-        graph, generator="count", radius: int = 2, fpSize: int = 512
-) -> dict:
-    """
-    Calculates the MorganFingerprint for each node in the graph; returns a dict of node: fingerprint
-
-    Parameters
-    ----------
-    graph : nx.Graph
-        Graph to calculate fingerprints for
-    generator : str
-        Type of fingerprint to calculate. Must be 'bit' or 'count'
-    radius : int
-        Radius of MorganFingerprint
-    fpSize : int
-        Size of MorganFingerprint
-
-    Returns
-    -------
-    fps : dict
-        Dict of node: fingerprint
-        Fingerprints of  nodes/smiles that could not be converted to a molecule are None
-    """
-
-    mfpgen = rdFingerprintGenerator.GetMorganGenerator(
-        radius=radius, fpSize=fpSize
-    )
-    fps = {}
-
-    if generator == "bit":
-        for node in graph.nodes:
-            mol = MolFromSmiles(
-                node,
-            )
-            if mol is None:
-                fps[node] = None
-                continue
-            fp = mfpgen.GetFingerprint(mol)
-            fps[node] = fp
-    elif generator == "count":
-        for node in graph.nodes:
-            mol = MolFromSmiles(
-                node,
-            )
-            if mol is None:
-                fps[node] = None
-                continue
-            fp = mfpgen.GetCountFingerprint(mol)
-            fps[node] = fp
-    else:
-        raise ValueError("generator must be 'bit' or 'count'")
-    return fps
-
 
 def get_atomic_distribution(graph) -> dict:
     """
@@ -1335,7 +1252,6 @@ def get_atomic_distribution(graph) -> dict:
     graph : nx.Graph
         Graph to atomic numbers for
     """
-    from collections import defaultdict
 
     atomic_count: dict = defaultdict(list)
 
@@ -1355,34 +1271,6 @@ def get_atomic_distribution(graph) -> dict:
         atomic_count[node] = set(atomic_count[node])
 
     return atomic_count
-
-
-def encode_go_output(go_output, fname="temp"):
-    # open text file
-    try:
-        text_file = open(f"{fname}.txt", "w")
-        # write string to file
-        text_file.write(go_output)
-        text_file.close()
-        encode_path_data(f"{fname}.txt")
-        os.remove(f"{fname}.txt")
-        pathfile = open(f"encoded_{fname}.txt", "r")
-        length = len(pathfile.readlines())
-        pathfile.close()
-        pathfile = open(f"encoded_{fname}.txt", "r")
-        ma = pathfile.readline()[:-1]
-        runtime = pathfile.readline()[:-1]
-        path = ""
-        for i in range(length - 2):
-            if i == length - 3:
-                path = path + pathfile.readline()
-            path = path + pathfile.readline()[:-1] + "\n"
-        pathfile.close()
-        os.remove(f"encoded_{fname}.txt")
-    except:
-        os.remove(f"{fname}.txt")
-        os.remove(f"encoded_{fname}.txt")
-    return path[:-1]
 
 
 def draw_pathway(pathway, mode, fname="temp"):
@@ -1409,6 +1297,7 @@ def draw_pathway(pathway, mode, fname="temp"):
     return pathway_success, construction_object
 
 
+# Assuming this is for AssemblyCPP
 def parse_pathway_file_ian(data):
     v = data["file_graph"][0]['Vertices']
     e = data["file_graph"][0]['Edges']
@@ -1511,6 +1400,10 @@ def plot_graph(graph):
     return my_plot
 
 
+
+
+# Which one is actually used? 
+
 def transfrom_bond(bond):
     if bond == 1.0:
         return Chem.rdchem.BondType.SINGLE
@@ -1541,23 +1434,3 @@ def transfrom_bond_float(bond):
         return 3.0
     return "error"
 
-
-def highlight_edges_from_molecule(steps_mod, original_m, e, label):
-    highlight_bonds_total = []
-    highlight_atoms_total = []
-    legends = []
-    for j, dup in enumerate(steps_mod):
-        highlight_bonds = []
-        highlight_atoms_pre = []
-        for i, bond in enumerate(e):
-            if check_edge_in_list(list(bond), dup):
-                highlight_bonds.append(i)
-                highlight_atoms_pre.append(bond)
-        highlight_atoms = {item for sublist in highlight_atoms_pre for item in sublist}
-        highlight_bonds_total.append(highlight_bonds)
-        highlight_atoms_total.append(highlight_atoms)
-        if isinstance(label, str):
-            legends.append("{} {}".format(label, j + 1))
-        else:
-            legends.append("{}".format(label[j]))
-    return highlight_atoms_total, highlight_bonds_total, legends
