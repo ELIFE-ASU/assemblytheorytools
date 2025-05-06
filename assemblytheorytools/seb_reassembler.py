@@ -2,11 +2,14 @@ import ast
 import random
 from rdkit import Chem
 from rdkit.Chem import Draw
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 from collections import defaultdict
 from typing import Optional
 import subprocess
+import json
 import signal
 import subprocess
 from collections import defaultdict
@@ -14,7 +17,8 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Optional
 from rdkit import Chem
-from .seb_pathway_tools import *
+from .seb_pathway_tools import parse_pathway_file_ian, compose_all, assemblyConstruction
+
 
 bond_types = {
     "single": Chem.BondType.SINGLE,
@@ -139,6 +143,8 @@ class ParsePathwayLog:
 
         return atom_lines, buildingblock_lines, steps_lines, digraph_lines
 
+
+
     def construct_basic_bb(self):
         """
         Construct basic building blocks from the pathway log.
@@ -158,6 +164,9 @@ class ParsePathwayLog:
                 edmol.GetMol()
             )  # key name to match pathway_log format
         return bb
+
+
+
 
     def construct_fragment_for_step(self, step: str | int):
         """
@@ -301,8 +310,6 @@ class ParsePathwayLog:
         Returns:
             None. Displays the graph.
         """
-        from matplotlib.offsetbox import OffsetImage, AnnotationBbox
-        import matplotlib.pyplot as plt
 
         fig, ax = plt.subplots()
         # fig size
@@ -399,7 +406,6 @@ class ParsePathwayLog:
         Returns:
             positions: dict; positions of nodes in the graph  
         """
-        import numpy as np
 
         positions = {}
 
@@ -461,7 +467,7 @@ class Molecule(ConstructionObject):
             assembly_output: Optional[dict] = None,
             G: Optional[nx.DiGraph] = None,
             timeout: Optional[int] = 60,
-            assembly_version: str = "assemblygo",
+            assembly_version: str = "assemblyCpp",
     ):
         super().__init__()
         self.smiles: Optional[str] = smiles
@@ -554,43 +560,22 @@ class Molecule(ConstructionObject):
         Args:
             mol_file_path: str; path to the mol file
             set_timeout: int; timeout for the assembly calculation
-
         This method updates:
             - `self.assembly_output`: The output of the assembly calculation.
 
         """
         executable_path_cpp = "/Users/elife/Desktop/vm_sebs_code2/assemblyCpp"
 
-        if self.assembly_version not in ["assemblygo", "assemblyCpp"]:
-            raise ValueError(
-                "assembly_version must be either 'assemblygo' or 'assemblyCpp'"
-            )
-
-        if self.assembly_version == "assembly":
-            proc = subprocess.Popen(
-                [
-                    self.assembly_version,
-                    "-file=",
-                    mol_file_path,
-                ],
-                stdout=subprocess.PIPE,
-            )
-        else:
+        if self.assembly_version == "assemblyCpp":
             proc = subprocess.Popen(
                 [executable_path_cpp, mol_file_path.parent / mol_file_path.stem],
                 stdout=subprocess.DEVNULL,
             )
 
-        try:
-            proc.wait(timeout=set_timeout)
-        except subprocess.TimeoutExpired:
-            proc.send_signal(signal.SIGINT)
-
-        if self.assembly_version == "assembly":
-            self.assembly_output = {
-                "go_output": open(str(mol_file_path) + ".txt").read()
-            }
-        elif self.assembly_version == "assemblyCpp":
+            try:
+                proc.wait(timeout=set_timeout)
+            except subprocess.TimeoutExpired:
+                proc.send_signal(signal.SIGINT)
 
             output_path = str(mol_file_path.parent / mol_file_path.stem) + "Pathway"
 
@@ -607,9 +592,6 @@ class Molecule(ConstructionObject):
             raise(ValueError("assembly_version must be 'assemblyCpp'"))
 
         return None
-
-
-
 
 
     def calc_pathway(self) -> None:
