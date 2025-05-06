@@ -12,73 +12,8 @@ from rdkit.Chem import rdFingerprintGenerator
 from rdkit.Chem.Draw import rdMolDraw2D
 from rdkit.Chem.rdchem import RWMol
 
-def v_string_convert(v_string, input_type):
-    """
-    v_string_convert transforms a string "[0 1 2]" into a list of ints of strings [0, 1, 2]
 
-    :param v_string: input string "[0 1 2]" or "[A B C]"
-    :param input_type: use either a integer or string conversion
-    :return: outputs a list [0, 1, 2] or ["A", "B", "C"]
-    """
-    indices = []
-    if input_type == "int":
-        f = int
-    if input_type == "str":
-        f = str
-    for i, c in enumerate(v_string):
-        if c == " ":
-            indices.append(i)
-    if indices != []:
-        v = [f(v_string[1:indices[0]])]
-        for i, j in enumerate(indices):
-            if i == len(indices) - 1:
-                break
-            v.append(f(v_string[indices[i] + 1:indices[i + 1]]))
-    else:
-        indices = [0]
-        v = []
-    v.append(f(v_string[indices[-1] + 1:-1]))
-    return v
-
-
-def e_string_convert(e_string):
-    """
-    e_string_convert transforms a string "[[0 1] [1 2]]" into a list of list of ints [[0, 1],[1,2]]
-
-    :param e_string: input string "[[0 1] [1 2]]"
-    :return: outputs a list of list of ints [[0, 1],[1,2]]
-    """
-    export = np.fromstring(e_string.replace("[", "").replace("]", ""), dtype=int, sep=' ')
-    e = export.reshape((int(len(export) / 2), 2)).tolist()
-    return e
-
-
-def dup_string_convert(e_string):
-    """
-    dup_string_convert transforms a string "[[1 2] [3 4]] [[5 6] [7 8]]" into a list of list of ints [[[1, 2],[3, 4]],[[5, 6],[7, 8]]]
-
-    :param e_string: input string "[[1 2] [3 4]] [[5 6] [7 8]]"
-    :return: outputs an ordered pair of list of list of ints [[[1, 2],[3, 4]],[[5, 6],[7, 8]]]
-    """
-    export = np.fromstring(e_string.replace("[", "").replace("]", ""), dtype=int, sep=' ')
-    final = export.reshape((2, int(len(export) / 2)))
-    dup = [final[0].reshape((int(len(final[0]) / 2), 2)).tolist(),
-           final[1].reshape((int(len(final[1]) / 2), 2)).tolist()]
-    return dup
-
-
-
-def transfrom_array(array, array_mod, fromm, repa, replace, e):
-    for i, edge in enumerate(array_mod):
-        if edge[0] == repa:
-            if [fromm, edge[1]] in e:
-                array[i] = [replace, edge[1]]
-        if edge[1] == repa:
-            if [edge[0], fromm] in e:
-                array[i] = [edge[0], replace]
-    return array
-
-
+# In Class AssemblyConstruction
 def select_length(e):
     """
     select_length takes a dictionary and return the entry for the 'len' entry
@@ -117,32 +52,34 @@ def check_edge_in_lista(edges, lista):
     return False
 
 
-def equal_two(lista, listb):
-    """
-    equal takes two lists [A,B,C,D] and [A,C,B,D] and test if they contain the same elements, setwise equality
-
-    :param lista: input list [A,B,C,D]
-    :param listb: input list [A,C,B,D]
-    :return: outputs if the two lists are equal or not
-    """
-    if set(row for row in lista) == set(row for row in listb):
-        return True
-    else:
-        return False
 
 
-def check_edge_in_list(edges, lista):
-    """
-    check_edge_in_lista takes a list of lists [[A,B,C,D], [A,C,B,D]] and a list [A,C,B,D] and checks if the list is contained in the list of lists
+# These are not ultimately used in any function...
+# def equal_two(lista, listb):
+#     """
+#     equal takes two lists [A,B,C,D] and [A,C,B,D] and test if they contain the same elements, setwise equality
 
-    :param lista: input list of lists [[A,B,C,D], [A,C,B,D]]
-    :param edges: input list [A,C,B,D]
-    :return: outputs if the list is contained in the list of lists
-    """
-    for l in lista:
-        if equal_two(l, edges):
-            return True
-    return False
+#     :param lista: input list [A,B,C,D]
+#     :param listb: input list [A,C,B,D]
+#     :return: outputs if the two lists are equal or not
+#     """
+#     if set(row for row in lista) == set(row for row in listb):
+#         return True
+#     else:
+#         return False
+
+# def check_edge_in_list(edges, lista):
+#     """
+#     check_edge_in_lista takes a list of lists [[A,B,C,D], [A,C,B,D]] and a list [A,C,B,D] and checks if the list is contained in the list of lists
+
+#     :param lista: input list of lists [[A,B,C,D], [A,C,B,D]]
+#     :param edges: input list [A,C,B,D]
+#     :return: outputs if the list is contained in the list of lists
+#     """
+#     for l in lista:
+#         if equal_two(l, edges):
+#             return True
+#     return False
 
 
 def index_set(lists, listb):
@@ -753,6 +690,11 @@ class assemblyConstruction:
         )
         pathway_file.close()
         return None
+
+
+
+
+
 
 
 def edgesfromstring(string):
