@@ -80,6 +80,8 @@ from .tools_mp import (mp_calc,
 
 from .construction import parse_pathway_file
 
+from .seb_reassembler import MoleculeGenerationAssemblyPool, Molecule, MoleculeSpace, Assemble
+
 __version__ = "1.1.0"
 
 """
