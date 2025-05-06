@@ -1,6 +1,5 @@
 import os
 import shutil
-
 import networkx as nx
 import numpy as np
 import pytest
@@ -9,8 +8,12 @@ from ase.visualize import view
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 
+# For Seb's code
+import random
 import assemblytheorytools as att
 
+
+print("Loaded from:", att.__file__, flush=True)
 
 def list_subdirs(directory, target="ai_calc"):
     """
@@ -21,6 +24,7 @@ def list_subdirs(directory, target="ai_calc"):
         target (str, optional): The prefix string that subdirectories must start with. Defaults to "ai_calc".
 
     Returns:
+
         list: A list of subdirectory names that start with the target string.
     """
     return [d for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d)) and d.startswith(target)]
@@ -1016,8 +1020,6 @@ def test_get_chirality():
 # ---------------------- SEB's CODE---------------------------------
 # PROBLEM: PATH TO CPP IS MESSED UP SO TESTS WON"T WORK YET
 
-from assemblytheorytools.seb_reassembler import *
-
 
 def test_seb_molecule_construction():
     """
@@ -1037,14 +1039,14 @@ def test_seb_molecule_construction():
     # Create minimal graph as a mock assembly pool
     G = nx.DiGraph()
     G.add_nodes_from(["NCC(O)=O", "CC(N)C(O)=O"])  # Glycine, alanine
-    molecule_generation = MoleculeGenerationAssemblyPool(G)
+    molecule_generation = att.MoleculeGenerationAssemblyPool(G)
 
     # Combine two fragments together to form new molecule
     list_fragments = list(G.nodes)
     fragment1 = list_fragments[0]
     fragment2 = list_fragments[1]
     product = molecule_generation.combine_fragments(fragment1=fragment1, fragment2=fragment2,
-                                                    assemble_object=Assemble())
+                                                    assemble_object=att.Assemble())
 
     assert product == "CC(N)C(=O)OC(=O)CN"
 
@@ -1074,13 +1076,13 @@ def test_seb_combine_pathways():  # mol_space.construct_joined_graph() Method fr
     # For each SMILES, construct a Molecule object, including its assembly pathway 
     # represented as a directed graph. 
     for smiles_str in smiles:
-        molecule = Molecule(smiles=smiles_str, assembly_version="assemblyCpp")
+        molecule = att.Molecule(smiles=smiles_str, assembly_version="assemblyCpp")
         molecule.reconstruct_pathway()  #
         molecule.construct_layered_graph()
         molecule_list.append(molecule)
 
     # Construct MoleculeSpace
-    mol_space = MoleculeSpace(molecules=molecule_list)
+    mol_space = att.MoleculeSpace(molecules=molecule_list)
     mol_space.construct_joined_graph()  # Creates the estimated joint assembly
     G = mol_space.joined_assembly_graph  # Grab the graph - this is the assembly pool (I think)
 
@@ -1108,13 +1110,13 @@ def test_seb_assembly_layer_removal():
     # For each SMILES, construct a Molecule object, including its assembly pathway 
     # represented as a directed graph. 
     for smiles_str in smiles:
-        molecule = Molecule(smiles=smiles_str, assembly_version="assemblyCpp")
+        molecule = att.Molecule(smiles=smiles_str, assembly_version="assemblyCpp")
         molecule.reconstruct_pathway()  #
         molecule.construct_layered_graph()
         molecule_list.append(molecule)
 
     # Construct MoleculeSpace
-    mol_space = MoleculeSpace(molecules=molecule_list)
+    mol_space = att.MoleculeSpace(molecules=molecule_list)
     mol_space.construct_joined_graph()  # Creates the estimated joint assembly
 
     # Remove layer (all molecules with assembly index of 1)
@@ -1157,17 +1159,17 @@ def test_seb_constructing_n_molecules():
     # For each SMILES, construct a Molecule object, including its assembly pathway 
     # represented as a directed graph. 
     for smiles_str in smiles:
-        molecule = Molecule(smiles=smiles_str, assembly_version="assemblyCpp")
+        molecule = att.Molecule(smiles=smiles_str, assembly_version="assemblyCpp")
         molecule.reconstruct_pathway()  #
         molecule.construct_layered_graph()
         molecule_list.append(molecule)
 
     # Construct MoleculeSpace
-    mol_space = MoleculeSpace(molecules=molecule_list)
+    mol_space = att.MoleculeSpace(molecules=molecule_list)
     mol_space.construct_joined_graph()  # Creates the estimated joint assembly
 
     # Testing novel molecule generation
-    molecule_generation = MoleculeGenerationAssemblyPool(mol_space)  # Insert assembly pool? Or the whole mol space?
+    molecule_generation = att.MoleculeGenerationAssemblyPool(mol_space)  # Insert assembly pool? Or the whole mol space?
     molecule_generation.random_construct_n_molecules(2, 1, X=1)
     molecule_generation.assembled_molecules  # Output, a defaultdict that includes the fragments
 
