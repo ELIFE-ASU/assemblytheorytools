@@ -805,16 +805,20 @@ def accumulate_node_usage(graph, attribute="usage"):
 
 
 
-
-
 def get_atomic_distribution(graph) -> dict:
     """
-    Useful to create new molecules down the line
+    Create a dictionary where the keys are SMILES strings (the nodes of the graph) and values are 
+    the set of atomic numbers of atoms that have free valence. 
 
     Parameters
     ----------
     graph : nx.Graph
-        Graph to atomic numbers for
+        Graph where nodes are SMILES strings (molecules)
+
+    Returns
+    -------
+    atomic_count : dict
+        Dictionary where keys are SMILES strings and values are sets of atomic numbers that have free valence
     """
 
     PeriodicTable = Chem.rdchem.GetPeriodicTable()
@@ -836,12 +840,6 @@ def get_atomic_distribution(graph) -> dict:
         atomic_count[node] = set(atomic_count[node])
 
     return atomic_count
-
-
-
-
-
-
 
 
 
