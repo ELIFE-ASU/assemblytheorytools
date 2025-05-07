@@ -1,7 +1,8 @@
-import ast
-import random
 from rdkit import Chem
 from rdkit.Chem import Draw
+
+import ast
+import random
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -16,8 +17,9 @@ from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
 from typing import Optional
-from rdkit import Chem
+
 from .seb_pathway_tools import parse_pathway_file_ian, compose_all, assemblyConstruction
+from .tools_mol import safe_standardize_mol, standardize_mol
 
 
 # This needs to change...
@@ -1943,30 +1945,40 @@ class Assemble:
                 )
         rw_mol.CommitBatchEdit()
 
-        # check if molecule is valid
-        mol = self.check_rdkit_compilance(rw_mol)
-        if mol is None:
-            return None
-        return mol
-
-    def check_rdkit_compilance(self, rw_mol):
-        """
-        Checks if the molecule is rdkit compilant
-
-        Args:
-            rw_mol : Chem.RWMol The molecule to check.
-        
-        Returns:
-            mol: (C)hem.Mol) The molecule if it is compilant, None otherwise.
-        """
+        # Check if molecule is valid
         try:
-            mol = Chem.MolToSmiles(Chem.Mol(rw_mol))
+            mol = rw_mol.GetMol() # Convert editable mol to mol object
             if mol is None:
                 return None
         except Exception as _:
-            print("Molecule  not valid", flush = True)
+            print("Molecule not valid", flush = True)
             return None
+        
+        # Standardize molecule
+        mol = safe_standardize_mol(mol, add_hydrogens=True)
+        mol = Chem.RemoveHs(mol)
         return mol
+
+
+
+    # def check_rdkit_compilance(self, rw_mol):
+    #     """
+    #     Checks if the molecule is rdkit compilant
+
+    #     Args:
+    #         rw_mol : Chem.RWMol The molecule to check.
+        
+    #     Returns:
+    #         mol: (C)hem.Mol) The molecule if it is compilant, None otherwise.
+    #     """
+    #     try:
+    #         mol = Chem.MolToSmiles(Chem.Mol(rw_mol))
+    #         if mol is None:
+    #             return None
+    #     except Exception as _:
+    #         print("Molecule  not valid", flush = True)
+    #         return None
+    #     return mol
 
     def create_bond(
             self,
