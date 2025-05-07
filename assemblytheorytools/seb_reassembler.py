@@ -1876,7 +1876,7 @@ class Assemble:
 
     def combine_fragments(
             self, fragment1, fragment2, combinations
-    ) -> Chem.rdchem.Mol:
+    ) -> str:
         """
         Combines two molecular fragments by forming bonds between specified atom pairs.
 
@@ -1892,9 +1892,9 @@ class Assemble:
                                                 atom in `fragment1` and an atom in `fragment2`.
 
         Returns:
-            Chem.rdchem.Mol | None: 
+            str (SMILES string) | None: 
                 - The combined molecule if the bonding is successful and chemically valid.
-                - `None` if the molecule fails RDKit compliance checks.
+                - `None` if the molecule cannot be standardized
 
         Raises:
             IndexError: If an invalid atom index is accessed in either fragment.
@@ -1945,41 +1945,21 @@ class Assemble:
                 )
         rw_mol.CommitBatchEdit()
 
-        # Check if molecule is valid
+        # Check if molecule is valid and standardize 
         try:
             mol = rw_mol.GetMol() # Convert editable mol to mol object
-            if mol is None:
-                return None
-        except Exception as _:
-            print("Molecule not valid", flush = True)
+            mol = safe_standardize_mol(mol, add_hydrogens=True)
+            mol = Chem.RemoveHs(mol)
+            smiles = Chem.MolToSmiles(mol)
+
+        except Exception as e: 
+            print(f"Standardization failed: {e}", flush = True)
             return None
         
-        # Standardize molecule
-        mol = safe_standardize_mol(mol, add_hydrogens=True)
-        mol = Chem.RemoveHs(mol)
-        return mol
+        return smiles
 
 
-
-    # def check_rdkit_compilance(self, rw_mol):
-    #     """
-    #     Checks if the molecule is rdkit compilant
-
-    #     Args:
-    #         rw_mol : Chem.RWMol The molecule to check.
-        
-    #     Returns:
-    #         mol: (C)hem.Mol) The molecule if it is compilant, None otherwise.
-    #     """
-    #     try:
-    #         mol = Chem.MolToSmiles(Chem.Mol(rw_mol))
-    #         if mol is None:
-    #             return None
-    #     except Exception as _:
-    #         print("Molecule  not valid", flush = True)
-    #         return None
-    #     return mol
-
+# Double check doc strings = unsure if fragments are actually mol objects or SMILES strings
     def create_bond(
             self,
             fragment1,
@@ -2004,8 +1984,8 @@ class Assemble:
             layer (int, optional): The layer at which bonding occurs. Defaults to `None`.
 
         Returns:
-            Chem.rdchem.Mol | None:
-                - The newly formed molecule if bonding is successful.
+            str (SMILES) | None:
+                - The newly formed molecule if bonding is successful as a SMILES string.
                 - `None` if no valid bond can be created.
 
         Raises:
@@ -2042,8 +2022,8 @@ class Assemble:
             )
             for c in combinations:
                 p_combinations_copy.remove(c)
-            mol = self.combine_fragments(f1, f2, combinations)
-            if mol is None:
+            smiles = self.combine_fragments(f1, f2, combinations)
+            if smiles is None:
                 continue
-            return mol
+            return smiles
         return None
