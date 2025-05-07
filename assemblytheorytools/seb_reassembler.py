@@ -1904,7 +1904,7 @@ class Assemble:
             - Atom neighbors and bond orders from `fragment2` are stored before merging.
             - `fragment1` and `fragment2` are merged using `Chem.CombineMols()`.
             - The function modifies bonds using `Chem.RWMol()` to ensure proper connectivity.
-            - `self.check_rdkit_compliance()` is used to validate the final structure.
+            - The resulting molecule is standardized and converted to a SMILES string.
         """
         max_idx = fragment1.GetNumAtoms()
 

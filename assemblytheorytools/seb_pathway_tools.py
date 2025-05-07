@@ -660,21 +660,6 @@ class assemblyConstruction:
 
 
 
-atom_valence = {
-    "C": 4,
-    "N": 3,
-    "O": 2,
-    "F": 1,
-    "P": 5,
-    "S": 6,
-    "Cl": 1,
-    "Br": 1,
-    "I": 1,
-    "Si": 4,
-    "As": 5,
-    "Se": 2,
-    "B": 3,
-}
 
 
 def compose_all(
@@ -818,6 +803,10 @@ def accumulate_node_usage(graph, attribute="usage"):
 
 
 
+
+
+
+
 def get_atomic_distribution(graph) -> dict:
     """
     Useful to create new molecules down the line
@@ -828,6 +817,7 @@ def get_atomic_distribution(graph) -> dict:
         Graph to atomic numbers for
     """
 
+    PeriodicTable = Chem.rdchem.GetPeriodicTable()
     atomic_count: dict = defaultdict(list)
 
     for node in graph.nodes:
@@ -838,9 +828,9 @@ def get_atomic_distribution(graph) -> dict:
         else:
             for atom in mol.GetAtoms():
                 free_atom_valence = (
-                        atom_valence.get(atom.GetSymbol(), 0) - atom.GetExplicitValence()
+                    PeriodicTable.GetDefaultValence(atom.GetSymbol()) - atom.GetExplicitValence()
                 )
-                # only relevant atoms
+                # Only relevant atoms
                 if free_atom_valence > 0:
                     atomic_count[node].append(atom.GetAtomicNum())
         atomic_count[node] = set(atomic_count[node])
