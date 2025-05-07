@@ -945,26 +945,6 @@ def get_atomic_distribution(graph) -> dict:
     return atomic_count
 
 
-def draw_pathway(pathway, mode, fname="temp"):
-    v, e, v_l, e_l, remnant_e, equivalences, duplicates = parse_pathway(
-        pathway, fname=fname
-    )
-
-    construction_object = assemblyConstruction(
-        v, e, v_l, e_l, remnant_e, equivalences, duplicates
-    )
-
-    try:
-        construction_object.generate_pathway()
-        construction_object.plot_pathway(mode)
-        pathway_success = True
-    except ValueError as e:
-        pathway_success = False
-    except IndexError as e:
-        pathway_success = False
-
-    return pathway_success, construction_object
-
 
 # Assuming this is for AssemblyCPP
 def parse_pathway_file_ian(data):
@@ -994,82 +974,9 @@ def parse_pathway_file_ian(data):
     return pathway_success, construction_object
 
 
-def parse_pathway(pathway, fname="temp"):
-    try:
-        pathway_file = open(f"{fname}_.txt", "w")
-        # write string to file
-        pathway_file.write("10\n0.1\n" + pathway)
-        # close file
-        pathway_file.close()
-
-        v, e, v_c, e_c, er, equivalences, repeated = parse_db_path(f"{fname}_.txt")
-        os.remove(f"{fname}_.txt")
-    except:
-        os.remove(f"{fname}_.txt")
-
-    return v, e, v_c, e_c, er, equivalences, repeated
 
 
-def transfrom_bond_str(bond):
-    if bond == 1.0:
-        return "single"
-    if bond == 2.0:
-        return "double"
-    if bond == 3.0:
-        return "triple"
-    return "error"
-
-
-def mol2tables(mol, str=False):
-    atoms_info = [(atom.GetIdx(), atom.GetSymbol()) for atom in mol.GetAtoms()]
-    if str:
-        bonds_info = [
-            (
-                bond.GetBeginAtomIdx(),
-                bond.GetEndAtomIdx(),
-                transfrom_bond_str(bond.GetBondTypeAsDouble()),
-            )
-            for bond in mol.GetBonds()
-        ]
-    else:
-        bonds_info = [
-            (bond.GetBeginAtomIdx(), bond.GetEndAtomIdx(), bond.GetBondTypeAsDouble())
-            for bond in mol.GetBonds()
-        ]
-    tables = (atoms_info, bonds_info)
-    return tables
-
-
-def tables2graph(tables):
-    atoms_info, bonds_info = tables
-    graph = igraph.Graph()
-    for atom_info in atoms_info:
-        graph.add_vertex(atom_info[0], AtomicSymbole=atom_info[1])
-    for bond_info in bonds_info:
-        graph.add_edge(bond_info[0], bond_info[1], BondTypeAsDouble=bond_info[2])
-    return graph
-
-
-def plot_graph(graph):
-    layout = graph.layout_graphopt()
-    color_dict_vertex = {"C": "black", "O": "red", "N": "blue", "P": "purple", "S": "orange"}
-    color_dict_edge = {1.0: "black", 2.0: "green"}
-    my_plot = igraph.Plot()
-    my_plot.add(
-        graph,
-        layout=layout,
-        bbox=(300, 300),
-        margin=20,
-        vertex_color=[color_dict_vertex[atom] for atom in graph.vs["AtomicSymbole"]],
-        vertex_size=[10 for v in graph.vs],
-        edge_color=[color_dict_edge[ed] for ed in graph.es["BondTypeAsDouble"]],
-    )
-    return my_plot
-
-
-
-
-# Which one is actually used? 
+#--------
 
 def transfrom_bond(bond):
     if bond == 1.0:
@@ -1080,7 +987,7 @@ def transfrom_bond(bond):
         return Chem.rdchem.BondType.TRIPLE
     return "error"
 
-
+# Used in assemblyConstruction
 def tables2mol(tables):
     atoms_info, bonds_info = tables
     emol = RWMol()
