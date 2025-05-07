@@ -22,8 +22,7 @@ from .seb_pathway_tools import parse_pathway_file_ian, compose_all, assemblyCons
 from .tools_mol import safe_standardize_mol, standardize_mol
 
 
-# This needs to change...
-# From tools_graph.py?
+# This is only used to read lines from the Log Pathway. Unclear if this is specific to Go output
 bond_types = {
     "single": Chem.BondType.SINGLE,
     "double": Chem.BondType.DOUBLE,
@@ -912,6 +911,7 @@ class MoleculeGenerationAssemblyPool:
         self.sampling_weights: list[int]
 
     def set_assembly_pool(self, X=10, remove_pathways=False):
+
         """
         Modifies the assembly pool by removing a subset of molecules and 
         updates node-level attributes.
@@ -1029,6 +1029,8 @@ class MoleculeGenerationAssemblyPool:
 
         return leaf_counts
 
+
+    # Similar to get_atomic_distribution....
     def add_to_assembly_graph(self, parents, child) -> bool:
         """
         Adds a child node to the assembly graph.
@@ -1041,15 +1043,19 @@ class MoleculeGenerationAssemblyPool:
             bool: True if the child node is successfully added, False otherwise.
             Updates the `self.assembly_pool.joined_assembly_graph_minus_x` attribute.
         """
+        
+        PeriodicTable = Chem.rdchem.GetPeriodicTable()
         atomic_count = []
         try:
             for atom in Chem.MolFromSmiles(child).GetAtoms():
                 free_atom_valence = (
-                        atom_valence.get(atom.GetSymbol(), 0) - atom.GetExplicitValence()
+                        PeriodicTable.GetDefaultValence(atom.GetSymbol()) - atom.GetExplicitValence()
                 )
-                # only relevant atoms
+                # Append atoms with free valence
                 if free_atom_valence > 0:
                     atomic_count.append(atom.GetAtomicNum())
+
+
         except AttributeError:
             print(child, flush = True)
             return False
@@ -1081,6 +1087,13 @@ class MoleculeGenerationAssemblyPool:
         ] = set(atomic_count)
 
         return True
+
+
+
+
+
+
+
 
     def construct_diverged_assembly_graph(self):
         """
@@ -1885,8 +1898,8 @@ class Assemble:
         undergoes structural validation before being returned.
 
         Args:
-            fragment1 (Chem.rdchem.Mol): The first molecular fragment.
-            fragment2 (Chem.rdchem.Mol): The second molecular fragment.
+            fragment1 (str): The first molecular fragment, represented as a SMILES string.
+            fragment2 (str): The second molecular fragment, represented as a SMILES string. 
             combinations (list[tuple[int, int]]): A list of atom index pairs, where each tuple
                                                 represents a bond to be formed between an 
                                                 atom in `fragment1` and an atom in `fragment2`.
@@ -1960,6 +1973,7 @@ class Assemble:
 
 
 # Double check doc strings = unsure if fragments are actually mol objects or SMILES strings
+# Accoridng to combine_fragments - they are smiles srtrings
     def create_bond(
             self,
             fragment1,
@@ -1977,8 +1991,8 @@ class Assemble:
         bond can be created, the function returns `None`.
 
         Args:
-            fragment1 (Chem.rdchem.Mol): The first molecular fragment.
-            fragment2 (Chem.rdchem.Mol): The second molecular fragment.
+            fragment1 (str): The first molecular fragment, represented as a SMILES string
+            fragment2 (str): The second molecular fragment, represented as a SMILES string
             atomtype_index_mapping1 (dict): A mapping of atomic indices to atom types for `fragment1`.
             atomtype_index_mapping2 (dict): A mapping of atomic indices to atom types for `fragment2`.
             layer (int, optional): The layer at which bonding occurs. Defaults to `None`.
@@ -1999,7 +2013,7 @@ class Assemble:
             - The function calls `self.combine_fragments()` to form the final molecule.
         """
 
-        # get all possible combinations of atoms
+        # Get all possible combinations of atoms
         possible_combinations = self.get_possible_combinations(
             atomtype_index_mapping1, atomtype_index_mapping2
         )
@@ -2015,8 +2029,8 @@ class Assemble:
             f1 = deepcopy(fragment1)
             f2 = deepcopy(fragment2)
 
-            # select a random combination of atoms
-            # these overlaps wont be tried again, if fails
+            # Select a random combination of atoms
+            # These overlaps wont be tried again, if fails
             combinations = self.select_n_overlaps(
                 f1.GetNumAtoms(), f2.GetNumAtoms(), p_combinations_copy, layer=layer
             )
