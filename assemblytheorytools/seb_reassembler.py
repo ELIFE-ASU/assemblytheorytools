@@ -29,6 +29,7 @@ bond_types = {
 
 
 class ConstructionObject:
+
     def reconstruct_joint_assembly_space(self, assembly_out: dict) -> tuple:
     # It will be better to just make the assembly_out BE the CPP output, and not 
     # have CPP as a subdirectory within in.
@@ -57,6 +58,7 @@ class ConstructionObject:
 
 
 class ParsePathwayLog:
+
     # Conversion to a graph
     global bond_types
 
@@ -539,7 +541,7 @@ class Molecule(ConstructionObject):
         """
 
         if self.assembly_output is None:
-            print("Warning: `assembly_output` is None. Attempting to calculate pathway...")
+            print("Warning: `assembly_output` is None. Attempting to calculate pathway...", flush = True)
             self.calc_pathway()
         (
             self.pathway_fragments,
@@ -610,6 +612,7 @@ class Molecule(ConstructionObject):
             print(
                 Chem.MolToMolBlock(mol),
                 file=open("".join(["temp", ".mol"]), "w+"),
+                flush = True
             )
         except Exception:
             return None
@@ -659,9 +662,6 @@ class MoleculeSpace(ConstructionObject):
             molecule.get_smiles()
             for molecule in self.molecules
         ]
-        self.molecule_fingerprints: (
-            list
-        )
         self._remove_none()  # remove molecules that failed to layered pathway as indicated by None in self.molecule_smiles
         self.joined_smiles: str = ".".join(self.molecule_smiles)
         self.assembly_out: dict
@@ -756,15 +756,12 @@ class MoleculeSpace(ConstructionObject):
         self.leaf_nodes = self.molecule_smiles
         return None
 
-    def construct_joined_graph(self, calc_fingerprints: bool = True) -> None:
+    def construct_joined_graph(self) -> None:
         """
         Construct the joined graph of this molecule space.
         Only one node of each molecule is included in the joined graph.
         Edges that are in multiple graphs are only included once.
 
-        Args:
-            calc_fingerprints: bool; if True, calculate fingerprints for the molecules
-        
         Returns:
             None. Updates the `self.joined_assembly_graph` attribute.
         """
@@ -809,7 +806,7 @@ class MoleculeSpace(ConstructionObject):
         they are removed from the assembly pool.
         """
         if self.joined_assembly_graph is None:
-            print("Constructing joined assembly graph.")
+            print("Constructing joined assembly graph.", flush = True)
             self.construct_joined_graph()
 
         self.max_assembly_index = max(
@@ -833,14 +830,14 @@ class MoleculeSpace(ConstructionObject):
             for node in to_remove:
                 # happens sometimes when fragment is twice in a single pathway. Count is already 0
                 if not temp_graph.has_node(node):
-                    print(f"Node {node} not in graph")
+                    print(f"Node {node} not in graph", flush = True)
                     continue
                 try:
                     pw_nodes = self.molecules[
                         self.molecule_smiles.index(node)
                     ].G.nodes
                 except Exception as e:
-                    print(f"Could not find {node}", e)
+                    print(f"Could not find {node}", e, flush = True)
                     # used to be problem in an old JAS
                     temp_graph.remove_node(node)
                     continue
@@ -1052,7 +1049,7 @@ class MoleculeGenerationAssemblyPool:
                 if free_atom_valence > 0:
                     atomic_count.append(atom.GetAtomicNum())
         except AttributeError:
-            print(child)
+            print(child, flush = True)
             return False
 
         for parent in parents:
@@ -1154,7 +1151,6 @@ class MoleculeGenerationAssemblyPool:
         """
 
         leaf_counts = self.get_leaf_counts_per_level(min_level=level + 1)
-        # print("leaf_counts", leaf_counts, len(leaf_counts))
         keys = list(leaf_counts.keys())
         keys.sort()
         # make sure no level is skipped
@@ -1968,7 +1964,7 @@ class Assemble:
             if mol is None:
                 return None
         except Exception as _:
-            print("Molecule  not valid")
+            print("Molecule  not valid", flush = True)
             return None
         return mol
 
@@ -2023,7 +2019,7 @@ class Assemble:
         while len(p_combinations_copy) > 0 and fail_safe < 5000:
             fail_safe += 1
             if fail_safe == 5000:
-                print("fail safe create bond")
+                print("fail safe create bond", flush = True)
             f1 = deepcopy(fragment1)
             f2 = deepcopy(fragment2)
 

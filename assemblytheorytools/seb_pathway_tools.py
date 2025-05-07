@@ -331,7 +331,6 @@ class assemblyConstruction:
                     while not (len(cum) == 1):
                         counter = counter + 1
                         if counter > 100:
-                            # print("Max reached")
                             raise ValueError("Cant join the pieces")
                         cum, steps_mod, step, digraph = self.consistent_join(
                             cum,
@@ -357,8 +356,8 @@ class assemblyConstruction:
         )
 
     def generate_pathway(self):
-        ## Construct Remant Graph
-        # The Remnant Graph are usually disjoing pieces
+        ## Construct Remnant Graph
+        # The Remnant Graph are usually disjoint pieces
         step = 0
         # The digraph contains the information of the assembly path
         digraph = []
@@ -367,7 +366,7 @@ class assemblyConstruction:
         # We construct each piece of the remnant graph one edge at a time
         pieces = [[edge] for edge in self.remnant_e]
 
-        # change to equivalences
+        # Change to equivalences
         if len(self.equivalences) == 0:
             duplicates_mod = self.duplicates
             pieces_mod = pieces
@@ -403,7 +402,7 @@ class assemblyConstruction:
         )
 
         ## Consistent Join of all Pieces
-        # We consistently join the remant pieces in such a way that the constructed molecule never has disconnected pieces
+        # We consistently join the remnant pieces in such a way that the constructed molecule never has disconnected pieces
         pieces_mod_cp = []
         while not (len(pieces_mod) == len(pieces_mod_cp)):
             pieces_mod_cp = copy.deepcopy(pieces_mod)
@@ -685,7 +684,7 @@ def compose_all(
 ):
     """
     THIS IS A MODIFIED VERSION OF networkx.compose_all
-    Only real difference is it updates the node attribute "level" to the minimum value
+    Only real difference is it updates the node attribute "level" to the minimum value (of what???)
     found in any of the graphs.
 
     Returns the composition of all graphs.
@@ -849,6 +848,15 @@ def get_atomic_distribution(graph) -> dict:
     return atomic_count
 
 
+
+
+
+
+
+
+
+
+
 # Assuming this is for AssemblyCPP
 def parse_pathway_file_ian(data):
     v = data["file_graph"][0]['Vertices']
@@ -869,10 +877,10 @@ def parse_pathway_file_ian(data):
         pathway_success = True
     except ValueError as e:
         pathway_success = False
-        print("error")
+        print("error", flush = True)
     except IndexError as e:
         pathway_success = False
-        print("error")
+        print("error", flush = True)
 
     return pathway_success, construction_object
 
