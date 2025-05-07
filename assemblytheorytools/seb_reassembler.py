@@ -78,8 +78,7 @@ class ParsePathwayLog:
         # Assembly related problems has duplicate nodes sometimes, that I cant fix
         for node in self.G.nodes:
             if len(list(self.G.in_edges(node))) > 2:
-                self.assembly_out_OK = False
-                return None
+                raise ValueError("Node has more than 2 predecessors - invalid!")
 
         self.assign_levels()
         self.nodes_per_level = self._nodes_per_level()
