@@ -1031,6 +1031,7 @@ class MoleculeGenerationAssemblyPool:
 
 
     # Similar to get_atomic_distribution....
+    # Clarify what this does...
     def add_to_assembly_graph(self, parents, child) -> bool:
         """
         Adds a child node to the assembly graph.
@@ -1363,6 +1364,7 @@ class MoleculeGenerationAssemblyPool:
             layer=layer,
         )
 
+# Also similar to get_atomic_distribution! What is going on
     def get_atomtype_index_mapping(self, fragment):
         """
         Retrieves the molecular representation and atomic index mapping for a given fragment.
@@ -1391,8 +1393,10 @@ class MoleculeGenerationAssemblyPool:
         Notes:
             - The function first attempts to convert the SMILES string to an RDKit `Mol` object.
             - Implicit hydrogens are removed to simplify atom valence calculations.
-            - Free valence is determined based on predefined valence rules (`atom_valence` dictionary).
+            - Free valence is determined based on predefined valence rules from rdkit PeriodicTable.
         """
+
+
         try:
             mol = Chem.MolFromSmiles(fragment, sanitize=False)
             mol = Chem.RemoveHs(mol, implicitOnly=False)
@@ -1401,12 +1405,14 @@ class MoleculeGenerationAssemblyPool:
         if mol is None:
             return None, None
 
+        PeriodicTable = Chem.rdchem.GetPeriodicTable()
         atomtype_index_mapping = defaultdict(list)
+
 
         for atom in mol.GetAtoms():
             # check for free valence of atoms
             free_atom_valence = (
-                    atom_valence.get(atom.GetSymbol(), 0) - atom.GetExplicitValence()
+                PeriodicTable.GetDefaultValence(atom.GetSymbol()) - atom.GetExplicitValence()
             )
             atomtype_index_mapping[atom.GetIdx()].append(atom.GetSymbol())
             atomtype_index_mapping[atom.GetIdx()].append(free_atom_valence)
