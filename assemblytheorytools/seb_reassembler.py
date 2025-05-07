@@ -20,6 +20,8 @@ from rdkit import Chem
 from .seb_pathway_tools import parse_pathway_file_ian, compose_all, assemblyConstruction
 
 
+# This needs to change...
+# From tools_graph.py?
 bond_types = {
     "single": Chem.BondType.SINGLE,
     "double": Chem.BondType.DOUBLE,
@@ -153,7 +155,6 @@ class ParsePathwayLog:
         Returns:
             bb: dict; dictionary of basic building blocks
         """
-        edmol = Chem.EditableMol(Chem.Mol())
         bb = {}
 
         for i, line in enumerate(self.buildingblock_lines):
