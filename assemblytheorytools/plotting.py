@@ -10,6 +10,8 @@ from IPython.display import HTML
 from matplotlib import colormaps, colors
 from pyvis.network import Network
 
+import numpy as np
+from matplotlib.patches import Circle
 
 def n_plot(xlab: str, ylab: str, xs: int = 14, ys: int = 14) -> None:
     """
@@ -443,3 +445,162 @@ def plot_digraph_with_images(graph: nx.DiGraph, image_paths: list[str]) -> None:
     plt.tight_layout()
     plt.show()
     return None
+
+
+def generate_assembly_circle(nodes, assembly_indices, adj_matrix, labels, node_size, arrow_size, node_color, edge_color, fig_size):
+    
+    '''
+    Generates a circular layout for nodes based on their assembly indices and adjacency matrix.
+    
+    Parameters:
+    ----------
+    nodes : list
+        A list of nodes in the network that are to be visualized.
+    
+    assembly_indices : list or numpy.ndarray
+        A numerical array where each value represents the assembly index of a node.
+        Nodes with lower indices are considered "building blocks" and are placed closer to the center.
+    
+    adj_matrix : numpy.ndarray
+        A square adjacency matrix representing the relationships between nodes.
+        If adj_matrix[i, j] >= 1, it signifies that node i points to node j.
+    
+    labels : list
+        A list of labels corresponding to the nodes. These labels can be used for debugging or display purposes.
+    
+    node_size : float
+        The size of the nodes when visualized in a graphical representation.
+    
+    arrow_size : float
+        The size of arrows used to represent edges in the visualization.
+    
+    node_color : str or list
+        The color of the nodes in the visualization. 
+    
+    edge_color : str or list
+        The color of edges/arrows in the visualization.
+    
+    fig_size : tuple
+        A tuple specifying the size of the figure (width, height) when visualized.
+    '''
+    
+    n_nodes = len(nodes)
+    angles = np.full(n_nodes,np.nan)
+    
+    max_ai = max(assembly_indices) 
+    min_ai = min(assembly_indices)  
+
+    # Finding number of building blocks, defined as those with minimum assembly index
+    N_building_blocks = 0
+    for i in range(n_nodes):
+        if assembly_indices[i] == min_ai:
+            N_building_blocks += 1
+
+    # Assign equispaciated angles to building blocks
+    n = 1
+    for i in range(n_nodes):
+        if assembly_indices[i] == min_ai:
+            angles[i] = n*2*np.pi/N_building_blocks
+            n += 1
+
+    # Assign angles for higher assembly index objects
+    while np.any(np.isnan(angles)):  # While there are angles left       
+        for i in range(n_nodes):
+            if np.isnan(angles[i]): # If the string has no angle associated yet...
+                set_angles = np.array([])
+                for j in range(n_nodes):
+                    if adj_matrix[j,i] >= 1:
+                        set_angles = np.append(set_angles,angles[j]) 
+                #print(set_angles)        
+                if np.all(~np.isnan(set_angles)):
+                    angles[i] = average_angles(set_angles)
+            
+    # Transform positions from polar to cartesian        
+    x_positions = (assembly_indices+1)*np.cos(angles)
+    y_positions = (assembly_indices+1)*np.sin(angles)    
+   
+    # Plot the network 
+    
+    plot_directed_network(nodes, adj_matrix, x_positions, y_positions,max_ai,labels,node_size,arrow_size,node_color,edge_color, fig_size) 
+
+def average_angles(angles):
+    """
+    Compute the angle of the resultant vector from the vectorial sum
+    of unit vectors associated with the given angles.
+    
+    Parameters:
+        angles (list or array): A list or array of angles in radians.
+    
+    Returns:
+        float: The resultant angle in radians.
+    """
+    # Convert angles to unit vectors
+    x_components = np.cos(angles)
+    y_components = np.sin(angles)
+    
+    # Sum the components to get the resultant vector
+    resultant_x = np.sum(x_components)
+    resultant_y = np.sum(y_components)
+    
+    # Calculate the angle of the resultant vector
+    resultant_angle = np.arctan2(resultant_y, resultant_x)
+    
+    return resultant_angle
+
+
+def plot_directed_network(nodes, adjacency_matrix, x, y,max_ai,labels,node_size,arrow_size,node_color,edge_color,fig_size):
+    """
+    Plots a directed network with concentric circles.
+    
+    Parameters:
+        nodes (list): A list of node names or identifiers.
+        adjacency_matrix (list of list of int): The adjacency matrix representing connections.
+        x (list of float): The x-coordinates of the nodes.
+        y (list of float): The y-coordinates of the nodes.
+    """
+    if len(nodes) != len(adjacency_matrix) or len(adjacency_matrix) != len(x) or len(x) != len(y):
+        raise ValueError("Lengths of nodes, adjacency_matrix, x, and y must be equal.")
+    
+    # Create a directed graph
+    G = nx.DiGraph()
+    
+    # Add nodes and their positions
+    positions = {nodes[i]: (x[i], y[i]) for i in range(len(nodes))}
+    G.add_nodes_from(nodes)
+    
+    # Add edges based on the adjacency matrix
+    for i in range(len(nodes)):
+        for j in range(len(nodes)):
+            if adjacency_matrix[i][j] != 0:  # Non-zero value indicates an edge
+                G.add_edge(nodes[i], nodes[j])
+    
+    # Create a plot
+    fig, ax = plt.subplots(figsize=(fig_size, fig_size))
+    
+    # Draw concentric circles
+    for radius in range(1, max_ai+2):  # Radii 1, 2, 3, 4
+        circle = Circle((0, 0), radius, color="black", alpha=1, fill=False, lw=1.5)
+        ax.add_artist(circle)
+    
+    # Draw the graph
+    nx.draw(
+        G, 
+        pos=positions, 
+        with_labels=labels, 
+        node_color=node_color, 
+        edge_color=edge_color, 
+        node_size=node_size, 
+        font_size=node_size/100, 
+        font_color="black", 
+        arrowstyle="->", 
+        arrowsize=arrow_size,
+        connectionstyle="arc3,rad=0.1"  # For curved edges
+    )
+    
+    # Set limits for the plot to accommodate the circles
+    ax.set_xlim(-max_ai-1.5, max_ai+1.5)
+    ax.set_ylim(-max_ai-1.5, max_ai+1.5)
+    ax.set_aspect("equal", adjustable="datalim")
+    
+    
+    plt.show()
