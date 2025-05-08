@@ -1839,10 +1839,9 @@ class Assemble:
         return sampled_sublists
 
 
-# FIX THIS!
     def _valence_check(self, atom1, atom2):
         """
-        Checks if the valence of two atoms allows them to be combined.
+        Checks if the valence of two atoms allows them to be combined. Note: atom types must be the same. 
 
         Args:
             atom1 : list[str, int] A list containing the atom type and free valence of atom 1.
@@ -1852,26 +1851,14 @@ class Assemble:
             bool: True if the atoms can be combined, False otherwise.
         """
         PeriodicTable = Chem.rdchem.GetPeriodicTable()
-        atom_type = atom1[0]
-        # if (
-        #         atom_valence.get(atom1[0], 0)
-        #         - atom1[1]
-        #         + atom_valence.get(atom2[0], 0)
-        #         - atom2[1]
-        # ) <= atom_valence.get(atom_type, 0):
-        #     return True
-        # else:
-        #     return False
-        
-        if (
-            PeriodicTable.GetDefaultValence(atom1[0]) 
-            - atom1[1] 
-            + PeriodicTable.GetDefaultValence(atom2[0])
-            - atom2[1]      
-        ) <= PeriodicTable.GetDefaultValence(atom_type):
-            return True
-        else:   
-            return False
+
+        total_valence_used = (
+            PeriodicTable.GetDefaultValence(atom1[0]) - atom1[1] +
+            PeriodicTable.GetDefaultValence(atom2[0])- atom2[1]   
+        )
+
+        return total_valence_used <= PeriodicTable.GetDefaultValence(atom1[0])
+
 
 
 
