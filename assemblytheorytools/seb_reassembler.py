@@ -876,22 +876,6 @@ class MoleculeSpace(ConstructionObject):
         return list(temp_graph.nodes), removed_observed
 
 
-atom_valence = {
-    "C": 4,
-    "N": 3,
-    "O": 2,
-    "F": 1,
-    "P": 5,
-    "S": 6,
-    "Cl": 1,
-    "Br": 1,
-    "I": 1,
-    "Si": 4,
-    "As": 5,
-    "Se": 2,
-    "B": 3,
-}
-
 
 class MoleculeGenerationAssemblyPool:
     """
