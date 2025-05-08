@@ -1838,6 +1838,8 @@ class Assemble:
             counter += 1
         return sampled_sublists
 
+
+# FIX THIS!
     def _valence_check(self, atom1, atom2):
         """
         Checks if the valence of two atoms allows them to be combined.
@@ -1849,16 +1851,29 @@ class Assemble:
         Returns:
             bool: True if the atoms can be combined, False otherwise.
         """
+        PeriodicTable = Chem.rdchem.GetPeriodicTable()
         atom_type = atom1[0]
+        # if (
+        #         atom_valence.get(atom1[0], 0)
+        #         - atom1[1]
+        #         + atom_valence.get(atom2[0], 0)
+        #         - atom2[1]
+        # ) <= atom_valence.get(atom_type, 0):
+        #     return True
+        # else:
+        #     return False
+        
         if (
-                atom_valence.get(atom1[0], 0)
-                - atom1[1]
-                + atom_valence.get(atom2[0], 0)
-                - atom2[1]
-        ) <= atom_valence.get(atom_type, 0):
+            PeriodicTable.GetDefaultValence(atom1[0]) 
+            - atom1[1] 
+            + PeriodicTable.GetDefaultValence(atom2[0])
+            - atom2[1]      
+        ) <= PeriodicTable.GetDefaultValence(atom_type):
             return True
-        else:
+        else:   
             return False
+
+
 
     def get_possible_combinations(
             self, atomtype_index_mapping1, atomtype_index_mapping2
