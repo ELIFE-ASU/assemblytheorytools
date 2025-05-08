@@ -11,6 +11,8 @@ from IPython.display import HTML
 from matplotlib import colormaps, colors
 from matplotlib.patches import Circle
 from pyvis.network import Network
+from typing import List
+import CFG
 
 
 def n_plot(xlab: str, ylab: str, xs: int = 14, ys: int = 14) -> None:
@@ -447,7 +449,7 @@ def plot_digraph_with_images(graph: nx.DiGraph, image_paths: list[str]) -> None:
     return None
 
 
-def _average_angles(angles):
+def _average_angles(angles: np.ndarray) -> float:
     # Convert angles to unit vectors
     x_components = np.cos(angles)
     y_components = np.sin(angles)
@@ -462,17 +464,18 @@ def _average_angles(angles):
     return resultant_angle
 
 
-def _plot_directed_network(nodes,
-                           adjacency_matrix,
-                           x,
-                           y,
-                           max_ai,
-                           labels,
-                           node_size,
-                           arrow_size,
-                           node_color,
-                           edge_color,
-                           fig_size):
+def _plot_directed_network(nodes : List[str],
+                           adjacency_matrix : np.ndarray,
+                           x : np.ndarray,
+                           y : np.ndarray,
+                           max_ai : int,
+                           labels : bool,
+                           node_size : float,
+                           arrow_size : float,
+                           node_color : str,
+                           edge_color : str,
+                           fig_size : float,
+                           filename: str ): 
     if len(nodes) != len(adjacency_matrix) or len(adjacency_matrix) != len(x) or len(x) != len(y):
         raise ValueError("Lengths of nodes, adjacency_matrix, x, and y must be equal.")
 
@@ -510,26 +513,45 @@ def _plot_directed_network(nodes,
         font_color="black",
         arrowstyle="->",
         arrowsize=arrow_size,
-        connectionstyle="arc3,rad=0.1"  # For curved edges
+        connectionstyle="arc3,rad=0.2"  # For curved edges
     )
 
     # Set limits for the plot to accommodate the circles
     ax.set_xlim(-max_ai - 1.5, max_ai + 1.5)
     ax.set_ylim(-max_ai - 1.5, max_ai + 1.5)
     ax.set_aspect("equal", adjustable="datalim")
+    
+    plt.savefig(f"{filename}", dpi=600)
+    
     return fig, ax
 
 
 def plot_assembly_circle(nodes,
-                         assembly_indices,
-                         adj_matrix,
-                         labels,
-                         node_size,
-                         arrow_size,
-                         node_color,
-                         edge_color,
-                         fig_size):
+                         adj_matrix = None,
+                         assembly_indices = None,
+                         labels = True,
+                         node_size = 1000,
+                         arrow_size = 80,
+                         node_color = 'Skyblue',
+                         edge_color = 'Grey',
+                         fig_size = 10,
+                         filename = 'assembly_circles.png'):
+    
+    
+    if adj_matrix is None: # If adj matrix is not provided, the rules_graph will be the output
+        G = CFG.ai_with_pathways(nodes, f_print=False)[2]
+        nodes = list(G.nodes())
+        adj_matrix = nx.adjacency_matrix(G).toarray()
+    
+    
     n_nodes = len(nodes)
+    
+    if assembly_indices is None: 
+        assembly_indices = np.zeros(n_nodes,dtype = int)
+        
+        for i in range(n_nodes):
+            assembly_indices[i] = CFG.ai_with_pathways(nodes[i], f_print=False)[0]
+    
     angles = np.full(n_nodes, np.nan)
 
     max_ai = max(assembly_indices)
@@ -576,5 +598,6 @@ def plot_assembly_circle(nodes,
                                      arrow_size,
                                      node_color,
                                      edge_color,
-                                     fig_size)
+                                     fig_size,
+                                     filename)
     return fig, ax
