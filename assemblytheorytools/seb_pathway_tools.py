@@ -803,8 +803,6 @@ def accumulate_node_usage(graph, attribute="usage"):
 
 
 
-
-
 def get_atomic_distribution(graph) -> dict:
     """
     Create a dictionary where the keys are SMILES strings (the nodes of the graph) and values are 

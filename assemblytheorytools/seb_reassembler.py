@@ -1403,6 +1403,8 @@ class MoleculeGenerationAssemblyPool:
             atomtype_index_mapping[atom.GetIdx()].append(free_atom_valence)
         return mol, atomtype_index_mapping
 
+
+    # This is a beast. 
     def random_construct_n_molecules(
             self,
             n,
@@ -1479,7 +1481,8 @@ class MoleculeGenerationAssemblyPool:
 
         assemble_object = Assemble()
         self.set_assembly_pool(X=X, remove_pathways=remove_pathways)
-        # starting level
+
+        # Starting level
         level = max(nx.get_node_attributes(self.original_a_minus_X, "level").values())
         self.set_sw_n_steps(level=level, exponent=step_exponent)
 
