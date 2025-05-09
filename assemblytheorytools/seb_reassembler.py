@@ -32,7 +32,7 @@ bond_types = {
 
 
 class ConstructionObject:
-
+# Proposal to rename reconstuct_joint_assembly_space to just construct_assembly_space !
     def reconstruct_joint_assembly_space(self, assembly_out: dict) -> tuple:
     # It will be better to just make the assembly_out BE the CPP output, and not 
     # have CPP as a subdirectory within in.
@@ -526,6 +526,7 @@ class Molecule(ConstructionObject):
             self.construct_layered_graph()
         return self.smiles
 
+# Maybe reconstruct_joint_assembly_space should be more generally named because it is applied to individual molecules as well? 
     def reconstruct_pathway(self) -> None:
         """
         Reconstructs the molecular assembly pathway.
@@ -760,7 +761,7 @@ class MoleculeSpace(ConstructionObject):
     def construct_joined_graph(self) -> None:
         """
         Construct the joined graph of this molecule space.
-        Only one node of each molecule is included in the joined graph.
+        Only one fragment of each molecule is included in the joined graph.
         Edges that are in multiple graphs are only included once.
 
         Returns:
@@ -1411,8 +1412,7 @@ class MoleculeGenerationAssemblyPool:
             exponent: float = 1.0,
             layer_exponent: float = 2.0,
             step_exponent: float = 1.0,
-            remove_pathways: bool = False,
-            check_final_molecule: bool = True,
+            remove_pathways: bool = False
     ):
         """
         Constructs `n` molecules through a stochastic fragment assembly process.
@@ -1431,7 +1431,6 @@ class MoleculeGenerationAssemblyPool:
             layer_exponent (float, optional): The exponent controlling layer sampling bias. Defaults to `2.0`.
             step_exponent (float, optional): The exponent controlling step weighting. Defaults to `1.0`.
             remove_pathways (bool, optional): If `True`, removes pathways from the assembly pool. Defaults to `False`.
-            check_final_molecule (bool, optional): If `True`, validates the final constructed molecules using RDKit. Defaults to `True`.
 
         Returns:
             None
