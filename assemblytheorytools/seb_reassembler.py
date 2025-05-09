@@ -1556,7 +1556,7 @@ class MoleculeGenerationAssemblyPool:
 
 
 class Assemble:
-    BASE_WEIGHTS = [0.908, 0.075, 0.0137, 0.003]
+    BASE_WEIGHTS = [0.908, 0.075, 0.0137, 0.003] # Why there are only 4, I do not know. 
 
     """These weights were used to construct drug-like molecules from the JAS of natural products
     # The 10,000 molecules example
@@ -1731,6 +1731,9 @@ class Assemble:
         """
         return min(f1_atoms, f2_atoms)
 
+
+# NEED TO MAKE BASE WEIGHTS A PARAMETER / ARGUMENT...
+# NEED TO MAKE WEIGHTS ONLY A LIST OR DICT, NOT BOTH. 
     def select_n_overlaps(
             self, f1_atoms, f2_atoms, p_combinations_copy, layer=None
     ) -> int:
@@ -1748,11 +1751,17 @@ class Assemble:
         """
         max_overlap = self.select_max_overlaps(f1_atoms, f2_atoms)
 
+
+        # Why is this only relevant for the BASE weights? 
         allowed_num_combinations = min(
             self.count_non_overlapping_sublists(p_combinations_copy),
             max_overlap,
         )
 
+
+
+        # Is this saying if BASE_WEIGHTS are defined, it will use them? 
+        # Better if this is an argument in the function. 
         if isinstance(self.BASE_WEIGHTS, dict):
             weights = [
                 v
@@ -1769,9 +1778,13 @@ class Assemble:
         combinations = self.get_allowed_pairs(p_combinations_copy, k=num_combinations)
         return combinations
 
+   
+
+   # Isn't this already biasing the combinations that can exist? 
     def count_non_overlapping_sublists(self, lst):
         """
-        Counts the number of non-overlapping sublists in a list of lists.
+        Counts the number of non-overlapping sublists in a list of lists, for the purpose of 
+        determining the number of pairs of atoms that can be combined without reusing atoms from either fragment.
 
         Args:
             lst : list[list] A list of lists.
@@ -1794,6 +1807,7 @@ class Assemble:
         # Return the counter for the number of non-overlapping sublists
         return count
 
+# Isn't some of this redundant with trying to figure out non-overlapping sublists? 
     def get_allowed_pairs(self, combinations, k):
         """
         Returns a list of k allowed pairs of atoms from a list of possible combinations.
@@ -1859,7 +1873,7 @@ class Assemble:
             atomtype_index_mapping2 : dict A dictionary mapping atom index to atom type and free valence for fragment 2.
         
         Returns:
-            possible_combinations : list[list[int, int]] A list of possible atom combinations.
+            possible_combinations : list[list[int, int]] A list of possible atom combinations. Each combination is a list of two atom indices.
         """
         possible_combinations = []
         for atom1 in atomtype_index_mapping1:
@@ -1872,7 +1886,7 @@ class Assemble:
                     atomtype_index_mapping1[atom1],
                     atomtype_index_mapping2[atom2],
                 ):
-                    possible_combinations.append([atom1, atom2])
+                    possible_combinations.append([atom1, atom2]) # Store the atom indices
 
         if possible_combinations:
             random.shuffle(possible_combinations)
