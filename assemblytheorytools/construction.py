@@ -191,18 +191,17 @@ def select_length(dict_array):
     return dict_array["len"]
 
 
-def tables_to_mol(tables, add_hydrogens=False):
+def tables_to_mol(tables):
     """
     Converts atom and bond information into an RDKit molecule object.
 
     This function takes a tuple containing atom and bond information, constructs an RDKit RWMol object,
-    adds atoms and bonds to it, and then performs light sanitisation.
+    adds atoms and bonds to it.
 
     Args:
         tables (tuple): A tuple containing two lists:
             - atoms_info (list): A list of tuples where each tuple contains an atom index and atom type.
             - bonds_info (list): A list of tuples where each tuple contains two atom indices and a bond type.
-        add_hydrogens (bool): A flag indicating whether to add hydrogens to the molecule. Default is False.
 
     Returns:
         Chem.Mol: An RDKit molecule object with the specified atoms and bonds.
@@ -220,8 +219,7 @@ def tables_to_mol(tables, add_hydrogens=False):
 
     mol = edit_mol.GetMol()
 
-    # Perform light sanitisation
-    return mol #safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
+    return mol
 
 
 def tables_to_nx(tables):

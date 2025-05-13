@@ -430,12 +430,12 @@ def test_construction_pathway_smi():
 
     smi = "CC=O"  # Acetaldehyde
     mol = att.smi_to_mol(smi)
-    ai, virt_obj, pathway = att.calculate_assembly_index(mol, debug=False)
+    ai, virt_obj, pathway = att.calculate_assembly_index(mol)
     pathway, vo_list = pathway
 
-    vo_list_ref = ['[H]C([H])([H])C([H])([H])[H]', '[H]C(=O)C([H])([H])[H]', '[H]C([H])=O', '[H]C([H])([H])[H]']
+    vo_list_ref = ['[H]C([H])([H])C', 'C=O', '[H]C[H]', '[H]C', '[H]CC([H])([H])[H]', 'CC', '[H]C(=O)C([H])([H])[H]', '[H]C([H])[H]']
     assert ai == 5
-    assert len(virt_obj) == len(set(vo_list_ref))
+    assert len(vo_list) == len(set(vo_list_ref))
     assert pathway.number_of_nodes() == 8
     assert pathway.number_of_edges() == 9
 
@@ -446,16 +446,22 @@ def test_construction_pathway_joint():
     print(flush=True)
     smi = "CC=O.OCC"
     mol = att.smi_to_mol(smi)
-    ai, virt_obj, pathway = att.calculate_assembly_index(mol, debug=False)
+    ai, virt_obj, pathway = att.calculate_assembly_index(mol)
     pathway, vo_list = pathway
 
-    vo_list_ref = ['[H]C([H])([H])[H]',
+    vo_list_ref = ['[H]C',
+                   '[H]C([H])C',
+                   'CC',
+                   '[H]C([H])([H])C',
+                   '[H]CC',
+                   '[H]CC([H])([H])[H]',
                    '[H]C(=O)C([H])([H])[H]',
-                   '[H]OC([H])([H])C([H])([H])[H]',
-                   '[H]OC([H])([H])[H]',
-                   '[H]C([H])([H])C([H])([H])[H]',
-                   '[H]C([H])=O',
-                   '[H]O[H]']
+                   '[H]CO',
+                   'CO',
+                   'C=O',
+                   '[H]O',
+                   '[H]CO[H]',
+                   '[H]OC([H])([H])C([H])([H])[H]']
     assert ai == 8
     assert pathway.number_of_nodes() == 13
     assert pathway.number_of_edges() == 16
