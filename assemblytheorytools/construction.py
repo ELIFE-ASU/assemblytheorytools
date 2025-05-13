@@ -221,7 +221,7 @@ def tables_to_mol(tables, add_hydrogens=False):
     mol = edit_mol.GetMol()
 
     # Perform light sanitisation
-    return safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
+    return mol #safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
 
 
 def tables_to_nx(tables):
