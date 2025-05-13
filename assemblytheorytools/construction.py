@@ -191,7 +191,7 @@ def select_length(dict_array):
     return dict_array["len"]
 
 
-def tables_to_mol(tables, add_hydrogens=True):
+def tables_to_mol(tables, add_hydrogens=False):
     """
     Converts atom and bond information into an RDKit molecule object.
 
@@ -202,7 +202,7 @@ def tables_to_mol(tables, add_hydrogens=True):
         tables (tuple): A tuple containing two lists:
             - atoms_info (list): A list of tuples where each tuple contains an atom index and atom type.
             - bonds_info (list): A list of tuples where each tuple contains two atom indices and a bond type.
-        add_hydrogens (bool): A flag indicating whether to add hydrogens to the molecule. Default is True.
+        add_hydrogens (bool): A flag indicating whether to add hydrogens to the molecule. Default is False.
 
     Returns:
         Chem.Mol: An RDKit molecule object with the specified atoms and bonds.
