@@ -433,7 +433,8 @@ def test_construction_pathway_smi():
     ai, virt_obj, pathway = att.calculate_assembly_index(mol)
     pathway, vo_list = pathway
 
-    vo_list_ref = ['[H]C([H])([H])C', 'C=O', '[H]C[H]', '[H]C', '[H]CC([H])([H])[H]', 'CC', '[H]C(=O)C([H])([H])[H]', '[H]C([H])[H]']
+    vo_list_ref = ['[H]C([H])([H])C', 'C=O', '[H]C[H]', '[H]C', '[H]CC([H])([H])[H]', 'CC', '[H]C(=O)C([H])([H])[H]',
+                   '[H]C([H])[H]']
     assert ai == 5
     assert len(vo_list) == len(set(vo_list_ref))
     assert pathway.number_of_nodes() == 8
@@ -462,10 +463,13 @@ def test_construction_pathway_joint():
                    '[H]O',
                    '[H]CO[H]',
                    '[H]OC([H])([H])C([H])([H])[H]']
+
+    att.plot_digraph_metro(pathway, filename="test")
+    os.remove("test.png")
+    os.remove("test.svg")
+
     assert ai == 8
     assert pathway.number_of_nodes() == 13
     assert pathway.number_of_edges() == 16
 
     assert att.check_elements(vo_list, vo_list_ref)
-
-    att.plot_digraph_metro(pathway, filename="test")
