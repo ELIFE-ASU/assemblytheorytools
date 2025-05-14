@@ -473,3 +473,17 @@ def test_construction_pathway_joint():
     assert pathway.number_of_edges() == 16
 
     assert att.check_elements(vo_list, vo_list_ref)
+
+
+def test_calculate_assembly_index_parallel():
+    smiles = ['[H]OC(=O)C([H])([H])N([H])[H]',
+              '[H]OC(=O)C([H])(N([H])[H])C([H])([H])[H]',
+              '[H]OC(=O)C([H])([H])N([H])[H]',
+              '[H]C([H])([H])C([H])([H])[H]',
+              '[H]OC(=O)C([H])([H])N([H])[H]']
+    mols = [Chem.AddHs(Chem.MolFromSmiles(smi, sanitize=True)) for smi in smiles]
+
+    # Calculate the assembly index in parallel
+    ai, vo, pathway = att.calculate_assembly_index_parallel(mols, dict(strip_hydrogen=True))
+    ref_list = [3, 4, 3, 0, 3]
+    assert att.check_elements(ai, ref_list)
