@@ -106,13 +106,14 @@ from .tools_string import (load_fasta,
                            get_unique_char)
 from .tools_test import (check_elements, print_graph_details)
 
+from .seb_reassembler import (MoleculeGenerationAssemblyPool, Molecule, MoleculeSpace, Assemble)
 __version__ = "1.5.0"
 
 """
 AssemblyTheoryTools
 ===================
-
 A comprehensive Python package for assembly theory analysis and molecular graph manipulation.
+
 
 This package provides a suite of tools and functions for applying assembly theory concepts,
 calculating molecular complexity scores, manipulating molecular graphs, analyzing pathways,
