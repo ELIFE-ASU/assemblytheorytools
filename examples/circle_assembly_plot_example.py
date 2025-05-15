@@ -4,45 +4,20 @@ import CFG
 import assemblytheorytools as att
 
 '''
-Here is a function to plot a graph, where objects are displayed in concentric
+Here is example a code to plot a graph, where objects are displayed in concentric
 circles according to their assembly index. 
 
-    Parameters:
-    ----------
-    nodes : list
-        A list of nodes in the network that are to be visualized.
-    
-    assembly_indices (OPTIONAL): list or numpy.ndarray
-        If not provided, they will be calculated for strings.
-        
-    adj_matrix (OPTIONAL, but recommended): numpy.ndarray
-        A square adjacency matrix representing the relationships between nodes.
-        If adj_matrix[i, j] >= 1, it signifies that node i points to node j.
-        If not provided, rules_graph will be used as adjacency matrix.
-        IMPORTANT: if provided, must be assembly-consistent, that is, all nodes
-        must be pointed to by at least one node with a lower assembly index, 
-        except for nodes with the minimum assembly index, which will be considered
-        the building blocks. 
-    
-    labels : list
-        A list of labels corresponding to the nodes. These labels can be used for debugging or display purposes.
-    
-    node_size : float
-    
-    arrow_size (OPTIONAL): float
-    
-    node_color (OPTIONAL): str or list
-    
-    edge_color (OPTIONAL): str or list
-    
-    fig_size (OPTIONAL): float
-    
-    filename (OPTIONAL): str
-
+adj_matri (OPTIONAL, but recommended): numpy.ndarray
+A square adjacency matrix representing the relationships between nodes.
+If adj_matrix[i, j] >= 1, it signifies that node i points to node j.
+If not provided, rules_graph will be used as adjacency matrix.
+IMPORTANT: if provided, must be assembly-consistent, that is, all nodes
+must be pointed to by at least one node with a lower assembly index, 
+except for nodes with the minimum assembly index, which will be considered
+the building blocks. 
 '''
 
 # Define our example set of nodes and adjacency matrix
-
 nodes = ['b', 'a', 'd', 'c', 'ba', 'dc', 'baa', 'bad', 'badc', 'baab', 'baba', 'ddbcd', 'bcdda']
 
 adj_matrix = np.array([
@@ -62,11 +37,9 @@ adj_matrix = np.array([
 ])
 
 # Specifying adjacency matrix:
-
 att.plot_assembly_circle(nodes, adj_matrix)
 
 # Without specifying adjacency matrix with given parameters:
-
 labels = True
 node_size = 1000
 arrow_size = 50
