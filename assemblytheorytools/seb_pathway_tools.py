@@ -1,14 +1,13 @@
 import copy
 import os
-import re
+from collections import defaultdict
+
 import igraph
 import networkx as nx
 import numpy as np
-from collections import defaultdict
 from rdkit import Chem
 from rdkit.Chem import Draw
 from rdkit.Chem import MolFromSmiles
-from rdkit.Chem import rdFingerprintGenerator
 from rdkit.Chem.Draw import rdMolDraw2D
 from rdkit.Chem.rdchem import RWMol
 
@@ -101,7 +100,6 @@ def equivalence(pieces, equivalences):
     return pieces_mod
 
 
-# Questioning if this is even needed! 
 class assemblyConstruction:
     def __init__(
             self,
@@ -659,9 +657,6 @@ class assemblyConstruction:
         return None
 
 
-
-
-
 def compose_all(
         graphs,
         attribute="level",
@@ -802,7 +797,6 @@ def accumulate_node_usage(graph, attribute="usage"):
     return node_usage
 
 
-
 def get_atomic_distribution(graph) -> dict:
     """
     Create a dictionary where the keys are SMILES strings (the nodes of the graph) and values are 
@@ -830,7 +824,7 @@ def get_atomic_distribution(graph) -> dict:
         else:
             for atom in mol.GetAtoms():
                 free_atom_valence = (
-                    PeriodicTable.GetDefaultValence(atom.GetSymbol()) - atom.GetExplicitValence()
+                        PeriodicTable.GetDefaultValence(atom.GetSymbol()) - atom.GetExplicitValence()
                 )
                 # Only relevant atoms
                 if free_atom_valence > 0:
@@ -840,10 +834,6 @@ def get_atomic_distribution(graph) -> dict:
     return atomic_count
 
 
-
-
-
-# Assuming this is for AssemblyCPP
 def parse_pathway_file_ian(data):
     v = data["file_graph"][0]['Vertices']
     e = data["file_graph"][0]['Edges']
@@ -863,15 +853,13 @@ def parse_pathway_file_ian(data):
         pathway_success = True
     except ValueError as e:
         pathway_success = False
-        print("error", flush = True)
+        print("error", flush=True)
     except IndexError as e:
         pathway_success = False
-        print("error", flush = True)
+        print("error", flush=True)
 
     return pathway_success, construction_object
 
-
-#--------
 
 def transfrom_bond(bond):
     if bond == 1.0:
@@ -882,7 +870,7 @@ def transfrom_bond(bond):
         return Chem.rdchem.BondType.TRIPLE
     return "error"
 
-# Used in assemblyConstruction
+
 def tables2mol(tables):
     atoms_info, bonds_info = tables
     emol = RWMol()
@@ -902,4 +890,3 @@ def transfrom_bond_float(bond):
     if bond == "triple":
         return 3.0
     return "error"
-

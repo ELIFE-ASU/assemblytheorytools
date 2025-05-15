@@ -1,16 +1,6 @@
-from rdkit import Chem
-from rdkit.Chem import Draw
-
 import ast
-import random
-from matplotlib.offsetbox import OffsetImage, AnnotationBbox
-import matplotlib.pyplot as plt
-import networkx as nx
-import numpy as np
-from collections import defaultdict
-from typing import Optional
-import subprocess
 import json
+import random
 import signal
 import subprocess
 from collections import defaultdict
@@ -18,11 +8,16 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Optional
 
-from .seb_pathway_tools import parse_pathway_file_ian, compose_all, assemblyConstruction
-from .tools_mol import safe_standardize_mol, standardize_mol
+import matplotlib.pyplot as plt
+import networkx as nx
+import numpy as np
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+from rdkit import Chem
+from rdkit.Chem import Draw
 
+from .seb_pathway_tools import parse_pathway_file_ian, compose_all
+from .tools_mol import safe_standardize_mol
 
-# This is only used to read lines from the Log Pathway. Unclear if this is specific to Go output
 bond_types = {
     "single": Chem.BondType.SINGLE,
     "double": Chem.BondType.DOUBLE,
@@ -32,10 +27,10 @@ bond_types = {
 
 
 class ConstructionObject:
-# Proposal to rename reconstuct_joint_assembly_space to just construct_assembly_space !
+    # Proposal to rename reconstuct_joint_assembly_space to just construct_assembly_space !
     def reconstruct_joint_assembly_space(self, assembly_out: dict) -> tuple:
-    # It will be better to just make the assembly_out BE the CPP output, and not 
-    # have CPP as a subdirectory within in.
+        # It will be better to just make the assembly_out BE the CPP output, and not
+        # have CPP as a subdirectory within in.
         """
         Get the estimated joint assembly space of a molecule space.
 
@@ -61,7 +56,6 @@ class ConstructionObject:
 
 
 class ParsePathwayLog:
-
     # Conversion to a graph
     global bond_types
 
@@ -147,8 +141,6 @@ class ParsePathwayLog:
 
         return atom_lines, buildingblock_lines, steps_lines, digraph_lines
 
-
-
     def construct_basic_bb(self):
         """
         Construct basic building blocks from the pathway log.
@@ -167,9 +159,6 @@ class ParsePathwayLog:
                 edmol.GetMol()
             )  # key name to match pathway_log format
         return bb
-
-
-
 
     def construct_fragment_for_step(self, step: str | int):
         """
@@ -526,7 +515,7 @@ class Molecule(ConstructionObject):
             self.construct_layered_graph()
         return self.smiles
 
-# Maybe reconstruct_joint_assembly_space should be more generally named because it is applied to individual molecules as well? 
+    # Maybe reconstruct_joint_assembly_space should be more generally named because it is applied to individual molecules as well?
     def reconstruct_pathway(self) -> None:
         """
         Reconstructs the molecular assembly pathway.
@@ -543,7 +532,7 @@ class Molecule(ConstructionObject):
         """
 
         if self.assembly_output is None:
-            print("Warning: `assembly_output` is None. Attempting to calculate pathway...", flush = True)
+            print("Warning: `assembly_output` is None. Attempting to calculate pathway...", flush=True)
             self.calc_pathway()
         (
             self.pathway_fragments,
@@ -593,10 +582,9 @@ class Molecule(ConstructionObject):
                     self.assembly_output = {"cpp_output": f.read()}
 
         else:
-            raise(ValueError("assembly_version must be 'assemblyCpp'"))
+            raise (ValueError("assembly_version must be 'assemblyCpp'"))
 
         return None
-
 
     def calc_pathway(self) -> None:
         """
@@ -614,7 +602,7 @@ class Molecule(ConstructionObject):
             print(
                 Chem.MolToMolBlock(mol),
                 file=open("".join(["temp", ".mol"]), "w+"),
-                flush = True
+                flush=True
             )
         except Exception:
             return None
@@ -808,7 +796,7 @@ class MoleculeSpace(ConstructionObject):
         they are removed from the assembly pool.
         """
         if self.joined_assembly_graph is None:
-            print("Constructing joined assembly graph.", flush = True)
+            print("Constructing joined assembly graph.", flush=True)
             self.construct_joined_graph()
 
         self.max_assembly_index = max(
@@ -832,14 +820,14 @@ class MoleculeSpace(ConstructionObject):
             for node in to_remove:
                 # happens sometimes when fragment is twice in a single pathway. Count is already 0
                 if not temp_graph.has_node(node):
-                    print(f"Node {node} not in graph", flush = True)
+                    print(f"Node {node} not in graph", flush=True)
                     continue
                 try:
                     pw_nodes = self.molecules[
                         self.molecule_smiles.index(node)
                     ].G.nodes
                 except Exception as e:
-                    print(f"Could not find {node}", e, flush = True)
+                    print(f"Could not find {node}", e, flush=True)
                     # used to be problem in an old JAS
                     temp_graph.remove_node(node)
                     continue
@@ -875,7 +863,6 @@ class MoleculeSpace(ConstructionObject):
         if get_graph:
             return temp_graph, removed_observed
         return list(temp_graph.nodes), removed_observed
-
 
 
 class MoleculeGenerationAssemblyPool:
@@ -1014,7 +1001,6 @@ class MoleculeGenerationAssemblyPool:
 
         return leaf_counts
 
-
     # Similar to get_atomic_distribution....
     # Clarify what this does...
     def add_to_assembly_graph(self, parents, child) -> bool:
@@ -1029,7 +1015,7 @@ class MoleculeGenerationAssemblyPool:
             bool: True if the child node is successfully added, False otherwise.
             Updates the `self.assembly_pool.joined_assembly_graph_minus_x` attribute.
         """
-        
+
         PeriodicTable = Chem.rdchem.GetPeriodicTable()
         atomic_count = []
         try:
@@ -1043,7 +1029,7 @@ class MoleculeGenerationAssemblyPool:
 
 
         except AttributeError:
-            print(child, flush = True)
+            print(child, flush=True)
             return False
 
         for parent in parents:
@@ -1073,13 +1059,6 @@ class MoleculeGenerationAssemblyPool:
         ] = set(atomic_count)
 
         return True
-
-
-
-
-
-
-
 
     def construct_diverged_assembly_graph(self):
         """
@@ -1349,7 +1328,7 @@ class MoleculeGenerationAssemblyPool:
             layer=layer,
         )
 
-# Also similar to get_atomic_distribution! What is going on
+    # Also similar to get_atomic_distribution! What is going on
     def get_atomtype_index_mapping(self, fragment):
         """
         Retrieves the molecular representation and atomic index mapping for a given fragment.
@@ -1381,7 +1360,6 @@ class MoleculeGenerationAssemblyPool:
             - Free valence is determined based on predefined valence rules from rdkit PeriodicTable.
         """
 
-
         try:
             mol = Chem.MolFromSmiles(fragment, sanitize=False)
             mol = Chem.RemoveHs(mol, implicitOnly=False)
@@ -1393,18 +1371,16 @@ class MoleculeGenerationAssemblyPool:
         PeriodicTable = Chem.rdchem.GetPeriodicTable()
         atomtype_index_mapping = defaultdict(list)
 
-
         for atom in mol.GetAtoms():
             # check for free valence of atoms
             free_atom_valence = (
-                PeriodicTable.GetDefaultValence(atom.GetSymbol()) - atom.GetExplicitValence()
+                    PeriodicTable.GetDefaultValence(atom.GetSymbol()) - atom.GetExplicitValence()
             )
             atomtype_index_mapping[atom.GetIdx()].append(atom.GetSymbol())
             atomtype_index_mapping[atom.GetIdx()].append(free_atom_valence)
         return mol, atomtype_index_mapping
 
-
-    # This is a beast. 
+    # This is a beast.
     def random_construct_n_molecules(
             self,
             n,
@@ -1558,7 +1534,7 @@ class MoleculeGenerationAssemblyPool:
 
 
 class Assemble:
-    BASE_WEIGHTS = [0.908, 0.075, 0.0137, 0.003] # Why there are only 4, I do not know. 
+    BASE_WEIGHTS = [0.908, 0.075, 0.0137, 0.003]  # Why there are only 4, I do not know.
 
     """These weights were used to construct drug-like molecules from the JAS of natural products
     # The 10,000 molecules example
@@ -1733,9 +1709,8 @@ class Assemble:
         """
         return min(f1_atoms, f2_atoms)
 
-
-# NEED TO MAKE BASE WEIGHTS A PARAMETER / ARGUMENT...
-# NEED TO MAKE WEIGHTS ONLY A LIST OR DICT, NOT BOTH. 
+    # NEED TO MAKE BASE WEIGHTS A PARAMETER / ARGUMENT...
+    # NEED TO MAKE WEIGHTS ONLY A LIST OR DICT, NOT BOTH.
     def select_n_overlaps(
             self, f1_atoms, f2_atoms, p_combinations_copy, layer=None
     ) -> int:
@@ -1753,16 +1728,13 @@ class Assemble:
         """
         max_overlap = self.select_max_overlaps(f1_atoms, f2_atoms)
 
-
-        # Why is this only relevant for the BASE weights? 
+        # Why is this only relevant for the BASE weights?
         allowed_num_combinations = min(
             self.count_non_overlapping_sublists(p_combinations_copy),
             max_overlap,
         )
 
-
-
-        # Is this saying if BASE_WEIGHTS are defined, it will use them? 
+        # Is this saying if BASE_WEIGHTS are defined, it will use them?
         # Better if this is an argument in the function. 
         if isinstance(self.BASE_WEIGHTS, dict):
             weights = [
@@ -1780,9 +1752,7 @@ class Assemble:
         combinations = self.get_allowed_pairs(p_combinations_copy, k=num_combinations)
         return combinations
 
-   
-
-   # Isn't this already biasing the combinations that can exist? 
+    # Isn't this already biasing the combinations that can exist?
     def count_non_overlapping_sublists(self, lst):
         """
         Counts the number of non-overlapping sublists in a list of lists, for the purpose of 
@@ -1809,7 +1779,7 @@ class Assemble:
         # Return the counter for the number of non-overlapping sublists
         return count
 
-# Isn't some of this redundant with trying to figure out non-overlapping sublists? 
+    # Isn't some of this redundant with trying to figure out non-overlapping sublists?
     def get_allowed_pairs(self, combinations, k):
         """
         Returns a list of k allowed pairs of atoms from a list of possible combinations.
@@ -1838,7 +1808,6 @@ class Assemble:
             counter += 1
         return sampled_sublists
 
-
     def _valence_check(self, atom1, atom2):
         """
         Checks if the valence of two atoms allows them to be combined. Note: atom types must be the same. 
@@ -1853,14 +1822,11 @@ class Assemble:
         PeriodicTable = Chem.rdchem.GetPeriodicTable()
 
         total_valence_used = (
-            PeriodicTable.GetDefaultValence(atom1[0]) - atom1[1] +
-            PeriodicTable.GetDefaultValence(atom2[0])- atom2[1]   
+                PeriodicTable.GetDefaultValence(atom1[0]) - atom1[1] +
+                PeriodicTable.GetDefaultValence(atom2[0]) - atom2[1]
         )
 
         return total_valence_used <= PeriodicTable.GetDefaultValence(atom1[0])
-
-
-
 
     def get_possible_combinations(
             self, atomtype_index_mapping1, atomtype_index_mapping2
@@ -1888,7 +1854,7 @@ class Assemble:
                     atomtype_index_mapping1[atom1],
                     atomtype_index_mapping2[atom2],
                 ):
-                    possible_combinations.append([atom1, atom2]) # Store the atom indices
+                    possible_combinations.append([atom1, atom2])  # Store the atom indices
 
         if possible_combinations:
             random.shuffle(possible_combinations)
@@ -1968,20 +1934,19 @@ class Assemble:
 
         # Check if molecule is valid and standardize 
         try:
-            mol = rw_mol.GetMol() # Convert editable mol to mol object
+            mol = rw_mol.GetMol()  # Convert editable mol to mol object
             mol = safe_standardize_mol(mol, add_hydrogens=True)
             mol = Chem.RemoveHs(mol)
             smiles = Chem.MolToSmiles(mol)
 
-        except Exception as e: 
-            print(f"Standardization failed: {e}", flush = True)
+        except Exception as e:
+            print(f"Standardization failed: {e}", flush=True)
             return None
-        
+
         return smiles
 
-
-# Double check doc strings = unsure if fragments are actually mol objects or SMILES strings
-# Accoridng to combine_fragments - they are smiles srtrings
+    # Double check doc strings = unsure if fragments are actually mol objects or SMILES strings
+    # Accoridng to combine_fragments - they are smiles srtrings
     def create_bond(
             self,
             fragment1,
@@ -2033,7 +1998,7 @@ class Assemble:
         while len(p_combinations_copy) > 0 and fail_safe < 5000:
             fail_safe += 1
             if fail_safe == 5000:
-                print("fail safe create bond", flush = True)
+                print("fail safe create bond", flush=True)
             f1 = deepcopy(fragment1)
             f2 = deepcopy(fragment2)
 

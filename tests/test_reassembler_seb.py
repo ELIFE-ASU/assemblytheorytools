@@ -1,15 +1,9 @@
-import os
-import shutil
-import networkx as nx
-import numpy as np
-import pytest
-from ase.io import read
-from ase.visualize import view
-from rdkit import Chem
-from rdkit.Chem import AllChem as Chem
 import random
 
+import networkx as nx
+
 import assemblytheorytools as att
+
 
 def test_seb_molecule_construction():
     """
@@ -27,12 +21,12 @@ def test_seb_molecule_construction():
     random.seed(10)
 
     # Create minimal graph as a mock assembly pool
-    G = nx.DiGraph()
-    G.add_nodes_from(["NCC(O)=O", "CC(N)C(O)=O"])  # Glycine, alanine
-    molecule_generation = att.MoleculeGenerationAssemblyPool(G)
+    graph = nx.DiGraph()
+    graph.add_nodes_from(["NCC(O)=O", "CC(N)C(O)=O"])  # Glycine, alanine
+    molecule_generation = att.MoleculeGenerationAssemblyPool(graph)
 
     # Combine two fragments together to form new molecule
-    list_fragments = list(G.nodes)
+    list_fragments = list(graph.nodes)
     fragment1 = list_fragments[0]
     fragment2 = list_fragments[1]
     product = molecule_generation.combine_fragments(fragment1=fragment1, fragment2=fragment2,
@@ -41,7 +35,7 @@ def test_seb_molecule_construction():
     assert product == "CC(N)C(=O)OC(=O)CN"
 
 
-def test_seb_combine_pathways():  # mol_space.construct_joined_graph() Method from MoleculeSpace
+def test_seb_combine_pathways():
     """
     Test the combination of two molecules' assembly pathways for an estimated JAS.
     Only one node of each molecule is included in the joined directed graph. 
@@ -110,7 +104,7 @@ def test_seb_assembly_layer_removal():
     mol_space.construct_joined_graph()  # Creates the estimated joint assembly
 
     # Remove layer (all molecules with assembly index of 1)
-    G, _ = mol_space.a_minus_x_assembly_pool(X=1)  # Returns the resuling graph
+    G, _ = mol_space.a_minus_x_assembly_pool(X=1)  # Returns the resulting graph
 
     assert nx.is_isomorphic(G, H)
 
@@ -133,11 +127,10 @@ def test_seb_constructing_n_molecules():
     2. The diverged assembly pool appropriately depicts this new construction.
     """
     print(flush=True)
-    random.seed(
-        2)  # This particular seed generates novel products that don't exist in the pool: propane and acetic acid
+    # This particular seed generates novel products that don't exist in the pool: propane and acetic acid
+    random.seed(2)
 
     # Constructed expected graph
-    H = nx.MultiDiGraph()
     nodes = ['CC', 'CO', 'C=O', 'CCC', 'O=CO']
     edges = [('CC', 'CCC'), ('CO', 'O=CO'), ('C=O', 'O=CO')]
     H = nx.DiGraph()
@@ -150,7 +143,7 @@ def test_seb_constructing_n_molecules():
     # represented as a directed graph. 
     for smiles_str in smiles:
         molecule = att.Molecule(smiles=smiles_str, assembly_version="assemblyCpp")
-        molecule.reconstruct_pathway()  
+        molecule.reconstruct_pathway()
         molecule.construct_layered_graph()
         molecule_list.append(molecule)
 
@@ -158,10 +151,11 @@ def test_seb_constructing_n_molecules():
     mol_space = att.MoleculeSpace(molecules=molecule_list)
     mol_space.construct_joined_graph()  # Creates the estimated joint assembly
 
-    # Testing novel molecule generation
-    molecule_generation = att.MoleculeGenerationAssemblyPool(mol_space)  # Insert assembly pool? Or the whole mol space?
-    molecule_generation.random_construct_n_molecules(2, 1, X=1) # Number of molecules to generate, number of steps in combinating fragments, number of layers to remove
-    molecule_generation.assembled_molecules  # Output, a defaultdict that includes the fragments
+    # Testing novel molecule generation, insert assembly pool? Or the whole mol space?
+    molecule_generation = att.MoleculeGenerationAssemblyPool(mol_space)
+    # Number of molecules to generate, number of steps in combinating fragments, number of layers to remove
+    molecule_generation.random_construct_n_molecules(2, 1, X=1)
+    molecule_generation.assembled_molecules  # Output, a default dict that includes the fragments
 
     # Grab assembled molecules (SMILES) only from results
     assembled_molecules = [sublist[0][2] for sublist in molecule_generation.assembled_molecules.values()]
