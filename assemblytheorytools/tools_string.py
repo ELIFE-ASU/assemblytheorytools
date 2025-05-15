@@ -36,7 +36,7 @@ def load_fasta(file_path: str) -> str:
 
 def prep_joint_string_ai(input_list: List[str]) -> Tuple[str, List[str]]:
     """
-    Compute the joint assembly index of strings by concatenating them with unique delimiters.
+    Combine a list of strings by concatenating them with unique delimiters.
 
     Args:
         input_list (List[str]): List of input strings to be concatenated.
@@ -74,11 +74,12 @@ def get_unique_char(input_str: str) -> str:
     Returns:
         str: A unique character not present in the input string.
     """
-    for i in range(1,
-                   1114111):  # Max Unicode code point is 0x10FFFF, which is 1114111 in decimal, start at 1 to skip null
+    for i in range(0x21, 0x7E):  # ASCII printable characters excluding space, max of 94 delimiters
         char = chr(i)
         if char not in input_str:
             return char
+    
+    raise ValueError("Ran out of delimiter symbols. Try broadening the range of allowable symbols.")
 
 
 def get_undir_str_molecule(undir_str: str, debug: bool = False) -> tuple[nx.Graph, dict[str, str]]:
