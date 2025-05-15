@@ -464,18 +464,18 @@ def _average_angles(angles: np.ndarray) -> float:
     return resultant_angle
 
 
-def _plot_directed_network(nodes : List[str],
-                           adjacency_matrix : np.ndarray,
-                           x : np.ndarray,
-                           y : np.ndarray,
-                           max_ai : int,
-                           labels : bool,
-                           node_size : float,
-                           arrow_size : float,
-                           node_color : str,
-                           edge_color : str,
-                           fig_size : float,
-                           filename: str ): 
+def _plot_directed_network(nodes: List[str],
+                           adjacency_matrix: np.ndarray,
+                           x: np.ndarray,
+                           y: np.ndarray,
+                           max_ai: int,
+                           labels: bool,
+                           node_size: float,
+                           arrow_size: float,
+                           node_color: str,
+                           edge_color: str,
+                           fig_size: float,
+                           filename: str):
     if len(nodes) != len(adjacency_matrix) or len(adjacency_matrix) != len(x) or len(x) != len(y):
         raise ValueError("Lengths of nodes, adjacency_matrix, x, and y must be equal.")
 
@@ -497,7 +497,7 @@ def _plot_directed_network(nodes : List[str],
     fig, ax = plt.subplots(figsize=(fig_size, fig_size))
 
     # Draw concentric circles
-    for radius in range(1, max_ai + 2):  # Radii 1, 2, 3, 4
+    for radius in range(1, max_ai + 2):
         circle = Circle((0, 0), radius, color="black", alpha=1, fill=False, lw=1.5)
         ax.add_artist(circle)
 
@@ -520,38 +520,34 @@ def _plot_directed_network(nodes : List[str],
     ax.set_xlim(-max_ai - 1.5, max_ai + 1.5)
     ax.set_ylim(-max_ai - 1.5, max_ai + 1.5)
     ax.set_aspect("equal", adjustable="datalim")
-    
     plt.savefig(f"{filename}", dpi=600)
-    
     return fig, ax
 
 
 def plot_assembly_circle(nodes,
-                         adj_matrix = None,
-                         assembly_indices = None,
-                         labels = True,
-                         node_size = 1000,
-                         arrow_size = 80,
-                         node_color = 'Skyblue',
-                         edge_color = 'Grey',
-                         fig_size = 10,
-                         filename = 'assembly_circles.png'):
-    
-    
-    if adj_matrix is None: # If adj matrix is not provided, the rules_graph will be the output
-        G = CFG.ai_with_pathways(nodes, f_print=False)[2]
-        nodes = list(G.nodes())
-        adj_matrix = nx.adjacency_matrix(G).toarray()
-    
-    
+                         adj_matrix=None,
+                         assembly_indices=None,
+                         labels=True,
+                         node_size=1000,
+                         arrow_size=80,
+                         node_color='Skyblue',
+                         edge_color='Grey',
+                         fig_size=10,
+                         filename='assembly_circles.png'):
+    # If adj matrix is not provided, the rules_graph will be the output
+    if adj_matrix is None:
+        graph = CFG.ai_with_pathways(nodes, f_print=False)[2]
+        nodes = list(graph.nodes())
+        adj_matrix = nx.adjacency_matrix(graph).toarray()
+
     n_nodes = len(nodes)
-    
-    if assembly_indices is None: 
-        assembly_indices = np.zeros(n_nodes,dtype = int)
-        
+
+    if assembly_indices is None:
+        assembly_indices = np.zeros(n_nodes, dtype=int)
+
         for i in range(n_nodes):
             assembly_indices[i] = CFG.ai_with_pathways(nodes[i], f_print=False)[0]
-    
+
     angles = np.full(n_nodes, np.nan)
 
     max_ai = max(assembly_indices)
@@ -563,7 +559,7 @@ def plot_assembly_circle(nodes,
         if assembly_indices[i] == min_ai:
             n_building_blocks += 1
 
-    # Assign equispaciated angles to building blocks
+    # Assign equispaced angles to building blocks
     n = 1
     for i in range(n_nodes):
         if assembly_indices[i] == min_ai:
@@ -573,13 +569,12 @@ def plot_assembly_circle(nodes,
     # Assign angles for higher assembly index objects
     while np.any(np.isnan(angles)):  # While there are angles left
         for i in range(n_nodes):
-            # If the string has no angle associated yet...
+            # If the string has no angle associated
             if np.isnan(angles[i]):
                 set_angles = np.array([])
                 for j in range(n_nodes):
                     if adj_matrix[j, i] >= 1:
                         set_angles = np.append(set_angles, angles[j])
-                        # print(set_angles)
                 if np.all(~np.isnan(set_angles)):
                     angles[i] = _average_angles(set_angles)
 
