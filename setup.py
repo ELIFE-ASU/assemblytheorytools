@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='assemblytheorytools',
-    version='1.1.0',
+    version='1.5.0',
     author='Louie Slocombe',
     author_email='louies@hotmail.co.uk',
     description='A centralised set of tools for doing assembly theory calculations.',
@@ -23,6 +23,7 @@ setup(
     install_requires=[
         'ase>=3.23.0',
         'numpy>=2.1.3',
+        'scipy>=1.15.1',
         'matplotlib>=3.9.2',
         'networkx>=3.4.2',
         'rdkit>=2024.03.5',

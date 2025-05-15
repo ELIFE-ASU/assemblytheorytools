@@ -1,17 +1,17 @@
 import os
 from html import escape
 
+import cairosvg
+import dagviz
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 import networkx as nx
 from IPython.display import HTML
 from matplotlib import colormaps, colors
 from pyvis.network import Network
-import dagviz
-import cairosvg
 
 
-def n_plot(xlab, ylab, xs=14, ys=14):
+def n_plot(xlab: str, ylab: str, xs: int = 14, ys: int = 14) -> None:
     """
     Configure and style the plot with specified labels and tick parameters.
 
@@ -37,7 +37,7 @@ def n_plot(xlab, ylab, xs=14, ys=14):
     return None
 
 
-def ax_plot(fig, ax, xlab, ylab, xs=14, ys=14):
+def ax_plot(fig: plt.Figure, ax: plt.Axes, xlab: str, ylab: str, xs: int = 14, ys: int = 14) -> None:
     """
     Configure and style the plot with specified labels and tick parameters for a given axis.
 
@@ -45,8 +45,8 @@ def ax_plot(fig, ax, xlab, ylab, xs=14, ys=14):
     plt.rcParams['axes.linewidth'] = 2.0
 
     Args:
-        fig (matplotlib.figure.Figure): The figure object containing the plot.
-        ax (matplotlib.axes.Axes): The axes object to be styled.
+        fig (plt.Figure): The figure object containing the plot.
+        ax (plt.Axes): The axes object to be styled.
         xlab (str): The label for the x-axis.
         ylab (str): The label for the y-axis.
         xs (int, optional): Font size for the x-axis label. Default is 14.
@@ -65,15 +65,12 @@ def ax_plot(fig, ax, xlab, ylab, xs=14, ys=14):
     return None
 
 
-def os_plot_show():
+def os_plot_show() -> None:
     """
     Display or close the plot based on the operating system.
 
     If the operating system is Windows, the plot will be displayed using plt.show().
     Otherwise, the plot will be closed using plt.close().
-
-    Args:
-        None
 
     Returns:
         None
@@ -86,21 +83,21 @@ def os_plot_show():
     return None
 
 
-def plot_graph(graph,
-               layout='kawai',
-               f_labs=False,
-               edge_color='grey',
-               node_size=300,
-               edgecolors="black",
-               width=2,
-               linewidths=2,
-               filename="graph",
-               seed=1734289230):
+def plot_graph(graph: nx.Graph,
+               layout: str = 'kawai',
+               f_labs: bool = False,
+               edge_color: str = 'grey',
+               node_size: int = 300,
+               edgecolors: str = "black",
+               width: int = 2,
+               linewidths: int = 2,
+               filename: str = "graph",
+               seed: int = 42) -> None:
     """
     Plot a graph using NetworkX and Matplotlib with various layout options.
 
     Args:
-        graph (networkx.Graph): The graph to be plotted.
+        graph (nx.Graph): The graph to be plotted.
         layout (str, optional): The layout algorithm to use for positioning nodes. Default is 'kawai'.
         f_labs (bool, optional): Whether to display labels on the nodes. Default is False.
         edge_color (str, optional): Color of the edges. Default is 'grey'.
@@ -109,7 +106,7 @@ def plot_graph(graph,
         width (int, optional): Width of the edges. Default is 2.
         linewidths (int, optional): Width of the node borders. Default is 2.
         filename (str, optional): Base name of the file where the plot will be saved. Default is 'graph'.
-        seed (int, optional): Seed for the layout algorithm (if applicable). Default is 1734289230.
+        seed (int, optional): Seed for the layout algorithm (if applicable). Default is 42.
 
     Returns:
         None
@@ -152,12 +149,12 @@ def plot_graph(graph,
     return None
 
 
-def plot_mol_graph(graph, f_labs=False, filename="atom_graphs"):
+def plot_mol_graph(graph: nx.Graph, f_labs: bool = False, filename: str = "atom_graphs") -> None:
     """
     Plot a molecular graph using NetworkX and Matplotlib.
 
     Args:
-        graph (networkx.Graph): The graph to be plotted where nodes represent atoms and edges represent bonds.
+        graph (nx.Graph): The graph to be plotted where nodes represent atoms and edges represent bonds.
         f_labs (bool, optional): Whether to display labels on the nodes. Default is False.
         filename (str, optional): The base name of the file where the plot will be saved. Default is "atom_graphs".
 
@@ -217,20 +214,21 @@ def plot_mol_graph(graph, f_labs=False, filename="atom_graphs"):
     return None
 
 
-def plot_interactive_graph(graph, show=False, filename="interactive_graph.html"):
+def plot_interactive_graph(graph: nx.Graph,
+                           show: bool = False,
+                           filename: str = "interactive_graph.html") -> Network:
     """
     Plot an interactive graph using PyVis and display it in a Jupyter notebook or save it as an HTML file.
 
     Args:
-        graph (networkx.Graph): The graph to be plotted.
+        graph (nx.Graph): The graph to be plotted.
         show (bool, optional): Whether to display the graph in a Jupyter notebook. Default is False.
         filename (str, optional): The name of the file where the graph will be saved if not displayed.
-        Default is "interactive_graph.html".
+            Default is "interactive_graph.html".
 
     Returns:
-        pyvis.network.Network: The PyVis network object representing the graph.
+        Network: The PyVis network object representing the graph.
     """
-
     # Color each node based on its degree
     max_nbr = len(max(graph.adj.values(), key=lambda x: len(x)))
     blues = colormaps.get_cmap("Blues")
@@ -257,21 +255,21 @@ def plot_interactive_graph(graph, show=False, filename="interactive_graph.html")
     return net
 
 
-def plot_digraph(digraph,
-                 layout='spring',
-                 f_labs=True,
-                 edge_color='grey',
-                 node_size=300,
-                 edgecolors="black",
-                 width=2,
-                 linewidths=2,
-                 filename="digraph",
-                 seed=1734289230):
+def plot_digraph(digraph: nx.DiGraph,
+                 layout: str = 'spring',
+                 f_labs: bool = True,
+                 edge_color: str = 'grey',
+                 node_size: int = 300,
+                 edgecolors: str = "black",
+                 width: int = 2,
+                 linewidths: int = 2,
+                 filename: str = "digraph",
+                 seed: int = 42) -> None:
     """
     Plot a directed graph using NetworkX and Matplotlib with various layout options.
 
     Args:
-        digraph (networkx.DiGraph): The directed graph to be plotted.
+        digraph (nx.DiGraph): The directed graph to be plotted.
         layout (str, optional): The layout algorithm to use for positioning nodes. Default is 'spring'.
         f_labs (bool, optional): Whether to display labels on the nodes. Default is True.
         edge_color (str, optional): Color of the edges. Default is 'grey'.
@@ -280,7 +278,7 @@ def plot_digraph(digraph,
         width (int, optional): Width of the edges. Default is 2.
         linewidths (int, optional): Width of the node borders. Default is 2.
         filename (str, optional): Base name of the file where the plot will be saved. Default is 'digraph'.
-        seed (int, optional): Seed for the layout algorithm (if applicable). Default is 1734289230.
+        seed (int, optional): Seed for the layout algorithm (if applicable). Default is 42.
 
     Returns:
         None
@@ -298,12 +296,12 @@ def plot_digraph(digraph,
     return None
 
 
-def plot_digraph_metro(digraph, filename='metro'):
+def plot_digraph_metro(digraph: nx.DiGraph, filename: str = 'metro') -> None:
     """
     Plot a directed graph using the Metro style and save it as SVG and PNG files.
 
     Args:
-        digraph (networkx.DiGraph): The directed graph to be plotted.
+        digraph (nx.DiGraph): The directed graph to be plotted.
         filename (str, optional): The base name of the files where the plot will be saved. Default is 'metro'.
 
     Returns:
@@ -320,7 +318,7 @@ def plot_digraph_metro(digraph, filename='metro'):
     return None
 
 
-def plot_digraph_topological(digraph, filename='topological'):
+def plot_digraph_topological(digraph: nx.DiGraph, filename: str = 'topological') -> None:
     """
     Plot a directed graph using a topological layout and save it as a PNG file.
 
@@ -330,7 +328,7 @@ def plot_digraph_topological(digraph, filename='topological'):
     https://networkx.org/documentation/stable/auto_examples/graph/plot_dag_layout.html
 
     Args:
-        digraph (networkx.DiGraph): The directed graph to be plotted.
+        digraph (nx.DiGraph): The directed graph to be plotted.
         filename (str, optional): The base name of the file where the plot will be saved. Default is 'topological'.
 
     Returns:
@@ -351,20 +349,24 @@ def plot_digraph_topological(digraph, filename='topological'):
     fig.tight_layout()
     plt.savefig(f"{filename}.png", dpi=600)
     plt.show()
+    return None
 
 
-def match_node_to_image(graph, image_paths):
+def match_node_to_image(graph: nx.Graph, image_paths: list[str]) -> dict[str, str]:
     """
     Matches nodes in the graph to their respective image paths.
 
     This function iterates over the provided image paths, extracts the base name of each image file,
     and checks if it matches any node in the graph. If a match is found, it maps the node to the image path.
 
-    :param graph: A NetworkX graph object containing nodes.
-    :param image_paths: A list of image file paths.
-    :return: A dictionary mapping node labels to their corresponding image paths.
+    Args:
+        graph (nx.Graph): A NetworkX graph object containing nodes.
+        image_paths (list[str]): A list of image file paths.
+
+    Returns:
+        dict[str, str]: A dictionary mapping node labels to their corresponding image paths.
     """
-    # Initialize an empty dictionary to store the node-to-image mapping
+    # Initialise an empty dictionary to store the node-to-image mapping
     node_image_mapping = {}
 
     # Iterate over each image path
@@ -380,9 +382,9 @@ def match_node_to_image(graph, image_paths):
     return node_image_mapping
 
 
-def plot_digraph_with_images(graph, image_paths):
+def plot_digraph_with_images(graph: nx.DiGraph, image_paths: list[str]) -> None:
     """
-
+    Plot a directed graph with images at each node.
 
     Assumes the old function plot_pathway in the AssemblyConstruction class has been called!
     def plot_pathway(self):
@@ -394,16 +396,13 @@ def plot_digraph_with_images(graph, image_paths):
             Draw.MolToFile(step, os.path.join(pic_path, "step{}.png").format(i + 1))
         return None
 
-
-
     Args:
-        graph:
-        image_paths:
+        graph (nx.DiGraph): The directed graph to be plotted.
+        image_paths (list[str]): A list of image file paths to be matched with the nodes.
 
     Returns:
-
+        None
     """
-
     # Create a mapping from node to image path
     node_image_mapping = match_node_to_image(graph, image_paths)
 
@@ -443,3 +442,4 @@ def plot_digraph_with_images(graph, image_paths):
     ax.axis('off')
     plt.tight_layout()
     plt.show()
+    return None

@@ -57,7 +57,7 @@ if __name__ == "__main__":
     plt.plot(string_lengths, ai_list, 'o-', label="AssCPP", lw=2, color='black')
     plt.plot(string_lengths, ai_cfg_list, 'o-', label="CFG", lw=2, color='red')
     plt.legend()
-    #att.n_plot("String length", "Assembly index")
+    # att.n_plot("String length", "Assembly index")
     ys = 14
     plt.tick_params(axis='both', which='major', labelsize=ys - 2, direction='in', length=6, width=2)
     plt.xlabel("String length", fontsize=ys)
@@ -80,7 +80,7 @@ if __name__ == "__main__":
     ax2.plot(string_lengths, time_list, 'o-', label="AssCPP Time", lw=2, color='red')
     ax2.plot(string_lengths, time_cfg_list, 'o--', label="CFG Time", lw=2, color='red')
     att.ax_plot(fig, ax2, "String length", "Execution time (s)")
-    # make the axis text color match the line color
+    # Make the axis text colour match the line colour
     ax2.set_ylabel('Execution time (s)', color='red')
     ax2.legend()
 

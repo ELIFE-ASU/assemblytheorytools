@@ -1,16 +1,26 @@
+import bz2
+import json
+import lzma
 import traceback
+import zlib
+from typing import Dict, Any, Optional
 
 import networkx as nx
 import numpy as np
 import rdkit
+from networkx.readwrite import json_graph
 from rdkit import Chem
+from rdkit import DataStructs
 from rdkit.Chem import AllChem as Chem
 from rdkit.Chem import Descriptors
 from rdkit.Chem.GraphDescriptors import BertzCT
-from rdkit import DataStructs
+from rdkit.Chem.rdchem import Mol
+
+from .tools_graph import remove_hydrogen_from_graph
+from .tools_mol import standardize_mol
 
 
-def molecular_weight(mol):
+def molecular_weight(mol: Mol) -> float:
     """
     Calculates the molecular weight of a molecule.
 
@@ -24,7 +34,7 @@ def molecular_weight(mol):
     return Descriptors.MolWt(mol)
 
 
-def bertz_complexity(mol):
+def bertz_complexity(mol: Mol) -> float:
     """
     Calculates the Bertz complexity of a molecule.
 
@@ -38,38 +48,38 @@ def bertz_complexity(mol):
     return BertzCT(mol)
 
 
-def wiener_index(mol):
+def wiener_index(mol: Mol) -> float:
     """
     Calculates the Wiener index of a molecule.
 
     Wiener index is a topological descriptor calculated as the sum of the shortest
     path lengths between all pairs of atoms in a molecule. It is a measure of the
-    molecule's branching and can be used to estimate various physico-chemical properties.
+    molecule's branching and can be used to estimate various physicochemical properties.
 
     :param mol: An RDKit molecule object.
     :return: The Wiener index.
     """
     distance_matrix = Chem.rdmolops.GetDistanceMatrix(mol)
-    G = nx.Graph()
+    graph = nx.Graph()
 
     # Add nodes
     for i in range(len(distance_matrix)):
-        G.add_node(i)
+        graph.add_node(i)
 
     # Add edges
     for i in range(len(distance_matrix)):
         for j in range(i + 1, len(distance_matrix)):
-            G.add_edge(i, j, weight=distance_matrix[i, j])
+            graph.add_edge(i, j, weight=distance_matrix[i, j])
 
-    return nx.wiener_index(G)
+    return nx.wiener_index(graph)
 
 
-def balaban_index(mol):
+def balaban_index(mol: Mol) -> float:
     """
     Calculates the Balaban index of a molecule.
 
     Balaban index is a topological descriptor that quantifies the degree of
-    branching in a molecule. It is useful for predicting physico-chemical
+    branching in a molecule. It is useful for predicting physicochemical
     properties and biological activities of molecules.
 
     :param mol: An RDKit molecule object.
@@ -78,14 +88,14 @@ def balaban_index(mol):
     return Descriptors.BalabanJ(mol)
 
 
-def randic_index(mol):
+def randic_index(mol: Mol) -> float:
     """
     Calculates the Randic index of a molecule.
 
     Randic index is a topological descriptor calculated by summing the
     inverse square roots of the product of the degrees of connected atom pairs.
     It is used for the study of molecular structure-activity
-    relationships and the prediction of physico-chemical properties.
+    relationships and the prediction of physicochemical properties.
 
     :param mol: An RDKit molecule object.
     :return: The Randic index.
@@ -100,13 +110,13 @@ def randic_index(mol):
     return randic_sum / 2
 
 
-def kirchhoff_index(mol):
+def kirchhoff_index(mol: Mol) -> float:
     """
     Calculates the Kirchhoff index of a molecule.
 
     Kirchhoff index is a topological index calculated as the sum of the effective
     resistances between all pairs of vertices in the molecular graph. It is used for
-    predicting physico-chemical properties and molecular activities.
+    predicting physicochemical properties and molecular activities.
 
     :param mol: An RDKit molecule object.
     :return: The Kirchhoff index.
@@ -125,7 +135,7 @@ def kirchhoff_index(mol):
     return kirchhoff_sum
 
 
-def spacial_score(mol, normalize=False):
+def spacial_score(mol: Mol, normalise: bool = False) -> float:
     """
     Calculates the spacial score of a molecule. https://github.com/frog2000/Spacial-Score
 
@@ -133,13 +143,13 @@ def spacial_score(mol, normalize=False):
     of atoms in a molecule. It can be used to predict various molecular properties.
 
     :param mol: An RDKit molecule object.
-    :param normalize: A boolean indicating whether to normalize the score.
+    :param normalise: A boolean indicating whether to normalise the score.
     :return: The spacial score of the molecule.
     """
-    return rdkit.Chem.SpacialScore.SPS(mol, normalize)
+    return rdkit.Chem.SpacialScore.SPS(mol, normalise)
 
 
-def get_mol_descriptors(mol, missingval=None):
+def get_mol_descriptors(mol: Mol, missingval: Optional[Any] = None) -> Dict[str, Any]:
     """
     Calculates molecular descriptors for a given molecule. Please note that there are a lot of descriptors.
 
@@ -164,7 +174,7 @@ def get_mol_descriptors(mol, missingval=None):
     return res
 
 
-def tanimoto_similarity(mol1, mol2):
+def tanimoto_similarity(mol1: Mol, mol2: Mol) -> float:
     """
     Calculates the Tanimoto similarity between two molecules.
 
@@ -182,7 +192,7 @@ def tanimoto_similarity(mol1, mol2):
     return DataStructs.TanimotoSimilarity(fp1, fp2)
 
 
-def dice_morgan_similarity(mol1, mol2, radius=3):
+def dice_morgan_similarity(mol1: Mol, mol2: Mol, radius: int = 3) -> float:
     """
     Calculates the Dice similarity between two molecules using Morgan fingerprints.
 
@@ -201,20 +211,303 @@ def dice_morgan_similarity(mol1, mol2, radius=3):
     return DataStructs.DiceSimilarity(fp1, fp2)
 
 
-def get_chirality(mol):
+def get_chirality(mol: Mol) -> int:
     """
     Determine the chirality of a molecule.
 
-    This function calculates the number of chiral centers in a given RDKit molecule object.
+    This function calculates the number of chiral centres in a given RDKit molecule object.
 
     Parameters:
         mol (rdkit.Chem.rdchem.Mol): An RDKit molecule object.
 
     Returns:
-        int: The number of chiral centers in the molecule.
+        int: The number of chiral centres in the molecule.
     """
     nc = len(Chem.FindMolChiralCenters(mol,
                                        useLegacyImplementation=False,
                                        includeUnassigned=True,
                                        includeCIP=False))
     return nc
+
+
+def compression_zlib_smi(mol: Mol,
+                         add_hydrogens: bool = True,
+                         level: int = 9,
+                         check: bool = True,
+                         rm_overhead: bool = True) -> int:
+    """
+    Compresses the SMILES representation of a molecule using zlib.
+
+    This function standardises the molecule, converts it to a SMILES string,
+    compresses the string using zlib, and optionally removes compression overhead.
+    It can also verify the integrity of the compressed data.
+
+    Parameters:
+    -----------
+    mol : rdkit.Chem.rdchem.Mol
+        The RDKit molecule object to be compressed.
+    add_hydrogens : bool, optional
+        Whether to add explicit hydrogens to the molecule during standardisation (default is True).
+    level : int, optional
+        The compression level for zlib (default is 9, maximum compression).
+    check : bool, optional
+        Whether to verify that the compressed data can be decompressed and matches the original (default is True).
+    rm_overhead : bool, optional
+        Whether to remove the overhead of compressing an empty string (default is True).
+
+    Returns:
+    --------
+    int
+        The length of the compressed SMILES string, adjusted for overhead if specified.
+
+    Raises:
+    -------
+    Exception
+        If decompression fails during the integrity check.
+    """
+    # Standardise the molecule
+    mol = standardize_mol(mol, add_hydrogens=add_hydrogens)
+
+    # Remove all hydrogens from the molecule
+    if not add_hydrogens:
+        mol = Chem.RemoveHs(mol)
+
+    # Convert the molecule to SMILES
+    smiles = Chem.MolToSmiles(mol,
+                              canonical=True,
+                              kekuleSmiles=True,
+                              isomericSmiles=True,
+                              allHsExplicit=add_hydrogens)
+
+    # Compress the SMILES string using zlib
+    compressed = zlib.compress(smiles.encode("utf-8"), level=level)
+    val = len(compressed)
+
+    # Check if the compressed data can be decompressed and matches the original data
+    if check:
+        try:
+            zlib.decompress(compressed).decode("utf-8")
+        except Exception as e:
+            print(f"Decompression failed: {e}")
+            raise
+
+    # Calculate the overhead of the compression
+    if rm_overhead:
+        overhead = zlib.compress("".encode("utf-8"), level=level)
+        val -= len(overhead)
+
+    return val
+
+
+def compression_bz2_smi(mol: Mol,
+                        add_hydrogens: bool = True,
+                        check: bool = True,
+                        rm_overhead: bool = True) -> int:
+    """
+    Compresses the SMILES representation of a molecule using bz2.
+
+    This function standardises the molecule, converts it to a SMILES string,
+    compresses the string using bz2, and optionally removes compression overhead.
+    It can also verify the integrity of the compressed data.
+
+    Parameters:
+    -----------
+    mol : rdkit.Chem.rdchem.Mol
+        The RDKit molecule object to be compressed.
+    add_hydrogens : bool, optional
+        Whether to add explicit hydrogens to the molecule during standardisation (default is True).
+    check : bool, optional
+        Whether to verify that the compressed data can be decompressed and matches the original (default is True).
+    rm_overhead : bool, optional
+        Whether to remove the overhead of compressing an empty string (default is True).
+
+    Returns:
+    --------
+    int
+        The length of the compressed SMILES string, adjusted for overhead if specified.
+
+    Raises:
+    -------
+    Exception
+        If decompression fails during the integrity check.
+    """
+    # Standardise the molecule
+    mol = standardize_mol(mol, add_hydrogens=add_hydrogens)
+
+    # Remove all hydrogens from the molecule
+    if not add_hydrogens:
+        mol = Chem.RemoveHs(mol)
+
+    # Convert the molecule to SMILES
+    smiles = Chem.MolToSmiles(mol,
+                              canonical=True,
+                              kekuleSmiles=True,
+                              isomericSmiles=True,
+                              allHsExplicit=add_hydrogens)
+
+    # Compress the SMILES string using bz2
+    compressed = bz2.compress(smiles.encode("utf-8"))
+    val = len(compressed)
+
+    # Check if the compressed data can be decompressed and matches the original data
+    if check:
+        try:
+            bz2.decompress(compressed).decode("utf-8")
+        except Exception as e:
+            print(f"Decompression failed: {e}")
+            raise
+
+    # Calculate the overhead of the compression
+    if rm_overhead:
+        overhead = bz2.compress("".encode("utf-8"))
+        val -= len(overhead)
+
+    return val
+
+
+def compression_lzma_smi(mol: Mol,
+                         add_hydrogens: bool = True,
+                         check: bool = True,
+                         rm_overhead: bool = True) -> int:
+    """
+    Compresses the SMILES representation of a molecule using lzma.
+
+    This function standardises the molecule, converts it to a SMILES string,
+    compresses the string using lzma, and optionally removes compression overhead.
+    It can also verify the integrity of the compressed data.
+
+    Parameters:
+    -----------
+    mol : rdkit.Chem.rdchem.Mol
+        The RDKit molecule object to be compressed.
+    add_hydrogens : bool, optional
+        Whether to add explicit hydrogens to the molecule during standardisation (default is True).
+    check : bool, optional
+        Whether to verify that the compressed data can be decompressed and matches the original (default is True).
+    rm_overhead : bool, optional
+        Whether to remove the overhead of compressing an empty string (default is True).
+
+    Returns:
+    --------
+    int
+        The length of the compressed SMILES string, adjusted for overhead if specified.
+
+    Raises:
+    -------
+    Exception
+        If decompression fails during the integrity check.
+    """
+    # Standardize the molecule
+    mol = standardize_mol(mol, add_hydrogens=add_hydrogens)
+
+    # Remove all hydrogens from the molecule
+    if not add_hydrogens:
+        mol = Chem.RemoveHs(mol)
+
+    # Convert the molecule to SMILES
+    smiles = Chem.MolToSmiles(mol,
+                              canonical=True,
+                              kekuleSmiles=True,
+                              isomericSmiles=True,
+                              allHsExplicit=add_hydrogens)
+
+    # Compress the SMILES string using lzma
+    compressed = lzma.compress(smiles.encode("utf-8"))
+    val = len(compressed)
+
+    # Check if the compressed data can be decompressed and matches the original data
+    if check:
+        try:
+            lzma.decompress(compressed).decode("utf-8")
+        except Exception as e:
+            print(f"Decompression failed: {e}")
+            raise
+
+    # Calculate the overhead of the compression
+    if rm_overhead:
+        overhead = lzma.compress("".encode("utf-8"))
+        val -= len(overhead)
+
+    return val
+
+
+def compress_zlib_graph(graph: nx.Graph, level: int = 9) -> bytes:
+    # Convert graph to node-link data (JSON-serialisable)
+    data = json_graph.node_link_data(graph)
+
+    # Serialise to JSON string
+    json_str = json.dumps(data)
+
+    # Compress the JSON bytes
+    return zlib.compress(json_str.encode('utf-8'), level)
+
+
+def decompress_zlib_graph(compressed_data: bytes) -> nx.Graph:
+    # Decompress to JSON string
+    json_str = zlib.decompress(compressed_data).decode('utf-8')
+
+    # Parse JSON back to node-link format and rebuild graph
+    data = json.loads(json_str)
+    return json_graph.node_link_graph(data)
+
+
+def compression_zlib_graph(graph: nx.Graph,
+                           add_hydrogens: bool = True,
+                           level: int = 9,
+                           check: bool = True,
+                           rm_overhead: bool = True
+                           ) -> int:
+    """
+    Compresses a graph representation using zlib.
+
+    This function serialises a graph into a JSON-compatible format, compresses it using zlib,
+    and optionally removes compression overhead. It can also verify the integrity of the
+    compressed data.
+
+    Parameters:
+    -----------
+    graph : nx.Graph
+        The NetworkX graph object to be compressed.
+    add_hydrogens : bool, optional
+        Whether to include hydrogens in the graph representation (default is True).
+    level : int, optional
+        The compression level for zlib (default is 9, maximum compression).
+    check : bool, optional
+        Whether to verify that the compressed data can be decompressed and matches the original (default is True).
+    rm_overhead : bool, optional
+        Whether to remove the overhead of compressing an empty graph (default is True).
+
+    Returns:
+    --------
+    int
+        The length of the compressed graph data, adjusted for overhead if specified.
+
+    Raises:
+    -------
+    Exception
+        If decompression fails during the integrity check.
+    """
+    # Remove hydrogens from the graph if specified
+    if not add_hydrogens:
+        graph = remove_hydrogen_from_graph(graph)
+
+    # Compress the graph using zlib
+    comp = compress_zlib_graph(graph, level=level)
+
+    # Get the length of the compressed data
+    val = len(comp)
+
+    # Check if the compressed data can be decompressed and matches the original data
+    if check:
+        try:
+            decompress_zlib_graph(comp)
+        except Exception as e:
+            print(f"Decompression failed: {e}")
+            raise
+
+    # Calculate the overhead of the compression
+    if rm_overhead:
+        overhead = compress_zlib_graph(nx.Graph())
+        val -= len(overhead)
+
+    return val

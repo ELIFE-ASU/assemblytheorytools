@@ -1,31 +1,56 @@
 import os
 import random
+from typing import Set
+from typing import Tuple, List
 
 import networkx as nx
-from networkx.algorithms.isomorphism import GraphMatcher
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 
 from .tools_mol import safe_standardize_mol, smi_to_mol
 
 
-def nx_to_mol(graph, add_hydrogens=True):
+def bond_order_assout_to_int(edge_color: str | int) -> int:
     """
-    Convert a NetworkX graph to an RDKit molecule.
+    Convert an edge colour to an integer bond order from the Assembly CPP output file
+
+    This function maps a string representation of a bond order (e.g. "single", "double")
+    to its corresponding integer value. If the input is already an integer, it returns
+    the integer directly.
 
     Args:
-        graph (nx.Graph): The input NetworkX graph where nodes represent atoms and edges represent bonds.
-        add_hydrogens (bool, optional): Whether to add hydrogens to the molecule. Default is True.
+        edge_color (str | int): The edge colour representing the bond order. It can be a string
+                                ("single", "double", etc.) or an integer.
 
     Returns:
-        rdkit.Chem.Mol: The resulting RDKit molecule.
+        int: The integer representation of the bond order. If the input is a string, it returns
+             the corresponding integer value. If the input is already an integer, it returns
+             the integer directly.
     """
-    # Create an editable RDKit molecule
-    mol = Chem.RWMol()
-    # Dictionary to map node identifiers to atom indices in the RDKit molecule
-    node_to_idx = {}
+    edge_color_map = {
+        "single": 1,
+        "double": 2,
+        "triple": 3,
+        "quadruple": 4,
+        "quintuple": 5,
+    }
 
-    # Define the bond converter dictionary
+    if edge_color in edge_color_map:
+        return edge_color_map[edge_color]
+    else:
+        return int(edge_color)
+
+
+def bond_order_int_to_rdkit(bond_order: int) -> Chem.BondType:
+    """
+    Convert a bond order int to RDKit's BondType.
+
+    Args:
+        bond_order (int): The bond order to convert.
+
+    Returns:
+        Chem.BondType: The corresponding RDKit BondType.
+    """
     converter = {
         1: Chem.rdchem.BondType.SINGLE,
         2: Chem.rdchem.BondType.DOUBLE,
@@ -34,10 +59,49 @@ def nx_to_mol(graph, add_hydrogens=True):
         5: Chem.rdchem.BondType.QUINTUPLE,
         6: Chem.rdchem.BondType.IONIC,
     }
+    return converter.get(bond_order, Chem.rdchem.BondType.SINGLE)
+
+
+def bond_order_rdkit_to_int(bond_type: Chem.BondType) -> int:
+    """
+    Convert RDKit's BondType to a bond order int.
+
+    Args:
+        bond_type (Chem.BondType): The RDKit BondType to convert.
+
+    Returns:
+        int: The corresponding bond order int.
+    """
+    converter = {
+        Chem.rdchem.BondType.SINGLE: 1,
+        Chem.rdchem.BondType.DOUBLE: 2,
+        Chem.rdchem.BondType.TRIPLE: 3,
+        Chem.rdchem.BondType.QUADRUPLE: 4,
+        Chem.rdchem.BondType.QUINTUPLE: 5,
+        Chem.rdchem.BondType.IONIC: 6
+    }
+    return converter.get(bond_type, 1)
+
+
+def nx_to_mol(graph: nx.Graph, add_hydrogens: bool = True) -> Chem.Mol:
+    """
+    Convert a NetworkX graph to an RDKit molecule.
+
+    Args:
+        graph (nx.Graph): The input NetworkX graph where nodes represent atoms and edges represent bonds.
+        add_hydrogens (bool, optional): Whether to add hydrogens to the molecule. Default is True.
+
+    Returns:
+        Chem.Mol: The resulting RDKit molecule.
+    """
+    # Create an editable RDKit molecule
+    mol = Chem.RWMol()
+    # Dictionary to map node identifiers to atom indices in the RDKit molecule
+    node_to_idx = {}
 
     # Add atoms to the molecule
     for node, data in graph.nodes(data=True):
-        # Get the atomic symbol from the node's 'color' attribute, default to 'C' if not present
+        # Get the atomic symbol from the node's 'colour' attribute, default to 'C' if not present
         atom_symbol = data.get('color', 'C')
         atom = Chem.Atom(atom_symbol.strip())
         idx = mol.AddAtom(atom)
@@ -48,51 +112,44 @@ def nx_to_mol(graph, add_hydrogens=True):
         # Get the bond order from the edge's 'color' attribute, default to 1 if not present
         bond_order = int(data.get('color', 1))
         # Map the bond order to RDKit's bond types
-        bond_type = converter.get(bond_order, Chem.rdchem.BondType.SINGLE)
+        bond_type = bond_order_int_to_rdkit(bond_order)
         # Add the bond to the molecule
         mol.AddBond(node_to_idx[u], node_to_idx[v], bond_type)
 
-    # Sanitize the molecule to generate implicit hydrogens and conformations
+    # Sanitise the molecule to generate implicit hydrogens and conformations
     return safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
 
 
-def mol_to_nx(mol, add_hydrogens=True):
+def mol_to_nx(mol: Chem.Mol, add_hydrogens: bool = True) -> nx.Graph:
     """
     Convert an RDKit molecule to a NetworkX graph.
 
     Args:
-        mol (rdkit.Chem.Mol): The RDKit molecule to convert.
+        mol (Chem.Mol): The RDKit molecule to convert.
         add_hydrogens (bool, optional): Whether to keep hydrogen atoms in the graph. Default is True.
 
     Returns:
-        networkx.Graph: The resulting NetworkX graph where nodes represent atoms and edges represent bonds.
+        nx.Graph: The resulting NetworkX graph where nodes represent atoms and edges represent bonds.
     """
+
+    mol = safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
+
     graph = nx.Graph()
-    converter = {Chem.rdchem.BondType.SINGLE: 1,
-                 Chem.rdchem.BondType.DOUBLE: 2,
-                 Chem.rdchem.BondType.TRIPLE: 3,
-                 Chem.rdchem.BondType.QUADRUPLE: 4,
-                 Chem.rdchem.BondType.QUINTUPLE: 5,
-                 Chem.rdchem.BondType.IONIC: 6}
 
     for atom in mol.GetAtoms():
-        graph.add_node(atom.GetIdx(),
-                       color=atom.GetSymbol())
+        graph.add_node(atom.GetIdx(), color=atom.GetSymbol())
 
     for bond in mol.GetBonds():
-        # Map the bond order to RDKit's bond types
-        bond_type = converter.get(bond.GetBondType(), 1)
-        # Add the bond to the graph
-        graph.add_edge(bond.GetBeginAtomIdx(),
-                       bond.GetEndAtomIdx(),
-                       color=bond_type)
-    # Remove the nodes with hydrogen as the color
-    if add_hydrogens is False:
+        bond_type = bond_order_rdkit_to_int(bond.GetBondType())
+        graph.add_edge(bond.GetBeginAtomIdx(), bond.GetEndAtomIdx(), color=bond_type)
+
+    if not add_hydrogens:
         graph = remove_hydrogen_from_graph(graph)
+
     return graph
 
 
-def remove_hydrogen_from_graph(graph):
+def remove_hydrogen_from_graph(graph: nx.Graph) -> nx.Graph:
     """
     Remove all hydrogen atoms from a NetworkX graph.
 
@@ -109,7 +166,7 @@ def remove_hydrogen_from_graph(graph):
     return graph
 
 
-def write_ass_graph_file(graph, file_name="graph_info"):
+def write_ass_graph_file(graph: nx.Graph, file_name: str = "graph_info") -> None:
     """
     Write the graph information to a file for the Assembly CPP calculator.
 
@@ -118,23 +175,23 @@ def write_ass_graph_file(graph, file_name="graph_info"):
         file_name (str, optional): The name of the file to write the graph information to. Defaults to "graph_info".
 
     Writes:
-        A file containing the graph's name, number of vertices, edges, vertex colors, and edge colors.
+        A file containing the graph's name, number of vertices, edges, vertex colours, and edge colours.
     """
     # Get the number of vertices
     num_vertices = graph.number_of_nodes()
     # Get the edges
     edges = list(graph.edges())
-    # Get vertex colors
+    # Get vertex colours
     vertex_colors = nx.get_node_attributes(graph, 'color')
-    # Get edge colors
+    # Get edge colours
     edge_colors = nx.get_edge_attributes(graph, 'color')
 
-    # Assert that all node colors are strings and do not contain spaces
+    # Assert that all node colours are strings and do not contain spaces
     for node, color in vertex_colors.items():
         assert isinstance(color, str), f"Node color for node {node} is not a string. Not allowed for Assembly CPP."
         assert ' ' not in color, f"Node color for node {node} contains a space. Not allowed for Assembly CPP."
 
-    # Assert that all edge colors are integers
+    # Assert that all edge colours are integers
     for edge, color in edge_colors.items():
         assert isinstance(color, int), f"Edge color for edge {edge} is not an integer. Not allowed for Assembly CPP."
 
@@ -145,9 +202,10 @@ def write_ass_graph_file(graph, file_name="graph_info"):
         f.write(" ".join([f"{e + 1}" for edge in edges for e in edge]) + "\n")
         f.write(" ".join([f"{color}" for node, color in vertex_colors.items()]) + "\n")
         f.write(" ".join([f"{color}" for node, color in edge_colors.items()]))
+    return None
 
 
-def is_graph_isomorphic(g1, g2):
+def is_graph_isomorphic(g1: nx.Graph, g2: nx.Graph) -> bool:
     """
     Check if two graphs are isomorphic.
 
@@ -158,19 +216,19 @@ def is_graph_isomorphic(g1, g2):
     Returns:
         bool: True if the graphs are isomorphic, False otherwise.
     """
-    return GraphMatcher(g1, g2).is_isomorphic()
+    return nx.is_isomorphic(g1, g2)
 
 
-def scramble_node_indices(graph, seed=None):
+def scramble_node_indices(graph: nx.Graph, seed: int | None = None) -> nx.Graph:
     """
     Returns a new graph with randomly scrambled node labels.
 
-    Parameters:
-    - graph (networkx.Graph): The input graph to be scrambled.
-    - seed (int, optional): Seed for the random number generator for reproducibility.
+    Args:
+        graph (nx.Graph): The input graph to be scrambled.
+        seed (int | None, optional): Seed for the random number generator for reproducibility. Default is None.
 
     Returns:
-    - networkx.Graph: A new graph with scrambled node labels.
+        nx.Graph: A new graph with scrambled node labels.
     """
     # Set the random seed if provided for reproducibility
     if seed is not None:
@@ -190,56 +248,56 @@ def scramble_node_indices(graph, seed=None):
     return graph_scrambled
 
 
-def get_disconnected_subgraphs(graph):
+def get_disconnected_subgraphs(graph: nx.Graph) -> List[nx.Graph]:
     """
     Return subgraphs of connected components without copying if not necessary.
 
     Args:
-        graph (networkx.Graph): The input graph.
+        graph (nx.Graph): The input graph.
 
     Returns:
-        list: A list of subgraphs, each representing a connected component.
+        List[nx.Graph]: A list of subgraphs, each representing a connected component.
     """
     return [graph.subgraph(c) for c in nx.connected_components(graph)]
 
 
-def write_graphml(graph, file_name="graph.graphml"):
+def write_graphml(graph: nx.Graph, file_name: str = "graph.graphml") -> None:
     """
     Writes a NetworkX graph to a GraphML file.
 
-    Parameters:
-    graph (networkx.Graph): The graph to be written to the file.
-    file_name (str): The path to the file where the graph will be saved.
+    Args:
+        graph (nx.Graph): The graph to be written to the file.
+        file_name (str): The path to the file where the graph will be saved.
 
     Returns:
-    None
+        None
     """
     nx.write_graphml_lxml(graph, os.path.abspath(file_name))
     return None
 
 
-def read_graphml(file_name="graph.graphml"):
+def read_graphml(file_name: str = "graph.graphml") -> nx.Graph:
     """
     Reads a NetworkX graph from a GraphML file.
 
-    Parameters:
-    file_name (str): The path to the file from which the graph will be read.
+    Args:
+        file_name (str): The path to the file from which the graph will be read.
 
     Returns:
-    networkx.Graph: The graph read from the file.
+        nx.Graph: The graph read from the file.
     """
     return nx.read_graphml(os.path.abspath(file_name))
 
 
-def get_bond_smiles(mol):
+def get_bond_smiles(mol: Chem.Mol) -> Set[str]:
     """
     Get the list of bonds of the system in SMILES format.
 
     Args:
-        mol (rdkit.Chem.Mol): The RDKit molecule object.
+        mol (Chem.Mol): The RDKit molecule object.
 
     Returns:
-        set: A set of strings representing the bonds in SMILES format.
+        Set[str]: A set of strings representing the bonds in SMILES format.
     """
     bond_smiles = set()
     for bond in mol.GetBonds():
@@ -267,7 +325,7 @@ def get_bond_smiles(mol):
     return bond_smiles
 
 
-def graph_to_smiles(graph, add_hydrogens=True):
+def graph_to_smiles(graph: nx.Graph, add_hydrogens: bool = True) -> str:
     """
     Convert a NetworkX graph to a SMILES string.
 
@@ -282,7 +340,7 @@ def graph_to_smiles(graph, add_hydrogens=True):
     return Chem.MolToSmiles(mol, allHsExplicit=True, kekuleSmiles=True)
 
 
-def graph_to_inchi(graph, add_hydrogens=True):
+def graph_to_inchi(graph: nx.Graph, add_hydrogens: bool = True) -> str:
     """
     Convert a NetworkX graph to an InChI string.
 
@@ -297,7 +355,7 @@ def graph_to_inchi(graph, add_hydrogens=True):
     return Chem.MolToInchi(mol)
 
 
-def create_ionic_molecule(smiles):
+def create_ionic_molecule(smiles: str) -> Tuple[nx.Graph, List[Chem.Mol]]:
     """
     Create a combined graph for an ionic molecule from dot-separated SMILES.
 
@@ -305,7 +363,7 @@ def create_ionic_molecule(smiles):
         smiles (str): The SMILES string representing the ionic molecule, with parts separated by dots.
 
     Returns:
-        tuple: A tuple containing the combined NetworkX graph and a list of RDKit molecule objects.
+        Tuple[nx.Graph, List[Chem.Mol]]: A tuple containing the combined NetworkX graph and a list of RDKit molecule objects.
     """
     # Split the SMILES at the dot
     parts = smiles.split('.')
@@ -332,10 +390,10 @@ def create_ionic_molecule(smiles):
         # Update offset for the next graph
         offset += graph.number_of_nodes()
 
-    return combined, mols  # Return combined graph and both molecules
+    return combined, mols  # Return the combined graph and both molecules
 
 
-def longest_path_length(digraph):
+def longest_path_length(digraph: nx.DiGraph) -> int:
     """
     Calculate the longest path length in a Directed Acyclic Graph (DAG).
 
@@ -355,7 +413,7 @@ def longest_path_length(digraph):
     topological_order = list(nx.topological_sort(digraph))
 
     # Dictionary to store the longest path distance to each node
-    longest_dist = {node: 0 for node in digraph.nodes()}
+    longest_dist: dict[int, int] = {node: 0 for node in digraph.nodes()}
 
     # Process nodes in topological order
     for node in topological_order:

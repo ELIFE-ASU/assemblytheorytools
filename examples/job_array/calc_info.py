@@ -1,8 +1,10 @@
 import os
 import sys
-import assemblytheorytools as att
+
 import pandas as pd
 from rdkit.Chem import AllChem as Chem
+
+import assemblytheorytools as att
 
 if __name__ == "__main__":
     timeout = 86400.0  # 24 hours

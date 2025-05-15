@@ -1,29 +1,30 @@
 import random
+from typing import List, Tuple, Optional
 
 import numpy as np
 from rdkit.Chem import AllChem as Chem
 from rdkit.Chem import Draw
+from rdkit.Chem.rdchem import Mol
 
 from .assembly import calculate_assembly_index
 from .pathway import get_mol_pathway_to_inchi, convert_pathway_dict_to_list
 
 
-def get_atom_order(mol):
+def get_atom_order(mol: Mol) -> List[int]:
     """
     This function calculates and returns the order of atoms in a molecule based on their canonical ranks.
 
     Parameters:
-    mol (rdkit.Chem.rdchem.Mol): The input molecule.
+        mol (rdkit.Chem.rdchem.Mol): The input molecule.
 
     Returns:
-    list: A list of atom indices in the order of their canonical ranks.
+        List[int]: A list of atom indices in the order of their canonical ranks.
 
     The function works as follows:
     1. It calculates the canonical ranks of the atoms in the molecule.
     2. It pairs each atom's canonical rank with its index and sorts these pairs.
     3. It extracts and returns the atom indices from the sorted list of pairs.
     """
-
     # Calculate the canonical ranks of the atoms
     ranks = Chem.CanonicalRankAtoms(mol, includeChirality=True)
 
@@ -36,30 +37,30 @@ def get_atom_order(mol):
     return atom_order
 
 
-def mol_with_atom_index(mol):
+def mol_with_atom_index(mol: Mol) -> Mol:
     """
     Add atom indices as atom map numbers to the molecule.
 
     Args:
-        mol (rdkit.Chem.Mol): The RDKit molecule object.
+        mol (rdkit.Chem.rdchem.Mol): The RDKit molecule object.
 
     Returns:
-        rdkit.Chem.Mol: The molecule with atom indices set as atom map numbers.
+        rdkit.Chem.rdchem.Mol: The molecule with atom indices set as atom map numbers.
     """
     for atom in mol.GetAtoms():
         atom.SetAtomMapNum(atom.GetIdx())
     return mol
 
 
-def swap_random_elements_list(arr):
+def swap_random_elements_list(arr: list[int]) -> list[int]:
     """
     This function swaps two random elements in a list.
 
     Parameters:
-    arr (list): The input list.
+        arr (list[int]): The input list.
 
     Returns:
-    list: The list after swapping two random elements.
+        list[int]: The list after swapping two random elements.
 
     The function works as follows:
     1. It checks if the list has at least 2 elements. If not, it returns the original list.
@@ -179,16 +180,17 @@ def ensure_equal_length(l1, l2, l3, max_length=None):
     return [l + [''] * (max_length - len(l)) for l in [l1, l2, l3]]
 
 
-def plot_vo(dup_vo, rem_vo, ree_vo, outfile="virtual_objects.png", image_size=(600, 600)):
+def plot_vo(dup_vo: List[str], rem_vo: List[str], ree_vo: List[str], outfile: str = "virtual_objects.png",
+            image_size: Tuple[int, int] = (600, 600)) -> None:
     """
     Plot virtual objects in a grid image and save to a file.
 
     Args:
-        dup_vo (list): List of duplicate virtual objects in InChI format.
-        rem_vo (list): List of remnant virtual objects in InChI format.
-        ree_vo (list): List of removed-edges virtual objects in InChI format.
+        dup_vo (List[str]): List of duplicate virtual objects in InChI format.
+        rem_vo (List[str]): List of remnant virtual objects in InChI format.
+        ree_vo (List[str]): List of removed-edges virtual objects in InChI format.
         outfile (str, optional): The name of the output file. Default is "virtual_objects.png".
-        image_size (tuple, optional): The size of each sub-image in the grid. Default is (600, 600).
+        image_size (Tuple[int, int], optional): The size of each sub-image in the grid. Default is (600, 600).
 
     Returns:
         None
@@ -201,27 +203,31 @@ def plot_vo(dup_vo, rem_vo, ree_vo, outfile="virtual_objects.png", image_size=(6
                                   ["Removed-Edges"],
                                   max_length=max_length)
     Draw.MolsMatrixToGridImage(mols_mat, legendsMatrix=leg_mat, subImgSize=image_size).save(outfile)
+    return None
 
 
-def plot_simple_idx_compare(mol_list, labels=None, outfile="allpath_indexes.png", image_size=(600, 600)):
+def plot_simple_idx_compare(mol_list: List[Mol], labels: Optional[List[str]] = None,
+                            outfile: str = "allpath_indexes.png", image_size: Tuple[int, int] = (600, 600)) -> None:
     """
     Plot a grid image of molecules with atom indices and save to a file.
 
     Args:
-        mol_list (list): List of RDKit molecule objects.
-        labels (list, optional): List of labels for each molecule. If None, default labels are generated. Default is None.
+        mol_list (List[Mol]): List of RDKit molecule objects.
+        labels (Optional[List[str]], optional): List of labels for each molecule. If None, default labels are generated. Default is None.
         outfile (str, optional): The name of the output file. Default is "allpath_indexes.png".
-        image_size (tuple, optional): The size of each sub-image in the grid. Default is (600, 600).
+        image_size (Tuple[int, int], optional): The size of each sub-image in the grid. Default is (600, 600).
 
     Returns:
         None
     """
     if labels is None:
         labels = [f"Path {i + 1}" for i in range(len(mol_list))]
-    Draw.MolsToGridImage([mol_with_atom_index(mol) for mol in mol_list], subImgSize=image_size).save(outfile)
+    Draw.MolsToGridImage([mol_with_atom_index(mol) for mol in mol_list], subImgSize=image_size, legends=labels).save(
+        outfile)
+    return None
 
 
-def all_shortest_paths(mol, f_graph_care=False, max_attempts=3):
+def all_shortest_paths(mol: Mol, f_graph_care: bool = False, max_attempts: int = 3) -> List[str]:
     """
     Generate all unique shortest paths of a molecule by scrambling atom indices.
 
@@ -231,7 +237,7 @@ def all_shortest_paths(mol, f_graph_care=False, max_attempts=3):
         max_attempts (int, optional): Maximum number of consecutive attempts without finding new InChI strings.
 
     Returns:
-        list: A list of unique InChI strings representing the shortest paths.
+        List[str]: A list of unique InChI strings representing the shortest paths.
     """
     if not isinstance(mol, Chem.Mol):
         raise ValueError("Input must be an RDKit molecule object.")
@@ -249,12 +255,12 @@ def all_shortest_paths(mol, f_graph_care=False, max_attempts=3):
         if f_graph_care:
             Chem.Kekulize(mol_renum)
 
-        ai, virt_obj, path = calculate_assembly_index(mol_renum)
-        path = get_mol_pathway_to_inchi(path)
-        path = convert_pathway_dict_to_list(path)
+        ai, virt_obj, _ = calculate_assembly_index(mol_renum)
+        virt_obj = get_mol_pathway_to_inchi(virt_obj)
+        virt_obj = convert_pathway_dict_to_list(virt_obj)
 
         new_inchi_found = False
-        for inchi in path:
+        for inchi in virt_obj:
             if inchi not in out_list:
                 out_list.append(inchi)
                 new_inchi_found = True

@@ -1,0 +1,21 @@
+Step 1. Download  https://www.intel.com/content/www/us/en/developer/tools/oneapi/dpc-compiler-download.html?operatingsystem=linux&distribution-linux=offline
+
+Step 2. scp this directory to the SOL location of your choice
+
+Step 3. > bash intel-dpcpp-cpp-compiler-2025.0.4.20_offline.sh
+
+Step 4. > source intel/oneapi/setvars.sh
+
+Step 5. From home, which includes /intel (or wherever you might have uploaded in Step 2. if not home)
+        > module load intel/intel-oneapi-2022.1.0
+
+Step 6. > setvars
+
+Step 7. > module load boost-1.79.0-gcc-11.2.0
+
+Step 8. > export BOOST_ROOT=/packages/apps/spack/18/opt/spack/gcc-11.2.0/boost-1.79.0-nek
+
+Step 9. > module load gcc-11.2.0-gcc-11.2.0
+
+Step 10. From assPHX directory (assuming you already have it downloaded) with main.cpp
+        > icpx -std=c++17 -Ofast -ipo main.cpp -I$BOOST_ROOT/include -L$BOOST_ROOT/lib -o oneapi_2025_Ofast_ipo

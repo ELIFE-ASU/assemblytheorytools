@@ -7,21 +7,74 @@ from .assembly import (calculate_assembly_index,
                        run_command_simple,
                        compile_assembly_code,
                        assembly_dry_run,
-                       add_assembly_to_path)
-
+                       add_assembly_to_path,
+                       load_assembly_time,
+                       calculate_assembly_index_parallel)
 from .complexity_scores import (molecular_weight,
                                 bertz_complexity,
                                 wiener_index,
                                 balaban_index,
                                 randic_index,
                                 kirchhoff_index,
+                                spacial_score,
                                 get_mol_descriptors,
                                 tanimoto_similarity,
                                 dice_morgan_similarity,
-                                get_chirality)
-
+                                get_chirality,
+                                compression_zlib_smi,
+                                compression_bz2_smi,
+                                compression_lzma_smi,
+                                compress_zlib_graph,
+                                decompress_zlib_graph,
+                                compression_zlib_graph)
+from .construction import parse_pathway_file
+from .construction_string import (generate_string_pathway_ian,
+                                  get_graph_string_explicit)
 from .find_other_paths import (all_shortest_paths)
+from .pathway import (get_pathway_to_graph,
+                      get_pathway_to_mol,
+                      get_pathway_to_inchi,
+                      get_pathway_to_smi,
+                      get_mol_pathway_to_inchi,
+                      get_mol_pathway_to_smi,
+                      convert_pathway_dict_to_list)
+from .plotting import (n_plot,
+                       ax_plot,
+                       plot_mol_graph,
+                       plot_interactive_graph,
+                       plot_graph,
+                       plot_digraph,
+                       plot_digraph_with_images,
+                       plot_digraph_metro)
+from .reassembler import (assemble,
+                          origami,
+                          get_num_atom,
+                          degree_unsaturation,
+                          get_unique_mols,
+                          reassemble_old,
+                          enumerate_sterioisomers,
+                          enumerate_tautomers,
+                          enumerate_heterocycles,
+                          reassemble)
 
+from .tools_atoms import (smi_to_atoms,
+                          mol_to_atoms,
+                          get_spin_multiplicity,
+                          orca_calc_preset,
+                          get_virtual_objects_energy)
+
+from .tools_cell import (read_cif_file,
+                         atoms_to_mol_file,
+                         atoms_to_nx,
+                         find_clusters)
+from .tools_data import (sample_boostrapping, sample_kde_resampling, sample_importance_sampling)
+from .tools_file import (file_list,
+                         file_list_all,
+                         filter_files,
+                         write_to_shared_file,
+                         remove_files,
+                         wipe_dir,
+                         list_subdirs)
 from .tools_graph import (nx_to_mol,
                           mol_to_nx,
                           write_ass_graph_file,
@@ -36,7 +89,6 @@ from .tools_graph import (nx_to_mol,
                           write_graphml,
                           read_graphml,
                           longest_path_length)
-
 from .tools_mol import (safe_standardize_mol,
                         standardize_mol,
                         smi_to_mol,
@@ -44,59 +96,73 @@ from .tools_mol import (safe_standardize_mol,
                         molfile_to_mol,
                         combine_mols,
                         write_v2k_mol_file,
-                        split_mols)
-
-from .tools_file import (file_list_all,
-                         write_to_shared_file)
-
-from .tools_cell import (read_cif_file,
-                         atoms_to_mol_file,
-                         atoms_to_nx)
-
-from .pathway import (get_pathway_to_graph,
-                      get_pathway_to_mol,
-                      get_pathway_to_inchi,
-                      get_pathway_to_smi,
-                      get_mol_pathway_to_inchi,
-                      get_mol_pathway_to_smi,
-                      convert_pathway_dict_to_list)
-
-from .plotting import (n_plot,
-                       ax_plot,
-                       plot_mol_graph,
-                       plot_interactive_graph,
-                       plot_graph,
-                       plot_digraph,
-                       plot_digraph_with_images,
-                       plot_digraph_metro)
-
-from .tools_string import (load_fasta,
-                           prep_joint_string_ai,
-                           get_unique_char)
-
+                        split_mols,
+                        get_element_set_from_mols)
 from .tools_mp import (mp_calc,
                        mp_calc_star,
                        tp_calc)
+from .tools_string import (load_fasta,
+                           prep_joint_string_ai,
+                           get_unique_char)
+from .tools_test import (check_elements, print_graph_details)
 
-from .construction import parse_pathway_file
-
-from .seb_reassembler import MoleculeGenerationAssemblyPool, Molecule, MoleculeSpace, Assemble
-
-__version__ = "1.1.0"
+from .seb_reassembler import (MoleculeGenerationAssemblyPool, Molecule, MoleculeSpace, Assemble)
+__version__ = "1.5.0"
 
 """
-This module provides various tools and functions for assembly theory analysis, molecular complexity scores, 
-graph manipulation, molecular tools, pathway analysis, and plotting.
+AssemblyTheoryTools
+===================
+A comprehensive Python package for assembly theory analysis and molecular graph manipulation.
+
+
+This package provides a suite of tools and functions for applying assembly theory concepts,
+calculating molecular complexity scores, manipulating molecular graphs, analyzing pathways,
+and visualizing molecular structures. It integrates with RDKit and NetworkX to provide
+powerful molecular and graph analysis capabilities.
+
+Contributors:
+------------
+Louie Slocombe
+Joey Fedrow
+Estelle Janin
+Gage Siebert
+
+Key Features:
+------------
+- Assembly theory calculations: Calculate assembly indices, joint corrections, and
+  assembly semi-metrics for molecules and strings.
+- Molecular complexity measures: Calculate various descriptors like molecular weight,
+  Bertz complexity, Wiener index, Balaban index, Randic index, and Kirchhoff index.
+- Graph manipulation: Convert between NetworkX graphs and RDKit molecules, check graph
+  isomorphism, and modify molecular graphs.
+- Molecular tools: Standardize molecules, convert between different molecular
+  representations (SMILES, InChI, mol files), and combine/split molecules.
+- Pathway analysis: Convert pathways to graphs, molecules, and various string
+  representations.
+- Visualization: Plot molecular graphs, interactive network diagrams, directed graphs,
+  and metro-style pathway visualizations.
+- Parallel processing: Multiprocessing tools for efficient calculations on large datasets.
+- File handling: Tools for reading/writing various file formats including CIF, GraphML,
+  and mol files.
+- Data sampling: Various sampling techniques including bootstrapping, KDE resampling,
+  and importance sampling.
 
 Submodules:
-    - assembly: Functions for calculating assembly index, joint correction, loading assembly output, and running commands.
-    - complexity_scores: Functions for calculating molecular weight, Bertz complexity, Wiener index, Balaban index, Randic index, and Kirchhoff index.
-    - find_other_paths: Functions for finding all shortest paths in a graph.
-    - graph_tools: Functions for converting between NetworkX graphs and RDKit molecules, writing graph files, and checking graph isomorphism.
-    - mol_tools: Functions for standardizing molecules, converting between different molecular representations, combining and splitting molecules, and writing V2000 mol files.
-    - pathway: Functions for converting pathways to graphs, molecules, and InChI strings.
-    - plotting: Functions for plotting molecular graphs, interactive graphs, residue graphs, and multiple graphs in subplots.
-
-Attributes:
-    __version__ (str): The version of the module.
+----------
+- assembly: Assembly theory calculations, command execution, and utility functions
+- complexity_scores: Molecular complexity metrics and similarity measures
+- construction: Pathway construction, parsing, and assembly digraph generation
+- construction_string: String pathway generation and manipulation utilities
+- find_other_paths: Path-finding algorithms for graphs
+- pathway: Pathway analysis and conversion utilities
+- plotting: Visualization tools for graphs and molecules
+- reassembler: Molecular reassembly and modification utilities
+- tools_cell: Crystal structure handling utilities
+- tools_data: Statistical sampling and data manipulation utilities
+- tools_file: File handling utilities
+- tools_graph: Graph manipulation and conversion utilities
+- tools_mol: Molecular manipulation and conversion utilities
+- tools_mp: Multiprocessing utilities
+- tools_string: String processing utilities
+- tools_test: Testing and debugging utilities
 """

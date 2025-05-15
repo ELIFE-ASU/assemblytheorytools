@@ -1,55 +1,70 @@
+import re
+from typing import Any
+from typing import List, Tuple
+
+import matplotlib.pyplot as plt
 import networkx as nx
-import numpy as np
+
+from .construction_string import generate_string_pathway_ian, get_graph_string_explicit
 
 
-def load_fasta(file_path):
+def load_fasta(file_path: str) -> str:
     """
     Load a FASTA file and return its contents as a single string.
+
+    This function ignores header lines (starting with '>') and
+    concatenates all sequence lines.
 
     Args:
         file_path (str): The path to the FASTA file.
 
     Returns:
-        str: The contents of the FASTA file as a single string.
+        str: The contents of the FASTA file as a single string with all
+             sequence lines concatenated.
     """
-    # Load the file contents into a NumPy array
-    fasta_array = np.genfromtxt(file_path, dtype=str, delimiter='\n', comments='>')
-    # Join the array elements into a single string
-    fasta_content = ''.join(fasta_array)
-    return fasta_content
+    sequence_content = ""
+
+    with open(file_path, "r") as file:
+        for line in file:
+            line = line.strip()
+            # Skip header lines that start with '>'
+            if not line.startswith(">"):
+                sequence_content += line
+
+    return sequence_content
 
 
-def prep_joint_string_ai(input_list):
+def prep_joint_string_ai(input_list: List[str]) -> Tuple[str, List[str]]:
     """
-    Compute the joint assembly index of strings by concatenating them with unique delimiters.
+    Combine a list of strings by concatenating them with unique delimiters.
 
     Args:
-        input_list (list of str): List of input strings to be concatenated.
+        input_list (List[str]): List of input strings to be concatenated.
 
     Raises:
         ValueError: If an empty string is found in the input list.
 
     Returns:
-        tuple: A tuple containing the concatenated string and a list of unique delimiters used.
+        Tuple[str, List[str]]: A tuple containing the concatenated string and a list of unique delimiters used.
+
+        The joint assembly index can be calculated using:
+        ai(amalgam_string) - 2 * len(delimiters) = joint_ai(input_list)
     """
     if "" in input_list:
         raise ValueError("Empty string in input list")
 
-    # Build a string of all the inputs separated by unique dummy characters
-    delimiters = []
-    amalgam_string = input_list[0]
+    # Build a string of all the inputs separated by unique fake characters
+    delimiters: List[str] = []
+    amalgam_string: str = input_list[0]
     for string in input_list[1:]:
         unique_char = get_unique_char(amalgam_string + string)
         amalgam_string += unique_char + string
         delimiters.append(unique_char)
 
-    # To use this to calculate joint assembly index, use formula:
-    # ai(amalgam_string) - 2 * len(delimiters) = joint_ai(input_list)
-    # delimiters can be used to process the pathway
     return amalgam_string, delimiters
 
 
-def get_unique_char(input_str):
+def get_unique_char(input_str: str) -> str:
     """
     Find a unique character that is not present in the input string.
 
@@ -59,44 +74,46 @@ def get_unique_char(input_str):
     Returns:
         str: A unique character not present in the input string.
     """
-    for i in range(1,
-                   1114111):  # Max Unicode code point is 0x10FFFF, which is 1114111 in decimal, start at 1 to skip null
+    for i in range(0x21, 0x7E):  # ASCII printable characters excluding space, max of 94 delimiters
         char = chr(i)
         if char not in input_str:
             return char
+    
+    raise ValueError("Ran out of delimiter symbols. Try broadening the range of allowable symbols.")
 
 
-def get_undir_str_molecule(undir_str, debug=False):
+def get_undir_str_molecule(undir_str: str, debug: bool = False) -> tuple[nx.Graph, dict[str, str]]:
     """
     Make a molecule that corresponds to an undirected string. The string will have the same assembly index
     as the molecular graph, and the paths will correspond as well.
 
     Args:
         undir_str (str): The undirected string.
-        debug (int): If 1, print debug information.
+        debug (bool): If True, print debug information.
 
     Returns:
-        graph: A networkx graph of the corresponding molecule.
-        edge_color_dict: A dictionary mapping edge colors (integers) to characters.
+        tuple[nx.Graph, dict[str, str]]: A tuple containing:
+            - A networkx graph of the corresponding molecule
+            - A dictionary mapping characters to edge colours (as strings)
     """
 
-    # Create a dictionary to map each unique character in the undirected string to a unique edge color
-    edge_color_dict = dict()
+    # Create a dictionary to map each unique character in the undirected string to a unique edge colour
+    edge_color_dict: dict[str, str] = {}
     for i, char in enumerate(set(undir_str)):
         edge_color_dict[char] = str(i + 1)
 
-    # If debug is enabled, print the edge color dictionary
+    # If debug is enabled, print the edge colour dictionary
     if debug:
-        print("Edge color dict:")
-        print(edge_color_dict)
+        print("Edge color dict:", flush=True)
+        print(edge_color_dict, flush=True)
 
-    # Initialize the graph and add the first two nodes with a 'null' color
+    # Initialise the graph and add the first two nodes with a 'null' colour
     blank = 'null'
     graph = nx.Graph()
     graph.add_node(0, color=blank)
     graph.add_node(1, color=blank)
 
-    # Add the first edge with the color corresponding to the first character in the undirected string
+    # Add the first edge with the colour corresponding to the first character in the undirected string
     graph.add_edge(0, 1, color=int(edge_color_dict[undir_str[0]]))
 
     # Iterate through the rest of the undirected string, adding nodes and edges to the graph
@@ -104,11 +121,11 @@ def get_undir_str_molecule(undir_str, debug=False):
         graph.add_node(i + 1, color=blank)
         graph.add_edge(i, i + 1, color=int(edge_color_dict[undir_str[i]]))
 
-    # Return the graph and the edge color dictionary
+    # Return the graph and the edge colour dictionary
     return graph, edge_color_dict
 
 
-def get_dir_str_molecule(dir_str):
+def get_dir_str_molecule(dir_str: str) -> nx.Graph:
     """
     Make a molecule that corresponds to a directed string. The string will have the same assembly index
     as the molecular graph, and the paths will correspond as well.
@@ -117,7 +134,7 @@ def get_dir_str_molecule(dir_str):
         dir_str (str): The directed string.
 
     Returns:
-        graph: A networkx graph of the corresponding molecule.
+        nx.Graph: A networkx graph of the corresponding molecule.
     """
     blank = 'null'
     graph = nx.Graph()
@@ -131,5 +148,91 @@ def get_dir_str_molecule(dir_str):
         graph.add_edge(2 * i, 2 * i + 1, color=1)
         graph.add_node(2 * i + 2, color=blank)
         graph.add_edge(2 * i + 1, 2 * i + 2, color=2)
+
+    return graph
+
+
+def generate_and_visualize_string_pathway(file_path: str) -> nx.DiGraph:
+    """
+    Generate and visualise a pathway graph using string pathway data from v5.
+
+    Args:
+        file_path (str): Path to the pathway file.
+
+    Returns:
+        networkx.DiGraph: The constructed directed graph.
+    """
+
+    # Generate the pathway object
+    construction_object: Any = generate_string_pathway_ian(file_path)
+
+    # Create a directed graph
+    graph: nx.DiGraph = nx.DiGraph()
+    for edge in get_graph_string_explicit(construction_object[0])[1]:
+        graph.add_edge(f"{edge[0]}", f"{edge[1]}")
+
+    # Visualise the graph
+    pos: dict[Any, Any] = nx.spring_layout(graph, k=0.9)
+    nx.draw(graph,
+            pos,
+            with_labels=True,
+            node_size=2000,
+            node_color="skyblue",
+            font_size=10,
+            font_color="black",
+            edge_color="gray",
+            width=1.5)
+    plt.show()
+
+    return graph
+
+
+def generate_and_visualize_cfg_pathway(file_path: str) -> nx.DiGraph:
+    """
+    Generate and visualise a directed graph from CFG pathway data.
+
+    Args:
+        file_path (str): Path to the file containing pathway data.
+
+    Returns:
+        networkx.DiGraph: The constructed directed graph.
+    """
+
+    # Read the file content
+    with open(file_path, 'r') as file:
+        file_content: list[str] = file.readlines()
+
+    # Extract pathway line
+    pathway_line: str = [line for line in file_content if line.startswith("Pathway:")][0]
+
+    # Extract pathway data
+    pathway_data: list[str] = re.findall(r"'(.*?)'", pathway_line)
+
+    # Create a directed graph
+    graph: nx.DiGraph = nx.DiGraph()
+    for relationship in pathway_data:
+        reactants, product = relationship.split(' = ')
+        reactant_1, reactant_2 = reactants.split(' + ')
+
+        # Add directed edges
+        graph.add_edge(reactant_1, product)
+        graph.add_edge(reactant_2, product)
+
+    # Visualise the graph
+    plt.figure(figsize=(12, 12))
+    pos: dict[Any, Any] = nx.spring_layout(graph, k=0.5, seed=42)
+    nx.draw(graph,
+            pos,
+            with_labels=True,
+            node_size=700,
+            node_color="skyblue",
+            font_size=10,
+            font_color="black",
+            font_weight="bold",
+            arrows=True,
+            arrowstyle="-|>",
+            arrowsize=15)
+    plt.title("CFG")
+    plt.show()
 
     return graph
