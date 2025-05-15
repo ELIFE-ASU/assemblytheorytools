@@ -14,9 +14,10 @@ import numpy as np
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from rdkit import Chem
 from rdkit.Chem import Draw
+from rdkit.Chem import MolFromSmiles
 
 from .assembly import add_assembly_to_path
-from .seb_pathway_tools import parse_pathway_file_ian, compose_all
+from .seb_pathway_tools import parse_pathway_file_ian
 from .tools_mol import safe_standardize_mol
 
 bond_types = {
@@ -25,6 +26,183 @@ bond_types = {
     "triple": Chem.BondType.TRIPLE,
     "aromatic": Chem.BondType.AROMATIC,
 }
+
+
+def compose_all(
+        graphs,
+        attribute="level",
+        get_atomic_count=True
+):
+    """
+    THIS IS A MODIFIED VERSION OF networkx.compose_all
+    Only real difference is it updates the node attribute "level" to the minimum value (of what???)
+    found in any of the graphs.
+
+    Returns the composition of all graphs.
+
+    Composition is the simple union of the node sets and edge sets.
+    The node sets of the supplied graphs need not be disjoint.
+
+    Parameters
+    ----------
+    graphs : iterable
+       Iterable of NetworkX graphs
+
+    Returns
+    -------
+    C : A graph with the same type as the first graph in list
+
+    Raises
+    ------
+    ValueError
+       If `graphs` is an empty list.
+
+    Notes
+    -----
+    It is recommended that the supplied graphs be either all directed or all
+    undirected.
+
+    Graph, edge, and node attributes are propagated to the union graph.
+    If a graph attribute is present in multiple graphs, then the value
+    from the last graph in the list with that attribute is used.
+    """
+    R: nx.MultiDiGraph = None
+    updated_nodes_data, node_counts = accumulate_nodes_data(
+        graphs, attribute=attribute
+    )
+    updated_edges_data = accumulate_edges_data(graphs)
+
+    # add graph attributes, H attributes take precedent over G attributes
+    for i, G in enumerate(graphs):
+        G = nx.DiGraph(G)  # necessary to accumulate edge data properly
+        if i == 0:
+            # create new graph
+            R = G.__class__()
+        elif G.is_multigraph() != R.is_multigraph():
+            raise nx.NetworkXError("All graphs must be graphs or multigraphs.")
+        R.graph.update(G.graph)
+        R.add_nodes_from(G.nodes())
+        R.add_edges_from(
+            G.edges(keys=False, data=False)
+            if G.is_multigraph()
+            else G.edges(data=False)
+        )
+    nx.set_node_attributes(R, values=updated_nodes_data, name=attribute)
+    nx.set_node_attributes(R, values=node_counts, name="count")
+    nx.set_edge_attributes(R, values=updated_edges_data, name="count")
+
+    node_usage = accumulate_node_usage(R, attribute=attribute)
+    nx.set_node_attributes(R, values=node_usage, name="usage")
+
+    if get_atomic_count:
+        atomic_count = get_atomic_distribution(R)
+        nx.set_node_attributes(R, values=atomic_count, name="atomic_count")
+
+    if R is None:
+        raise ValueError("cannot apply compose_all to an empty list")
+    return R
+
+
+def accumulate_edges_data(graphs):
+    # Edge counts
+    edge_counts = {}
+    for graph in graphs:
+        for edge in graph.edges():
+            if edge_counts.get(edge) is None:
+                edge_counts[edge] = 1
+            else:
+                edge_counts[edge] += 1
+    return edge_counts
+
+
+def accumulate_nodes_data(graphs, attribute="level"):
+    """
+    Returns a dict of nodes, their level attribute and the
+    number of times they were used in the construction of the graph [count]
+
+    Parameters
+    ----------
+    graphs : iterable
+        Iterable of NetworkX graphs
+    attribute : str
+        Attribute to accumulate
+
+    Returns
+    -------
+    nodes_data : dict
+        Dict of nodes and their accumulated 'level' data from all graphs
+    """
+
+    nodes_data = {}
+    node_counts = {}
+    for graph in graphs:
+        for node in graph.nodes(data=True):
+            if node[0] not in nodes_data:
+                nodes_data[node[0]] = node[1][attribute]
+                node_counts[node[0]] = 1
+
+            elif (
+                    # if level in one pathway is lower than in another. Can happen
+                    # sometimes if the pathways are not exact
+                    node[1][attribute] < nodes_data[node[0]]
+            ):  # update to minimum value
+                nodes_data[node[0]] = node[1][attribute]
+                node_counts[node[0]] += 1
+
+            else:  # count varialbe will still be increasd
+                node_counts[node[0]] += 1
+                nodes_data[node[0]] = node[1][attribute]
+    return nodes_data, node_counts
+
+
+def accumulate_node_usage(graph, attribute="usage"):
+    """
+    Accumulate all the levels for which a node was used in the construction of fragments
+    """
+    node_usage = {}
+    for node in graph.nodes():
+        # get out edges
+        node_usage[node] = []
+        for edge in graph.out_edges(node):
+            node_usage[node].append(graph.nodes[edge[-1]][attribute])
+    return node_usage
+
+
+def get_atomic_distribution(graph) -> dict:
+    """
+    Create a dictionary where the keys are SMILES strings (the nodes of the graph) and values are
+    the set of atomic numbers of atoms that have free valence.
+
+    Parameters
+    ----------
+    graph : nx.Graph
+        Graph where nodes are SMILES strings (molecules)
+
+    Returns
+    -------
+    atomic_count : dict
+        Dictionary where keys are SMILES strings and values are sets of atomic numbers that have free valence
+    """
+
+    PeriodicTable = Chem.rdchem.GetPeriodicTable()
+    atomic_count: dict = defaultdict(list)
+
+    for node in graph.nodes:
+        mol = MolFromSmiles(node)
+        if mol is None:
+            atomic_count[node] = None
+            continue
+        else:
+            for atom in mol.GetAtoms():
+                free_atom_valence = (
+                        PeriodicTable.GetDefaultValence(atom.GetSymbol()) - atom.GetExplicitValence()
+                )
+                # Only relevant atoms
+                if free_atom_valence > 0:
+                    atomic_count[node].append(atom.GetAtomicNum())
+        atomic_count[node] = set(atomic_count[node])
+
+    return atomic_count
 
 
 class ConstructionObject:
