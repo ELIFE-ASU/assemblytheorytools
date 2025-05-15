@@ -1,9 +1,7 @@
-import matplotlib.pyplot as plt
 import numpy as np
 
 import CFG
 import assemblytheorytools as att
-from typing import List
 
 '''
 Here is a function to plot a graph, where objects are displayed in concentric
@@ -60,7 +58,7 @@ adj_matrix = np.array([
     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],  # Nodo 9
     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # Nodo 10
     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # Nodo 11
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]   # Nodo 12
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]  # Nodo 12
 ])
 
 # Specifying adjacency matrix:
@@ -68,7 +66,7 @@ adj_matrix = np.array([
 att.plot_assembly_circle(nodes, adj_matrix)
 
 # Without specifying adjacency matrix with given parameters:
-    
+
 labels = True
 node_size = 1000
 arrow_size = 50
@@ -76,15 +74,19 @@ node_color = 'Skyblue'
 edge_color = 'Grey'
 fig_size = 10
 filename = 'circle_plot.png'
-att.plot_assembly_circle(nodes, labels = True, node_size = node_size, arrow_size = arrow_size, node_color = node_color, edge_color = edge_color,
-                             fig_size = fig_size, filename = filename)
-
+att.plot_assembly_circle(nodes,
+                         labels=True,
+                         node_size=node_size,
+                         arrow_size=arrow_size,
+                         node_color=node_color,
+                         edge_color=edge_color,
+                         fig_size=fig_size,
+                         filename=filename)
 
 # Example with providing assembly indices (can be substituted by other criteria)
 n_nodes = len(nodes)
-assembly_indices  = np.zeros(n_nodes,dtype = int)
+assembly_indices = np.zeros(n_nodes, dtype=int)
 for i in range(n_nodes):
     assembly_indices[i] = CFG.ai_with_pathways(nodes[i], f_print=False)[0]
-    
 
-att.plot_assembly_circle(nodes, adj_matrix = adj_matrix, assembly_indices = assembly_indices)
+att.plot_assembly_circle(nodes, adj_matrix=adj_matrix, assembly_indices=assembly_indices)
