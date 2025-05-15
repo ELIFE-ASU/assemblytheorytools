@@ -29,8 +29,8 @@ def test_seb_molecule_construction():
     list_fragments = list(graph.nodes)
     fragment1 = list_fragments[0]
     fragment2 = list_fragments[1]
-    product = molecule_generation.combine_fragments(fragment1=fragment1, fragment2=fragment2,
-                                                    assemble_object=att.Assemble())
+    product = molecule_generation.combine_fragments_layer(fragment1=fragment1, fragment2=fragment2,
+                                                          assemble_object=att.Assemble())
 
     assert product == "CC(N)C(=O)OC(=O)CN"
 

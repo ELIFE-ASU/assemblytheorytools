@@ -28,43 +28,7 @@ bond_types = {
 }
 
 
-def compose_all(graphs,
-                attribute="level",
-                get_atomic_count=True
-                ):
-    """
-    THIS IS A MODIFIED VERSION OF networkx.compose_all
-    Only real difference is it updates the node attribute "level" to the minimum value
-    found in any of the graphs.
-
-    Returns the composition of all graphs.
-
-    Composition is the simple union of the node sets and edge sets.
-    The node sets of the supplied graphs need not be disjoint.
-
-    Parameters
-    ----------
-    graphs : iterable
-       Iterable of NetworkX graphs
-
-    Returns
-    -------
-    C : A graph with the same type as the first graph in list
-
-    Raises
-    ------
-    ValueError
-       If `graphs` is an empty list.
-
-    Notes
-    -----
-    It is recommended that the supplied graphs be either all directed or all
-    undirected.
-
-    Graph, edge, and node attributes are propagated to the union graph.
-    If a graph attribute is present in multiple graphs, then the value
-    from the last graph in the list with that attribute is used.
-    """
+def compose_all(graphs, attribute="level", get_atomic_count=True):
     R: nx.MultiDiGraph = None
     updated_nodes_data, node_counts = accumulate_nodes_data(
         graphs, attribute=attribute
@@ -213,6 +177,263 @@ def destringyfy(string):
     return ast.literal_eval(string)
 
 
+def combine_fragments(fragment1, fragment2, combinations) -> str:
+    """
+    Combines two molecular fragments by forming bonds between specified atom pairs.
+
+    This function takes two RDKit `Mol` objects (`fragment1` and `fragment2`) and
+    attempts to merge them by connecting specified atom pairs. The resulting molecule
+    undergoes structural validation before being returned.
+
+    Args:
+        fragment1 (str): The first molecular fragment, represented as a SMILES string.
+        fragment2 (str): The second molecular fragment, represented as a SMILES string.
+        combinations (list[tuple[int, int]]): A list of atom index pairs, where each tuple
+                                            represents a bond to be formed between an
+                                            atom in `fragment1` and an atom in `fragment2`.
+
+    Returns:
+        str (SMILES string) | None:
+            - The combined molecule if the bonding is successful and chemically valid.
+            - `None` if the molecule cannot be standardized
+
+    Raises:
+        IndexError: If an invalid atom index is accessed in either fragment.
+
+    Notes:
+        - The function starts by retrieving the atom objects based on the given indices.
+        - Atom neighbors and bond orders from `fragment2` are stored before merging.
+        - `fragment1` and `fragment2` are merged using `Chem.CombineMols()`.
+        - The function modifies bonds using `Chem.RWMol()` to ensure proper connectivity.
+        - The resulting molecule is standardized and converted to a SMILES string.
+    """
+    max_idx = fragment1.GetNumAtoms()
+
+    f1_atoms = []
+    f2_atoms = []
+    f1_atom_bond_parters = []
+    f1_atom_bond_orders = []
+    # try to combine atoms and check the resulting
+    # molecule for chemical validity
+    for atom1, atom2 in combinations:
+        # choose a random combination of atoms
+        f1_atoms.append(fragment1.GetAtomWithIdx(atom1))
+        f2_atoms.append(fragment2.GetAtomWithIdx(atom2))
+
+        # get atom2 bond partners and bond orders
+        f1_atom_bond_parters.append(f2_atoms[-1].GetNeighbors())
+        f1_atom_bond_orders.append(
+            [bond.GetBondType() for bond in f2_atoms[-1].GetBonds()]
+        )
+
+    # Remove atom2 and add atom2 bond partners to atom1
+    # Important that all sanity checks before are valid!!!!
+    combine = Chem.CombineMols(fragment1, fragment2)
+    rw_mol = Chem.RWMol(combine)
+    Chem.RemoveAllHs(rw_mol)
+
+    # combine mols
+    rw_mol.BeginBatchEdit()
+    for atom_id in range(len(f1_atoms)):
+        rw_mol.RemoveAtom(f2_atoms[atom_id].GetIdx() + max_idx)
+        for bond, order in zip(
+                f1_atom_bond_parters[atom_id], f1_atom_bond_orders[atom_id]
+        ):
+            rw_mol.AddBond(
+                f1_atoms[atom_id].GetIdx(),
+                bond.GetIdx() + max_idx,
+                order,
+            )
+    rw_mol.CommitBatchEdit()
+
+    # Check if molecule is valid and standardize
+    try:
+        mol = rw_mol.GetMol()  # Convert editable mol to mol object
+        mol = safe_standardize_mol(mol, add_hydrogens=True)
+        mol = Chem.RemoveHs(mol)
+        smiles = Chem.MolToSmiles(mol)
+
+    except Exception as e:
+        print(f"Standardization failed: {e}", flush=True)
+        return None
+
+    return smiles
+
+
+def _valence_check(atom1, atom2):
+    """
+    Checks if the valence of two atoms allows them to be combined. Note: atom types must be the same.
+
+    Args:
+        atom1 : list[str, int] A list containing the atom type and free valence of atom 1.
+        atom2 : list[str, int] A list containing the atom type and free valence of atom 2.
+
+    Returns:
+        bool: True if the atoms can be combined, False otherwise.
+    """
+    periodic_table = Chem.rdchem.GetPeriodicTable()
+
+    total_valence_used = (
+            periodic_table.GetDefaultValence(atom1[0]) - atom1[1] +
+            periodic_table.GetDefaultValence(atom2[0]) - atom2[1]
+    )
+
+    return total_valence_used <= periodic_table.GetDefaultValence(atom1[0])
+
+
+def count_non_overlapping_sublists(lst):
+    """
+    Counts the number of non-overlapping sublists in a list of lists, for the purpose of
+    determining the number of pairs of atoms that can be combined without reusing atoms from either fragment.
+
+    Args:
+        lst : list[list] A list of lists.
+
+    Returns:
+        counts (int) The number of non-overlapping sublists.
+    """
+    # Sort the list of lists by the first element of each sublist
+    sorted_lst = sorted(lst, key=lambda x: x[0])
+
+    # Initialize a variable to keep track of the number of non-overlapping sublists
+    count = 1
+
+    # Loop through the sorted list of lists and compare the second element of each sublist
+    # with the first element of the next sublist
+    for i in range(len(sorted_lst) - 1):
+        if sorted_lst[i][1] <= sorted_lst[i + 1][0]:
+            count += 1
+
+    # Return the counter for the number of non-overlapping sublists
+    return count
+
+
+def get_possible_combinations(atomtype_index_mapping1, atomtype_index_mapping2):
+    """
+    Returns all possible combinations of atoms that can be combined.
+    Possible combinations are atoms with the same atom type and sum of valence
+    does not exceed the allowed valence.
+
+    Args:
+        atomtype_index_mapping1 : dict A dictionary mapping atom index to atom type and free valence for fragment 1.
+        atomtype_index_mapping2 : dict A dictionary mapping atom index to atom type and free valence for fragment 2.
+
+    Returns:
+        possible_combinations : list[list[int, int]] A list of possible atom combinations. Each combination is a list of two atom indices.
+    """
+    possible_combinations = []
+    for atom1 in atomtype_index_mapping1:
+        for atom2 in atomtype_index_mapping2:
+            # check if atom types are the same
+            # and if the valence check is passed
+            if atomtype_index_mapping1[atom1][0] == atomtype_index_mapping2[atom2][
+                0
+            ] and _valence_check(
+                atomtype_index_mapping1[atom1],
+                atomtype_index_mapping2[atom2],
+            ):
+                possible_combinations.append([atom1, atom2])  # Store the atom indices
+
+    if possible_combinations:
+        random.shuffle(possible_combinations)
+        return possible_combinations
+    return None
+
+
+def get_allowed_pairs(combinations, k):
+    """
+    Returns a list of k allowed pairs of atoms from a list of possible combinations.
+
+    Args:
+        combinations : list[list[int, int]] A list of possible atom combinations.
+        k : int The number of pairs to select.
+
+    Returns:
+        sampled_sublists : list[list[int, int]] A list of k allowed pairs of atoms.
+    """
+    sampled_sublists = []
+    counter = 0
+
+    # Loop until k sublists have been sampled or the counter exceeds a certain number of iterations
+    while len(sampled_sublists) < k and counter < 1000:
+        # Sample a sublist from the original list
+        sublist = random.sample(combinations, 1)[0]
+
+        # Check if the first entry of the sampled sublist overlaps with any previous sublists
+        if all(sublist[0] != prev[0] for prev in sampled_sublists):
+            # Check if the second entry of the sampled sublist overlaps with any previous sublists
+            if all(sublist[1] != prev[1] for prev in sampled_sublists):
+                # Add the sampled sublist to the list of sampled sublists
+                sampled_sublists.append(sublist)
+        counter += 1
+    return sampled_sublists
+
+
+def select_max_overlaps(f1_atoms, f2_atoms) -> int:
+    """
+    Returns the maximum number of atoms that can overlap between two fragments.
+
+    Args:
+        f1_atoms : int The number of atoms in fragment 1.
+        f2_atoms : int The number of atoms in fragment 2.
+
+    Returns:
+        int: The maximum number of atoms that can overlap
+    """
+    return min(f1_atoms, f2_atoms)
+
+
+def get_atomtype_index_mapping(fragment):
+    """
+    Retrieves the molecular representation and atomic index mapping for a given fragment.
+
+    This function converts a SMILES string into an RDKit `Mol` object and creates
+    a mapping of atomic indices to their atomic symbol and free valence count.
+
+    Args:
+        fragment (str): The molecular fragment represented as a SMILES string.
+
+    Returns:
+        tuple[Chem.Mol, dict[int, list]] | tuple[None, None]:
+            - `mol` (Chem.Mol): The RDKit molecular object representation of the fragment.
+            - `atomtype_index_mapping` (dict[int, list]): A dictionary where:
+                - Keys are atomic indices.
+                - Values are lists containing:
+                    - The atomic symbol (str).
+                    - The free valence count (int).
+            - If the fragment cannot be processed, returns `(None, None)`.
+
+    Raises:
+        TypeError: If the input fragment is not a valid string.
+        Chem.KekulizeException: If RDKit fails to kekulize the molecule.
+        Chem.AtomValenceException: If RDKit detects an invalid atomic valence.
+
+    Notes:
+        - The function first attempts to convert the SMILES string to an RDKit `Mol` object.
+        - Implicit hydrogens are removed to simplify atom valence calculations.
+        - Free valence is determined based on predefined valence rules from rdkit periodic_table.
+    """
+    try:
+        mol = Chem.MolFromSmiles(fragment, sanitize=False)
+        mol = Chem.RemoveHs(mol, implicitOnly=False)
+    except (TypeError, Chem.KekulizeException, Chem.AtomValenceException):
+        return None, None
+    if mol is None:
+        return None, None
+
+    periodic_table = Chem.rdchem.GetPeriodicTable()
+    atomtype_index_mapping = defaultdict(list)
+
+    for atom in mol.GetAtoms():
+        # check for free valence of atoms
+        free_atom_valence = (
+                periodic_table.GetDefaultValence(atom.GetSymbol()) - atom.GetExplicitValence()
+        )
+        atomtype_index_mapping[atom.GetIdx()].append(atom.GetSymbol())
+        atomtype_index_mapping[atom.GetIdx()].append(free_atom_valence)
+    return mol, atomtype_index_mapping
+
+
 class ParsePathwayLog:
     global bond_types
 
@@ -352,11 +573,11 @@ class ParsePathwayLog:
         Construct a multidigraph from the pathway log.
 
         Returns:
-            G: nx.MultiDiGraph; multidigraph of the pathway log
+            graph: nx.MultiDiGraph; multidigraph of the pathway log
         """
-        G = nx.MultiDiGraph()
+        graph = nx.MultiDiGraph()
         smiles_graph = self.construct_basic_bb()
-        G.add_nodes_from(smiles_graph.values())
+        graph.add_nodes_from(smiles_graph.values())
 
         for i in range(len(self.digraph_lines)):
             # skip every second line
@@ -369,18 +590,18 @@ class ParsePathwayLog:
                 )
             )
 
-            G.add_node(smiles_graph[self.digraph_lines[i][-1]])
+            graph.add_node(smiles_graph[self.digraph_lines[i][-1]])
             # First building block
-            G.add_edge(
+            graph.add_edge(
                 smiles_graph[self.digraph_lines[i][0]],
                 smiles_graph[self.digraph_lines[i][-1]],
             )
             # Second building block
-            G.add_edge(
+            graph.add_edge(
                 smiles_graph[self.digraph_lines[i + 1][0]],
                 smiles_graph[self.digraph_lines[i][-1]],
             )
-        return G
+        return graph
 
     def get_level(self, node):
         """
@@ -456,7 +677,7 @@ class ParsePathwayLog:
         cmap = plt.get_cmap("Blues")
         node_colors = [self.G.nodes[node]["level"] for node in self.G.nodes]
 
-        cmap = [cmap(0.4) for i in np.linspace(0.3, 1, len(node_colors))]
+        cmap = [cmap(0.4) for _ in np.linspace(0.3, 1, len(node_colors))]
         positions = self._get_node_positions()
         nx.draw(
             self.G,
@@ -598,6 +819,8 @@ class Molecule:
             timeout: Optional[int] = 60,
     ):
         super().__init__()
+        self.pathway_log_string = None
+        self.pathway_fragments = None
         self.pathwayLogObj = None
         self.smiles: Optional[str] = smiles
         self.pathway: Optional[list[str]] = pathway
@@ -714,6 +937,7 @@ class Molecule:
 
 class MoleculeSpace:
     def __init__(self, molecules: list[Molecule]):
+        self.joined_assembly_graph = None
         self.joined_assembly_graph_minus_x = None
         self.max_assembly_index = None
         self.molecules: list[Molecule] = molecules
@@ -734,33 +958,6 @@ class MoleculeSpace:
         self.root_nodes: list[str | None] = None
         # list of leaf nodes in joined_assembly_graph
         self.leaf_nodes: list[str | None] = None
-
-    def __len__(self):
-        """
-        Returns the number of molecules in the collection.
-        """
-        return len(self.molecules)
-
-    def __getitem__(self, idx):
-        """
-        Retrieves a molecule by its index.
-
-        Args:
-            idx (int): The index of the molecule to retrieve.
-
-        Returns:
-            object: The molecule at the specified index.
-        """
-        return self.molecules[idx]
-
-    def __iter__(self):
-        """
-        Returns an iterator over the molecules in the collection.
-
-        Returns:
-            iterator: An iterator over the `molecules` list.
-        """
-        return iter(self.molecules)
 
     def _remove_none(self):
         """
@@ -932,6 +1129,11 @@ class MoleculeSpace:
 
 class MoleculeGenerationAssemblyPool:
     def __init__(self, assembly_pool) -> None:
+        self.diverged_assembly_graph = None
+        self.original_a_minus_X = None
+        self.bu_level_to_fragment = None
+        self.level_to_fragment = None
+        self.num_removed = None
         self.assembly_pool = assembly_pool
         self.assembled_molecules: dict[int, list] = defaultdict(list)
         self.original_a_minus_X: None
@@ -1052,7 +1254,7 @@ class MoleculeGenerationAssemblyPool:
 
         for level in range(min_level, self.assembly_pool.max_assembly_index + 1):
             if level not in leaf_counts:
-                leaf_counts[level] = 1e-8
+                leaf_counts[level] = int(1e-8)
 
         return leaf_counts
 
@@ -1189,7 +1391,7 @@ class MoleculeGenerationAssemblyPool:
         )
         return None
 
-    def sample_layer(self, exponent=2.0, curr_depth=0, black_listed_layers=[]) -> int:
+    def sample_layer(self, exponent=2.0, curr_depth=0, black_listed_layers=None) -> int:
         """
         Sample a layer based on the sampling weights.
 
@@ -1203,6 +1405,8 @@ class MoleculeGenerationAssemblyPool:
             int: The sampled layer level.
         """
         # sample layer this is done to ensure roughly same molecule size distribution as in the assembly pool
+        if black_listed_layers is None:
+            black_listed_layers = []
         if not hasattr(self, "layer_sampling_weights"):
             self.set_sw_layer(exponent=exponent)
 
@@ -1223,7 +1427,7 @@ class MoleculeGenerationAssemblyPool:
                        inverse: bool = False,
                        layer: int = 0,
                        exponent: float = 1.0,
-                       blacklist=[],
+                       blacklist=None,
                        ) -> tuple[str, int]:
         """
         Performs weighted random sampling (WRS) of a fragment from a specified layer.
@@ -1260,6 +1464,8 @@ class MoleculeGenerationAssemblyPool:
             an exponentiation factor to control bias.
         """
         # sample node from layer
+        if blacklist is None:
+            blacklist = []
         if inverse:
             exponent = -exponent
         relevant_fragments = self.level_to_fragment[layer]
@@ -1329,11 +1535,11 @@ class MoleculeGenerationAssemblyPool:
         """
         return random.choice(self.level_to_fragment[node_level])
 
-    def combine_fragments(self,
-                          fragment1,
-                          fragment2,
-                          assemble_object,
-                          layer=1):
+    def combine_fragments_layer(self,
+                                fragment1,
+                                fragment2,
+                                assemble_object,
+                                layer=1):
         """
         Combines two molecular fragments to create a new molecule.
 
@@ -1360,8 +1566,8 @@ class MoleculeGenerationAssemblyPool:
             - The function calls `self.get_atomtype_index_mapping()` to retrieve
             molecular representations and atomic index mappings for bonding.
         """
-        mol1, atomtype_index_mapping1 = self.get_atomtype_index_mapping(fragment1)
-        mol2, atomtype_index_mapping2 = self.get_atomtype_index_mapping(fragment2)
+        mol1, atomtype_index_mapping1 = get_atomtype_index_mapping(fragment1)
+        mol2, atomtype_index_mapping2 = get_atomtype_index_mapping(fragment2)
 
         if mol1 is None or mol2 is None:
             return None
@@ -1373,57 +1579,6 @@ class MoleculeGenerationAssemblyPool:
             atomtype_index_mapping2,
             layer=layer,
         )
-
-    # Also similar to get_atomic_distribution! What is going on
-    def get_atomtype_index_mapping(self, fragment):
-        """
-        Retrieves the molecular representation and atomic index mapping for a given fragment.
-
-        This function converts a SMILES string into an RDKit `Mol` object and creates
-        a mapping of atomic indices to their atomic symbol and free valence count.
-
-        Args:
-            fragment (str): The molecular fragment represented as a SMILES string.
-
-        Returns:
-            tuple[Chem.Mol, dict[int, list]] | tuple[None, None]:
-                - `mol` (Chem.Mol): The RDKit molecular object representation of the fragment.
-                - `atomtype_index_mapping` (dict[int, list]): A dictionary where:
-                    - Keys are atomic indices.
-                    - Values are lists containing:
-                        - The atomic symbol (str).
-                        - The free valence count (int).
-                - If the fragment cannot be processed, returns `(None, None)`.
-
-        Raises:
-            TypeError: If the input fragment is not a valid string.
-            Chem.KekulizeException: If RDKit fails to kekulize the molecule.
-            Chem.AtomValenceException: If RDKit detects an invalid atomic valence.
-
-        Notes:
-            - The function first attempts to convert the SMILES string to an RDKit `Mol` object.
-            - Implicit hydrogens are removed to simplify atom valence calculations.
-            - Free valence is determined based on predefined valence rules from rdkit periodic_table.
-        """
-        try:
-            mol = Chem.MolFromSmiles(fragment, sanitize=False)
-            mol = Chem.RemoveHs(mol, implicitOnly=False)
-        except (TypeError, Chem.KekulizeException, Chem.AtomValenceException):
-            return None, None
-        if mol is None:
-            return None, None
-
-        periodic_table = Chem.rdchem.GetPeriodicTable()
-        atomtype_index_mapping = defaultdict(list)
-
-        for atom in mol.GetAtoms():
-            # check for free valence of atoms
-            free_atom_valence = (
-                    periodic_table.GetDefaultValence(atom.GetSymbol()) - atom.GetExplicitValence()
-            )
-            atomtype_index_mapping[atom.GetIdx()].append(atom.GetSymbol())
-            atomtype_index_mapping[atom.GetIdx()].append(free_atom_valence)
-        return mol, atomtype_index_mapping
 
     # This is a beast.
     def random_construct_n_molecules(self,
@@ -1492,9 +1647,7 @@ class MoleculeGenerationAssemblyPool:
             if fragment2 is None:
                 return None, None, 0
             return (
-                self.combine_fragments(
-                    fragment1, fragment2, assemble_object, layer=curr_depth
-                ),
+                self.combine_fragments_layer(fragment1, fragment2, assemble_object, layer=curr_depth),
                 fragment2,
                 num_fragments,
             )
@@ -1735,29 +1888,10 @@ class Assemble:
         },
     }"""
 
-    def __init__(
-            self,
-    ) -> None:
+    def __init__(self) -> None:
         pass
 
-    def select_max_overlaps(self, f1_atoms, f2_atoms) -> int:
-        """
-        Returns the maximum number of atoms that can overlap between two fragments.
-
-        Args:
-            f1_atoms : int The number of atoms in fragment 1.
-            f2_atoms : int The number of atoms in fragment 2.
-
-        Returns:
-            int: The maximum number of atoms that can overlap
-        """
-        return min(f1_atoms, f2_atoms)
-
-    # NEED TO MAKE BASE WEIGHTS A PARAMETER / ARGUMENT...
-    # NEED TO MAKE WEIGHTS ONLY A LIST OR DICT, NOT BOTH.
-    def select_n_overlaps(
-            self, f1_atoms, f2_atoms, p_combinations_copy, layer=None
-    ) -> int:
+    def select_n_overlaps(self, f1_atoms, f2_atoms, p_combinations_copy, layer=None) -> int:
         """
         Selects the number of atoms that can overlap between two fragments.
 
@@ -1770,11 +1904,11 @@ class Assemble:
         Returns:
             combinations: list[list[int, int]] A list of atom combinations.
         """
-        max_overlap = self.select_max_overlaps(f1_atoms, f2_atoms)
+        max_overlap = select_max_overlaps(f1_atoms, f2_atoms)
 
         # Why is this only relevant for the BASE weights?
         allowed_num_combinations = min(
-            self.count_non_overlapping_sublists(p_combinations_copy),
+            count_non_overlapping_sublists(p_combinations_copy),
             max_overlap,
         )
 
@@ -1793,204 +1927,9 @@ class Assemble:
             range(1, len(weights) + 1), weights=weights, k=1
         )[0]
 
-        combinations = self.get_allowed_pairs(p_combinations_copy, k=num_combinations)
+        combinations = get_allowed_pairs(p_combinations_copy, k=num_combinations)
         return combinations
 
-    # Isn't this already biasing the combinations that can exist?
-    def count_non_overlapping_sublists(self, lst):
-        """
-        Counts the number of non-overlapping sublists in a list of lists, for the purpose of
-        determining the number of pairs of atoms that can be combined without reusing atoms from either fragment.
-
-        Args:
-            lst : list[list] A list of lists.
-
-        Returns:
-            counts (int) The number of non-overlapping sublists.
-        """
-        # Sort the list of lists by the first element of each sublist
-        sorted_lst = sorted(lst, key=lambda x: x[0])
-
-        # Initialize a variable to keep track of the number of non-overlapping sublists
-        count = 1
-
-        # Loop through the sorted list of lists and compare the second element of each sublist
-        # with the first element of the next sublist
-        for i in range(len(sorted_lst) - 1):
-            if sorted_lst[i][1] <= sorted_lst[i + 1][0]:
-                count += 1
-
-        # Return the counter for the number of non-overlapping sublists
-        return count
-
-    # Isn't some of this redundant with trying to figure out non-overlapping sublists?
-    def get_allowed_pairs(self, combinations, k):
-        """
-        Returns a list of k allowed pairs of atoms from a list of possible combinations.
-
-        Args:
-            combinations : list[list[int, int]] A list of possible atom combinations.
-            k : int The number of pairs to select.
-
-        Returns:
-            sampled_sublists : list[list[int, int]] A list of k allowed pairs of atoms.
-        """
-        sampled_sublists = []
-        counter = 0
-
-        # Loop until k sublists have been sampled or the counter exceeds a certain number of iterations
-        while len(sampled_sublists) < k and counter < 1000:
-            # Sample a sublist from the original list
-            sublist = random.sample(combinations, 1)[0]
-
-            # Check if the first entry of the sampled sublist overlaps with any previous sublists
-            if all(sublist[0] != prev[0] for prev in sampled_sublists):
-                # Check if the second entry of the sampled sublist overlaps with any previous sublists
-                if all(sublist[1] != prev[1] for prev in sampled_sublists):
-                    # Add the sampled sublist to the list of sampled sublists
-                    sampled_sublists.append(sublist)
-            counter += 1
-        return sampled_sublists
-
-    def _valence_check(self, atom1, atom2):
-        """
-        Checks if the valence of two atoms allows them to be combined. Note: atom types must be the same.
-
-        Args:
-            atom1 : list[str, int] A list containing the atom type and free valence of atom 1.
-            atom2 : list[str, int] A list containing the atom type and free valence of atom 2.
-
-        Returns:
-            bool: True if the atoms can be combined, False otherwise.
-        """
-        PeriodicTable = Chem.rdchem.GetPeriodicTable()
-
-        total_valence_used = (
-                PeriodicTable.GetDefaultValence(atom1[0]) - atom1[1] +
-                PeriodicTable.GetDefaultValence(atom2[0]) - atom2[1]
-        )
-
-        return total_valence_used <= PeriodicTable.GetDefaultValence(atom1[0])
-
-    def get_possible_combinations(
-            self, atomtype_index_mapping1, atomtype_index_mapping2
-    ):
-        """
-        Returns all possible combinations of atoms that can be combined.
-        Possible combinations are atoms with the same atom type and sum of valence
-        does not exceed the allowed valence.
-
-        Args:
-            atomtype_index_mapping1 : dict A dictionary mapping atom index to atom type and free valence for fragment 1.
-            atomtype_index_mapping2 : dict A dictionary mapping atom index to atom type and free valence for fragment 2.
-
-        Returns:
-            possible_combinations : list[list[int, int]] A list of possible atom combinations. Each combination is a list of two atom indices.
-        """
-        possible_combinations = []
-        for atom1 in atomtype_index_mapping1:
-            for atom2 in atomtype_index_mapping2:
-                # check if atom types are the same
-                # and if the valence check is passed
-                if atomtype_index_mapping1[atom1][0] == atomtype_index_mapping2[atom2][
-                    0
-                ] and self._valence_check(
-                    atomtype_index_mapping1[atom1],
-                    atomtype_index_mapping2[atom2],
-                ):
-                    possible_combinations.append([atom1, atom2])  # Store the atom indices
-
-        if possible_combinations:
-            random.shuffle(possible_combinations)
-            return possible_combinations
-        return None
-
-    def combine_fragments(
-            self, fragment1, fragment2, combinations
-    ) -> str:
-        """
-        Combines two molecular fragments by forming bonds between specified atom pairs.
-
-        This function takes two RDKit `Mol` objects (`fragment1` and `fragment2`) and
-        attempts to merge them by connecting specified atom pairs. The resulting molecule
-        undergoes structural validation before being returned.
-
-        Args:
-            fragment1 (str): The first molecular fragment, represented as a SMILES string.
-            fragment2 (str): The second molecular fragment, represented as a SMILES string.
-            combinations (list[tuple[int, int]]): A list of atom index pairs, where each tuple
-                                                represents a bond to be formed between an
-                                                atom in `fragment1` and an atom in `fragment2`.
-
-        Returns:
-            str (SMILES string) | None:
-                - The combined molecule if the bonding is successful and chemically valid.
-                - `None` if the molecule cannot be standardized
-
-        Raises:
-            IndexError: If an invalid atom index is accessed in either fragment.
-
-        Notes:
-            - The function starts by retrieving the atom objects based on the given indices.
-            - Atom neighbors and bond orders from `fragment2` are stored before merging.
-            - `fragment1` and `fragment2` are merged using `Chem.CombineMols()`.
-            - The function modifies bonds using `Chem.RWMol()` to ensure proper connectivity.
-            - The resulting molecule is standardized and converted to a SMILES string.
-        """
-        max_idx = fragment1.GetNumAtoms()
-
-        f1_atoms = []
-        f2_atoms = []
-        f1_atom_bond_parters = []
-        f1_atom_bond_orders = []
-        # try to combine atoms and check the resulting
-        # molecule for chemical validity
-        for atom1, atom2 in combinations:
-            # choose a random combination of atoms
-            f1_atoms.append(fragment1.GetAtomWithIdx(atom1))
-            f2_atoms.append(fragment2.GetAtomWithIdx(atom2))
-
-            # get atom2 bond partners and bond orders
-            f1_atom_bond_parters.append(f2_atoms[-1].GetNeighbors())
-            f1_atom_bond_orders.append(
-                [bond.GetBondType() for bond in f2_atoms[-1].GetBonds()]
-            )
-
-        # Remove atom2 and add atom2 bond partners to atom1
-        # Important that all sanity checks before are valid!!!!
-        combine = Chem.CombineMols(fragment1, fragment2)
-        rw_mol = Chem.RWMol(combine)
-        Chem.RemoveAllHs(rw_mol)
-
-        # combine mols
-        rw_mol.BeginBatchEdit()
-        for atom_id in range(len(f1_atoms)):
-            rw_mol.RemoveAtom(f2_atoms[atom_id].GetIdx() + max_idx)
-            for bond, order in zip(
-                    f1_atom_bond_parters[atom_id], f1_atom_bond_orders[atom_id]
-            ):
-                rw_mol.AddBond(
-                    f1_atoms[atom_id].GetIdx(),
-                    bond.GetIdx() + max_idx,
-                    order,
-                )
-        rw_mol.CommitBatchEdit()
-
-        # Check if molecule is valid and standardize
-        try:
-            mol = rw_mol.GetMol()  # Convert editable mol to mol object
-            mol = safe_standardize_mol(mol, add_hydrogens=True)
-            mol = Chem.RemoveHs(mol)
-            smiles = Chem.MolToSmiles(mol)
-
-        except Exception as e:
-            print(f"Standardization failed: {e}", flush=True)
-            return None
-
-        return smiles
-
-    # Double check doc strings = unsure if fragments are actually mol objects or SMILES strings
-    # Accoridng to combine_fragments - they are smiles srtrings
     def create_bond(
             self,
             fragment1,
@@ -2031,7 +1970,7 @@ class Assemble:
         """
 
         # Get all possible combinations of atoms
-        possible_combinations = self.get_possible_combinations(
+        possible_combinations = get_possible_combinations(
             atomtype_index_mapping1, atomtype_index_mapping2
         )
         if possible_combinations is None:
@@ -2053,7 +1992,7 @@ class Assemble:
             )
             for c in combinations:
                 p_combinations_copy.remove(c)
-            smiles = self.combine_fragments(f1, f2, combinations)
+            smiles = combine_fragments(f1, f2, combinations)
             if smiles is None:
                 continue
             return smiles
