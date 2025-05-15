@@ -153,9 +153,8 @@ def test_seb_constructing_n_molecules():
 
     # Testing novel molecule generation, insert assembly pool? Or the whole mol space?
     molecule_generation = att.MoleculeGenerationAssemblyPool(mol_space)
-    # Number of molecules to generate, number of steps in combinating fragments, number of layers to remove
+    # Number of molecules to generate, number of steps in fragments, number of layers to remove
     molecule_generation.random_construct_n_molecules(2, 1, X=1)
-    molecule_generation.assembled_molecules  # Output, a default dict that includes the fragments
 
     # Grab assembled molecules (SMILES) only from results
     assembled_molecules = [sublist[0][2] for sublist in molecule_generation.assembled_molecules.values()]

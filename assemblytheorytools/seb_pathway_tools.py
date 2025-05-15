@@ -436,7 +436,7 @@ class assemblyConstruction:
 
         return None
 
-    def pathway_log_string(self, file_name="pathway_log") -> str:
+    def pathway_log_string(self) -> str:
         pathway_file = []
         pathway_file.append("#####Graph#####\n")
         pathway_file.append(str(self.v) + "\n")
@@ -462,7 +462,7 @@ class assemblyConstruction:
                 tables2mol(
                     (
                         [(0, atom[0][0]), (1, atom[0][1])],
-                        [(0, 1, transfrom_bond_float(atom[1]))],
+                        [(0, 1, transform_bond_float(atom[1]))],
                     )
                 )
             )
@@ -498,7 +498,7 @@ class assemblyConstruction:
                     (
                         [(i, at) for at in vs_atoms[i]],
                         [
-                            (edge[0], edge[1], transfrom_bond_float(edge[2]))
+                            (edge[0], edge[1], transform_bond_float(edge[2]))
                             for edge in step
                         ],
                     )
@@ -511,146 +511,6 @@ class assemblyConstruction:
         self.steps_indx_s = steps_indx_s
         self.vs_atoms = vs_atoms
         return inchi_list
-
-    def plot_pathway(self, mode):
-        _ = self.pathway_inchi_fragments()
-
-        if mode == 1:
-            if not os.path.exists("path-images/path"):
-                os.makedirs("path-images/path")
-            for i, atom in enumerate(self.molecules_atoms):
-                Draw.MolToFile(atom, "path-images/path/atom{}.png".format(i))
-            for i, step in enumerate(self.molecules_steps):
-                Draw.MolToFile(
-                    step, "path-images/path/step{}.png".format(i + 1)
-                )
-        ###### Draw Molecules Mode 1 #####
-        if mode == 2:
-            if not os.path.exists("path-images/path"):
-                os.makedirs("path-images/path")
-            mol = self.molecules_steps[-1]
-            atoms_info = [
-                (atom.GetIdx(), atom.GetAtomicNum(), atom.GetSymbol())
-                for atom in mol.GetAtoms()
-            ]
-            bonds_info = [
-                [bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()]
-                for bond in mol.GetBonds()
-            ]
-
-            highlight_bonds = []
-            highlight_atoms = []
-            for step in self.steps:
-                highlight_step_bond = []
-                highlight_step_atom = []
-                for i, bond in enumerate(bonds_info):
-                    if bond in step:
-                        continue
-                    highlight_step_bond.append(i)
-                    highlight_step_atom.append(bond)
-                highlight_bonds.append(highlight_step_bond)
-                highlight_atoms.append(
-                    {
-                        item
-                        for sublist in highlight_step_atom
-                        for item in sublist
-                    }
-                )
-
-            for step, _ in enumerate(self.steps):
-                atom_cols = {}
-                for i, at in enumerate(highlight_atoms[step]):
-                    atom_cols[at] = (1.0, 1.0, 1.0)
-                bond_cols = {}
-                for i, bd in enumerate(highlight_bonds[step]):
-                    bond_cols[bd] = (1.0, 1.0, 1.0)
-                d = rdMolDraw2D.MolDraw2DCairo(
-                    500, 500
-                )
-                d.drawOptions().noAtomLabels = True
-                d.drawOptions().fillHighlights = True
-                d.drawOptions().continuousHighlight = False
-                rdMolDraw2D.PrepareAndDrawMolecule(
-                    d,
-                    mol,
-                    highlightBonds=highlight_bonds[step],
-                    highlightBondColors=bond_cols,
-                )
-                d.WriteDrawingText(
-                    "path-images/path/step{}.png".format(step + 1)
-                )
-            for i, atom in enumerate(self.molecules_atoms):
-                Draw.MolToFile(atom, "path-images/path/atom{}.png".format(i))
-
-        if mode == 2 or mode == 1:
-            pass
-
-        return None
-
-    def export_mathematica(self, image_size=80, aspect_ratio=1):
-        _ = self.pathway_inchi_fragments()
-        pathway_file = open("pathway_mathematica.nb", "w")
-        pathway_file.write(
-            "stripMetadata[expression_] := If[Head[expression] === Rule, Last[expression], expression];\n"
-        )
-        vertex_string = "v={"
-        str_atoms = ""
-        for i, a in enumerate(self.atoms_list):
-            str_atoms = str_atoms + "atom{},".format(i)
-            ato = ""
-            for ati in a[0]:
-                ato = ato + '"{}",'.format(ati)
-            bonds = 'Bond[{{{}, {}}}, "{}"]'.format(1, 2, a[1].capitalize())
-            out = [i, ato[0:-1], bonds]
-            pathway_file.write(
-                "atom{} = Molecule[{{ {} }}, {{ {} }}];\n".format(*out)
-            )
-            vertex_string = vertex_string + "atom{},".format(i)
-        for i, step_mol in enumerate(self.vs_atoms):
-            ato = ""
-            for ati in step_mol:
-                ato = ato + '"{}",'.format(ati)
-            bonds = ""
-            for bond in self.steps_indx_s[i]:
-                bonds = bonds + 'Bond[{{{}, {}}}, "{}"],'.format(
-                    bond[0] + 1, bond[1] + 1, bond[2].capitalize()
-                )
-            out = [i + 1, ato[0:-1], bonds[0:-1]]
-            pathway_file.write(
-                "step{} = Molecule[{{ {} }}, {{ {} }}];\n".format(*out)
-            )
-            vertex_string = vertex_string + "step{},".format(i + 1)
-        vertex_string = vertex_string[:-1] + "};"
-        pathway_file.write(vertex_string + "\n")
-        dig = ""
-        for ed in self.digraph:
-            dig = dig + "{} \[DirectedEdge] {},".format(ed[0], ed[1])
-        pathway_file.write("e = {{ {} }};\n".format(dig[0:-1]))
-
-        pathway_file.write(
-            "v1 = MoleculePlot[VertexList[e], ImageSize -> {}]; c =  Transpose[{{VertexList[e], v1}}]; map = Table[c[[i]][[1]] -> c[[i]][[2]], {{i, Length[c]}}]; eim = e /. map;\n".format(
-                image_size
-            )
-        )
-
-        pathway_file.write(
-            'gim = Graph[ eim, {AspectRatio -> 1.5, EdgeStyle -> {Directive[{Hue[0.75, 0, 0.35], Dashing[None], AbsoluteThickness[1]}]}, FormatType -> TraditionalForm, GraphLayout -> {"Dimension" -> 2}, PerformanceGoal -> "Quality", VertexShapeFunction -> {Text[ Framed[Style[stripMetadata[#2], Hue[0.62, 1, 0.48]], Background -> Directive[Opacity[0.2], Hue[0.62, 0.45, 0.87]], FrameMargins -> {{2, 2}, {0, 0}}, RoundingRadius -> 0, FrameStyle -> Directive[Opacity[0.5], Hue[0.62, 0.52, 0.82]]], #1, {0, 0}] &}}];\n'
-        )
-
-        pathway_file.write(
-            "atoms = MoleculePlot[#, ImageSize -> {}] & /@ {{".format(
-                image_size
-            )
-            + str_atoms[:-1]
-            + "};\n"
-        )
-        pathway_file.write(
-            "LayeredGraphPlot[gim, atoms -> Automatic, AspectRatio -> {}] \[AliasDelimiter]".format(
-                aspect_ratio
-            )
-        )
-        pathway_file.close()
-        return None
 
 
 def parse_pathway_file_ian(data):
@@ -672,7 +532,7 @@ def parse_pathway_file_ian(data):
     return construction_object
 
 
-def transfrom_bond(bond):
+def transform_bond(bond):
     if bond == 1.0:
         return Chem.rdchem.BondType.SINGLE
     if bond == 2.0:
@@ -688,12 +548,12 @@ def tables2mol(tables):
     for v in atoms_info:
         emol.AddAtom(Chem.Atom(v[1]))
     for e in bonds_info:
-        emol.AddBond(e[0], e[1], transfrom_bond(e[2]))
+        emol.AddBond(e[0], e[1], transform_bond(e[2]))
     mol = emol.GetMol()
     return mol
 
 
-def transfrom_bond_float(bond):
+def transform_bond_float(bond):
     if bond == "single":
         return 1.0
     if bond == "double":
