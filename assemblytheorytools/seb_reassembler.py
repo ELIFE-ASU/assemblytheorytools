@@ -15,6 +15,7 @@ from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from rdkit import Chem
 from rdkit.Chem import Draw
 
+from .assembly import add_assembly_to_path
 from .seb_pathway_tools import parse_pathway_file_ian, compose_all
 from .tools_mol import safe_standardize_mol
 
@@ -557,7 +558,7 @@ class Molecule(ConstructionObject):
             - `self.assembly_output`: The output of the assembly calculation.
 
         """
-        executable_path_cpp = "/Users/elife/Desktop/vm_sebs_code2/assemblyCpp"
+        executable_path_cpp = add_assembly_to_path()
 
         if self.assembly_version == "assemblyCpp":
             proc = subprocess.Popen(
