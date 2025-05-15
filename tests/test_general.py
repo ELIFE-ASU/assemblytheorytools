@@ -11,8 +11,6 @@ from rdkit.Chem import AllChem as Chem
 import assemblytheorytools as att
 
 
-print("Loaded from:", att.__file__, flush=True)
-
 def list_subdirs(directory, target="ai_calc"):
     """
     List subdirectories in a given directory that start with a specific target string.
@@ -1013,4 +1011,3 @@ def test_get_chirality():
 
     chirality = att.get_chirality(mol)
     assert chirality == 3
-
