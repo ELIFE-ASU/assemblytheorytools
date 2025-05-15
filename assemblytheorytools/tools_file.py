@@ -35,7 +35,7 @@ def file_list_all(mypath: Optional[str] = None) -> List[str]:
     # os.walk generates the file names in a directory tree by walking the tree either top-down or bottom-up
     for dirpath, dirnames, filenames in os.walk(mypath):
         for filename in filenames:
-            # os.path.join joins one or more path components intelligently
+            # os.path.join joins one or more path parts intelligently
             files.append(os.path.expanduser(os.path.join(dirpath, filename)))
     return files
 

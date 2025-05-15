@@ -8,6 +8,7 @@ import tempfile
 import time
 import warnings
 from datetime import datetime
+from functools import partial
 from typing import Union, List
 
 import networkx as nx
@@ -25,6 +26,7 @@ from .tools_graph import (write_ass_graph_file,
 from .tools_mol import (write_v2k_mol_file,
                         combine_mols,
                         safe_standardize_mol)
+from .tools_mp import mp_calc
 from .tools_string import (prep_joint_string_ai,
                            get_dir_str_molecule,
                            get_undir_str_molecule)
@@ -278,13 +280,13 @@ def calculate_assembly_index(mol,
             try:
                 if isinstance(mol, nx.Graph):
                     virt_obj = get_pathway_to_graph(file_path_pathway)
-                    path = parse_pathway_file(file_path_pathway, vo_type='graph', debug=debug)
+                    path = parse_pathway_file(file_path_pathway, vo_type='graph')
                 elif isinstance(mol, Chem.Mol):
                     virt_obj = get_pathway_to_mol(file_path_pathway)
-                    path = parse_pathway_file(file_path_pathway, vo_type='smiles', debug=debug)
+                    path = parse_pathway_file(file_path_pathway, vo_type='smiles')
                 elif ".mol" in mol:
                     virt_obj = get_pathway_to_inchi(file_path_pathway)
-                    path = parse_pathway_file(file_path_pathway, vo_type='smiles', debug=debug)
+                    path = parse_pathway_file(file_path_pathway, vo_type='smiles')
                 else:
                     virt_obj = None
                     path = (None, None)
@@ -786,7 +788,7 @@ def load_assembly_time():
     4. Removes the identified folder.
 
     Returns:
-        float: The time to completion extracted from the file.
+        float: The time to completion extracted from the file in seconds.
     """
     # Get the most recent folder starting with "ai_calc_"
     assembly_folders = [folder for folder in os.listdir(os.getcwd()) if folder.startswith("ai_calc_")]
@@ -803,4 +805,31 @@ def load_assembly_time():
 
     # Remove the assembly folder
     shutil.rmtree(assembly_path)
-    return float(time_to_completion)
+    return float(time_to_completion) * 1e-6
+
+
+def calculate_assembly_index_parallel(mols, args):
+    """
+    Calculates the assembly index for a list of molecules in parallel.
+
+    This function uses a preconfigured version of the `att.calculate_assembly_index`
+    function with the provided arguments (`args`) and applies it to the list of
+    molecules (`mols`) in parallel. The results are reformatted into lists.
+
+    Args:
+        mols (list): A list of molecules to process.
+        args (dict): A dictionary of keyword arguments to configure the
+                     `att.calculate_assembly_index` function.
+
+    Returns:
+        list: A list of lists, where each sublist contains a specific aspect
+              of the assembly index calculation for all molecules.
+    """
+    # Create a partially applied function with the provided arguments
+    calc_ai = partial(calculate_assembly_index, **args)
+
+    # Perform the calculation in parallel for all molecules
+    results = mp_calc(calc_ai, mols)
+
+    # Transpose and convert the results into lists
+    return [list(group) for group in zip(*results)]

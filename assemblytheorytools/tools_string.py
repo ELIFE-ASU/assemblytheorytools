@@ -53,7 +53,7 @@ def prep_joint_string_ai(input_list: List[str]) -> Tuple[str, List[str]]:
     if "" in input_list:
         raise ValueError("Empty string in input list")
 
-    # Build a string of all the inputs separated by unique dummy characters
+    # Build a string of all the inputs separated by unique fake characters
     delimiters: List[str] = []
     amalgam_string: str = input_list[0]
     for string in input_list[1:]:
@@ -94,26 +94,26 @@ def get_undir_str_molecule(undir_str: str, debug: bool = False) -> tuple[nx.Grap
     Returns:
         tuple[nx.Graph, dict[str, str]]: A tuple containing:
             - A networkx graph of the corresponding molecule
-            - A dictionary mapping characters to edge colors (as strings)
+            - A dictionary mapping characters to edge colours (as strings)
     """
 
-    # Create a dictionary to map each unique character in the undirected string to a unique edge color
+    # Create a dictionary to map each unique character in the undirected string to a unique edge colour
     edge_color_dict: dict[str, str] = {}
     for i, char in enumerate(set(undir_str)):
         edge_color_dict[char] = str(i + 1)
 
-    # If debug is enabled, print the edge color dictionary
+    # If debug is enabled, print the edge colour dictionary
     if debug:
         print("Edge color dict:", flush=True)
         print(edge_color_dict, flush=True)
 
-    # Initialize the graph and add the first two nodes with a 'null' color
+    # Initialise the graph and add the first two nodes with a 'null' colour
     blank = 'null'
     graph = nx.Graph()
     graph.add_node(0, color=blank)
     graph.add_node(1, color=blank)
 
-    # Add the first edge with the color corresponding to the first character in the undirected string
+    # Add the first edge with the colour corresponding to the first character in the undirected string
     graph.add_edge(0, 1, color=int(edge_color_dict[undir_str[0]]))
 
     # Iterate through the rest of the undirected string, adding nodes and edges to the graph
@@ -121,7 +121,7 @@ def get_undir_str_molecule(undir_str: str, debug: bool = False) -> tuple[nx.Grap
         graph.add_node(i + 1, color=blank)
         graph.add_edge(i, i + 1, color=int(edge_color_dict[undir_str[i]]))
 
-    # Return the graph and the edge color dictionary
+    # Return the graph and the edge colour dictionary
     return graph, edge_color_dict
 
 
@@ -154,7 +154,7 @@ def get_dir_str_molecule(dir_str: str) -> nx.Graph:
 
 def generate_and_visualize_string_pathway(file_path: str) -> nx.DiGraph:
     """
-    Generate and visualize a pathway graph using string pathway data from v5.
+    Generate and visualise a pathway graph using string pathway data from v5.
 
     Args:
         file_path (str): Path to the pathway file.
@@ -167,13 +167,13 @@ def generate_and_visualize_string_pathway(file_path: str) -> nx.DiGraph:
     construction_object: Any = generate_string_pathway_ian(file_path)
 
     # Create a directed graph
-    G: nx.DiGraph = nx.DiGraph()
+    graph: nx.DiGraph = nx.DiGraph()
     for edge in get_graph_string_explicit(construction_object[0])[1]:
-        G.add_edge(f"{edge[0]}", f"{edge[1]}")
+        graph.add_edge(f"{edge[0]}", f"{edge[1]}")
 
-    # Visualize the graph
-    pos: dict[Any, Any] = nx.spring_layout(G, k=0.9)
-    nx.draw(G,
+    # Visualise the graph
+    pos: dict[Any, Any] = nx.spring_layout(graph, k=0.9)
+    nx.draw(graph,
             pos,
             with_labels=True,
             node_size=2000,
@@ -184,12 +184,12 @@ def generate_and_visualize_string_pathway(file_path: str) -> nx.DiGraph:
             width=1.5)
     plt.show()
 
-    return G
+    return graph
 
 
 def generate_and_visualize_cfg_pathway(file_path: str) -> nx.DiGraph:
     """
-    Generate and visualize a directed graph from CFG pathway data.
+    Generate and visualise a directed graph from CFG pathway data.
 
     Args:
         file_path (str): Path to the file containing pathway data.
@@ -209,19 +209,19 @@ def generate_and_visualize_cfg_pathway(file_path: str) -> nx.DiGraph:
     pathway_data: list[str] = re.findall(r"'(.*?)'", pathway_line)
 
     # Create a directed graph
-    G: nx.DiGraph = nx.DiGraph()
+    graph: nx.DiGraph = nx.DiGraph()
     for relationship in pathway_data:
         reactants, product = relationship.split(' = ')
         reactant_1, reactant_2 = reactants.split(' + ')
 
         # Add directed edges
-        G.add_edge(reactant_1, product)
-        G.add_edge(reactant_2, product)
+        graph.add_edge(reactant_1, product)
+        graph.add_edge(reactant_2, product)
 
-    # Visualize the graph
+    # Visualise the graph
     plt.figure(figsize=(12, 12))
-    pos: dict[Any, Any] = nx.spring_layout(G, k=0.5, seed=42)
-    nx.draw(G,
+    pos: dict[Any, Any] = nx.spring_layout(graph, k=0.5, seed=42)
+    nx.draw(graph,
             pos,
             with_labels=True,
             node_size=700,
@@ -235,4 +235,4 @@ def generate_and_visualize_cfg_pathway(file_path: str) -> nx.DiGraph:
     plt.title("CFG")
     plt.show()
 
-    return G
+    return graph

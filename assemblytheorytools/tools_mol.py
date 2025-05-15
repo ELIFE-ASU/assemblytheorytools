@@ -7,26 +7,26 @@ from rdkit.Chem.MolStandardize import rdMolStandardize
 
 def safe_standardize_mol(mol: Chem.Mol, add_hydrogens: bool = True) -> Chem.Mol:
     """
-    Standardize the given RDKit molecule with additional safety checks.
+    Standardise the given RDKit molecule with additional safety checks.
 
     Args:
-        mol (rdkit.Chem.Mol): The input RDKit molecule to be standardized.
+        mol (rdkit.Chem.Mol): The input RDKit molecule to be standardised.
         add_hydrogens (bool, optional): Whether to add hydrogens to the molecule. Default is True.
 
     Returns:
-        rdkit.Chem.Mol: The standardized RDKit molecule.
+        rdkit.Chem.Mol: The standardised RDKit molecule.
     """
     # Update the molecule's property cache without strict checking
     mol.UpdatePropertyCache(strict=False)
-    # Set conjugation and hybridization states
+    # Set conjugation and hybridisation states
     Chem.SetConjugation(mol)
     Chem.SetHybridization(mol)
-    # Normalize the molecule, excluding cleanup and property sanitization
+    # Normalise the molecule, excluding clean-up and property sanitisation
     Chem.SanitizeMol(mol, sanitizeOps=(Chem.SANITIZE_ALL ^ Chem.SANITIZE_CLEANUP ^ Chem.SANITIZE_PROPERTIES),
                      catchErrors=False)
-    # Normalize the molecule in place using RDKit's MolStandardize
+    # Normalise the molecule in place using RDKit's MolStandardize
     rdMolStandardize.NormalizeInPlace(mol)
-    # Kekulize the molecule (convert aromatic bonds to alternating single and double bonds)
+    # Kekulise the molecule (convert aromatic bonds to alternating single and double bonds)
     Chem.Kekulize(mol)
     if add_hydrogens:
         # Add hydrogens
@@ -39,7 +39,7 @@ def standardize_mol(mol: Chem.Mol, add_hydrogens: bool = True) -> Chem.Mol:
     Standardize the given RDKit molecule.
 
     Args:
-        mol (Chem.Mol): The input RDKit molecule to be standardized.
+        mol (Chem.Mol): The input RDKit molecule to be standardised.
         add_hydrogens (bool, optional): Whether to add hydrogens to the molecule. Default is True.
 
     Returns:
@@ -47,11 +47,11 @@ def standardize_mol(mol: Chem.Mol, add_hydrogens: bool = True) -> Chem.Mol:
     """
     # Sanitise the molecule
     Chem.SanitizeMol(mol, catchErrors=False)
-    # Normalize the molecule in place using RDKit's MolStandardize
+    # Normalise the molecule in place using RDKit's MolStandardize
     rdMolStandardize.NormalizeInPlace(mol)
     # Update the molecule's property cache without strict checking
     mol.UpdatePropertyCache(strict=True)
-    # Kekulize the molecule (convert aromatic bonds to alternating single and double bonds)
+    # Kekulise the molecule (convert aromatic bonds to alternating single and double bonds)
     Chem.Kekulize(mol)
     if add_hydrogens:
         # Add hydrogens
@@ -67,7 +67,7 @@ def smi_to_mol(smi: str, add_hydrogens: bool = True, safe_sanitise: bool = False
     Args:
         smi (str): The SMILES string representing the molecule.
         add_hydrogens (bool, optional): Whether to add hydrogens to the molecule. Default is True.
-        safe_sanitise (bool, optional): Whether to use safe sanitization. Default is False.
+        safe_sanitise (bool, optional): Whether to use safe sanitisation. Default is False.
 
     Returns:
         Chem.Mol: The standardized RDKit molecule.
@@ -87,7 +87,7 @@ def inchi_to_mol(inchi: str, add_hydrogens: bool = True, safe_sanitise: bool = F
     Args:
         inchi (str): The InChI string representing the molecule.
         add_hydrogens (bool, optional): Whether to add hydrogens to the molecule. Default is True.
-        safe_sanitise (bool, optional): Whether to use safe sanitization. Default is False.
+        safe_sanitise (bool, optional): Whether to use safe sanitisation. Default is False.
 
     Returns:
         Chem.Mol: The standardized RDKit molecule.
@@ -107,14 +107,14 @@ def molfile_to_mol(mol: str, add_hydrogens: bool = True, safe_sanitise: bool = F
     Args:
         mol (str): The path to the Molfile representing the molecule.
         add_hydrogens (bool, optional): Whether to add hydrogens to the molecule. Default is True.
-        safe_sanitise (bool, optional): Whether to use safe sanitization. Default is False.
+        safe_sanitise (bool, optional): Whether to use safe sanitisation. Default is False.
 
     Returns:
         Chem.Mol: The standardized RDKit molecule.
     """
     # Convert the Molfile to an RDKit molecule
     mol = Chem.MolFromMolFile(mol)
-    # Standardize the molecule
+    # Standardise the molecule
     if safe_sanitise:
         return safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
     else:

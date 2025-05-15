@@ -1132,6 +1132,7 @@ def assemble(molecule1, molecule2, sites):
 
     if sites > 2:
         return None
+    return None
 
 
 def printer(mols):
@@ -1292,7 +1293,7 @@ def conformation_filter(mol):
     """
     Generate a 3D conformation for a molecule and filter based on the success of the geometry generation.
 
-    This function sanitizes the molecule, adds hydrogen atoms, and attempts to generate a 3D conformation
+    This function sanitises the molecule, adds hydrogen atoms, and attempts to generate a 3D conformation
     using the ETKDGv3 method. If the geometry generation is successful, the molecule is returned. If it fails,
     None is returned.
 
@@ -1607,7 +1608,7 @@ def enumerate_tautomers(mol):
     # Create a TautomerEnumerator object
     enumerator = rdMolStandardize.TautomerEnumerator()
 
-    # Canonicalize the input molecule to get the canonical tautomer
+    # Canonicalise the input molecule to get the canonical tautomer
     canon = enumerator.Canonicalize(mol)
 
     # Convert the canonical tautomer to a SMILES string
@@ -1646,16 +1647,16 @@ def react_smiles(smiles1, smiles2, random_bond=False, con_filter=True):
 
     This function takes two SMILES strings, converts them to RDKit molecule objects,
     and combines them by adding a bond between two randomly chosen heavy atoms.
-    The bond order can be randomized or fixed as a single bond. Optionally, a conformation
+    The bond order can be randomised or fixed as a single bond. Optionally, a conformation
     filter can be applied to the resulting molecule.
 
     Parameters:
     smiles1 (str): The SMILES string of the first molecule.
     smiles2 (str): The SMILES string of the second molecule.
-    random_bond (bool): If True, the bond order is randomized (SINGLE, DOUBLE, or TRIPLE).
+    random_bond (bool): If True, the bond order is randomised (SINGLE, DOUBLE, or TRIPLE).
                         If False, a single bond is used. Default is False.
     con_filter (bool): If True, a conformation filter is applied to the resulting molecule.
-                       If False, the molecule is sanitized without the filter. Default is True.
+                       If False, the molecule is sanitised without the filter. Default is True.
 
     Returns:
     str: The SMILES string of the new molecule, or None if an error occurs.
@@ -1677,7 +1678,7 @@ def react_smiles(smiles1, smiles2, random_bond=False, con_filter=True):
         # Combine the two molecules into one editable molecule
         emol = Chem.EditableMol(Chem.CombineMols(mol1, mol2))
 
-        # Randomize bond order (SINGLE, DOUBLE, or TRIPLE) if specified
+        # Randomise bond order (SINGLE, DOUBLE, or TRIPLE) if specified
         if random_bond:
             bond_types = [
                 Chem.rdchem.BondType.SINGLE,
@@ -1690,14 +1691,14 @@ def react_smiles(smiles1, smiles2, random_bond=False, con_filter=True):
             # Use a fixed bond order (SINGLE)
             emol.AddBond(idx1, mol1.GetNumAtoms() + idx2, order=Chem.rdchem.BondType.SINGLE)
 
-        # Finalize the molecule
+        # Finalise the molecule
         new_mol = emol.GetMol()
 
         # Apply the conformation filter if specified
         if con_filter:
             new_mol = conformation_filter(new_mol)
         else:
-            # Sanitize the new molecule
+            # Sanitise the new molecule
             Chem.SanitizeMol(new_mol)
 
         # Return the SMILES string of the new molecule
@@ -1727,11 +1728,11 @@ def reassemble(mol_pool,
     Parameters:
     mol_pool (set): A set of SMILES strings representing the initial pool of molecules.
     n_mol_needed (int): The number of unique molecules needed. Default is 20.
-    max_run (int): The maximum number of iterations to attempt. Default is 10000.
-    random_bond (bool): If True, the bond order is randomized (SINGLE, DOUBLE, or TRIPLE).
+    max_run (int): The maximum number of iterations to attempt. Default is 10,000.
+    random_bond (bool): If True, the bond order is randomised (SINGLE, DOUBLE, or TRIPLE).
                         If False, a single bond is used. Default is False.
     con_filter (bool): If True, a conformation filter is applied to the resulting molecule.
-                       If False, the molecule is sanitized without the filter. Default is True.
+                       If False, the molecule is sanitised without the filter. Default is True.
     recycle_to_pool (bool): If True, the new molecules are added back to the pool for further reactions.
                             Default is True.
     max_heavy_atoms (int): The maximum number of heavy atoms allowed in the combined molecule.

@@ -85,7 +85,7 @@ def get_spin_multiplicity(mol: Mol) -> int:
     """
     Calculate the spin multiplicity of a molecule based on the number of radical electrons.
 
-    Spin multiplicity = 2S + 1, where S is the total spin quantum number.
+    Spin multiplicity = 2 S + 1, where S is the total spin quantum number.
     For radical electrons, S = n/2 where n is the number of unpaired electrons.
 
     Parameters:
@@ -101,7 +101,7 @@ def get_spin_multiplicity(mol: Mol) -> int:
     # Get the number of radical electrons
     num_radical_electrons = Descriptors.NumRadicalElectrons(mol)
 
-    # Calculate spin multiplicity: 2S + 1 = n + 1, where n is number of unpaired electrons
+    # Calculate spin multiplicity: 2 S + 1 = n + 1, where n is the number of unpaired electrons
     multiplicity = num_radical_electrons + 1
 
     return multiplicity
@@ -199,7 +199,7 @@ def get_virtual_objects_energy(mol: Mol) -> float:
     Calculate the potential energy of a molecule using the ORCA quantum chemistry package.
 
     This function performs the following steps:
-    1. Sanitizes the molecule by adding hydrogens and ensuring it is chemically valid.
+    1. Sanitises the molecule by adding hydrogens and ensuring it is chemically valid.
     2. Determines the formal charge of the molecule.
     3. Calculates the spin multiplicity based on the number of unpaired electrons.
     4. Converts the RDKit molecule to an ASE Atoms object.
@@ -219,9 +219,9 @@ def get_virtual_objects_energy(mol: Mol) -> float:
     Raises:
     -------
     ValueError
-        If the molecule cannot be sanitized or converted to an Atoms object.
+        If the molecule cannot be sanitised or converted to an Atoms object.
     """
-    # Sanitize the molecule
+    # Sanitise the molecule
     mol = Chem.AddHs(mol)
     Chem.SanitizeMol(mol)
 

@@ -430,12 +430,13 @@ def test_construction_pathway_smi():
 
     smi = "CC=O"  # Acetaldehyde
     mol = att.smi_to_mol(smi)
-    ai, virt_obj, pathway = att.calculate_assembly_index(mol, debug=False)
+    ai, virt_obj, pathway = att.calculate_assembly_index(mol)
     pathway, vo_list = pathway
 
-    vo_list_ref = ['[H]C([H])([H])C([H])([H])[H]', '[H]C(=O)C([H])([H])[H]', '[H]C([H])=O', '[H]C([H])([H])[H]']
+    vo_list_ref = ['[H]C([H])([H])C', 'C=O', '[H]C[H]', '[H]C', '[H]CC([H])([H])[H]', 'CC', '[H]C(=O)C([H])([H])[H]',
+                   '[H]C([H])[H]']
     assert ai == 5
-    assert len(virt_obj) == len(set(vo_list_ref))
+    assert len(vo_list) == len(set(vo_list_ref))
     assert pathway.number_of_nodes() == 8
     assert pathway.number_of_edges() == 9
 
@@ -446,20 +447,43 @@ def test_construction_pathway_joint():
     print(flush=True)
     smi = "CC=O.OCC"
     mol = att.smi_to_mol(smi)
-    ai, virt_obj, pathway = att.calculate_assembly_index(mol, debug=False)
+    ai, virt_obj, pathway = att.calculate_assembly_index(mol)
     pathway, vo_list = pathway
 
-    vo_list_ref = ['[H]C([H])([H])[H]',
+    vo_list_ref = ['[H]C',
+                   '[H]C([H])C',
+                   'CC',
+                   '[H]C([H])([H])C',
+                   '[H]CC',
+                   '[H]CC([H])([H])[H]',
                    '[H]C(=O)C([H])([H])[H]',
-                   '[H]OC([H])([H])C([H])([H])[H]',
-                   '[H]OC([H])([H])[H]',
-                   '[H]C([H])([H])C([H])([H])[H]',
-                   '[H]C([H])=O',
-                   '[H]O[H]']
+                   '[H]CO',
+                   'CO',
+                   'C=O',
+                   '[H]O',
+                   '[H]CO[H]',
+                   '[H]OC([H])([H])C([H])([H])[H]']
+
+    att.plot_digraph_metro(pathway, filename="test")
+    os.remove("test.png")
+    os.remove("test.svg")
+
     assert ai == 8
     assert pathway.number_of_nodes() == 13
     assert pathway.number_of_edges() == 16
 
     assert att.check_elements(vo_list, vo_list_ref)
 
-    att.plot_digraph_metro(pathway, filename="test")
+
+def test_calculate_assembly_index_parallel():
+    smiles = ['[H]OC(=O)C([H])([H])N([H])[H]',
+              '[H]OC(=O)C([H])(N([H])[H])C([H])([H])[H]',
+              '[H]OC(=O)C([H])([H])N([H])[H]',
+              '[H]C([H])([H])C([H])([H])[H]',
+              '[H]OC(=O)C([H])([H])N([H])[H]']
+    mols = [Chem.AddHs(Chem.MolFromSmiles(smi, sanitize=True)) for smi in smiles]
+
+    # Calculate the assembly index in parallel
+    ai, vo, pathway = att.calculate_assembly_index_parallel(mols, dict(strip_hydrogen=True))
+    ref_list = [3, 4, 3, 0, 3]
+    assert att.check_elements(ai, ref_list)

@@ -8,13 +8,15 @@ from .assembly import (calculate_assembly_index,
                        compile_assembly_code,
                        assembly_dry_run,
                        add_assembly_to_path,
-                       load_assembly_time)
+                       load_assembly_time,
+                       calculate_assembly_index_parallel)
 from .complexity_scores import (molecular_weight,
                                 bertz_complexity,
                                 wiener_index,
                                 balaban_index,
                                 randic_index,
                                 kirchhoff_index,
+                                spacial_score,
                                 get_mol_descriptors,
                                 tanimoto_similarity,
                                 dice_morgan_similarity,
@@ -104,7 +106,7 @@ from .tools_string import (load_fasta,
                            get_unique_char)
 from .tools_test import (check_elements, print_graph_details)
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 
 """
 AssemblyTheoryTools
