@@ -15,7 +15,7 @@ circles according to their assembly index.
         A list of nodes in the network that are to be visualized.
     
     assembly_indices (OPTIONAL): list or numpy.ndarray
-        If not provided, they will be calculated.
+        If not provided, they will be calculated for strings.
         
     adj_matrix (OPTIONAL, but recommended): numpy.ndarray
         A square adjacency matrix representing the relationships between nodes.
@@ -78,3 +78,13 @@ fig_size = 10
 filename = 'circle_plot.png'
 att.plot_assembly_circle(nodes, labels = True, node_size = node_size, arrow_size = arrow_size, node_color = node_color, edge_color = edge_color,
                              fig_size = fig_size, filename = filename)
+
+
+# Example with providing assembly indices (can be substituted by other criteria)
+n_nodes = len(nodes)
+assembly_indices  = np.zeros(n_nodes,dtype = int)
+for i in range(n_nodes):
+    assembly_indices[i] = CFG.ai_with_pathways(nodes[i], f_print=False)[0]
+    
+
+att.plot_assembly_circle(nodes, adj_matrix = adj_matrix, assembly_indices = assembly_indices)
