@@ -1,5 +1,6 @@
 import os
 import shutil
+
 import networkx as nx
 import numpy as np
 import pytest
@@ -10,39 +11,6 @@ from rdkit.Chem import AllChem as Chem
 
 import assemblytheorytools as att
 
-def list_subdirs(directory, target="ai_calc"):
-    """
-    List subdirectories in a given directory that start with a specific target string.
-
-    Args:
-        directory (str): The path to the directory to search within.
-        target (str, optional): The prefix string that subdirectories must start with. Defaults to "ai_calc".
-
-    Returns:
-
-        list: A list of subdirectory names that start with the target string.
-    """
-    return [d for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d)) and d.startswith(target)]
-
-
-def print_graph_details(graph):
-    """
-    Print the details of a graph, including node indices, node colors, edge connections, and edge colors.
-
-    Args:
-        graph (networkx.Graph): The graph whose details are to be printed.
-
-    Returns:
-        None
-    """
-    print("{", flush=True)
-    for node in graph.nodes(data=True):
-        node_index = node[0]
-        node_color = node[1].get('color', 'No color')
-        edge_connections = list(graph.edges(node_index))
-        edge_colors = [graph.get_edge_data(*edge)['color'] for edge in edge_connections]
-        print(f"({node_index}, {node_color}): {edge_connections}, {edge_colors}", flush=True)
-    print("}", flush=True)
 
 def test_graph_to_mol():
     """

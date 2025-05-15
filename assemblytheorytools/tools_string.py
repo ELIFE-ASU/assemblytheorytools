@@ -78,7 +78,7 @@ def get_unique_char(input_str: str) -> str:
         char = chr(i)
         if char not in input_str:
             return char
-    
+
     raise ValueError("Ran out of delimiter symbols. Try broadening the range of allowable symbols.")
 
 

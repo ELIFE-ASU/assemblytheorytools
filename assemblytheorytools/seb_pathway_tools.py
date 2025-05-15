@@ -1,10 +1,7 @@
 import copy
-import os
 
 import numpy as np
 from rdkit import Chem
-from rdkit.Chem import Draw
-from rdkit.Chem.Draw import rdMolDraw2D
 from rdkit.Chem.rdchem import RWMol
 
 
@@ -527,7 +524,6 @@ def parse_pathway_file_ian(data):
     )
 
     construction_object.generate_pathway()
-
 
     return construction_object
 

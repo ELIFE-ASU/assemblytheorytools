@@ -7,7 +7,6 @@ from rdkit import Chem
 from rdkit.Chem.rdchem import RWMol
 
 from .tools_graph import bond_order_assout_to_int, bond_order_int_to_rdkit
-from .tools_mol import safe_standardize_mol
 
 
 def transform_array(target_array, comp_array, source_val, target_val, new_val, pairs_list):

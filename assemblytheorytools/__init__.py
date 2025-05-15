@@ -56,13 +56,12 @@ from .reassembler import (assemble,
                           enumerate_tautomers,
                           enumerate_heterocycles,
                           reassemble)
-
+from .seb_reassembler import (MoleculeGenerationAssemblyPool, Molecule, MoleculeSpace, Assemble)
 from .tools_atoms import (smi_to_atoms,
                           mol_to_atoms,
                           get_spin_multiplicity,
                           orca_calc_preset,
                           get_virtual_objects_energy)
-
 from .tools_cell import (read_cif_file,
                          atoms_to_mol_file,
                          atoms_to_nx,
@@ -106,7 +105,6 @@ from .tools_string import (load_fasta,
                            get_unique_char)
 from .tools_test import (check_elements, print_graph_details)
 
-from .seb_reassembler import (MoleculeGenerationAssemblyPool, Molecule, MoleculeSpace, Assemble)
 __version__ = "1.5.0"
 
 """
@@ -126,6 +124,7 @@ Louie Slocombe
 Joey Fedrow
 Estelle Janin
 Gage Siebert
+Veronica Mierzejewski
 
 Key Features:
 ------------
