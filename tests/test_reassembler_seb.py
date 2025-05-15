@@ -60,7 +60,7 @@ def test_seb_combine_pathways():
     # For each SMILES, construct a Molecule object, including its assembly pathway 
     # represented as a directed graph. 
     for smiles_str in smiles:
-        molecule = att.Molecule(smiles=smiles_str, assembly_version="assemblyCpp")
+        molecule = att.Molecule(smiles=smiles_str)
         molecule.reconstruct_pathway()  #
         molecule.construct_layered_graph()
         molecule_list.append(molecule)
@@ -94,7 +94,7 @@ def test_seb_assembly_layer_removal():
     # For each SMILES, construct a Molecule object, including its assembly pathway 
     # represented as a directed graph. 
     for smiles_str in smiles:
-        molecule = att.Molecule(smiles=smiles_str, assembly_version="assemblyCpp")
+        molecule = att.Molecule(smiles=smiles_str)
         molecule.reconstruct_pathway()  #
         molecule.construct_layered_graph()
         molecule_list.append(molecule)
@@ -142,7 +142,7 @@ def test_seb_constructing_n_molecules():
     # For each SMILES, construct a Molecule object, including its assembly pathway 
     # represented as a directed graph. 
     for smiles_str in smiles:
-        molecule = att.Molecule(smiles=smiles_str, assembly_version="assemblyCpp")
+        molecule = att.Molecule(smiles=smiles_str)
         molecule.reconstruct_pathway()
         molecule.construct_layered_graph()
         molecule_list.append(molecule)

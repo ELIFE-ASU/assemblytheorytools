@@ -661,23 +661,15 @@ def parse_pathway_file_ian(data):
     remnant_e = data["remnant"][0]["Edges"] + data["removed_edges"]
     duplicates = [[dup["Right"], dup['Left']] for dup in data["duplicates"]]
     equivalences = [[1, 1]]
-    mode = 1
 
     construction_object = assemblyConstruction(
         v, e, v_l, e_l, remnant_e, equivalences, duplicates
     )
-    try:
-        construction_object.generate_pathway()
-        construction_object.plot_pathway(mode)
-        pathway_success = True
-    except ValueError as e:
-        pathway_success = False
-        print("error", flush=True)
-    except IndexError as e:
-        pathway_success = False
-        print("error", flush=True)
 
-    return pathway_success, construction_object
+    construction_object.generate_pathway()
+
+
+    return construction_object
 
 
 def transfrom_bond(bond):

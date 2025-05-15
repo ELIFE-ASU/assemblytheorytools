@@ -35,7 +35,7 @@ def compose_all(
 ):
     """
     THIS IS A MODIFIED VERSION OF networkx.compose_all
-    Only real difference is it updates the node attribute "level" to the minimum value (of what???)
+    Only real difference is it updates the node attribute "level" to the minimum value
     found in any of the graphs.
 
     Returns the composition of all graphs.
@@ -149,7 +149,7 @@ def accumulate_nodes_data(graphs, attribute="level"):
                 nodes_data[node[0]] = node[1][attribute]
                 node_counts[node[0]] += 1
 
-            else:  # count varialbe will still be increasd
+            else:  # count variable will still be increased
                 node_counts[node[0]] += 1
                 nodes_data[node[0]] = node[1][attribute]
     return nodes_data, node_counts
@@ -205,33 +205,11 @@ def get_atomic_distribution(graph) -> dict:
     return atomic_count
 
 
-class ConstructionObject:
-    # Proposal to rename reconstuct_joint_assembly_space to just construct_assembly_space !
-    def reconstruct_joint_assembly_space(self, assembly_out: dict) -> tuple:
-        # It will be better to just make the assembly_out BE the CPP output, and not
-        # have CPP as a subdirectory within in.
-        """
-        Get the estimated joint assembly space of a molecule space.
-
-        Args:
-            assembly_out: dict: output of assembly CPP
-
-        Returns:
-            joint_assembly_space: list[str]; the joint assembly space of the molecule space
-                                as a list of inchi strings
-        """
-
-        # Check that output is from CPP
-        if "cpp_output" in assembly_out:
-            _, object = parse_pathway_file_ian(assembly_out["cpp_output"])
-        else:
-            raise ValueError(
-                "assembly_out should contain 'cpp_output'"
-            )
-
-        pathway_log_string = object.pathway_log_string()
-        pathway_fragments = object.pathway_inchi_fragments()
-        return pathway_fragments, pathway_log_string
+def construct_assembly_space(assembly_out: dict) -> tuple:
+    object = parse_pathway_file_ian(assembly_out["cpp_output"])
+    pathway_log_string = object.pathway_log_string()
+    pathway_fragments = object.pathway_inchi_fragments()
+    return pathway_fragments, pathway_log_string
 
 
 class ParsePathwayLog:
@@ -625,7 +603,7 @@ class ParsePathwayLog:
         return positions
 
 
-class Molecule(ConstructionObject):
+class Molecule:
     """
     A class to represent a molecule.
     """
@@ -638,25 +616,20 @@ class Molecule(ConstructionObject):
             assembly_output: Optional[dict] = None,
             G: Optional[nx.DiGraph] = None,
             timeout: Optional[int] = 60,
-            assembly_version: str = "assemblyCpp",
     ):
         super().__init__()
         self.smiles: Optional[str] = smiles
         self.pathway: Optional[list[str]] = pathway
         self.assembly_index: Optional[int] = assembly_index
         self.assembly_output: Optional[dict] = assembly_output
-        self.pathway_log_string: (
-            str  # populates after calling reconstruct_pathway
-        )
+        # populates after calling reconstruct_pathway
+        self.pathway_log_string: str
         self.pathway_fragments: list[str]
-        self.pathwayLogObj: (
-            ParsePathwayLog  # populates after calling construct_layered_graph
-        )
-        self.G: nx.DiGraph = (
-            G  # populates after calling construct_layered_graph
-        )
+        # populates after calling construct_layered_graph
+        self.pathwayLogObj: ParsePathwayLog
+        # populates after calling construct_layered_graph
+        self.G: nx.DiGraph = G
         self.timeout: Optional[int] = timeout
-        self.assembly_version: str = assembly_version
 
         if G is not None:
             self.smiles = list(G.nodes)[-1]
@@ -694,7 +667,6 @@ class Molecule(ConstructionObject):
             self.construct_layered_graph()
         return self.smiles
 
-    # Maybe reconstruct_joint_assembly_space should be more generally named because it is applied to individual molecules as well?
     def reconstruct_pathway(self) -> None:
         """
         Reconstructs the molecular assembly pathway.
@@ -711,80 +683,46 @@ class Molecule(ConstructionObject):
         """
 
         if self.assembly_output is None:
-            print("Warning: `assembly_output` is None. Attempting to calculate pathway...", flush=True)
             self.calc_pathway()
-        (
-            self.pathway_fragments,
-            self.pathway_log_string,
-        ) = ConstructionObject().reconstruct_joint_assembly_space(
-            self.assembly_output
-        )
+            self.pathway_fragments, self.pathway_log_string = construct_assembly_space(self.assembly_output)
         return None
 
-    def calculate_assembly(
-            self, mol_file_path, set_timeout=64
-    ) -> None:
-        """
-        Calculates the assembly index and pathway of the given molecular string by
-        converting a SMILES string to a mol file, then calculating the assembly index
-        using assemblyCpp, which have to be installed in the system
-
-        Args:
-            mol_file_path: str; path to the mol file
-            set_timeout: int; timeout for the assembly calculation
-        This method updates:
-            - `self.assembly_output`: The output of the assembly calculation.
-
-        """
+    def calculate_assembly(self, mol_file_path, set_timeout=64) -> None:
         executable_path_cpp = add_assembly_to_path()
+        proc = subprocess.Popen(
+            [executable_path_cpp, mol_file_path.parent / mol_file_path.stem],
+            stdout=subprocess.DEVNULL,
+        )
 
-        if self.assembly_version == "assemblyCpp":
-            proc = subprocess.Popen(
-                [executable_path_cpp, mol_file_path.parent / mol_file_path.stem],
-                stdout=subprocess.DEVNULL,
-            )
+        try:
+            proc.wait(timeout=set_timeout)
+        except subprocess.TimeoutExpired:
+            proc.send_signal(signal.SIGINT)
 
+        output_path = str(mol_file_path.parent / mol_file_path.stem) + "Pathway"
+
+        # Read the file correctly and parse it as JSON
+        with open(output_path, "r") as f:
             try:
-                proc.wait(timeout=set_timeout)
-            except subprocess.TimeoutExpired:
-                proc.send_signal(signal.SIGINT)
-
-            output_path = str(mol_file_path.parent / mol_file_path.stem) + "Pathway"
-
-            # Read the file correctly and parse it as JSON
-            with open(output_path, "r") as f:
-                try:
-                    self.assembly_output = {"cpp_output": json.load(f)}  # Parses JSON properly
-                except json.JSONDecodeError:
-                    # If it's not valid JSON, store as a string (fallback)
-                    f.seek(0)  # Reset file pointer
-                    self.assembly_output = {"cpp_output": f.read()}
-
-        else:
-            raise (ValueError("assembly_version must be 'assemblyCpp'"))
+                self.assembly_output = {"cpp_output": json.load(f)}  # Parses JSON properly
+            except json.JSONDecodeError:
+                # If it's not valid JSON, store as a string (fallback)
+                f.seek(0)  # Reset file pointer
+                self.assembly_output = {"cpp_output": f.read()}
 
         return None
 
     def calc_pathway(self) -> None:
-        """
-        Calculates the assembly pathway of the molecule.
-
-        Returns:
-            None. Updates the `self.assembly_output` attribute.
-        """
         if self.smiles is None:
             assert ValueError("smiles is None. Cannot calculate pathway.")
 
-        try:
-            mol = Chem.MolFromSmiles(self.smiles)
-            mol.SetProp("_Name", self.smiles)
-            print(
-                Chem.MolToMolBlock(mol),
-                file=open("".join(["temp", ".mol"]), "w+"),
-                flush=True
-            )
-        except Exception:
-            return None
+        mol = Chem.MolFromSmiles(self.smiles)
+        mol.SetProp("_Name", self.smiles)
+        print(
+            Chem.MolToMolBlock(mol),
+            file=open("".join(["temp", ".mol"]), "w+"),
+            flush=True
+        )
 
         self.calculate_assembly(Path("temp.mol"), set_timeout=self.timeout)
         return None
@@ -820,7 +758,7 @@ class Molecule(ConstructionObject):
         self.pathwayLogObj.plot_layered_graph(show_molecule)
 
 
-class MoleculeSpace(ConstructionObject):
+class MoleculeSpace:
     """
     A class to represent a space of molecules.
     """
@@ -842,13 +780,10 @@ class MoleculeSpace(ConstructionObject):
         self.assembly_graph: dict
         self.joined_assembly_graph: nx.MultiDiGraph
         self.joined_assembly_graph_minus_x: nx.MultiDiGraph
-
-        self.root_nodes: list[str | None] = (
-            None  # list of root nodes in joined_assembly_graph
-        )
-        self.leaf_nodes: list[str | None] = (
-            None  # list of leaf nodes in joined_assembly_graph
-        )
+        # list of root nodes in joined_assembly_graph
+        self.root_nodes: list[str | None] = None
+        # list of leaf nodes in joined_assembly_graph
+        self.leaf_nodes: list[str | None] = None
 
     def __len__(self):
         """
@@ -1536,7 +1471,7 @@ class MoleculeGenerationAssemblyPool:
         Notes:
             - The function first attempts to convert the SMILES string to an RDKit `Mol` object.
             - Implicit hydrogens are removed to simplify atom valence calculations.
-            - Free valence is determined based on predefined valence rules from rdkit PeriodicTable.
+            - Free valence is determined based on predefined valence rules from rdkit periodic_table.
         """
 
         try:
@@ -1547,13 +1482,13 @@ class MoleculeGenerationAssemblyPool:
         if mol is None:
             return None, None
 
-        PeriodicTable = Chem.rdchem.GetPeriodicTable()
+        periodic_table = Chem.rdchem.GetPeriodicTable()
         atomtype_index_mapping = defaultdict(list)
 
         for atom in mol.GetAtoms():
             # check for free valence of atoms
             free_atom_valence = (
-                    PeriodicTable.GetDefaultValence(atom.GetSymbol()) - atom.GetExplicitValence()
+                    periodic_table.GetDefaultValence(atom.GetSymbol()) - atom.GetExplicitValence()
             )
             atomtype_index_mapping[atom.GetIdx()].append(atom.GetSymbol())
             atomtype_index_mapping[atom.GetIdx()].append(free_atom_valence)
@@ -2172,7 +2107,7 @@ class Assemble:
         if possible_combinations is None:
             return None
 
-        p_combinations_copy = possible_combinations[:]  # .copy()
+        p_combinations_copy = possible_combinations[:]
         fail_safe = 0
         while len(p_combinations_copy) > 0 and fail_safe < 5000:
             fail_safe += 1
