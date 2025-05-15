@@ -2,7 +2,6 @@ import copy
 import os
 from collections import defaultdict
 
-import igraph
 import networkx as nx
 import numpy as np
 from rdkit import Chem
