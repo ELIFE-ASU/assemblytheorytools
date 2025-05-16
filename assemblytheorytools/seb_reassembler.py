@@ -218,306 +218,138 @@ def get_atom_type_index_mapping(fragment):
 
 
 class ParsePathwayLog:
-    global bond_types
-
     def __init__(self, pathway_log: str):
         self.pathway_log = pathway_log
-        (
-            self.atom_lines,
-            self.building_block_lines,
-            self.steps_lines,
-            self.digraph_lines,
-        ) = self.construct_pathway_from_log()
+        self.atom_lines, self.building_block_lines, self.steps_lines, self.digraph_lines = self._parse_log()
+        self.G = self._build_multidigraph()
+        self._validate_graph()
+        self._assign_levels()
+        self.nodes_per_level = self._count_nodes_per_level()
 
-        self.G = self.construct_multidigraph()
-        self.assembly_out_OK = True
+    def _parse_log(self):
+        atom_lines, building_block_lines, steps_lines, digraph_lines = [], [], {}, []
+        blocks = {"#####Graph#####": "atom", "#####Atoms#####": "building_block",
+                  "#####Steps#####": "steps", "#####Digraph#####": "digraph"}
+        current_block = None
 
-        for node in self.G.nodes:
-            if len(list(self.G.in_edges(node))) > 2:
-                raise ValueError("Node has more than 2 predecessors - invalid!")
-
-        self.assign_levels()
-        self.nodes_per_level = self._nodes_per_level()
-
-    def construct_pathway_from_log(self):
-        atom_block: bool = False
-        building_block_block: bool = False
-        steps_block: bool = False
-        digraph_block: bool = False
-
-        atom_lines = []
-        building_block_lines = []
-        steps_lines = {}
-        digraph_lines = []
-
-        for i, line in enumerate(self.pathway_log.split("\n")):
-            if line.startswith("#####Graph#####"):
-                atom_block = True
+        for line in self.pathway_log.split("\n"):
+            if line in blocks:
+                current_block = blocks[line]
                 continue
-            elif line.startswith("#####Atoms#####"):
-                building_block_block = True
-                atom_block = False
-                continue
-            elif line.startswith("#####Steps#####"):
-                steps_block = True
-                building_block_block = False
-                continue
-            elif line.startswith("#####Digraph#####"):
-                digraph_block = True
-                steps_block = False
+            if not line.strip():
                 continue
 
-            if atom_block:
+            if current_block == "atom":
                 atom_lines.append(destringyfy(line))
-
-            if building_block_block:
-                building_block_lines.append(
-                    [line.split("=")[0], destringyfy(line.split("=")[-1])]
-                )
-
-            if steps_block:
-                steps_lines[line.split("=")[0].replace("step", "")] = (
-                    destringyfy(line.split("=")[-1])
-                )
-
-            if digraph_block and line != "":
+            elif current_block == "building_block":
+                building_block_lines.append([line.split("=")[0], destringyfy(line.split("=")[-1])])
+            elif current_block == "steps":
+                steps_lines[line.split("=")[0].replace("step", "")] = destringyfy(line.split("=")[-1])
+            elif current_block == "digraph":
                 digraph_lines.append(destringyfy(line))
 
         return atom_lines, building_block_lines, steps_lines, digraph_lines
 
-    def construct_basic_bb(self):
+    def _build_multidigraph(self):
+        graph = nx.MultiDiGraph()
+        smiles_graph = self._build_basic_building_blocks()
+        graph.add_nodes_from(smiles_graph.values())
+
+        for i in range(0, len(self.digraph_lines), 2):
+            step = self.digraph_lines[i][-1].replace("step_", "")
+            smiles_graph[self.digraph_lines[i][-1]] = self._build_fragment_for_step(step)
+            graph.add_node(smiles_graph[self.digraph_lines[i][-1]])
+            graph.add_edge(smiles_graph[self.digraph_lines[i][0]], smiles_graph[self.digraph_lines[i][-1]])
+            graph.add_edge(smiles_graph[self.digraph_lines[i + 1][0]], smiles_graph[self.digraph_lines[i][-1]])
+
+        return graph
+
+    def _build_basic_building_blocks(self):
         bb = {}
         for i, line in enumerate(self.building_block_lines):
             edmol = Chem.EditableMol(Chem.Mol())
             id1 = edmol.AddAtom(Chem.Atom(line[1][0][0]))
             id2 = edmol.AddAtom(Chem.Atom(line[1][0][-1]))
             edmol.AddBond(id1, id2, bond_types[line[1][-1]])
-            # key name to match pathway_log format
-            bb["virtual_object_" + str(i)] = Chem.MolToSmiles(edmol.GetMol())
+            bb[f"virtual_object_{i}"] = Chem.MolToSmiles(edmol.GetMol())
         return bb
 
-    def construct_fragment_for_step(self, step: str | int):
-        step = str(step)
+    def _build_fragment_for_step(self, step):
         bonds_ids = self.steps_lines[step]
-        atom_ids = list(set([atom for bond in bonds_ids for atom in bond]))
-
-        # Get atoms types
+        atom_ids = list(set(atom for bond in bonds_ids for atom in bond))
         atoms = [self.atom_lines[-2][atom_id] for atom_id in atom_ids]
-        bonds = {
-            tuple(bond_id): self.atom_lines[-1][
-                self.atom_lines[1].index(bond_id)
-            ]
-            for bond_id in bonds_ids
-        }
+        bonds = {tuple(bond_id): self.atom_lines[-1][self.atom_lines[1].index(bond_id)] for bond_id in bonds_ids}
 
-        # construct molecule
-        id_mappig = {
-            atom_id: i for i, atom_id in enumerate(atom_ids)
-        }  # map atom ids to new ids for bond assignment
         edmol = Chem.EditableMol(Chem.Mol())
+        id_mapping = {atom_id: i for i, atom_id in enumerate(atom_ids)}
         for atom in atoms:
             edmol.AddAtom(Chem.Atom(atom))
         for bond_id, bond_type in bonds.items():
-            edmol.AddBond(
-                id_mappig[bond_id[0]],
-                id_mappig[bond_id[1]],
-                bond_types[bond_type],
-            )
+            edmol.AddBond(id_mapping[bond_id[0]], id_mapping[bond_id[1]], bond_types[bond_type])
         return Chem.MolToSmiles(edmol.GetMol())
 
-    def construct_multidigraph(self):
-        graph = nx.MultiDiGraph()
-        smiles_graph = self.construct_basic_bb()
-        graph.add_nodes_from(smiles_graph.values())
+    def _validate_graph(self):
+        for node in self.G.nodes:
+            if len(list(self.G.in_edges(node))) > 2:
+                raise ValueError("Node has more than 2 predecessors - invalid!")
 
-        for i in range(len(self.digraph_lines)):
-            # skip every second line
-            if (i % 2) - 1 == 0:  # two lines per step
-                continue
-
-            smiles_graph[self.digraph_lines[i][-1]] = (
-                self.construct_fragment_for_step(
-                    self.digraph_lines[i][-1].replace("step_", "")
-                )
-            )
-
-            graph.add_node(smiles_graph[self.digraph_lines[i][-1]])
-            # First building block
-            graph.add_edge(
-                smiles_graph[self.digraph_lines[i][0]],
-                smiles_graph[self.digraph_lines[i][-1]],
-            )
-            # Second building block
-            graph.add_edge(
-                smiles_graph[self.digraph_lines[i + 1][0]],
-                smiles_graph[self.digraph_lines[i][-1]],
-            )
-        return graph
-
-    def get_level(self, node):
-        predecessors = [edge[0] for edge in list(self.G.in_edges(node))]
-        if len(predecessors) == 2:
-            return max([self.G.nodes[pred]["level"] for pred in predecessors]) + 1
-        elif len(predecessors) == 0:
-            return 0
-        no_pred = [pred for pred in predecessors if not "level" in self.G.nodes[pred]]
-        try:
-            return self.get_level(no_pred[0])
-        except Exception:
-            return None
-
-    def assign_levels(self):
+    def _assign_levels(self):
         for node in self.G.nodes:
             if not list(self.G.predecessors(node)):
-                self.G.nodes[node].update({"level": 0})
-                self.G.nodes[node].update({"assembly_index": 1})
+                self.G.nodes[node].update({"level": 0, "assembly_index": 1})
             else:
-                _ = self.get_level(node)
-                self.G.nodes[node].update({"level": self.get_level(node)})
+                self.G.nodes[node]["level"] = self._get_level(node)
 
-        return None
+    def _get_level(self, node):
+        predecessors = [edge[0] for edge in self.G.in_edges(node)]
+        if not predecessors:
+            return 0
+        if len(predecessors) == 2:
+            return max(self.G.nodes[pred]["level"] for pred in predecessors) + 1
+        return self._get_level(predecessors[0])
 
-    def _nodes_per_level(self):
-        num_nodes_per_level = {}
-
+    def _count_nodes_per_level(self):
+        levels = {}
         for node in self.G.nodes:
             level = self.G.nodes[node]["level"]
-            if level not in num_nodes_per_level:
-                num_nodes_per_level[level] = 1
-            else:
-                num_nodes_per_level[level] += 1
-
-        return num_nodes_per_level
+            levels[level] = levels.get(level, 0) + 1
+        return levels
 
     def plot_layered_graph(self, show_molecules=False, save_fig=True):
-        fig, ax = plt.subplots()
-        # fig size
-        fig.set_size_inches(12, 7)
+        fig, ax = plt.subplots(figsize=(12, 7))
         cmap = plt.get_cmap("Blues")
-        node_colors = [self.G.nodes[node]["level"] for node in self.G.nodes]
-
-        cmap = [cmap(0.4) for _ in np.linspace(0.3, 1, len(node_colors))]
+        node_colors = [cmap(0.4) for _ in self.G.nodes]
         positions = self._get_node_positions()
-        nx.draw(
-            self.G,
-            pos=positions,
-            ax=ax,
-            with_labels=False,
-            node_size=100,
-            node_color=cmap,
-            connectionstyle="arc3,rad=0.05",
-            edge_color="grey",
-            width=1,
-        )
+
+        nx.draw(self.G, pos=positions, ax=ax, with_labels=False, node_size=100,
+                node_color=node_colors, connectionstyle="arc3,rad=0.05", edge_color="grey", width=1)
 
         if show_molecules:
-            for mol, pos in zip(
-                    [
-                        item[0]
-                        for item in sorted(
-                        self.G.nodes(data=True), key=lambda x: x[1]["level"]
-                    )
-                    ],
-                    positions.values(),
-            ):
-                dim = 150
-                Draw.MolToFile(
-                    Chem.MolFromSmiles(mol),
-                    "data/images/temp.png",
-                    size=(dim, dim),
-                    imageType="png",
-                    dpi=300,
-                )
-                img = plt.imread("data/images/temp.png")
-                imagebox = OffsetImage(img, zoom=dim / (fig.dpi * 5.5))
-                ab = AnnotationBbox(
-                    imagebox, (pos[0], pos[1] + 0.6), frameon=True
-                )
+            for mol, pos in zip(sorted(self.G.nodes, key=lambda x: self.G.nodes[x]["level"]), positions.values()):
+                img = Draw.MolToImage(Chem.MolFromSmiles(mol), size=(150, 150))
+                imagebox = OffsetImage(img, zoom=0.3)
+                ab = AnnotationBbox(imagebox, (pos[0], pos[1] + 0.6), frameon=True)
                 ax.add_artist(ab)
 
-        # Add labels for layers
-        layers = list(
-            set([self.G.nodes[node]["level"] for node in self.G.nodes])
-        )
-        max_y = max([positions[node][1] for node in positions])
-        """
-        for layer in layers:
-            ax.text(
-                layer * 2,
-                max_y + 1,
-                f"{layer}",
-                fontsize=8,
-                ha="center",
-                va="center",
-            )
-
-            ax.add_line(
-                plt.Line2D(
-                    (layer * 2 + 1, layer * 2 + 1),
-                    (-max_y, max_y + 2),
-                    linewidth=1,
-                    color="black",
-                    linestyle="-",
-                    alpha=0.3,
-                )
-            )
-
-        # heading
-        ax.text(
-            len(layers),
-            max_y + 1.5,
-            f"Pathway of {list(self.G.nodes)[-1]}",
-            fontsize=10,
-            ha="center",
-            va="center",
-        )"""
-
-        fig.tight_layout()
         if save_fig:
             plt.savefig("data/images/pathway.svg", dpi=200)
         else:
-            fig.show()
+            plt.show()
 
     def _get_node_positions(self):
         positions = {}
-        # according to layer attribute, sort nodes in graph by level
         sorted_nodes = sorted(self.G.nodes(data=True), key=lambda x: x[1]["level"])
+        current_level, layer_pos = None, None
 
-        current_level: int | None = None
-        curr_id: int
-        layer_pos: np.ndarray
+        for node, _ in sorted_nodes:
+            level = self.G.nodes[node]["level"]
+            if level != current_level:
+                current_level = level
+                layer_pos = np.linspace(-self.nodes_per_level[level], self.nodes_per_level[level],
+                                        self.nodes_per_level[level])
+            positions[node] = [level * 2, layer_pos[0]]
+            layer_pos = np.delete(layer_pos, 0)
 
-        for node in sorted_nodes:
-            # first is node name, second is irrelevant
-            node, _ = node
-
-            if self.G.nodes[node]["level"] == current_level:
-                if curr_id == 0:
-                    curr_id = -1
-                else:
-                    curr_id = 0
-
-                positions[node] = [
-                    self.G.nodes[node]["level"] * 2,
-                    layer_pos[curr_id],
-                ]
-                layer_pos = np.delete(layer_pos, curr_id)
-
-            else:
-                current_level = self.G.nodes[node]["level"]
-
-                layer_pos = np.linspace(
-                    -self.nodes_per_level[current_level],
-                    self.nodes_per_level[current_level],
-                    self.nodes_per_level[current_level],
-                )
-
-                curr_id = 0
-                positions[node] = [
-                    self.G.nodes[node]["level"] * 2,
-                    layer_pos[curr_id],
-                ]
-                layer_pos = np.delete(layer_pos, curr_id)
         return positions
 
 
