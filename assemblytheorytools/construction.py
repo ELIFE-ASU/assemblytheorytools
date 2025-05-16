@@ -528,6 +528,24 @@ class AssemblyConstruction:
 
         return graph, list(unique_molecules)
 
+    def pathway_log_string(self) -> str:
+        pathway_file = []
+        pathway_file.append("#####Graph#####\n")
+        pathway_file.append(str(self.v) + "\n")
+        pathway_file.append(str(self.e) + "\n")
+        pathway_file.append(str(self.v_l) + "\n")
+        pathway_file.append(str(self.e_l) + "\n")
+        pathway_file.append("#####Atoms#####\n")
+        for index, a in enumerate(self.atoms_list):
+            pathway_file.append("atom{}={}\n".format(index, a))
+        pathway_file.append("#####Steps#####\n")
+        for index, ste in enumerate(self.steps):
+            pathway_file.append("step{}={}\n".format(index + 1, ste))
+        pathway_file.append("#####Digraph#####\n")
+        for i in self.digraph:
+            pathway_file.append(str(i) + "\n")
+        return "".join(pathway_file)
+
 
 def parse_pathway_file(file, vo_type="smiles", debug=False):
     """
