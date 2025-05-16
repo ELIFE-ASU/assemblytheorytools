@@ -67,68 +67,49 @@ def compose_all(graphs, attribute="level", get_atomic_count=True):
 
 
 def accumulate_edges_data(graphs):
-    # Edge counts
     edge_counts = {}
     for graph in graphs:
         for edge in graph.edges():
-            if edge_counts.get(edge) is None:
-                edge_counts[edge] = 1
-            else:
-                edge_counts[edge] += 1
+            edge_counts[edge] = edge_counts.get(edge, 0) + 1
     return edge_counts
 
 
 def accumulate_nodes_data(graphs, attribute="level"):
     nodes_data = {}
     node_counts = {}
+
     for graph in graphs:
-        for node in graph.nodes(data=True):
-            if node[0] not in nodes_data:
-                nodes_data[node[0]] = node[1][attribute]
-                node_counts[node[0]] = 1
+        for node, attributes in graph.nodes(data=True):
+            if node not in nodes_data or attributes[attribute] < nodes_data[node]:
+                nodes_data[node] = attributes[attribute]
+                node_counts[node] = node_counts.get(node, 0) + 1
+            else:
+                node_counts[node] += 1
 
-            elif (
-                    # if level in one pathway is lower than in another. Can happen
-                    # sometimes if the pathways are not exact
-                    node[1][attribute] < nodes_data[node[0]]
-            ):  # update to minimum value
-                nodes_data[node[0]] = node[1][attribute]
-                node_counts[node[0]] += 1
-
-            else:  # count variable will still be increased
-                node_counts[node[0]] += 1
-                nodes_data[node[0]] = node[1][attribute]
     return nodes_data, node_counts
 
 
 def accumulate_node_usage(graph, attribute="usage"):
-    node_usage = {}
-    for node in graph.nodes():
-        # get out edges
-        node_usage[node] = []
-        for edge in graph.out_edges(node):
-            node_usage[node].append(graph.nodes[edge[-1]][attribute])
-    return node_usage
+    return {
+        node: [graph.nodes[edge[-1]][attribute] for edge in graph.out_edges(node)]
+        for node in graph.nodes()
+    }
 
 
 def get_atomic_distribution(graph) -> dict:
-    periodic_table = Chem.rdchem.GetPeriodicTable()
-    atomic_count: dict = defaultdict(list)
+    pt = Chem.rdchem.GetPeriodicTable()
+    atomic_count = defaultdict(set)
 
     for node in graph.nodes:
         mol = MolFromSmiles(node)
         if mol is None:
             atomic_count[node] = None
             continue
-        else:
-            for atom in mol.GetAtoms():
-                free_atom_valence = (
-                        periodic_table.GetDefaultValence(atom.GetSymbol()) - atom.GetExplicitValence()
-                )
-                # Only relevant atoms
-                if free_atom_valence > 0:
-                    atomic_count[node].append(atom.GetAtomicNum())
-        atomic_count[node] = set(atomic_count[node])
+
+        for atom in mol.GetAtoms():
+            free_valence = pt.GetDefaultValence(atom.GetSymbol()) - atom.GetExplicitValence()
+            if free_valence > 0:
+                atomic_count[node].add(atom.GetAtomicNum())
 
     return atomic_count
 
@@ -140,93 +121,59 @@ def destringyfy(string):
 def combine_fragments(fragment1, fragment2, combinations) -> str:
     max_idx = fragment1.GetNumAtoms()
 
-    f1_atoms = []
-    f2_atoms = []
-    f1_atom_bond_parters = []
-    f1_atom_bond_orders = []
-    # try to combine atoms and check the resulting
-    # molecule for chemical validity
-    for atom1, atom2 in combinations:
-        # choose a random combination of atoms
-        f1_atoms.append(fragment1.GetAtomWithIdx(atom1))
-        f2_atoms.append(fragment2.GetAtomWithIdx(atom2))
+    f1_atoms = [fragment1.GetAtomWithIdx(atom1) for atom1, _ in combinations]
+    f2_atoms = [fragment2.GetAtomWithIdx(atom2) for _, atom2 in combinations]
+    f1_bond_partners = [atom.GetNeighbors() for atom in f2_atoms]
+    f1_bond_orders = [[bond.GetBondType() for bond in atom.GetBonds()] for atom in f2_atoms]
 
-        # get atom2 bond partners and bond orders
-        f1_atom_bond_parters.append(f2_atoms[-1].GetNeighbors())
-        f1_atom_bond_orders.append(
-            [bond.GetBondType() for bond in f2_atoms[-1].GetBonds()]
-        )
-
-    # Remove atom2 and add atom2 bond partners to atom1
-    # Important that all sanity checks before are valid!!!!
-    combine = Chem.CombineMols(fragment1, fragment2)
-    rw_mol = Chem.RWMol(combine)
+    combined_mol = Chem.CombineMols(fragment1, fragment2)
+    rw_mol = Chem.RWMol(combined_mol)
     Chem.RemoveAllHs(rw_mol)
 
-    # combine mols
     rw_mol.BeginBatchEdit()
-    for atom_id in range(len(f1_atoms)):
+    for atom_id, (partners, orders) in enumerate(zip(f1_bond_partners, f1_bond_orders)):
         rw_mol.RemoveAtom(f2_atoms[atom_id].GetIdx() + max_idx)
-        for bond, order in zip(
-                f1_atom_bond_parters[atom_id], f1_atom_bond_orders[atom_id]
-        ):
-            rw_mol.AddBond(
-                f1_atoms[atom_id].GetIdx(),
-                bond.GetIdx() + max_idx,
-                order,
-            )
+        for partner, order in zip(partners, orders):
+            rw_mol.AddBond(f1_atoms[atom_id].GetIdx(), partner.GetIdx() + max_idx, order)
     rw_mol.CommitBatchEdit()
 
-    # Check if molecule is valid and standardize
     try:
-        mol = rw_mol.GetMol()  # Convert editable mol to mol object
-        mol = safe_standardize_mol(mol, add_hydrogens=True)
-        mol = Chem.RemoveHs(mol)
-        smiles = Chem.MolToSmiles(mol)
-
+        mol = safe_standardize_mol(rw_mol.GetMol(), add_hydrogens=True)
+        return Chem.MolToSmiles(Chem.RemoveHs(mol))
     except Exception as e:
         print(f"Standardization failed: {e}", flush=True)
         return None
 
-    return smiles
-
 
 def valence_check(atom1, atom2):
     pt = Chem.rdchem.GetPeriodicTable()
-
     val1 = pt.GetDefaultValence(atom1[0]) - atom1[1]
     val2 = pt.GetDefaultValence(atom2[0]) - atom2[1]
-
-    return (val1 + val2) <= pt.GetDefaultValence(atom1[0])
+    return val1 + val2 <= pt.GetDefaultValence(atom1[0])
 
 
 def count_non_overlapping_sublists(lst):
-    # Sort the list of lists by the first element of each sublist
-    sorted_lst = sorted(lst, key=lambda x: x[0])
+    # Sort the sublists by their first element
+    lst.sort(key=lambda x: x[0])
 
-    # Initialize a variable to keep track of the number of non-overlapping sublists
+    # Initialize the count of non-overlapping sublists
     count = 1
 
-    # Loop through the sorted list of lists and compare the second element of each sublist
-    # with the first element of the next sublist
-    for i in range(len(sorted_lst) - 1):
-        if sorted_lst[i][1] <= sorted_lst[i + 1][0]:
+    # Compare the end of the current sublist with the start of the next
+    for i in range(1, len(lst)):
+        if lst[i - 1][1] <= lst[i][0]:
             count += 1
 
-    # Return the counter for the number of non-overlapping sublists
     return count
 
 
 def get_possible_combinations(idx_map1, idx_map2):
-    possible_combinations = []
-    for atom1 in idx_map1:
-        for atom2 in idx_map2:
-            # check if atom types are the same
-            # and if the valence check is passed
-            if idx_map1[atom1][0] == idx_map2[atom2][
-                0
-            ] and valence_check(idx_map1[atom1], idx_map2[atom2]):
-                possible_combinations.append([atom1, atom2])
+    possible_combinations = [
+        [atom1, atom2]
+        for atom1 in idx_map1
+        for atom2 in idx_map2
+        if idx_map1[atom1][0] == idx_map2[atom2][0] and valence_check(idx_map1[atom1], idx_map2[atom2])
+    ]
 
     if possible_combinations:
         random.shuffle(possible_combinations)
@@ -238,31 +185,26 @@ def get_allowed_pairs(combinations, k, max_iterations=1000):
     sampled_sublists = []
     counter = 0
 
-    # Loop until k sublists have been sampled or the counter exceeds a certain number of iterations
     while len(sampled_sublists) < k and counter < max_iterations:
-        # Sample a sublist from the original list
-        sublist = random.sample(combinations, 1)[0]
+        sublist = random.choice(combinations)
 
-        # Check if the first entry of the sampled sublist overlaps with any previous sublists
-        if all(sublist[0] != prev[0] for prev in sampled_sublists):
-            # Check if the second entry of the sampled sublist overlaps with any previous sublists
-            if all(sublist[1] != prev[1] for prev in sampled_sublists):
-                # Add the sampled sublist to the list of sampled sublists
-                sampled_sublists.append(sublist)
+        if all(sublist[0] != prev[0] and sublist[1] != prev[1] for prev in sampled_sublists):
+            sampled_sublists.append(sublist)
         counter += 1
+
     return sampled_sublists
 
 
-def select_max_overlaps(f1_atoms, f2_atoms) -> int:
-    return min(f1_atoms, f2_atoms)
+def select_max_overlaps(atoms1, atoms2) -> int:
+    return min(atoms1, atoms2)
 
 
 def get_atom_type_index_mapping(fragment):
     try:
-        mol = Chem.MolFromSmiles(fragment, sanitize=False)
-        mol = Chem.RemoveHs(mol, implicitOnly=False)
+        mol = Chem.RemoveHs(Chem.MolFromSmiles(fragment, sanitize=False), implicitOnly=False)
     except (TypeError, Chem.KekulizeException, Chem.AtomValenceException):
         return None, None
+
     if mol is None:
         return None, None
 
@@ -270,12 +212,9 @@ def get_atom_type_index_mapping(fragment):
     atom_type_index_mapping = defaultdict(list)
 
     for atom in mol.GetAtoms():
-        # check for free valence of atoms
-        free_atom_valence = (
-                pt.GetDefaultValence(atom.GetSymbol()) - atom.GetExplicitValence()
-        )
-        atom_type_index_mapping[atom.GetIdx()].append(atom.GetSymbol())
-        atom_type_index_mapping[atom.GetIdx()].append(free_atom_valence)
+        free_valence = pt.GetDefaultValence(atom.GetSymbol()) - atom.GetExplicitValence()
+        atom_type_index_mapping[atom.GetIdx()] = [atom.GetSymbol(), free_valence]
+
     return mol, atom_type_index_mapping
 
 
