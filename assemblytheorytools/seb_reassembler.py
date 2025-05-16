@@ -17,7 +17,6 @@ from rdkit.Chem import Draw
 from rdkit.Chem import MolFromSmiles
 
 from .assembly import add_assembly_to_path
-from .seb_pathway_tools import parse_pathway_file_ian
 from .tools_mol import safe_standardize_mol
 from .construction import parse_pathway_file
 
@@ -132,13 +131,6 @@ def get_atomic_distribution(graph) -> dict:
         atomic_count[node] = set(atomic_count[node])
 
     return atomic_count
-
-
-def construct_assembly_space(assembly_out: dict) -> tuple:
-    object = parse_pathway_file_ian(assembly_out["cpp_output"])
-    pathway_log_string = object.pathway_log_string()
-    pathway_fragments = object.pathway_inchi_fragments()
-    return pathway_fragments, pathway_log_string
 
 
 def destringyfy(string):
@@ -667,24 +659,21 @@ class Molecule:
             smiles: str = "",
             pathway: Optional[list[str]] = None,
             assembly_index: Optional[int] = None,
-            assembly_output: Optional[dict] = None,
             G: Optional[nx.DiGraph] = None,
             timeout: Optional[int] = 60,
     ):
         super().__init__()
+
         self.pathway_log_string = None
         self.pathway_fragments = None
         self.pathwayLogObj = None
         self.smiles: Optional[str] = smiles
         self.pathway: Optional[list[str]] = pathway
         self.assembly_index: Optional[int] = assembly_index
-        self.assembly_output: Optional[dict] = assembly_output
-        # populates after calling reconstruct_pathway
+        self.assembly_output_path = None
         self.pathway_log_string: str
         self.pathway_fragments: list[str]
-        # populates after calling construct_layered_graph
         self.pathwayLogObj: ParsePathwayLog
-        # populates after calling construct_layered_graph
         self.G: nx.DiGraph = G
         self.timeout: Optional[int] = timeout
 
@@ -692,18 +681,15 @@ class Molecule:
             self.smiles = list(G.nodes)[-1]
 
     def get_smiles(self) -> str:
-        """
-        Return the smiles string of this molecule.
-
-        Returns:
-            str: The SMILES representation of the molecule.
-        """
         if self.smiles == "":
             self.reconstruct_pathway()
             self.construct_layered_graph()
         return self.smiles
 
-    def calculate_assembly(self, mol_file_path, set_timeout=64) -> None:
+    def calc_pathway(self) -> None:
+        mol = Chem.MolFromSmiles(self.smiles)
+        Chem.MolToMolFile(mol, 'temp.mol')
+        mol_file_path = Path("temp.mol")
         executable_path_cpp = add_assembly_to_path()
         proc = subprocess.Popen(
             [executable_path_cpp, mol_file_path.parent / mol_file_path.stem],
@@ -711,66 +697,26 @@ class Molecule:
         )
 
         try:
-            proc.wait(timeout=set_timeout)
+            proc.wait(timeout=self.timeout)
         except subprocess.TimeoutExpired:
             proc.send_signal(signal.SIGINT)
 
-        output_path = str(mol_file_path.parent / mol_file_path.stem) + "Pathway"
-        self.assembly_output_path = output_path
-        # Read the file correctly and parse it as JSON
-        with open(output_path, "r") as f:
-            try:
-                self.assembly_output = {"cpp_output": json.load(f)}  # Parses JSON properly
-            except json.JSONDecodeError:
-                # If it's not valid JSON, store as a string (fallback)
-                f.seek(0)  # Reset file pointer
-                self.assembly_output = {"cpp_output": f.read()}
-
-        return None
-
-    def calc_pathway(self) -> None:
-        if self.smiles is None:
-            assert ValueError("smiles is None. Cannot calculate pathway.")
-
-        mol = Chem.MolFromSmiles(self.smiles)
-        Chem.MolToMolFile(mol, 'temp.mol')
-
-        self.calculate_assembly(Path("temp.mol"), set_timeout=self.timeout)
+        self.assembly_output_path = str(mol_file_path.parent / mol_file_path.stem) + "Pathway"
         return None
 
     def reconstruct_pathway(self) -> None:
         self.calc_pathway()
-        print("Reconstructing pathway", flush=True)
-        _, self.pathway_fragments, self.pathway_log_string = parse_pathway_file(self.assembly_output_path,vo_type="inchi", log=True)
-        print(self.pathway_log_string)
-        # print("OLD")
-        # self.pathway_fragments, self.pathway_log_string = construct_assembly_space(self.assembly_output)
-        # print(self.pathway_log_string)
-
+        _, self.pathway_fragments, self.pathway_log_string = parse_pathway_file(self.assembly_output_path,
+                                                                                vo_type="inchi", log=True)
         return None
 
     def construct_layered_graph(self):
-        """
-        Construct the layered graph of this molecule.
-
-        Returns:
-            None. This method updates the `self.G` attribute.
-        """
         self.pathwayLogObj = ParsePathwayLog(self.pathway_log_string)
         self.G = self.pathwayLogObj.G
         self.smiles = list(self.G.nodes)[-1]
         return None
 
     def plot_layered_graph(self, show_molecule: bool = True):
-        """
-        Plot the layered graph of the molecule.
-
-        Args:
-            show_molecule: bool; if True, show the molecule in the graph
-
-        Returns:
-            None. Displays the graph
-        """
         self.pathwayLogObj.plot_layered_graph(show_molecule)
 
 
