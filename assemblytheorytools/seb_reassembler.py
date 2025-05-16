@@ -5,7 +5,7 @@ import subprocess
 from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
-from typing import Optional
+from typing import List, Union, Optional
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -578,127 +578,41 @@ class Molecule:
 
 
 class MoleculeSpace:
-    def __init__(self, molecules: list[Molecule]):
+    def __init__(self, molecules: List['Molecule']):
+        self.molecules = molecules
+        self.molecule_smiles = [molecule.get_smiles() for molecule in molecules]
+        self._remove_none()
+        self.joined_smiles = ".".join(self.molecule_smiles)
         self.joined_assembly_graph = None
         self.joined_assembly_graph_minus_x = None
         self.max_assembly_index = None
-        self.molecules: list[Molecule] = molecules
-        self.molecule_smiles: list[str] = [molecule.get_smiles() for molecule in self.molecules]
-        # remove molecules that failed to layered pathway as indicated by None in self.molecule_smiles
-        self._remove_none()
-        self.joined_smiles: str = ".".join(self.molecule_smiles)
-        self.assembly_out: dict
-        # list of inchi strings
-        self.assembly_pool: list[str]
-        self.joint_assembly_log_string: list[str]
-        # list of inchi strings
-        self.MA_assembly_pool: defaultdict = defaultdict(str)
-        self.assembly_graph: dict
-        self.joined_assembly_graph: nx.MultiDiGraph
-        self.joined_assembly_graph_minus_x: nx.MultiDiGraph
-        # list of root nodes in joined_assembly_graph
-        self.root_nodes: list[str | None] = None
-        # list of leaf nodes in joined_assembly_graph
-        self.leaf_nodes: list[str | None] = None
+        self.root_nodes = None
+        self.leaf_nodes = None
 
     def _remove_none(self):
-        """
-        Remove None from self.molecules and self.molecule_smiles
-
-        Returns:
-            None. Updates the `self.molecules` and `self.molecule_smiles` attributes.
-        """
-        # first get none ids
-        none_ids = []
-        for idx, mol in enumerate(self.molecule_smiles):
-            if mol is None:
-                none_ids.append(idx)
-
-        # remove none ids
-        for idx in sorted(none_ids, reverse=True):
-            del self.molecules[idx]
-            del self.molecule_smiles[idx]
-        return None
+        self.molecules = [mol for mol in self.molecules if mol.get_smiles() is not None]
+        self.molecule_smiles = [mol.get_smiles() for mol in self.molecules]
 
     def _set_root_nodes(self):
-        """
-        Sets the self.root_nodes of the joined_assembly_graph
-
-        Returns:
-            None. Updates the `self.root_nodes` attribute.
-        """
         self.root_nodes = [
-            node
-            for node in self.joined_assembly_graph.nodes
+            node for node in self.joined_assembly_graph.nodes
             if self.joined_assembly_graph.in_degree(node) == 0
         ]
-        return None
 
     def _set_leaf_nodes(self):
-        """
-        Sets the self.leaf_nodes of the joined_assembly_graph
+        self.leaf_nodes = [
+            node for node in self.molecule_smiles
+            if node in self.joined_assembly_graph.nodes
+        ]
 
-        Returns:
-            None. Updates the `self.leaf_nodes` attribute.
-        """
-        if self.molecule_smiles is None:
-            self.molecule_smiles = [
-                molecule.get_smiles()
-                for molecule in self.molecules
-            ]
-        self.leaf_nodes = self.molecule_smiles
-        return None
-
-    def construct_joined_graph(self) -> None:
-        """
-        Construct the joined graph of this molecule space.
-        Only one fragment of each molecule is included in the joined graph.
-        Edges that are in multiple graphs are only included once.
-
-        Returns:
-            None. Updates the `self.joined_assembly_graph` attribute.
-        """
-        self.joined_assembly_graph = compose_all(
-            [mol.G for mol in self.molecules]
-        )
+    def construct_joined_graph(self):
+        self.joined_assembly_graph = compose_all([mol.G for mol in self.molecules])
         self._set_root_nodes()
         self._set_leaf_nodes()
-        return None
 
-    def a_minus_x_assembly_pool(self,
-                                X: int = 1,
-                                get_graph: bool = True,
-                                remove_paths: bool = False) -> nx.MultiDiGraph | list[str]:
-        """
-        Compute the A-X assembly pool by removing molecules from the joined assembly graph.
-
-        The function removes molecules from `self.joined_assembly_graph` that are within `X`
-        steps back in the assembly process. If `remove_paths=True`, associated pathway fragments
-        are also removed. Returns either a modified directed graph or a list of remaining
-        molecule nodes.
-
-        Args:
-            X : int, optional (default=1) The number of steps back in the assembly path to remove molecules.
-            get_graph : bool, optional (default=True) If True, returns the updated graph.
-            remove_paths : bool, optional (default=False) If True, also removes molecular pathway fragments corresponding to the removed nodes.
-
-
-        Returns:
-            nx.MultiDiGraph | list[str]
-                - If `get_graph=True`: Returns the modified directed graph (`nx.MultiDiGraph`).
-                - If `get_graph=False`: Returns a list of remaining nodes (molecule identifiers).
-
-        Raises:
-            ValueError. If `X` is greater than the maximum assembly index, meaning too many steps are requested.
-
-        Notes
-        -----
-        - The **A-X assembly pool** represents molecules that remain **after removing** fragments that
-        are `X` steps back in the assembly process.
-        - **Leaf nodes** (molecules with no descendants in the assembly process) are prioritized for removal.
-        - **Pathway removal (`remove_paths=True`)** eliminates fragments from associated pathways if
-        they are removed from the assembly pool.
-        """
+    def a_minus_x_assembly_pool(
+            self, X: int = 1, get_graph: bool = True, remove_paths: bool = False
+    ) -> Union[nx.MultiDiGraph, List[str]]:
         if self.joined_assembly_graph is None:
             print("Constructing joined assembly graph.", flush=True)
             self.construct_joined_graph()
@@ -712,61 +626,42 @@ class MoleculeSpace:
                 f"X must be less than or equal to the maximum assembly index {self.max_assembly_index}"
             )
 
-        temp_graph: nx.MultiDiGraph = self.joined_assembly_graph.copy()
+        temp_graph = self.joined_assembly_graph.copy()
         to_remove = [
-            node
-            for node in self.leaf_nodes
+            node for node in self.leaf_nodes
             if temp_graph.nodes[node]["level"] > self.max_assembly_index - X
         ]
 
         removed_observed = 0
         if remove_paths:
             for node in to_remove:
-                # Happens sometimes when fragment is twice in a single pathway. Count is already 0
                 if not temp_graph.has_node(node):
                     print(f"Node {node} not in graph", flush=True)
                     continue
                 try:
-                    pw_nodes = self.molecules[
-                        self.molecule_smiles.index(node)
-                    ].G.nodes
+                    pw_nodes = self.molecules[self.molecule_smiles.index(node)].G.nodes
                 except Exception as e:
-                    print(f"Could not find {node}", e, flush=True)
-                    # Used to be problem in an old JAS
+                    print(f"Could not find {node}: {e}", flush=True)
                     temp_graph.remove_node(node)
                     continue
 
                 for pw_node in pw_nodes:
-                    # happens sometimes when fragment is twice in a single pathway. Count is already 0
-                    if not temp_graph.has_node(pw_node):
-                        continue
-                    if temp_graph.nodes[pw_node]["count"] > 1:
-                        temp_graph.nodes[pw_node]["count"] -= 1
-                    else:
-                        temp_graph.remove_node(pw_node)
+                    if temp_graph.has_node(pw_node):
+                        if temp_graph.nodes[pw_node]["count"] > 1:
+                            temp_graph.nodes[pw_node]["count"] -= 1
+                        else:
+                            temp_graph.remove_node(pw_node)
                 removed_observed += 1
 
-        # second loop to remove nodes that are not leaf nodes but have to be removed
-        for node in self.joined_assembly_graph.nodes:
-            try:
-                if (
-                        temp_graph.nodes[node]["level"]
-                        > self.max_assembly_index - X
-                ):
-                    temp_graph.remove_node(node)
-            except Exception as e:
-                ...
+        for node in list(temp_graph.nodes):
+            if temp_graph.nodes[node]["level"] > self.max_assembly_index - X:
+                temp_graph.remove_node(node)
 
         if not remove_paths:
-            for leaf in self.leaf_nodes:
-                if not temp_graph.has_node(leaf):
-                    removed_observed += 1
+            removed_observed += sum(1 for leaf in self.leaf_nodes if not temp_graph.has_node(leaf))
 
         self.joined_assembly_graph_minus_x = temp_graph
-
-        if get_graph:
-            return temp_graph, removed_observed
-        return list(temp_graph.nodes), removed_observed
+        return (temp_graph, removed_observed) if get_graph else (list(temp_graph.nodes), removed_observed)
 
 
 class MoleculeGenerationAssemblyPool:
