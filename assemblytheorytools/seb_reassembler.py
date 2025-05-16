@@ -79,22 +79,6 @@ def accumulate_edges_data(graphs):
 
 
 def accumulate_nodes_data(graphs, attribute="level"):
-    """
-    Returns a dict of nodes, their level attribute and the
-    number of times they were used in the construction of the graph [count]
-
-    Parameters
-    ----------
-    graphs : iterable
-        Iterable of NetworkX graphs
-    attribute : str
-        Attribute to accumulate
-
-    Returns
-    -------
-    nodes_data : dict
-        Dict of nodes and their accumulated 'level' data from all graphs
-    """
     nodes_data = {}
     node_counts = {}
     for graph in graphs:
@@ -118,9 +102,6 @@ def accumulate_nodes_data(graphs, attribute="level"):
 
 
 def accumulate_node_usage(graph, attribute="usage"):
-    """
-    Accumulate all the levels for which a node was used in the construction of fragments
-    """
     node_usage = {}
     for node in graph.nodes():
         # get out edges
@@ -131,20 +112,6 @@ def accumulate_node_usage(graph, attribute="usage"):
 
 
 def get_atomic_distribution(graph) -> dict:
-    """
-    Create a dictionary where the keys are SMILES strings (the nodes of the graph) and values are
-    the set of atomic numbers of atoms that have free valence.
-
-    Parameters
-    ----------
-    graph : nx.Graph
-        Graph where nodes are SMILES strings (molecules)
-
-    Returns
-    -------
-    atomic_count : dict
-        Dictionary where keys are SMILES strings and values are sets of atomic numbers that have free valence
-    """
     periodic_table = Chem.rdchem.GetPeriodicTable()
     atomic_count: dict = defaultdict(list)
 
@@ -178,35 +145,6 @@ def destringyfy(string):
 
 
 def combine_fragments(fragment1, fragment2, combinations) -> str:
-    """
-    Combines two molecular fragments by forming bonds between specified atom pairs.
-
-    This function takes two RDKit `Mol` objects (`fragment1` and `fragment2`) and
-    attempts to merge them by connecting specified atom pairs. The resulting molecule
-    undergoes structural validation before being returned.
-
-    Args:
-        fragment1 (str): The first molecular fragment, represented as a SMILES string.
-        fragment2 (str): The second molecular fragment, represented as a SMILES string.
-        combinations (list[tuple[int, int]]): A list of atom index pairs, where each tuple
-                                            represents a bond to be formed between an
-                                            atom in `fragment1` and an atom in `fragment2`.
-
-    Returns:
-        str (SMILES string) | None:
-            - The combined molecule if the bonding is successful and chemically valid.
-            - `None` if the molecule cannot be standardized
-
-    Raises:
-        IndexError: If an invalid atom index is accessed in either fragment.
-
-    Notes:
-        - The function starts by retrieving the atom objects based on the given indices.
-        - Atom neighbors and bond orders from `fragment2` are stored before merging.
-        - `fragment1` and `fragment2` are merged using `Chem.CombineMols()`.
-        - The function modifies bonds using `Chem.RWMol()` to ensure proper connectivity.
-        - The resulting molecule is standardized and converted to a SMILES string.
-    """
     max_idx = fragment1.GetNumAtoms()
 
     f1_atoms = []
@@ -260,38 +198,16 @@ def combine_fragments(fragment1, fragment2, combinations) -> str:
     return smiles
 
 
-def _valence_check(atom1, atom2):
-    """
-    Checks if the valence of two atoms allows them to be combined. Note: atom types must be the same.
+def valence_check(atom1, atom2):
+    pt = Chem.rdchem.GetPeriodicTable()
 
-    Args:
-        atom1 : list[str, int] A list containing the atom type and free valence of atom 1.
-        atom2 : list[str, int] A list containing the atom type and free valence of atom 2.
+    val1 = pt.GetDefaultValence(atom1[0]) - atom1[1]
+    val2 = pt.GetDefaultValence(atom2[0]) - atom2[1]
 
-    Returns:
-        bool: True if the atoms can be combined, False otherwise.
-    """
-    periodic_table = Chem.rdchem.GetPeriodicTable()
-
-    total_valence_used = (
-            periodic_table.GetDefaultValence(atom1[0]) - atom1[1] +
-            periodic_table.GetDefaultValence(atom2[0]) - atom2[1]
-    )
-
-    return total_valence_used <= periodic_table.GetDefaultValence(atom1[0])
+    return (val1+val2) <= pt.GetDefaultValence(atom1[0])
 
 
 def count_non_overlapping_sublists(lst):
-    """
-    Counts the number of non-overlapping sublists in a list of lists, for the purpose of
-    determining the number of pairs of atoms that can be combined without reusing atoms from either fragment.
-
-    Args:
-        lst : list[list] A list of lists.
-
-    Returns:
-        counts (int) The number of non-overlapping sublists.
-    """
     # Sort the list of lists by the first element of each sublist
     sorted_lst = sorted(lst, key=lambda x: x[0])
 
@@ -308,31 +224,16 @@ def count_non_overlapping_sublists(lst):
     return count
 
 
-def get_possible_combinations(atomtype_index_mapping1, atomtype_index_mapping2):
-    """
-    Returns all possible combinations of atoms that can be combined.
-    Possible combinations are atoms with the same atom type and sum of valence
-    does not exceed the allowed valence.
-
-    Args:
-        atomtype_index_mapping1 : dict A dictionary mapping atom index to atom type and free valence for fragment 1.
-        atomtype_index_mapping2 : dict A dictionary mapping atom index to atom type and free valence for fragment 2.
-
-    Returns:
-        possible_combinations : list[list[int, int]] A list of possible atom combinations. Each combination is a list of two atom indices.
-    """
+def get_possible_combinations(idx_map1, idx_map2):
     possible_combinations = []
-    for atom1 in atomtype_index_mapping1:
-        for atom2 in atomtype_index_mapping2:
+    for atom1 in idx_map1:
+        for atom2 in idx_map2:
             # check if atom types are the same
             # and if the valence check is passed
-            if atomtype_index_mapping1[atom1][0] == atomtype_index_mapping2[atom2][
+            if idx_map1[atom1][0] == idx_map2[atom2][
                 0
-            ] and _valence_check(
-                atomtype_index_mapping1[atom1],
-                atomtype_index_mapping2[atom2],
-            ):
-                possible_combinations.append([atom1, atom2])  # Store the atom indices
+            ] and valence_check(idx_map1[atom1], idx_map2[atom2]):
+                possible_combinations.append([atom1, atom2])
 
     if possible_combinations:
         random.shuffle(possible_combinations)
@@ -340,22 +241,12 @@ def get_possible_combinations(atomtype_index_mapping1, atomtype_index_mapping2):
     return None
 
 
-def get_allowed_pairs(combinations, k):
-    """
-    Returns a list of k allowed pairs of atoms from a list of possible combinations.
-
-    Args:
-        combinations : list[list[int, int]] A list of possible atom combinations.
-        k : int The number of pairs to select.
-
-    Returns:
-        sampled_sublists : list[list[int, int]] A list of k allowed pairs of atoms.
-    """
+def get_allowed_pairs(combinations, k, max_iterations=1000):
     sampled_sublists = []
     counter = 0
 
     # Loop until k sublists have been sampled or the counter exceeds a certain number of iterations
-    while len(sampled_sublists) < k and counter < 1000:
+    while len(sampled_sublists) < k and counter < max_iterations:
         # Sample a sublist from the original list
         sublist = random.sample(combinations, 1)[0]
 
@@ -370,49 +261,10 @@ def get_allowed_pairs(combinations, k):
 
 
 def select_max_overlaps(f1_atoms, f2_atoms) -> int:
-    """
-    Returns the maximum number of atoms that can overlap between two fragments.
-
-    Args:
-        f1_atoms : int The number of atoms in fragment 1.
-        f2_atoms : int The number of atoms in fragment 2.
-
-    Returns:
-        int: The maximum number of atoms that can overlap
-    """
     return min(f1_atoms, f2_atoms)
 
 
-def get_atomtype_index_mapping(fragment):
-    """
-    Retrieves the molecular representation and atomic index mapping for a given fragment.
-
-    This function converts a SMILES string into an RDKit `Mol` object and creates
-    a mapping of atomic indices to their atomic symbol and free valence count.
-
-    Args:
-        fragment (str): The molecular fragment represented as a SMILES string.
-
-    Returns:
-        tuple[Chem.Mol, dict[int, list]] | tuple[None, None]:
-            - `mol` (Chem.Mol): The RDKit molecular object representation of the fragment.
-            - `atomtype_index_mapping` (dict[int, list]): A dictionary where:
-                - Keys are atomic indices.
-                - Values are lists containing:
-                    - The atomic symbol (str).
-                    - The free valence count (int).
-            - If the fragment cannot be processed, returns `(None, None)`.
-
-    Raises:
-        TypeError: If the input fragment is not a valid string.
-        Chem.KekulizeException: If RDKit fails to kekulize the molecule.
-        Chem.AtomValenceException: If RDKit detects an invalid atomic valence.
-
-    Notes:
-        - The function first attempts to convert the SMILES string to an RDKit `Mol` object.
-        - Implicit hydrogens are removed to simplify atom valence calculations.
-        - Free valence is determined based on predefined valence rules from rdkit periodic_table.
-    """
+def get_atom_type_index_mapping(fragment):
     try:
         mol = Chem.MolFromSmiles(fragment, sanitize=False)
         mol = Chem.RemoveHs(mol, implicitOnly=False)
@@ -421,17 +273,17 @@ def get_atomtype_index_mapping(fragment):
     if mol is None:
         return None, None
 
-    periodic_table = Chem.rdchem.GetPeriodicTable()
-    atomtype_index_mapping = defaultdict(list)
+    pt = Chem.rdchem.GetPeriodicTable()
+    atom_type_index_mapping = defaultdict(list)
 
     for atom in mol.GetAtoms():
         # check for free valence of atoms
         free_atom_valence = (
-                periodic_table.GetDefaultValence(atom.GetSymbol()) - atom.GetExplicitValence()
+                pt.GetDefaultValence(atom.GetSymbol()) - atom.GetExplicitValence()
         )
-        atomtype_index_mapping[atom.GetIdx()].append(atom.GetSymbol())
-        atomtype_index_mapping[atom.GetIdx()].append(free_atom_valence)
-    return mol, atomtype_index_mapping
+        atom_type_index_mapping[atom.GetIdx()].append(atom.GetSymbol())
+        atom_type_index_mapping[atom.GetIdx()].append(free_atom_valence)
+    return mol, atom_type_index_mapping
 
 
 class ParsePathwayLog:
@@ -1566,8 +1418,8 @@ class MoleculeGenerationAssemblyPool:
             - The function calls `self.get_atomtype_index_mapping()` to retrieve
             molecular representations and atomic index mappings for bonding.
         """
-        mol1, atomtype_index_mapping1 = get_atomtype_index_mapping(fragment1)
-        mol2, atomtype_index_mapping2 = get_atomtype_index_mapping(fragment2)
+        mol1, atomtype_index_mapping1 = get_atom_type_index_mapping(fragment1)
+        mol2, atomtype_index_mapping2 = get_atom_type_index_mapping(fragment2)
 
         if mol1 is None or mol2 is None:
             return None
@@ -1970,9 +1822,7 @@ class Assemble:
         """
 
         # Get all possible combinations of atoms
-        possible_combinations = get_possible_combinations(
-            atomtype_index_mapping1, atomtype_index_mapping2
-        )
+        possible_combinations = get_possible_combinations(atomtype_index_mapping1, atomtype_index_mapping2)
         if possible_combinations is None:
             return None
 
