@@ -1,5 +1,4 @@
 import ast
-import json
 import random
 import signal
 import subprocess
@@ -17,8 +16,8 @@ from rdkit.Chem import Draw
 from rdkit.Chem import MolFromSmiles
 
 from .assembly import add_assembly_to_path
-from .tools_mol import safe_standardize_mol
 from .construction import parse_pathway_file
+from .tools_mol import safe_standardize_mol
 
 bond_types = {
     "single": Chem.BondType.SINGLE,
@@ -230,11 +229,9 @@ class ParsePathwayLog:
             self.digraph_lines,
         ) = self.construct_pathway_from_log()
 
-        # build graph and calc levels
         self.G = self.construct_multidigraph()
         self.assembly_out_OK = True
-        # check if construction was successful; node should have maximal 2 predecessors.
-        # Assembly related problems has duplicate nodes sometimes, that I cant fix
+
         for node in self.G.nodes:
             if len(list(self.G.in_edges(node))) > 2:
                 raise ValueError("Node has more than 2 predecessors - invalid!")
@@ -243,15 +240,6 @@ class ParsePathwayLog:
         self.nodes_per_level = self._nodes_per_level()
 
     def construct_pathway_from_log(self):
-        """
-        Parse a pathway log from assembly calculator to a graph.
-
-        Returns:
-            atom_lines: list[list]; list of atom types
-            building_block_lines: list[list]; list of building blocks
-            steps_lines: dict; dictionary of steps
-            digraph_lines: list[list]; list of digraph lines
-        """
         atom_block: bool = False
         building_block_block: bool = False
         steps_block: bool = False
@@ -298,12 +286,6 @@ class ParsePathwayLog:
         return atom_lines, building_block_lines, steps_lines, digraph_lines
 
     def construct_basic_bb(self):
-        """
-        Construct basic building blocks from the pathway log.
-
-        Returns:
-            bb: dict; dictionary of basic building blocks
-        """
         bb = {}
         for i, line in enumerate(self.building_block_lines):
             edmol = Chem.EditableMol(Chem.Mol())
@@ -315,15 +297,6 @@ class ParsePathwayLog:
         return bb
 
     def construct_fragment_for_step(self, step: str | int):
-        """
-        Reconstruct a molecule from a step in the pathway log.
-
-        Args:
-            step: str; step number
-
-        Returns:
-            smiles: str; SMILES representation of the molecule
-        """
         step = str(step)
         bonds_ids = self.steps_lines[step]
         atom_ids = list(set([atom for bond in bonds_ids for atom in bond]))
@@ -353,12 +326,6 @@ class ParsePathwayLog:
         return Chem.MolToSmiles(edmol.GetMol())
 
     def construct_multidigraph(self):
-        """
-        Construct a multidigraph from the pathway log.
-
-        Returns:
-            graph: nx.MultiDiGraph; multidigraph of the pathway log
-        """
         graph = nx.MultiDiGraph()
         smiles_graph = self.construct_basic_bb()
         graph.add_nodes_from(smiles_graph.values())
@@ -388,15 +355,6 @@ class ParsePathwayLog:
         return graph
 
     def get_level(self, node):
-        """
-        Returns the level of a node in a graph.
-
-        Args:
-            node: str; node in the graph
-
-        Returns:
-            level: int; level of the node
-        """
         predecessors = [edge[0] for edge in list(self.G.in_edges(node))]
         if len(predecessors) == 2:
             return max([self.G.nodes[pred]["level"] for pred in predecessors]) + 1
@@ -409,12 +367,6 @@ class ParsePathwayLog:
             return None
 
     def assign_levels(self):
-        """
-        Assigns levels to nodes in a graph.
-
-        Returns:
-            None. Updates the graph in place.
-        """
         for node in self.G.nodes:
             if not list(self.G.predecessors(node)):
                 self.G.nodes[node].update({"level": 0})
@@ -426,12 +378,6 @@ class ParsePathwayLog:
         return None
 
     def _nodes_per_level(self):
-        """
-        Returns a list of nodes in a graph at a given level.
-
-        Returns:
-            num_nodes_per_level: dict; number of nodes per level
-        """
         num_nodes_per_level = {}
 
         for node in self.G.nodes:
@@ -444,17 +390,6 @@ class ParsePathwayLog:
         return num_nodes_per_level
 
     def plot_layered_graph(self, show_molecules=False, save_fig=True):
-        """
-        Plot the layered graph of the molecule.
-
-        Args:
-            show_molecules: bool; if True, show the molecules in the graph
-            save_fig: bool; if True, save the figure
-
-        Returns:
-            None. Displays the graph.
-        """
-
         fig, ax = plt.subplots()
         # fig size
         fig.set_size_inches(12, 7)
@@ -544,12 +479,6 @@ class ParsePathwayLog:
             fig.show()
 
     def _get_node_positions(self):
-        """
-        Returns the position of a node in a graph.
-
-        Returns:
-            positions: dict; positions of nodes in the graph
-        """
         positions = {}
         # according to layer attribute, sort nodes in graph by level
         sorted_nodes = sorted(self.G.nodes(data=True), key=lambda x: x[1]["level"])
@@ -593,34 +522,27 @@ class ParsePathwayLog:
 
 
 class Molecule:
-    def __init__(
-            self,
-            smiles: str = "",
-            pathway: Optional[list[str]] = None,
-            assembly_index: Optional[int] = None,
-            G: Optional[nx.DiGraph] = None,
-            timeout: Optional[int] = 60,
-    ):
-        super().__init__()
-
+    def __init__(self,
+                 smiles: str = "",
+                 pathway: Optional[list[str]] = None,
+                 assembly_index: Optional[int] = None,
+                 G: Optional[nx.DiGraph] = None,
+                 timeout: Optional[int] = 60):
+        self.smiles = smiles
+        self.pathway = pathway
+        self.assembly_index = assembly_index
+        self.G = G
+        self.timeout = timeout
         self.pathway_log_string = None
         self.pathway_fragments = None
         self.pathwayLogObj = None
-        self.smiles: Optional[str] = smiles
-        self.pathway: Optional[list[str]] = pathway
-        self.assembly_index: Optional[int] = assembly_index
         self.assembly_output_path = None
-        self.pathway_log_string: str
-        self.pathway_fragments: list[str]
-        self.pathwayLogObj: ParsePathwayLog
-        self.G: nx.DiGraph = G
-        self.timeout: Optional[int] = timeout
 
-        if G is not None:
+        if G:
             self.smiles = list(G.nodes)[-1]
 
     def get_smiles(self) -> str:
-        if self.smiles == "":
+        if not self.smiles:
             self.reconstruct_pathway()
             self.construct_layered_graph()
         return self.smiles
@@ -629,31 +551,27 @@ class Molecule:
         mol = Chem.MolFromSmiles(self.smiles)
         Chem.MolToMolFile(mol, 'temp.mol')
         mol_file_path = Path("temp.mol")
-        executable_path_cpp = add_assembly_to_path()
         proc = subprocess.Popen(
-            [executable_path_cpp, mol_file_path.parent / mol_file_path.stem],
+            [add_assembly_to_path(), mol_file_path.parent / mol_file_path.stem],
             stdout=subprocess.DEVNULL,
         )
-
         try:
             proc.wait(timeout=self.timeout)
         except subprocess.TimeoutExpired:
             proc.send_signal(signal.SIGINT)
 
-        self.assembly_output_path = str(mol_file_path.parent / mol_file_path.stem) + "Pathway"
-        return None
+        self.assembly_output_path = f"{mol_file_path.parent / mol_file_path.stem}Pathway"
 
     def reconstruct_pathway(self) -> None:
         self.calc_pathway()
-        _, self.pathway_fragments, self.pathway_log_string = parse_pathway_file(self.assembly_output_path,
-                                                                                vo_type="inchi", log=True)
-        return None
+        _, self.pathway_fragments, self.pathway_log_string = parse_pathway_file(
+            self.assembly_output_path, vo_type="inchi", log=True
+        )
 
     def construct_layered_graph(self):
         self.pathwayLogObj = ParsePathwayLog(self.pathway_log_string)
         self.G = self.pathwayLogObj.G
         self.smiles = list(self.G.nodes)[-1]
-        return None
 
     def plot_layered_graph(self, show_molecule: bool = True):
         self.pathwayLogObj.plot_layered_graph(show_molecule)
