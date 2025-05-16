@@ -547,21 +547,7 @@ class AssemblyConstruction:
         return "".join(pathway_file)
 
 
-def parse_pathway_file(file, vo_type="smiles", debug=False):
-    """
-    Parses a pathway file and constructs a directed graph representation of the assembly pathway.
-
-    This function loads a pathway file, creates an AssemblyConstruction object, generates the assembly
-    directed graph, and prints the type and virtual object (VO) for each node in the graph.
-
-    Args:
-        file (str): The path to the pathway file to be loaded.
-        vo_type (str): The type of virtual object representation to use. Default is "smiles".
-        debug (bool): A flag indicating whether to print debug information. Default is False.
-
-    Returns:
-        tuple: A tuple containing the directed graph (nx.DiGraph) and a list of unique virtual objects.
-    """
+def parse_pathway_file(file, vo_type="smiles", debug=False, log=False):
     # Load the pathway file
     with open(file) as f:
         data = json.load(f)
@@ -574,5 +560,8 @@ def parse_pathway_file(file, vo_type="smiles", debug=False):
         # Loop over the nodes and print the type and smiles
         for node in graph.nodes(data=True):
             print(f"Node: {node[0]}, Type: {node[1]['type']}, VO: {node[1]['vo']}", flush=True)
-
-    return graph, vo_list
+    if log:
+        log_string = construction_object.pathway_log_string()
+        return graph, vo_list, log_string
+    else:
+        return graph, vo_list

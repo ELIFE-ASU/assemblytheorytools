@@ -19,6 +19,7 @@ from rdkit.Chem import MolFromSmiles
 from .assembly import add_assembly_to_path
 from .seb_pathway_tools import parse_pathway_file_ian
 from .tools_mol import safe_standardize_mol
+from .construction import parse_pathway_file
 
 bond_types = {
     "single": Chem.BondType.SINGLE,
@@ -204,7 +205,7 @@ def valence_check(atom1, atom2):
     val1 = pt.GetDefaultValence(atom1[0]) - atom1[1]
     val2 = pt.GetDefaultValence(atom2[0]) - atom2[1]
 
-    return (val1+val2) <= pt.GetDefaultValence(atom1[0])
+    return (val1 + val2) <= pt.GetDefaultValence(atom1[0])
 
 
 def count_non_overlapping_sublists(lst):
@@ -379,7 +380,7 @@ class ParsePathwayLog:
             id2 = edmol.AddAtom(Chem.Atom(line[1][0][-1]))
             edmol.AddBond(id1, id2, bond_types[line[1][-1]])
             # key name to match pathway_log format
-            bb["atom" + str(i)] = Chem.MolToSmiles(edmol.GetMol())
+            bb["virtual_object_" + str(i)] = Chem.MolToSmiles(edmol.GetMol())
         return bb
 
     def construct_fragment_for_step(self, step: str | int):
@@ -438,7 +439,7 @@ class ParsePathwayLog:
 
             smiles_graph[self.digraph_lines[i][-1]] = (
                 self.construct_fragment_for_step(
-                    self.digraph_lines[i][-1].replace("step", "")
+                    self.digraph_lines[i][-1].replace("step_", "")
                 )
             )
 
@@ -702,26 +703,6 @@ class Molecule:
             self.construct_layered_graph()
         return self.smiles
 
-    def reconstruct_pathway(self) -> None:
-        """
-        Reconstructs the molecular assembly pathway.
-
-        If `assembly_output` is None, it attempts to calculate the pathway using `calc_pathway()`.
-        Then, it reconstructs the pathway fragments and log string using `ConstructionObject`.
-
-        This method updates:
-            - `self.pathway_fragments`: The fragments forming the pathway.
-            - `self.pathway_log_string`: A log of the reconstruction process.
-
-        Raises:
-            ValueError: If `self.assembly_output` is still None after attempting to calculate it.
-        """
-
-        if self.assembly_output is None:
-            self.calc_pathway()
-            self.pathway_fragments, self.pathway_log_string = construct_assembly_space(self.assembly_output)
-        return None
-
     def calculate_assembly(self, mol_file_path, set_timeout=64) -> None:
         executable_path_cpp = add_assembly_to_path()
         proc = subprocess.Popen(
@@ -735,7 +716,7 @@ class Molecule:
             proc.send_signal(signal.SIGINT)
 
         output_path = str(mol_file_path.parent / mol_file_path.stem) + "Pathway"
-
+        self.assembly_output_path = output_path
         # Read the file correctly and parse it as JSON
         with open(output_path, "r") as f:
             try:
@@ -752,14 +733,20 @@ class Molecule:
             assert ValueError("smiles is None. Cannot calculate pathway.")
 
         mol = Chem.MolFromSmiles(self.smiles)
-        mol.SetProp("_Name", self.smiles)
-        print(
-            Chem.MolToMolBlock(mol),
-            file=open("".join(["temp", ".mol"]), "w+"),
-            flush=True
-        )
+        Chem.MolToMolFile(mol, 'temp.mol')
 
         self.calculate_assembly(Path("temp.mol"), set_timeout=self.timeout)
+        return None
+
+    def reconstruct_pathway(self) -> None:
+        self.calc_pathway()
+        print("Reconstructing pathway", flush=True)
+        _, self.pathway_fragments, self.pathway_log_string = parse_pathway_file(self.assembly_output_path,vo_type="inchi", log=True)
+        print(self.pathway_log_string)
+        # print("OLD")
+        # self.pathway_fragments, self.pathway_log_string = construct_assembly_space(self.assembly_output)
+        # print(self.pathway_log_string)
+
         return None
 
     def construct_layered_graph(self):
