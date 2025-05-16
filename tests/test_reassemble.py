@@ -1,3 +1,4 @@
+import os
 import random
 
 import networkx as nx
@@ -157,6 +158,11 @@ def test_seb_combine_pathways():
 
     assert nx.is_isomorphic(G, H)
 
+    # remove the test files
+    os.remove('temp.mol')
+    os.remove('tempOut')
+    os.remove('tempPathway')
+
 
 def test_seb_assembly_layer_removal():
     """
@@ -192,6 +198,11 @@ def test_seb_assembly_layer_removal():
     G, _ = mol_space.a_minus_x_assembly_pool(X=1)  # Returns the resulting graph
 
     assert nx.is_isomorphic(G, H)
+
+    # remove the test files
+    os.remove('temp.mol')
+    os.remove('tempOut')
+    os.remove('tempPathway')
 
 
 def test_seb_constructing_n_molecules():
@@ -249,3 +260,8 @@ def test_seb_constructing_n_molecules():
 
     assert assembled_molecules == ['CCC', 'O=CO']
     assert nx.is_isomorphic(diverged_assembly_pool, H)
+
+    # remove the test files
+    os.remove('temp.mol')
+    os.remove('tempOut')
+    os.remove('tempPathway')
