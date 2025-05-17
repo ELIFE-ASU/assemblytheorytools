@@ -3,12 +3,16 @@ import json
 import lzma
 import traceback
 import zlib
+from collections import OrderedDict
+from math import log
 from typing import Dict, Any, Optional
 
 import networkx as nx
 import numpy as np
 import rdkit
 from networkx.readwrite import json_graph
+from openbabel import openbabel as ob
+from openbabel import pybel
 from rdkit import Chem
 from rdkit import DataStructs
 from rdkit.Chem import AllChem as Chem
@@ -511,3 +515,411 @@ def compression_zlib_graph(graph: nx.Graph,
         val -= len(overhead)
 
     return val
+
+
+class BottcherScore:
+    """
+    A class to calculate the Böttcher score of molecules.
+
+    This class provides methods to calculate the Böttcher score, which is a measure of the complexity
+    of a molecule based on various atomic and molecular properties.
+
+    Attributes:
+        converter (OBConversion): An Open Babel conversion object for SMILES format.
+        automorp_memory_maxsize (int): Maximum size for automorphism memory.
+        _mesomery_patterns (dict): Dictionary of SMARTS patterns for mesomeric structures.
+    """
+
+    def __init__(self, automorp_memory_maxsize=3000000):
+        """
+        Initialize the BottcherScore object.
+
+        Args:
+            automorp_memory_maxsize (int, optional): Maximum size for automorphism memory. Defaults to 3000000.
+        """
+        self.converter = ob.OBConversion()
+        self.converter.SetOutFormat('smi')
+        self.automorp_memory_maxsize = automorp_memory_maxsize
+        self._mesomery_patterns = {
+            '[$([#8;X1])]=*-[$([#8;X1])]': [[[0, 2]], 1.5],
+            '[$([#7;X2](=*))](=*)(-*=*)': [[[2, 1]], 1.5],
+        }
+
+    def score(self, mol, disable_mesomeric=False) -> float:
+        """
+        Calculate the Bottcher score for the given molecule.
+
+        This method calculates the Bottcher score for the molecule by initializing the molecule,
+        calculating various terms, identifying cis-trans double bonds, and calculating the total complexity score.
+
+        Args:
+            mol (OBMol): The molecule object to score.
+            disable_mesomeric (bool, optional): Flag to disable mesomeric calculations. Defaults to False.
+
+        Returns:
+            float: The calculated Bottcher score for the molecule. Returns 0 if the molecule has fewer than 2 atoms.
+        """
+        if mol.NumAtoms() < 2:
+            return 0
+        self._initialize_mol(mol, disable_mesomeric)
+        self._calculate_terms()
+        self._find_cistrans_bond_atoms()
+        self._calculate_score()
+        return self._intrinsic_complexity
+
+    def _initialize_mol(self, mol, disable_mesomeric):
+        """
+        Initialize the molecule and its properties.
+
+        This method initializes the molecule by setting the molecule object, generating its SMILES representation,
+        building automorphisms, and initializing indices and mesomery equivalence dictionaries. If mesomeric
+        calculations are not disabled, it also calculates mesomeric contributions.
+
+        Args:
+            mol (OBMol): The molecule object to initialize.
+            disable_mesomeric (bool): Flag to disable mesomeric calculations.
+
+        Returns:
+            None
+        """
+        self.mol = mol
+        self._smiles = self.converter.WriteString(self.mol).split()[0]
+        self._build_automorphism()
+        self._indices = OrderedDict()
+        self._mesomery_equivalence = {}
+        if not disable_mesomeric:
+            self._calc_mesomery()
+
+    def _calc_mesomery(self):
+        """
+        Calculate mesomeric contributions and update automorphisms.
+
+        This method uses SMARTS patterns to identify mesomeric structures in the molecule.
+        It updates the mesomery equivalence dictionary and automorphs dictionary with the
+        contributions and automorphisms found.
+
+        Returns:
+            None
+        """
+        matcher = ob.OBSmartsPattern()
+        for patt, (idx_pairs, contribution) in self._mesomery_patterns.items():
+            matcher.Init(patt)
+            if matcher.Match(self.mol):
+                for f in matcher.GetUMapList():
+                    for pair in idx_pairs:
+                        for idx in pair:
+                            self._mesomery_equivalence[f[idx]] = contribution
+                        p0, p1 = f[pair[0]], f[pair[1]]
+                        self.automorphs.setdefault(p0, set()).add(p1)
+                        self.automorphs.setdefault(p1, set()).add(p0)
+
+    def _calculate_terms(self):
+        """
+        Calculate various terms for each atom in the molecule.
+
+        This method iterates over all atoms in the molecule, skipping hydrogen atoms,
+        and calculates several properties for each atom, including its degree (di),
+        valence indicator (Vi), bond order sum (bi), number of unique element types (ei),
+        and stereochemistry indicator (si). These properties are stored in the _indices dictionary.
+
+        Returns:
+            None
+        """
+        for idx in range(1, self.mol.NumAtoms() + 1):
+            atom = self.mol.GetAtom(idx)
+            if self._is_hydrogen(idx):
+                continue
+            self._indices[idx] = {}
+            self._calc_di(idx, atom)
+            self._calc_Vi(idx, atom)
+            self._calc_bi_ei_si(idx, atom)
+
+    def _calculate_score(self):
+        """
+        Calculate the total complexity score for the molecule.
+
+        This method calculates the total complexity score for the molecule by summing the complexities
+        of individual atoms and adjusting for cis-trans double bonds and equivalent groups.
+
+        Returns:
+            None
+        """
+        total_complexity = 0
+        for idx in self._indices:
+            if not any(idx in double_bond for double_bond in self._cistrans_double_bond_atoms):
+                complexity = self._calculate_complexity(idx)
+                self._indices[idx]['complexity'] = complexity
+                total_complexity += complexity
+
+        for db_idx1, db_idx2 in self._cistrans_double_bond_atoms:
+            complexity_db_idx1 = self._calculate_complexity(db_idx1)
+            complexity_db_idx2 = self._calculate_complexity(db_idx2)
+            if complexity_db_idx1 <= complexity_db_idx2:
+                complexity_db_idx1 *= 2
+                self._indices[db_idx1]['si'] += 1
+            else:
+                complexity_db_idx2 *= 2
+                self._indices[db_idx2]['si'] += 1
+            self._indices[db_idx1]['complexity'] = complexity_db_idx1
+            self._indices[db_idx2]['complexity'] = complexity_db_idx2
+            total_complexity += complexity_db_idx1 + complexity_db_idx2
+
+        for idx, eq_groups in self._equivalents.items():
+            for e in eq_groups:
+                total_complexity -= 0.5 * self._indices[idx]['complexity'] / len(eq_groups)
+        self._intrinsic_complexity = total_complexity
+
+    def _calculate_complexity(self, idx):
+        """
+        Calculate the complexity of the atom at the given index.
+
+        This method calculates the complexity of an atom based on its degree (di),
+        the number of unique element types (ei), the stereochemistry indicator (si),
+        the valence indicator (Vi), and the bond order sum (bi).
+
+        Args:
+            idx (int): The index of the atom in the molecule.
+
+        Returns:
+            float: The calculated complexity of the atom. Returns 0 if an error occurs.
+        """
+        data = self._indices[idx]
+        try:
+            return data['di'] * data['ei'] * data['si'] * log(data['Vi'] * data['bi'], 2)
+        except:
+            print(f"[ *** Error calculating complexity: atom_idx[{idx}] *** ]")
+            return 0
+
+    def _find_cistrans_bond_atoms(self):
+        """
+        Identify and register cis-trans double bonds in the molecule.
+
+        This method finds potential cis-trans double bonds in the molecule and registers them
+        by checking the neighboring atoms and their branches.
+
+        Returns:
+            None
+        """
+        self._cistrans_double_bond_atoms = []
+        for bond in self._find_potential_cistrans_bonds():
+            db_atom_idx1, db_atom_idx2 = bond.GetBeginAtom().GetIdx(), bond.GetEndAtom().GetIdx()
+            double_bond_atoms = (self.mol.GetAtom(db_atom_idx1), self.mol.GetAtom(db_atom_idx2))
+            register_cistrans = False
+            for index, db_atom in enumerate(double_bond_atoms):
+                self.excluded_atoms = [double_bond_atoms[index - 1]]
+                neigh_atoms_db = self._find_neighbours(db_atom)
+                neighbours_atom_numbers_db = self._find_neighbours(db_atom, return_atomic_nums=True)
+                if len(set(neighbours_atom_numbers_db)) > 1 or len(neighbours_atom_numbers_db) == 1:
+                    register_cistrans = True
+                else:
+                    branch1_atoms, branch2_atoms = [neigh_atoms_db[0]], [neigh_atoms_db[1]]
+                    branches_equal = True
+                    while branches_equal:
+                        self.excluded_atoms += branch1_atoms + branch2_atoms
+                        branches_equal = self._branch_levels_are_equal(branch1_atoms, branch2_atoms)
+                        branch1_atoms = [neigh for atom in branch1_atoms for neigh in self._find_neighbours(atom)]
+                        branch2_atoms = [neigh for atom in branch2_atoms for neigh in self._find_neighbours(atom)]
+                        if not branch1_atoms and not branch2_atoms:
+                            break
+                    if branches_equal:
+                        register_cistrans = False
+                        break
+                    else:
+                        register_cistrans = True
+            if register_cistrans:
+                self._cistrans_double_bond_atoms.append((db_atom_idx1, db_atom_idx2))
+
+    def _find_potential_cistrans_bonds(self):
+        """
+        Find potential cis-trans bonds in the molecule.
+
+        This method identifies bonds in the molecule that have cis-trans stereochemistry
+        and are specified as such.
+
+        Returns:
+            list: A list of bonds that have cis-trans stereochemistry.
+        """
+        double_bonds = []
+        facade = ob.OBStereoFacade(self.mol)
+        for bond in ob.OBMolBondIter(self.mol):
+            if facade.HasCisTransStereo(bond.GetId()) and facade.GetCisTransStereo(bond.GetId()).IsSpecified():
+                double_bonds.append(bond)
+        return double_bonds
+
+    def _branch_levels_are_equal(self, branch1_atoms, branch2_atoms):
+        """
+        Check if the branch levels of two sets of atoms are equal.
+
+        This method compares the atomic numbers and bond orders of two branches of atoms
+        to determine if they are equal.
+
+        Args:
+            branch1_atoms (list of OBAtom): The first branch of atoms to compare.
+            branch2_atoms (list of OBAtom): The second branch of atoms to compare.
+
+        Returns:
+            bool: True if the branch levels are equal, False otherwise.
+        """
+        branch1_atomic_nums = sorted(self._find_neighbours(atom, return_atomic_nums=True) for atom in branch1_atoms)
+        branch2_atomic_nums = sorted(self._find_neighbours(atom, return_atomic_nums=True) for atom in branch2_atoms)
+        branch1_bond_orders = sorted(self._indices[atom.GetIdx()]['bi'] for atom in branch1_atoms)
+        branch2_bond_orders = sorted(self._indices[atom.GetIdx()]['bi'] for atom in branch2_atoms)
+        return branch1_atomic_nums == branch2_atomic_nums and branch1_bond_orders == branch2_bond_orders
+
+    def _find_neighbours(self, atom, return_atomic_nums=False):
+        """
+        Find the neighboring atoms of the given atom.
+
+        This method retrieves the neighboring atoms of the specified atom. If return_atomic_nums
+        is True, it returns the atomic numbers of the neighboring atoms instead of the atom objects.
+
+        Args:
+            atom (OBAtom): The atom object for which the neighbors are being found.
+            return_atomic_nums (bool, optional): Flag to return atomic numbers instead of atom objects. Defaults to False.
+
+        Returns:
+            list: A list of neighboring atom objects or their atomic numbers.
+        """
+        neigh_atoms = []
+        neigh_atomic_numbers = []
+        for neigh in ob.OBAtomAtomIter(atom):
+            if neigh in self.excluded_atoms:
+                continue
+            neigh_atoms.append(neigh)
+            neigh_atomic_numbers.append(self._get_atomic_num(neigh))
+        return neigh_atomic_numbers if return_atomic_nums else neigh_atoms
+
+    def _calc_Vi(self, idx, atom):
+        """
+        Calculate the valence indicator (Vi) for the atom at the given index.
+
+        This method calculates the valence indicator based on the total valence and formal charge of the atom.
+
+        Args:
+            idx (int): The index of the atom in the molecule.
+            atom (OBAtom): The atom object for which the valence indicator is being calculated.
+
+        Returns:
+            None
+        """
+        self._indices[idx]['Vi'] = 8 - atom.GetTotalValence() + atom.GetFormalCharge()
+
+    def _calc_bi_ei_si(self, idx, atom):
+        """
+        Calculate the bond order sum (bi), the number of unique element types (ei), and the stereochemistry indicator (si) for the atom at the given index.
+
+        Args:
+            idx (int): The index of the atom in the molecule.
+            atom (OBAtom): The atom object for which the properties are being calculated.
+
+        Returns:
+            None
+        """
+        bi = 0
+        ei = [self._get_atomic_num(atom)]
+        si = 1 + int(atom.IsChiral())
+        for neigh in ob.OBAtomAtomIter(atom):
+            if self._is_hydrogen(neigh.GetIdx()):
+                continue
+            contribution = self._mesomery_equivalence.get(idx, self.mol.GetBond(atom, neigh).GetBondOrder())
+            bi += contribution
+            ei.append(self._get_atomic_num(neigh))
+        self._indices[idx]['bi'] = bi
+        self._indices[idx]['ei'] = len(set(ei))
+        self._indices[idx]['si'] = si
+
+    @staticmethod
+    def _get_atomic_num(atom):
+        """
+        Get the atomic number of the given atom.
+
+        This method returns the isotope number if it exists, otherwise it returns the atomic number.
+
+        Args:
+            atom (OBAtom): The atom object for which the atomic number is being retrieved.
+
+        Returns:
+            int: The isotope number if it exists, otherwise the atomic number.
+        """
+        return atom.GetIsotope() or atom.GetAtomicNum()
+
+    def _calc_di(self, idx, atom):
+        """
+        Calculate the degree of the atom at the given index.
+
+        This method updates the equivalents dictionary with automorphs and calculates
+        the degree of the atom, storing it in the indices dictionary.
+
+        Args:
+            idx (int): The index of the atom in the molecule.
+            atom (OBAtom): The atom object for which the degree is being calculated.
+
+        Returns:
+            None
+        """
+        self._equivalents[idx] = self.automorphs.get(idx, set())
+        if idx in self.automorphs:
+            self._equivalents[idx].update(self.automorphs[idx])
+        groups = []
+        for neigh in ob.OBAtomAtomIter(atom):
+            if self._is_hydrogen(neigh.GetIdx()):
+                continue
+            if neigh.GetIdx() in self.automorphs and set(groups) & self.automorphs[neigh.GetIdx()]:
+                continue
+            groups.append(neigh.GetIdx())
+        self._indices[idx]['di'] = len(groups)
+
+    def _build_automorphism(self):
+        """
+        Build the automorphism groups for the molecule.
+
+        This method initializes the equivalents dictionary and finds the automorphisms
+        of the molecule, storing them in the automorphs dictionary.
+
+        The automorphisms are found using the Open Babel library.
+
+        Returns:
+            None
+        """
+        self._equivalents = {}
+        automorphs = ob.vvpairUIntUInt()
+        mol_copy = ob.OBMol(self.mol)
+        for i in ob.OBMolAtomIter(mol_copy):
+            if i.GetIsotope():
+                i.SetAtomicNum(i.GetAtomicNum() + i.GetIsotope())
+        ob.FindAutomorphisms(mol_copy, automorphs, pybel.ob.OBBitVec(), self.automorp_memory_maxsize)
+        self.automorphs = {}
+        for am in automorphs:
+            for i, j in am:
+                if i != j and not self._is_hydrogen(i + 1) and not self._is_hydrogen(j + 1):
+                    self.automorphs.setdefault(i + 1, set()).add(j + 1)
+        for k, v in self.automorphs.items():
+            self.automorphs[k] = set(v)
+
+    def _is_hydrogen(self, idx):
+        """
+        Check if the atom at the given index is a hydrogen atom.
+
+        Args:
+            idx (int): The index of the atom in the molecule.
+
+        Returns:
+            bool: True if the atom is hydrogen, False otherwise.
+        """
+        return self.mol.GetAtom(idx).GetAtomicNum() == 1
+
+
+def calculate_bottcher_score(smiles: str, disable_mesomer=False, automorp_memory_maxsize=3000000) -> float:
+    """
+    Calculate the Bottcher score for a given molecule represented by its SMILES string.
+
+    Args:
+        smiles (str): The SMILES string representing the molecule.
+        disable_mesomer (bool, optional): Flag to disable mesomeric calculations. Defaults to False.
+        automorp_memory_maxsize (int, optional): Maximum size for automorphism memory. Defaults to 3000000.
+
+    Returns:
+        float: The calculated Bottcher score for the molecule.
+    """
+    mol_input = pybel.readstring("smi", smiles)
+    return BottcherScore(automorp_memory_maxsize=automorp_memory_maxsize).score(mol_input.OBMol, disable_mesomer)
