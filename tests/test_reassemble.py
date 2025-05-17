@@ -161,7 +161,7 @@ def test_seb_combine_pathways():
 def test_seb_assembly_layer_removal():
     """
     Test the removal of molecules from given 'layer(s)' of the assembly pool (all molecules with a given assembly).
-    Default for a_minus_x_assembly_pool X paramter (number of layers to remove) is 1.
+    Default for a_minus_x_assembly_pool x paramter (number of layers to remove) is 1.
     In this example, original assembly pool has an assembly depth of 1. Thus, only building blocks
     are expected to remain following the removal of 1 layer.
 
@@ -239,7 +239,7 @@ def test_seb_constructing_n_molecules():
     # Testing novel molecule generation, insert assembly pool? Or the whole mol space?
     molecule_generation = att.MoleculeGenerationAssemblyPool(mol_space)
     # Number of molecules to generate, number of steps in fragments, number of layers to remove
-    molecule_generation.random_construct_n_molecules(2, 1, X=1)
+    molecule_generation.random_construct_n_molecules(2, 1, x=1)
 
     # Grab assembled molecules (SMILES) only from results
     assembled_molecules = [sublist[0][2] for sublist in molecule_generation.assembled_molecules.values()]

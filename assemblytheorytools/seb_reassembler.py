@@ -670,28 +670,20 @@ class MoleculeGenerationAssemblyPool:
         self.level_to_fragment: dict[int, list[str]]
         self.sampling_weights: list[int]
 
-    def set_assembly_pool(self, X=10, remove_pathways=False):
+    def set_assembly_pool(self, x=10, remove_pathways=False):
         _, self.num_removed = self.assembly_pool.a_minus_x_assembly_pool(
-            X=X, get_graph=False, remove_paths=remove_pathways
+            X=x, get_graph=False, remove_paths=remove_pathways
         )
 
         # Populate self.level_to_fragment
+        graph = self.assembly_pool.joined_assembly_graph_minus_x
         self.level_to_fragment = defaultdict(list)
-        for node, level in nx.get_node_attributes(
-                self.assembly_pool.joined_assembly_graph_minus_x, "level"
-        ).items():
-            if (
-                    self.assembly_pool.joined_assembly_graph_minus_x.nodes[node][
-                        "atomic_count"
-                    ]
-                    is not None
-            ):
+        for node, level in nx.get_node_attributes(graph, "level").items():
+            if graph.nodes[node].get("atomic_count") is not None:
                 self.level_to_fragment[level].append(node)
 
         self.bu_level_to_fragment = self.level_to_fragment.copy()
-        self.original_a_minus_X = deepcopy(
-            self.assembly_pool.joined_assembly_graph_minus_x
-        )
+        self.original_a_minus_X = deepcopy(graph)
 
     def reset_level_to_fragment(self):
         self.level_to_fragment = self.bu_level_to_fragment.copy()
@@ -704,25 +696,19 @@ class MoleculeGenerationAssemblyPool:
         ]
 
     def get_assembled_molecules(self):
-        if len(self.assembled_molecules) == 0:
+        if not self.assembled_molecules:
             return None
-        return [value[-1][-1] for _, value in self.assembled_molecules.items() if value]
+        return [molecules[-1][-1] for molecules in self.assembled_molecules.values() if molecules]
 
     def get_leaf_counts_per_level(self, min_level=1) -> dict[int, int]:
-        leaf_counts: dict[int, int] = defaultdict(int)
+        leaf_counts = defaultdict(int)
         for node in self.assembly_pool.leaf_nodes:
-            if (
-                    self.assembly_pool.joined_assembly_graph.out_degree(node) == 0
-                    and self.assembly_pool.joined_assembly_graph.nodes[node]["level"]
-                    >= min_level
-            ):
-                leaf_counts[
-                    self.assembly_pool.joined_assembly_graph.nodes[node]["level"]
-                ] += 1
+            node_data = self.assembly_pool.joined_assembly_graph.nodes[node]
+            if self.assembly_pool.joined_assembly_graph.out_degree(node) == 0 and node_data["level"] >= min_level:
+                leaf_counts[node_data["level"]] += 1
 
         for level in range(min_level, self.assembly_pool.max_assembly_index + 1):
-            if level not in leaf_counts:
-                leaf_counts[level] = int(1e-8)
+            leaf_counts.setdefault(level, int(1e-8))
 
         return leaf_counts
 
@@ -860,7 +846,6 @@ class MoleculeGenerationAssemblyPool:
         return fragment, len(layer_fragments)
 
     def weighted_n_steps_sampler(self, n, min_level=1):
-
         return random.choices(
             list(range(1, n + 1)),
             weights=self.n_steps_sampling_weights[min_level + 1:],
@@ -868,7 +853,6 @@ class MoleculeGenerationAssemblyPool:
         )[0]
 
     def get_random_fragment_with_level(self, node_level: int) -> str:
-
         return random.choice(self.level_to_fragment[node_level])
 
     def combine_fragments_layer(self,
@@ -894,7 +878,7 @@ class MoleculeGenerationAssemblyPool:
     def random_construct_n_molecules(self,
                                      n,
                                      steps,
-                                     X=10,
+                                     x=10,
                                      inverse: bool = False,
                                      exponent: float = 1.0,
                                      layer_exponent: float = 2.0,
@@ -920,7 +904,7 @@ class MoleculeGenerationAssemblyPool:
             )
 
         assemble_object = Assemble()
-        self.set_assembly_pool(X=X, remove_pathways=remove_pathways)
+        self.set_assembly_pool(x=x, remove_pathways=remove_pathways)
 
         # Starting level
         level = max(nx.get_node_attributes(self.original_a_minus_X, "level").values())
