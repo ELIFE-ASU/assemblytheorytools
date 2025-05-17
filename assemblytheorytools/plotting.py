@@ -480,19 +480,6 @@ def _average_angles(angles: np.ndarray) -> float:
 
     return resultant_angle
 
-
-def _plot_directed_network(nodes : List[str],
-                           adjacency_matrix : np.ndarray,
-                           x : np.ndarray,
-                           y : np.ndarray,
-                           max_ai : int,
-                           labels : bool,
-                           node_size : float,
-                           arrow_size : float,
-                           node_color : str,
-                           edge_color : str,
-                           fig_size : float,
-                           filename: str ): 
                            
 def _plot_directed_network(nodes : List[str],
                            adjacency_matrix : np.ndarray,
