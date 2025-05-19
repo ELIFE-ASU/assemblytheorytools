@@ -1,5 +1,6 @@
 import os
 from html import escape
+from typing import List
 
 import cairosvg
 import dagviz
@@ -11,7 +12,7 @@ from IPython.display import HTML
 from matplotlib import colormaps, colors
 from matplotlib.patches import Circle
 from pyvis.network import Network
-from typing import List
+
 import CFG
 
 
@@ -480,19 +481,19 @@ def _average_angles(angles: np.ndarray) -> float:
 
     return resultant_angle
 
-                           
-def _plot_directed_network(nodes : List[str],
-                           adjacency_matrix : np.ndarray,
-                           x : np.ndarray,
-                           y : np.ndarray,
-                           max_ai : int,
-                           labels : bool,
-                           node_size : float,
-                           arrow_size : float,
-                           node_color : str,
-                           edge_color : str,
-                           fig_size : float,
-                           filename: str ): 
+
+def _plot_directed_network(nodes: List[str],
+                           adjacency_matrix: np.ndarray,
+                           x: np.ndarray,
+                           y: np.ndarray,
+                           max_ai: int,
+                           labels: bool,
+                           node_size: float,
+                           arrow_size: float,
+                           node_color: str,
+                           edge_color: str,
+                           fig_size: float,
+                           filename: str):
     """
     Generate and save a circle network plot as a PNG file.
 
@@ -598,16 +599,15 @@ def _plot_directed_network(nodes : List[str],
 
 
 def plot_assembly_circle(nodes,
-                         adj_matrix = None,
-                         assembly_indices = None,
-                         labels = True,
-                         node_size = 1000,
-                         arrow_size = 80,
-                         node_color = 'Skyblue',
-                         edge_color = 'Grey',
-                         fig_size = 10,
-                         filename = 'assembly_circles.png'):
-    
+                         adj_matrix=None,
+                         assembly_indices=None,
+                         labels=True,
+                         node_size=1000,
+                         arrow_size=80,
+                         node_color='Skyblue',
+                         edge_color='Grey',
+                         fig_size=10,
+                         filename='assembly_circles.png'):
     '''
     Here is a function to plot a graph, where objects are displayed in concentric
     circles according to their assembly index. 
@@ -645,12 +645,11 @@ def plot_assembly_circle(nodes,
         filename (OPTIONAL): str
 
     '''
-    if adj_matrix is None: # If adj matrix is not provided, the rules_graph will be the output
+    if adj_matrix is None:  # If adj matrix is not provided, the rules_graph will be the output
         G = CFG.ai_with_pathways(nodes, f_print=False)[2]
         nodes = list(G.nodes())
         adj_matrix = nx.adjacency_matrix(G).toarray()
-    
-    
+
     n_nodes = len(nodes)
 
     if assembly_indices is None:

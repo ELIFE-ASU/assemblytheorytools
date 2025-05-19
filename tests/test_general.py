@@ -11,7 +11,7 @@ from rdkit.Chem import AllChem as Chem
 
 import assemblytheorytools as att
 
-    
+
 def test_graph_to_mol():
     """
     Test the conversion of a SMILES string to a molecular graph and back to a molecule.
@@ -693,7 +693,6 @@ def test_compression_zlib_graph():
 
 
 def test_circle_plot():
-    
     """
     Test the plot_assembly_circle function from the att module.
     
@@ -716,9 +715,14 @@ def test_circle_plot():
     edge_color = 'Grey'
     fig_size = 10
     filename = 'circle_plot.png'
-    att.plot_assembly_circle(nodes, labels = labels, node_size = node_size, arrow_size = arrow_size, node_color = node_color, edge_color = edge_color,
-                                 fig_size = fig_size, filename = filename)
+    att.plot_assembly_circle(nodes,
+                             labels=labels,
+                             node_size=node_size,
+                             arrow_size=arrow_size,
+                             node_color=node_color,
+                             edge_color=edge_color,
+                             fig_size=fig_size,
+                             filename=filename)
 
-    
     assert os.path.isfile('circle_plot.png'), "Failed to generate the file."
     os.remove('circle_plot.png')
