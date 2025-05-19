@@ -46,7 +46,8 @@ from .plotting import (n_plot,
                        plot_graph,
                        plot_digraph,
                        plot_digraph_with_images,
-                       plot_digraph_metro)
+                       plot_digraph_metro,
+                       plot_assembly_circle)
 from .reassembler import (assemble,
                           origami,
                           get_num_atom,

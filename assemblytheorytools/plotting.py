@@ -1,14 +1,19 @@
 import os
 from html import escape
+from typing import List
 
 import cairosvg
 import dagviz
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 import networkx as nx
+import numpy as np
 from IPython.display import HTML
 from matplotlib import colormaps, colors
+from matplotlib.patches import Circle
 from pyvis.network import Network
+
+import CFG
 
 
 def n_plot(xlab: str, ylab: str, xs: int = 14, ys: int = 14) -> None:
@@ -443,3 +448,261 @@ def plot_digraph_with_images(graph: nx.DiGraph, image_paths: list[str]) -> None:
     plt.tight_layout()
     plt.show()
     return None
+
+
+def _average_angles(angles: np.ndarray) -> float:
+    """
+
+    This function calculates the sum of a set of angles, taking into account their circular nature.
+    The calculation is performed by converting each angle to its corresponding unit vector (using sine and cosine),
+    summing the components, and then computing the angle of the resultant vector.
+
+    Parameters
+    ----------
+    angles : np.ndarray
+        Array of angles (in radians) for which to compute the average.
+
+    Returns
+    -------
+    float
+        The average angle (in radians), in the range (-pi, pi].
+
+    """
+    # Convert angles to unit vectors
+    x_components = np.cos(angles)
+    y_components = np.sin(angles)
+
+    # Sum the components to get the resultant vector
+    resultant_x = np.sum(x_components)
+    resultant_y = np.sum(y_components)
+
+    # Calculate the angle of the resultant vector
+    resultant_angle = np.arctan2(resultant_y, resultant_x)
+
+    return resultant_angle
+
+
+def _plot_directed_network(nodes: List[str],
+                           adjacency_matrix: np.ndarray,
+                           x: np.ndarray,
+                           y: np.ndarray,
+                           max_ai: int,
+                           labels: bool,
+                           node_size: float,
+                           arrow_size: float,
+                           node_color: str,
+                           edge_color: str,
+                           fig_size: float,
+                           filename: str):
+    """
+    Generate and save a circle network plot as a PNG file.
+
+    This function creates a visualization of a directed network using a list of nodes,
+    their positions, and an adjacency matrix defining the edges. The network is drawn
+    on top of concentric circles, and the plot is saved to a file.
+
+    Parameters
+    ----------
+    nodes : List[str]
+        List of node names in the network.
+
+    adjacency_matrix : np.ndarray
+        Square adjacency matrix (shape: [n_nodes, n_nodes]) representing directed edges.
+        If adjacency_matrix[i, j] != 0, there is a directed edge from node i to node j.
+
+    x : np.ndarray
+        1D array of x-coordinates for each node (same order as `nodes`).
+
+    y : np.ndarray
+        1D array of y-coordinates for each node (same order as `nodes`).
+
+    max_ai : int
+        Maximum assembly index (defines the number of concentric circles to draw).
+
+    labels : bool
+        If True, display node labels on the plot.
+
+    node_size : float
+        Size of the nodes in the plot.
+
+    arrow_size : float
+        Size of the arrowheads for directed edges.
+
+    node_color : str
+        Color of the nodes.
+
+    edge_color : str
+        Color of the edges.
+
+    fig_size : float
+        Size of the figure (width and height in inches).
+
+    filename : str
+        Name of the output PNG file.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        The matplotlib Figure object containing the plot.
+
+    ax : matplotlib.axes.Axes
+        The matplotlib Axes object containing the plot.
+
+
+    """
+    if len(nodes) != len(adjacency_matrix) or len(adjacency_matrix) != len(x) or len(x) != len(y):
+        raise ValueError("Lengths of nodes, adjacency_matrix, x, and y must be equal.")
+
+    # Create a directed graph
+    graph = nx.DiGraph()
+
+    # Add nodes and their positions
+    positions = {nodes[i]: (x[i], y[i]) for i in range(len(nodes))}
+    graph.add_nodes_from(nodes)
+
+    # Add edges based on the adjacency matrix
+    for i in range(len(nodes)):
+        for j in range(len(nodes)):
+            # Non-zero value indicates an edge
+            if adjacency_matrix[i][j] != 0:
+                graph.add_edge(nodes[i], nodes[j])
+
+    # Create a plot
+    fig, ax = plt.subplots(figsize=(fig_size, fig_size))
+
+    # Draw concentric circles
+    for radius in range(1, max_ai + 2):
+        circle = Circle((0, 0), radius, color="black", alpha=1, fill=False, lw=1.5)
+        ax.add_artist(circle)
+
+    # Draw the graph
+    nx.draw(
+        graph,
+        pos=positions,
+        with_labels=labels,
+        node_color=node_color,
+        edge_color=edge_color,
+        node_size=node_size,
+        font_size=node_size / 100,
+        font_color="black",
+        arrowstyle="->",
+        arrowsize=arrow_size,
+        connectionstyle="arc3,rad=0.2"  # For curved edges
+    )
+
+    # Set limits for the plot to accommodate the circles
+    ax.set_xlim(-max_ai - 1.5, max_ai + 1.5)
+    ax.set_ylim(-max_ai - 1.5, max_ai + 1.5)
+    ax.set_aspect("equal", adjustable="datalim")
+    plt.savefig(f"{filename}", dpi=600)
+    return fig, ax
+
+
+def plot_assembly_circle(nodes,
+                         adj_matrix=None,
+                         assembly_indices=None,
+                         labels=True,
+                         node_size=1000,
+                         arrow_size=80,
+                         node_color='Skyblue',
+                         edge_color='Grey',
+                         fig_size=10,
+                         filename='assembly_circles.png'):
+    '''
+    Here is a function to plot a graph, where objects are displayed in concentric
+    circles according to their assembly index. 
+
+        Parameters:
+        ----------
+        nodes : list
+            A list of nodes in the network that are to be visualized.
+        
+        assembly_indices (OPTIONAL): list or numpy.ndarray
+            If not provided, they will be calculated for strings.
+            
+        adj_matrix (OPTIONAL, but recommended): numpy.ndarray
+            A square adjacency matrix representing the relationships between nodes.
+            If adj_matrix[i, j] >= 1, it signifies that node i points to node j.
+            If not provided, rules_graph will be used as adjacency matrix.
+            IMPORTANT: if provided, must be assembly-consistent, that is, all nodes
+            must be pointed to by at least one node with a lower assembly index, 
+            except for nodes with the minimum assembly index, which will be considered
+            the building blocks. 
+        
+        labels : list
+            A list of labels corresponding to the nodes. These labels can be used for debugging or display purposes.
+        
+        node_size : float
+        
+        arrow_size (OPTIONAL): float
+        
+        node_color (OPTIONAL): str or list
+        
+        edge_color (OPTIONAL): str or list
+        
+        fig_size (OPTIONAL): float
+        
+        filename (OPTIONAL): str
+
+    '''
+    if adj_matrix is None:  # If adj matrix is not provided, the rules_graph will be the output
+        G = CFG.ai_with_pathways(nodes, f_print=False)[2]
+        nodes = list(G.nodes())
+        adj_matrix = nx.adjacency_matrix(G).toarray()
+
+    n_nodes = len(nodes)
+
+    if assembly_indices is None:
+        assembly_indices = np.zeros(n_nodes, dtype=int)
+
+        for i in range(n_nodes):
+            assembly_indices[i] = CFG.ai_with_pathways(nodes[i], f_print=False)[0]
+
+    angles = np.full(n_nodes, np.nan)
+
+    max_ai = max(assembly_indices)
+    min_ai = min(assembly_indices)
+
+    # Finding the number of building blocks, defined as those with minimum assembly index
+    n_building_blocks = 0
+    for i in range(n_nodes):
+        if assembly_indices[i] == min_ai:
+            n_building_blocks += 1
+
+    # Assign equispaced angles to building blocks
+    n = 1
+    for i in range(n_nodes):
+        if assembly_indices[i] == min_ai:
+            angles[i] = n * 2 * np.pi / n_building_blocks
+            n += 1
+
+    # Assign angles for higher assembly index objects
+    while np.any(np.isnan(angles)):  # While there are angles left
+        for i in range(n_nodes):
+            # If the string has no angle associated
+            if np.isnan(angles[i]):
+                set_angles = np.array([])
+                for j in range(n_nodes):
+                    if adj_matrix[j, i] >= 1:
+                        set_angles = np.append(set_angles, angles[j])
+                if np.all(~np.isnan(set_angles)):
+                    angles[i] = _average_angles(set_angles)
+
+    # Transform positions from polar to cartesian
+    x_positions = (assembly_indices + 1) * np.cos(angles)
+    y_positions = (assembly_indices + 1) * np.sin(angles)
+
+    # Plot the network
+    fig, ax = _plot_directed_network(nodes,
+                                     adj_matrix,
+                                     x_positions,
+                                     y_positions,
+                                     max_ai,
+                                     labels,
+                                     node_size,
+                                     arrow_size,
+                                     node_color,
+                                     edge_color,
+                                     fig_size,
+                                     filename)
+    return fig, ax
