@@ -726,3 +726,20 @@ def test_circle_plot():
 
     assert os.path.isfile('circle_plot.png'), "Failed to generate the file."
     os.remove('circle_plot.png')
+
+def test_calculate_bottcher_score():
+    smiles = [r"CC(/C=C/C1=CC=CC=C1)=O",
+              r"Cl/C=C\C=C\Br",
+              r"CC/C(C1=CC=CC=C1)=C(C2=CC=CC=C2)/CC",
+              r"C/C(=C(/C=C/C)\CCC)/CC",
+              r"CC/C=C(C)/[2H]",
+              r"CC/C=C1CCC[C@H](Br)C/1",
+              "C/C=C(C)/C",
+              "CC/C=C1CCCCC/1"]
+    scores = [80.60, 68.59, 66.26, 83.51, 31.51, 106.97, 19.17, 38.17]
+    calc_scores = [att.calculate_bottcher_score(smi) for smi in smiles]
+    # round to 2 decimal places
+    calc_scores = [round(score, 2) for score in calc_scores]
+    # assert that the scores are the same
+    assert calc_scores == scores
+

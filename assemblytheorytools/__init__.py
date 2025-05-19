@@ -8,7 +8,8 @@ from .assembly import (calculate_assembly_index,
                        compile_assembly_code,
                        assembly_dry_run,
                        add_assembly_to_path,
-                       load_assembly_time)
+                       load_assembly_time,
+                       calculate_assembly_index_parallel)
 from .complexity_scores import (molecular_weight,
                                 bertz_complexity,
                                 wiener_index,
@@ -25,7 +26,8 @@ from .complexity_scores import (molecular_weight,
                                 compression_lzma_smi,
                                 compress_zlib_graph,
                                 decompress_zlib_graph,
-                                compression_zlib_graph)
+                                compression_zlib_graph,
+                                calculate_bottcher_score)
 from .construction import parse_pathway_file
 from .construction_string import (generate_string_pathway_ian,
                                   get_graph_string_explicit)
@@ -56,13 +58,12 @@ from .reassembler import (assemble,
                           enumerate_tautomers,
                           enumerate_heterocycles,
                           reassemble)
-
+from .seb_reassembler import (MoleculeGenerationAssemblyPool, Molecule, MoleculeSpace, Assemble)
 from .tools_atoms import (smi_to_atoms,
                           mol_to_atoms,
                           get_spin_multiplicity,
                           orca_calc_preset,
                           get_virtual_objects_energy)
-
 from .tools_cell import (read_cif_file,
                          atoms_to_mol_file,
                          atoms_to_nx,
@@ -111,8 +112,8 @@ __version__ = "1.5.0"
 """
 AssemblyTheoryTools
 ===================
-
 A comprehensive Python package for assembly theory analysis and molecular graph manipulation.
+
 
 This package provides a suite of tools and functions for applying assembly theory concepts,
 calculating molecular complexity scores, manipulating molecular graphs, analyzing pathways,
@@ -125,6 +126,7 @@ Louie Slocombe
 Joey Fedrow
 Estelle Janin
 Gage Siebert
+Veronica Mierzejewski
 
 Key Features:
 ------------

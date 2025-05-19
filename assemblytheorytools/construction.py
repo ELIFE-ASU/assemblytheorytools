@@ -7,7 +7,6 @@ from rdkit import Chem
 from rdkit.Chem.rdchem import RWMol
 
 from .tools_graph import bond_order_assout_to_int, bond_order_int_to_rdkit
-from .tools_mol import safe_standardize_mol
 
 
 def transform_array(target_array, comp_array, source_val, target_val, new_val, pairs_list):
@@ -191,18 +190,17 @@ def select_length(dict_array):
     return dict_array["len"]
 
 
-def tables_to_mol(tables, add_hydrogens=True):
+def tables_to_mol(tables):
     """
     Converts atom and bond information into an RDKit molecule object.
 
     This function takes a tuple containing atom and bond information, constructs an RDKit RWMol object,
-    adds atoms and bonds to it, and then performs light sanitisation.
+    adds atoms and bonds to it.
 
     Args:
         tables (tuple): A tuple containing two lists:
             - atoms_info (list): A list of tuples where each tuple contains an atom index and atom type.
             - bonds_info (list): A list of tuples where each tuple contains two atom indices and a bond type.
-        add_hydrogens (bool): A flag indicating whether to add hydrogens to the molecule. Default is True.
 
     Returns:
         Chem.Mol: An RDKit molecule object with the specified atoms and bonds.
@@ -220,8 +218,7 @@ def tables_to_mol(tables, add_hydrogens=True):
 
     mol = edit_mol.GetMol()
 
-    # Perform light sanitisation
-    return safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
+    return mol
 
 
 def tables_to_nx(tables):
@@ -531,22 +528,26 @@ class AssemblyConstruction:
 
         return graph, list(unique_molecules)
 
+    def pathway_log_string(self) -> str:
+        pathway_file = []
+        pathway_file.append("#####Graph#####\n")
+        pathway_file.append(str(self.v) + "\n")
+        pathway_file.append(str(self.e) + "\n")
+        pathway_file.append(str(self.v_l) + "\n")
+        pathway_file.append(str(self.e_l) + "\n")
+        pathway_file.append("#####Atoms#####\n")
+        for index, a in enumerate(self.atoms_list):
+            pathway_file.append("atom{}={}\n".format(index, a))
+        pathway_file.append("#####Steps#####\n")
+        for index, ste in enumerate(self.steps):
+            pathway_file.append("step{}={}\n".format(index + 1, ste))
+        pathway_file.append("#####Digraph#####\n")
+        for i in self.digraph:
+            pathway_file.append(str(i) + "\n")
+        return "".join(pathway_file)
 
-def parse_pathway_file(file, vo_type="smiles", debug=False):
-    """
-    Parses a pathway file and constructs a directed graph representation of the assembly pathway.
 
-    This function loads a pathway file, creates an AssemblyConstruction object, generates the assembly
-    directed graph, and prints the type and virtual object (VO) for each node in the graph.
-
-    Args:
-        file (str): The path to the pathway file to be loaded.
-        vo_type (str): The type of virtual object representation to use. Default is "smiles".
-        debug (bool): A flag indicating whether to print debug information. Default is False.
-
-    Returns:
-        tuple: A tuple containing the directed graph (nx.DiGraph) and a list of unique virtual objects.
-    """
+def parse_pathway_file(file, vo_type="smiles", debug=False, log=False):
     # Load the pathway file
     with open(file) as f:
         data = json.load(f)
@@ -559,5 +560,8 @@ def parse_pathway_file(file, vo_type="smiles", debug=False):
         # Loop over the nodes and print the type and smiles
         for node in graph.nodes(data=True):
             print(f"Node: {node[0]}, Type: {node[1]['type']}, VO: {node[1]['vo']}", flush=True)
-
-    return graph, vo_list
+    if log:
+        log_string = construction_object.pathway_log_string()
+        return graph, vo_list, log_string
+    else:
+        return graph, vo_list

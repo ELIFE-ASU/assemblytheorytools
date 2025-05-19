@@ -431,7 +431,7 @@ def plot_digraph_with_images(graph: nx.DiGraph, image_paths: list[str]) -> None:
     tr_figure = ax.transData.transform
     # Transform from display to figure coordinates
     tr_axes = fig.transFigure.inverted().transform
-    # Select the size of the image (relative to the X axis)
+    # Select the size of the image (relative to the x axis)
     icon_size = (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.06
     icon_center = icon_size / 2.0
     # Add the respective image to each node
