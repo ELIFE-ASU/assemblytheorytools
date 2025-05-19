@@ -1,4 +1,6 @@
 import assemblytheorytools as att
+import random
+import string
 
 
 def test_undirected_str_ass():
@@ -110,3 +112,20 @@ def test_string_early_exit():
     l2, _, _ = att.calculate_string_assembly_index(s, directed=True, mode='str', timeout=20)
     print(f"Slow Upper Bound = {l2}", flush=True)
     assert l1 >= l2
+
+
+def test_string_large_pool():
+    """
+    Test the calculation of the assembly index for a large pool of random strings.
+
+    This function performs the following steps:
+    1. Generates a pool of 1000 random strings, each 3 characters long.
+    2. Calculates the assembly index for the generated pool in directed CFG mode.
+    3. Asserts that the calculated assembly index is greater than or equal to 0.
+
+    Asserts:
+        - The calculated assembly index is >= 0.
+    """
+    pool = att.generate_random_strings(1000, 3)
+    ai = att.calculate_string_assembly_index(pool, directed=True, mode="cfg")[0]
+    assert ai >= 0

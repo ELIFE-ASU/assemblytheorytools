@@ -1,4 +1,6 @@
+import random
 import re
+import string
 from typing import Any
 from typing import List, Tuple
 
@@ -66,19 +68,34 @@ def prep_joint_string_ai(input_list: List[str]) -> Tuple[str, List[str]]:
 
 def get_unique_char(input_str: str) -> str:
     """
-    Find a unique character that is not present in the input string.
+    Find a unique character that is not present in the given input string.
+
+    This function first attempts to find a unique character from the set of
+    printable ASCII characters. If no unique character is found, it falls
+    back to searching a broader range of Unicode characters.
 
     Args:
-        input_str (str): The input string to check against.
+        input_str (str): The input string to check for unique characters.
 
     Returns:
-        str: A unique character not present in the input string.
+        str: A character that is not present in the input string.
+
+    Raises:
+        ValueError: If no unique character can be found within the specified
+                    ranges of characters.
     """
-    for i in range(0x21, 0x7E):  # ASCII printable characters excluding space, max of 94 delimiters
-        char = chr(i)
-        if char not in input_str:
+    # Try ASCII printable characters first
+    for char in string.printable:
+        if char not in input_str and char != ' ':
             return char
 
+    # Try a broader range of Unicode characters (excluding surrogates and control chars)
+    for codepoint in range(0x00A1, 0x2FFF):  # Example: Latin-1 Supplement to CJK Radicals
+        char = chr(codepoint)
+        if char.isprintable() and char not in input_str:
+            return char
+
+    # Raise an error if no unique character is found
     raise ValueError("Ran out of delimiter symbols. Try broadening the range of allowable symbols.")
 
 
@@ -236,3 +253,24 @@ def generate_and_visualize_cfg_pathway(file_path: str) -> nx.DiGraph:
     plt.show()
 
     return graph
+
+
+def generate_random_strings(n_pool: int, n_length: int) -> list[str]:
+    """
+    Generate a list of random strings of a specified length.
+
+    This function creates `n_pool` random strings, each of length `n_length`,
+    using lowercase letters and digits.
+
+    Args:
+        n_pool (int): The number of random strings to generate.
+        n_length (int): The length of each random string.
+
+    Returns:
+        list[str]: A list of randomly generated strings.
+    """
+    # Define the character set to include lowercase letters and digits
+    chars = string.ascii_lowercase + string.digits
+
+    # Generate a list of random strings using the specified character set
+    return [''.join(random.choices(chars, k=n_length)) for _ in range(n_pool)]

@@ -104,7 +104,8 @@ from .tools_mp import (mp_calc,
                        tp_calc)
 from .tools_string import (load_fasta,
                            prep_joint_string_ai,
-                           get_unique_char)
+                           get_unique_char,
+                           generate_random_strings)
 from .tools_test import (check_elements, print_graph_details)
 
 __version__ = "1.6.0"
@@ -127,6 +128,7 @@ Joey Fedrow
 Estelle Janin
 Gage Siebert
 Veronica Mierzejewski
+Marina Fernandez-Ruz
 
 Key Features:
 ------------
