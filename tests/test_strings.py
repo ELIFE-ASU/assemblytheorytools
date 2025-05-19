@@ -1,6 +1,4 @@
 import assemblytheorytools as att
-import random
-import string
 
 
 def test_undirected_str_ass():

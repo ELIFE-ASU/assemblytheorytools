@@ -520,6 +520,7 @@ def compression_zlib_graph(graph: nx.Graph,
 class BottcherScore:
     """
     A class to calculate the Böttcher score of molecules.
+    https://github.com/forlilab/bottchscore
 
     This class provides methods to calculate the Böttcher score, which is a measure of the complexity
     of a molecule based on various atomic and molecular properties.
@@ -631,7 +632,7 @@ class BottcherScore:
                 continue
             self._indices[idx] = {}
             self._calc_di(idx, atom)
-            self._calc_Vi(idx, atom)
+            self._calc_vi(idx, atom)
             self._calc_bi_ei_si(idx, atom)
 
     def _calculate_score(self):
@@ -789,7 +790,7 @@ class BottcherScore:
             neigh_atomic_numbers.append(self._get_atomic_num(neigh))
         return neigh_atomic_numbers if return_atomic_nums else neigh_atoms
 
-    def _calc_Vi(self, idx, atom):
+    def _calc_vi(self, idx, atom):
         """
         Calculate the valence indicator (Vi) for the atom at the given index.
 
@@ -909,17 +910,26 @@ class BottcherScore:
         return self.mol.GetAtom(idx).GetAtomicNum() == 1
 
 
-def calculate_bottcher_score(smiles: str, disable_mesomer=False, automorp_memory_maxsize=3000000) -> float:
+def calculate_bottcher_score(mol: Mol, mesomer: bool = False, automorp_max: int = 3000000) -> float:
     """
-    Calculate the Bottcher score for a given molecule represented by its SMILES string.
+    Calculate the Böttcher score for a given molecule.
+    https://github.com/forlilab/bottchscore
+    https://pubs.acs.org/doi/10.1021/jacs.0c08231
+    https://pubs.acs.org/doi/10.1021/acs.jcim.5b00723
+
+    The Böttcher score is a measure of molecular complexity based on various
+    atomic and molecular properties. This function converts the RDKit molecule
+    to a SMILES string, reads it into a Pybel molecule, and calculates the score
+    using the `BottcherScore` class.
 
     Args:
-        smiles (str): The SMILES string representing the molecule.
-        disable_mesomer (bool, optional): Flag to disable mesomeric calculations. Defaults to False.
-        automorp_memory_maxsize (int, optional): Maximum size for automorphism memory. Defaults to 3000000.
+        mol (Mol): An RDKit molecule object.
+        mesomer (bool, optional): Whether to include mesomeric contributions in the score calculation. Defaults to False.
+        automorp_max (int, optional): Maximum size for automorphism memory. Defaults to 3000000.
 
     Returns:
-        float: The calculated Bottcher score for the molecule.
+        float: The calculated Böttcher score for the molecule.
     """
-    mol_input = pybel.readstring("smi", smiles)
-    return BottcherScore(automorp_memory_maxsize=automorp_memory_maxsize).score(mol_input.OBMol, disable_mesomer)
+    smi: str = Chem.MolToSmiles(mol, kekuleSmiles=True, isomericSmiles=True, allHsExplicit=True)
+    mol_input: pybel.Molecule = pybel.readstring("smi", smi)
+    return BottcherScore(automorp_memory_maxsize=automorp_max).score(mol_input.OBMol, mesomer)

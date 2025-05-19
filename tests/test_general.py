@@ -727,7 +727,22 @@ def test_circle_plot():
     assert os.path.isfile('circle_plot.png'), "Failed to generate the file."
     os.remove('circle_plot.png')
 
+
 def test_calculate_bottcher_score():
+    """
+    Test the calculation of the Böttcher score for a list of molecules.
+
+    This function performs the following steps:
+    1. Defines a list of SMILES strings representing different molecules.
+    2. Defines the expected Böttcher scores for the molecules.
+    3. Converts the SMILES strings to molecule objects.
+    4. Calculates the Böttcher scores for the molecule objects.
+    5. Rounds the calculated scores to two decimal places.
+    6. Asserts that the calculated scores match the expected scores.
+
+    Asserts:
+        - The calculated Böttcher scores are equal to the expected scores.
+    """
     smiles = [r"CC(/C=C/C1=CC=CC=C1)=O",
               r"Cl/C=C\C=C\Br",
               r"CC/C(C1=CC=CC=C1)=C(C2=CC=CC=C2)/CC",
@@ -737,9 +752,12 @@ def test_calculate_bottcher_score():
               "C/C=C(C)/C",
               "CC/C=C1CCCCC/1"]
     scores = [80.60, 68.59, 66.26, 83.51, 31.51, 106.97, 19.17, 38.17]
-    calc_scores = [att.calculate_bottcher_score(smi) for smi in smiles]
-    # round to 2 decimal places
+    # Convert all the SMILES strings to molecule objects
+    mols = [att.smi_to_mol(smi) for smi in smiles]
+    # Calculate the Böttcher scores for the molecule objects
+    calc_scores = [att.calculate_bottcher_score(mol) for mol in mols]
+    # Round the calculated scores to two decimal places
     calc_scores = [round(score, 2) for score in calc_scores]
-    # assert that the scores are the same
+    print(calc_scores, flush=True)
+    # Assert that the calculated scores match the expected scores
     assert calc_scores == scores
-
