@@ -487,3 +487,52 @@ def test_calculate_assembly_index_parallel():
     ai, vo, pathway = att.calculate_assembly_index_parallel(mols, dict(strip_hydrogen=True))
     ref_list = [3, 4, 3, 0, 3]
     assert att.check_elements(ai, ref_list)
+
+def test_node_canonicalization():
+    """
+    This is a specific example of a molecule that produced inaccurate assembly index results without node canonicalization.
+    """
+
+    G = nx.Graph()
+    G.add_node(0, color='C')
+    G.add_node(1, color='C')
+    G.add_node(2, color='C')
+    G.add_node(6, color='C')
+    G.add_node(10, color='C')
+    G.add_node(11, color='C')
+    G.add_node(12, color='C')
+    G.add_node(15, color='C')
+    G.add_node(18, color='C')
+    G.add_node(3, color='O')
+    G.add_node(4, color='O')
+    G.add_node(5, color='O')
+    G.add_node(7, color='O')
+    G.add_node(8, color='O')
+    G.add_node(13, color='O')
+    G.add_node(14, color='O')
+    G.add_node(16, color='O')
+    G.add_node(19, color='O')
+
+    G.add_edge(18,19, color=2)
+    G.add_edge(8,18, color=1)
+    G.add_edge(6,8, color=1)
+    G.add_edge(6,7, color=2)
+    G.add_edge(0,18, color=1)
+    G.add_edge(0,6, color=1)
+    G.add_edge(0,1, color=1)
+    G.add_edge(0,10, color=1)
+    G.add_edge(1,5, color=1)
+    G.add_edge(1,2, color=1)
+    G.add_edge(2,3, color=2)
+    G.add_edge(2,4, color=1)
+    G.add_edge(4,15, color=1)
+    G.add_edge(10,15, color=1)
+    G.add_edge(15,16, color=2)
+    G.add_edge(10,11, color=2)
+    G.add_edge(11,12, color=1)
+    G.add_edge(12,13, color=2)
+    G.add_edge(12,14, color=1)
+
+    a, _, _ = att.calculate_assembly_index(G)
+
+    assert a == 8

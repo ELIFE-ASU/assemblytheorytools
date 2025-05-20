@@ -448,3 +448,20 @@ def relabel_digraph(graph: nx.DiGraph) -> nx.DiGraph:
         for node in nodes:
             graph.nodes[node]["label"] = f"Step {step}"
     return graph
+
+def nxG_canonicalize_node_labels(G):
+    """
+    This function takes a networkx graph and makes its node labels 
+    into a sequence of integers from 0 to n-1, where n is the number of nodes.
+    Input graph will potentially skip some numbers, so this function will
+    relabel the nodes to be a sequence of integers from 0 to n-1.
+
+    This will make the code more stable.
+    """
+    # Get the current node labels
+    current_labels = list(G.nodes())
+    # Create a mapping from current labels to new labels
+    label_mapping = {current_labels[i]: i for i in range(len(current_labels))}
+    # Relabel the graph
+    G = nx.relabel_nodes(G, label_mapping)
+    return G
