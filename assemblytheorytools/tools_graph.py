@@ -422,3 +422,29 @@ def longest_path_length(digraph: nx.DiGraph) -> int:
 
     # Return the maximum path length found
     return max(longest_dist.values(), default=0)
+
+
+def relabel_digraph(graph: nx.DiGraph) -> nx.DiGraph:
+    """
+    Relabels the nodes of a directed graph with their topological step.
+
+    This function assigns a "label" attribute to each node in the graph,
+    where the label indicates the topological step (generation) of the node
+    in a topological sort of the graph.
+
+    Args:
+        graph (nx.DiGraph): A directed graph to be relabeled.
+
+    Returns:
+        nx.DiGraph: The input graph with nodes relabeled by their topological step.
+
+    Note:
+        - The graph must be a directed acyclic graph (DAG) for topological sorting to work.
+        - The "label" attribute of each node will be overwritten.
+    """
+    # Iterate through each topological generation of the graph
+    for step, nodes in enumerate(nx.topological_generations(graph)):
+        # Assign a label to each node based on its topological step
+        for node in nodes:
+            graph.nodes[node]["label"] = f"Step {step}"
+    return graph

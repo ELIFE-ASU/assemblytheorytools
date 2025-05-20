@@ -14,6 +14,7 @@ from matplotlib.patches import Circle
 from pyvis.network import Network
 
 import CFG
+from .tools_graph import relabel_digraph
 
 
 def n_plot(xlab: str, ylab: str, xs: int = 14, ys: int = 14) -> None:
@@ -301,24 +302,35 @@ def plot_digraph(digraph: nx.DiGraph,
     return None
 
 
-def plot_digraph_metro(digraph: nx.DiGraph, filename: str = 'metro') -> None:
+def plot_digraph_metro(digraph: nx.DiGraph, filename: str = 'metro', steps: bool = False) -> None:
     """
-    Plot a directed graph using the Metro style and save it as SVG and PNG files.
+    Plot a directed graph using a metro-style layout and save it as SVG and PNG files.
+
+    This function uses the `dagviz` library to render a directed graph in a metro-style layout.
+    Optionally, it can relabel the nodes of the graph based on their topological step before rendering.
 
     Args:
         digraph (nx.DiGraph): The directed graph to be plotted.
-        filename (str, optional): The base name of the files where the plot will be saved. Default is 'metro'.
+        filename (str, optional): The base name of the output files (without extension). Default is 'metro'.
+        steps (bool, optional): If True, relabel the nodes of the graph with their topological step. Default is False.
 
     Returns:
         None
     """
-    r = dagviz.render_svg(digraph,
-                          style=dagviz.style.metro.svg_renderer(dagviz.style.metro.StyleConfig(node_stroke="black")))
-    # Save the SVG
+    if steps:
+        # Relabel the graph nodes with their topological step if requested
+        digraph = relabel_digraph(digraph)
+
+    # Configure the metro-style rendering backend
+    backend = dagviz.style.metro.svg_renderer(dagviz.style.metro.StyleConfig(node_stroke="black"))
+    # Render the graph as an SVG string
+    r = dagviz.render_svg(digraph, style=backend)
+
+    # Save the SVG file
     with open(f'{filename}.svg', 'w') as file:
         file.write(r)
 
-    # Save the PNG file
+    # Convert the SVG to a PNG file
     cairosvg.svg2png(bytestring=r.encode('utf-8'), write_to=f"{filename}.png")
     return None
 

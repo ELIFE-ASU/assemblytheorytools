@@ -89,7 +89,8 @@ from .tools_graph import (nx_to_mol,
                           graph_to_inchi,
                           write_graphml,
                           read_graphml,
-                          longest_path_length)
+                          longest_path_length,
+                          relabel_digraph)
 from .tools_mol import (safe_standardize_mol,
                         standardize_mol,
                         smi_to_mol,

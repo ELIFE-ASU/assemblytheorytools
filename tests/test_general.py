@@ -416,15 +416,15 @@ def test_auto_compile():
     pass
 
 
-def test_plot_construction():
+def test_plot_digraph_metro():
     print(flush=True)
     pathway_str = "data/pathway/tmpPathway"
-
     # Try to load the pathway
     digraph = att.parse_pathway_file(pathway_str)
     digraph, _ = digraph
-
     att.plot_digraph_metro(digraph, filename="test")
+    os.remove("test.png")
+    os.remove("test.svg")
     pass
 
 
