@@ -72,6 +72,9 @@ def smi_to_mol(smi: str, add_hydrogens: bool = True, safe_sanitise: bool = False
     Returns:
         Chem.Mol: The standardized RDKit molecule.
     """
+    if '.' in smi:
+        print("You have ionic molecules in your set, make sure you handle them appropriately. "
+              "Have a look at the create_ionic_molecule function in tools_graphs.py")
     mol = Chem.MolFromSmiles(smi)
     # Sanitise the molecule
     if safe_sanitise:
