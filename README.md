@@ -16,7 +16,7 @@ Currently supports and connects to:
 Contributions of all kinds—bug reports, feature suggestions, code improvements, and documentation updates - are welcome! Please follow standard Python practices, write clear commit messages, and ensure all code is well-documented and tested. To contribute, branch the repo, make changes, and submit a pull request. 
 
 # Contributors
-Louie Slocombe, Joey Fedrow, Estelle Janin, Gage Siebert. TBC: Veronica Mierzejewski, Marina Fernandez-Ruz
+Louie Slocombe, Joey Fedrow, Estelle Janin, Gage Siebert, Veronica Mierzejewski, Marina Fernandez-Ruz.
 
 # Installation instructions
 
@@ -68,6 +68,14 @@ conda update conda --all -y
 conda install numpy scipy matplotlib networkx rdkit openbabel pyvis ase -y
 ```
 
+Install openbabel manually.
+```
+pip install --no-binary :all: openbabel \
+  --global-option=build_ext \
+  --global-option="-I/home/<USERNAME>/.conda/envs/ass_env/include/openbabel3" \
+  --global-option="-L/home/<USERNAME>/.conda/envs/ass_env/lib"
+```
+
 Then, install the ELIFE packages
 
 ```
@@ -117,6 +125,13 @@ Install the requirements.
 ```
 conda install numpy scipy matplotlib networkx rdkit openbabel pyvis ase pytest -y
 ```
+Install openbabel manually.
+```
+pip install --no-binary :all: openbabel \
+  --global-option=build_ext \
+  --global-option="-I/home/<USERNAME>/.conda/envs/ass_env/include/openbabel3" \
+  --global-option="-L/home/<USERNAME>/.conda/envs/ass_env/lib"
+```
 
 Then, install the ELIFE packages
 
@@ -158,7 +173,15 @@ source activate ass_env
 
 Install all the dependencies. If it kills, feel free to split the installs.
 ```
-mamba install -c conda-forge numpy scipy matplotlib networkx rdkit pyvis ase -y
+mamba install -c conda-forge numpy scipy matplotlib networkx rdkit pyvis ase pybabel -y
+```
+
+Install openbabel manually.
+```
+pip install --no-binary :all: openbabel \
+  --global-option=build_ext \
+  --global-option="-I/home/<USERNAME>/.conda/envs/ass_env/include/openbabel3" \
+  --global-option="-L/home/<USERNAME>/.conda/envs/ass_env/lib"
 ```
 
 Install AssemblyTheoryTools.
