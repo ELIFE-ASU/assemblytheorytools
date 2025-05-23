@@ -156,15 +156,19 @@ Activate the new env.
 source activate ass_env
 ```
 
-Make sure to upgrade the conda env to force the channel priority.
-```
-mamba update conda --all -y
-```
-
-Install all the dependencies.
+Install all the dependencies. If it kills, feel free to split the installs.
 ```
 mamba install -c conda-forge numpy scipy matplotlib networkx rdkit openbabel pyvis ase -y
 ```
+
+Openbabel fails during the pip install due to a pathing error. Here is a workaround:
+```
+pip install --no-binary :all: openbabel \
+  --global-option=build_ext \
+  --global-option="-I$VIRTUAL_ENV/include/openbabel3" \
+  --global-option="-L$VIRTUAL_ENV/lib"
+```
+
 
 Install AssemblyTheoryTools.
 ```
