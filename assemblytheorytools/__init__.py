@@ -61,6 +61,7 @@ from .reassembler import (assemble,
 from .seb_reassembler import (MoleculeGenerationAssemblyPool, Molecule, MoleculeSpace, Assemble)
 from .tools_atoms import (smi_to_atoms,
                           mol_to_atoms,
+                          get_charge,
                           get_spin_multiplicity,
                           orca_calc_preset,
                           get_virtual_objects_energy)

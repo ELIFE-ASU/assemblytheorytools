@@ -81,6 +81,23 @@ def mol_to_atoms(mol: Mol, optimise: bool = True) -> Atoms:
     return atoms
 
 
+def get_charge(mol: Mol) -> int:
+    """
+    Calculate the formal charge of a molecule.
+
+    Parameters:
+    -----------
+    mol : rdkit.Chem.rdchem.Mol
+        An RDKit molecule object
+
+    Returns:
+    --------
+    int
+        The formal charge of the molecule.
+    """
+    return Chem.GetFormalCharge(mol)
+
+
 def get_spin_multiplicity(mol: Mol) -> int:
     """
     Calculate the spin multiplicity of a molecule based on the number of radical electrons.
