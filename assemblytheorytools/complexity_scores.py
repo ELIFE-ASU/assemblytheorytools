@@ -11,8 +11,8 @@ import networkx as nx
 import numpy as np
 import rdkit
 from networkx.readwrite import json_graph
-#from openbabel import openbabel as ob
-#from openbabel import pybel
+from openbabel import openbabel as ob
+from openbabel import pybel
 from rdkit import Chem
 from rdkit import DataStructs
 from rdkit.Chem import AllChem as Chem
