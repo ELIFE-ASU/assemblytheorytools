@@ -32,7 +32,6 @@ setup(
         'CFG @ git+https://github.com/ELIFE-ASU/CFG.git',
         'dagviz @ git+https://github.com/ELIFE-ASU/dagviz.git',
         'cairosvg>=2.7.1',
-        'openbabel>=3.1.0', # openbabel-wheel
     ],
     extras_require={
         'dev': [

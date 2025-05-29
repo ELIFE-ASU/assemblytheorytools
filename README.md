@@ -1,11 +1,15 @@
 # AssemblyTheoryTools
-A centralised set of tools for doing assembly theory calculations. To use this package, it is strongly suggested that you use the Linux subsystem if you are using Windows.
 
-The code needs a compiled assemblyCPP in your path with the `ASS_PATH` environmental variable accessible by Python. 
+A centralised set of tools for doing assembly theory calculations. To use this package, it is strongly suggested that
+you use the Linux subsystem if you are using Windows.
 
-For example, put `export ASS_PATH=/data/grp_swalke10/asscpp/v5_boost/asscpp_v5_boost_recursive` in your submission script or your `.bashrc`.
+The code needs a compiled assemblyCPP in your path with the `ASS_PATH` environmental variable accessible by Python.
+
+For example, put `export ASS_PATH=/data/grp_swalke10/asscpp/v5_boost/asscpp_v5_boost_recursive` in your submission
+script or your `.bashrc`.
 
 Currently supports and connects to:
+
 - Molecules, including ionic bonded structures.
 - Approximate fast methods [https://github.com/ELIFE-ASU/CFGgraph](https://github.com/ELIFE-ASU/CFGgraph).
 - Strings [https://github.com/ELIFE-ASU/CFG](https://github.com/ELIFE-ASU/CFG).
@@ -13,9 +17,13 @@ Currently supports and connects to:
 - For Proteins see [https://github.com/ELIFE-ASU/ProteinAssembly](https://github.com/ELIFE-ASU/ProteinAssembly).
 
 # Contributions
-Contributions of all kinds—bug reports, feature suggestions, code improvements, and documentation updates - are welcome! Please follow standard Python practices, write clear commit messages, and ensure all code is well-documented and tested. To contribute, branch the repo, make changes, and submit a pull request. 
+
+Contributions of all kinds—bug reports, feature suggestions, code improvements, and documentation updates - are welcome!
+Please follow standard Python practices, write clear commit messages, and ensure all code is well-documented and tested.
+To contribute, branch the repo, make changes, and submit a pull request.
 
 # Contributors
+
 Louie Slocombe, Joey Fedrow, Estelle Janin, Gage Siebert, Veronica Mierzejewski, Marina Fernandez-Ruz.
 
 # Installation instructions
@@ -23,8 +31,9 @@ Louie Slocombe, Joey Fedrow, Estelle Janin, Gage Siebert, Veronica Mierzejewski,
 <details>
 <summary>Local</summary>
 <br>
-  
+
 ## Fresh environment
+
 It is recommended that you start from a fresh environment to prevent issues.
 
 ```
@@ -63,17 +72,8 @@ conda update conda --all -y
 
 ## Install the requirements
 
-
 ```
-conda install numpy scipy matplotlib networkx rdkit openbabel pyvis ase -y
-```
-
-Install openbabel manually.
-```
-pip install --no-binary :all: openbabel \
-  --global-option=build_ext \
-  --global-option="-I/home/<USERNAME>/.conda/envs/ass_env/include/openbabel3" \
-  --global-option="-L/home/<USERNAME>/.conda/envs/ass_env/lib"
+conda install numpy scipy matplotlib networkx rdkit pyvis ase -y
 ```
 
 Then, install the ELIFE packages
@@ -88,7 +88,8 @@ Then, install AssemblyTheoryTools:
 pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git
 ```
 
-When asked for a password, you will need your GitHub username AND 'personal access token' (found in developer settings in your GitHub settings).
+When asked for a password, you will need your GitHub username AND 'personal access token' (found in developer settings
+in your GitHub settings).
 See `https://stackoverflow.com/questions/2505096/clone-a-private-repository-github`
 
 </details>
@@ -96,7 +97,7 @@ See `https://stackoverflow.com/questions/2505096/clone-a-private-repository-gith
 <details>
 <summary>Development</summary>
 <br>
-  
+
 It is recommended that you start from a fresh environment to prevent issues.
 
 ```
@@ -122,15 +123,9 @@ conda config --set channel_priority true
 ```
 
 Install the requirements.
+
 ```
-conda install numpy scipy matplotlib networkx rdkit openbabel pyvis ase pytest -y
-```
-Install openbabel manually.
-```
-pip install --no-binary :all: openbabel \
-  --global-option=build_ext \
-  --global-option="-I/home/<USERNAME>/.conda/envs/ass_env/include/openbabel3" \
-  --global-option="-L/home/<USERNAME>/.conda/envs/ass_env/lib"
+conda install numpy scipy matplotlib networkx rdkit pyvis ase pytest -y
 ```
 
 Then, install the ELIFE packages
@@ -172,24 +167,20 @@ source activate ass_env
 ```
 
 Install all the dependencies. If it kills, feel free to split the installs.
-```
-mamba install -c conda-forge numpy scipy matplotlib networkx rdkit pyvis ase pybabel -y
-```
 
-Install openbabel manually.
 ```
-pip install --no-binary :all: openbabel \
-  --global-option=build_ext \
-  --global-option="-I/home/<USERNAME>/.conda/envs/ass_env/include/openbabel3" \
-  --global-option="-L/home/<USERNAME>/.conda/envs/ass_env/lib"
+mamba install -c conda-forge numpy scipy matplotlib networkx rdkit pyvis ase -y
 ```
 
 Install AssemblyTheoryTools.
+
 ```
 pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git
 ```
+
 Once again, you will need your username AND 'personal access token' entered as your password.
 
-When running on an HPC, you should run Python using the absolute path to the directory, for example: `srun $HOME/.conda/envs/myEnv/bin/python3`
+When running on an HPC, you should run Python using the absolute path to the directory, for example:
+`srun $HOME/.conda/envs/myEnv/bin/python3`
 
 </details>
