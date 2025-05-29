@@ -283,10 +283,61 @@ class AssemblyConstruction:
             self.full_atoms_list.append(atom_list)
 
     def consistent_join(self, pieces_mod, steps_mod, repeated_mo1_cp, step, digraph, indexes):
+        """
+        Attempt to merge overlapping pathway fragments into a consistent transformation step.
+
+        This method scans the current list of disjoint molecular fragments (`pieces_mod`) 
+        and looks for overlapping components (shared atoms or edges). When such overlaps 
+        are detected, the method merges the fragments, appends the result as a new step, 
+        and updates the digraph to reflect the transformation lineage.
+
+        Parameters:
+        -----------
+            pieces_mod (list): Current disjoint graph fragments to be scanned for merging.
+        
+            steps_mod (list): List of previously constructed transformation steps.
+
+            repeated_mo1_cp (list): Copy of repeated motifs used to resolve digraph parentage.
+
+            step (int): Current index in the step construction sequence.
+
+            digraph (list): Directed graph tracking transformation steps and dependencies.
+
+            indexes (list): Step indices associated with repeated motifs.
+
+        Returns:
+        --------
+            tuple:
+                - pieces_mod (list): Updated fragment list after possible merging.
+                - steps_mod (list): Updated list of transformation steps.
+                - step (int): Updated step count.
+                - digraph (list): Updated digraph with new transformation links.
+        """
         left_sort = [rep[0] for rep in repeated_mo1_cp]
         right_sort = [rep[1] for rep in repeated_mo1_cp]
 
         def add_digraph_entry(piece, step):
+            """
+            Append an edge to the digraph indicating a dependency between a prior step or 
+            virtual object (`piece`) and the current step.
+
+            This helper function attempts to identify the origin of `piece` by checking:
+                - If it's a known left-side repeated motif (`left_sort`)
+                - If it's a right-side repeated motif (`right_sort`)
+                - If it's already part of a previously constructed step (`steps_mod`)
+    
+            If no match is found, an "_error" label is used as a fallback source in the digraph.
+
+            Parameters:
+            -----------
+                piece (list): A graph fragment or reaction step being traced as a source node.
+        
+                step (int): The current step index being constructed as the target node.
+
+            Returns:
+            --------
+                None: Modifies the `digraph` list in-place by appending a [source, target] entry.
+            """
             if piece in left_sort:
                 digraph.append(["step_{}".format(indexes[left_sort.index(piece)]), "step_{}".format(step)])
             elif piece in right_sort:
@@ -328,6 +379,38 @@ class AssemblyConstruction:
         return pieces_mod, steps_mod, step, digraph
 
     def repeated_construction(self, pieces_mod, steps_mod, sorted_repeated_mod1, step, digraph):
+        """
+        Construct the initial pathway by integrating repeated molecular fragments.
+
+        This method iterates over repeated motifs (subgraphs) and attempts to either:
+            - Append them directly to the current set of pathway pieces if no conflicts exist,
+            - Or integrate them by merging overlapping pieces through consistent joining logic.
+
+        The method also tracks which fragments have been added and associates them with 
+        their corresponding indices for downstream pathway construction.
+
+        Parameters:
+        -----------
+            pieces_mod (list): Current list of disjoint pathway fragments (edge groups).
+        
+            steps_mod (list): List of transformation steps constructed so far.
+        
+            sorted_repeated_mod1 (list): List of repeated motifs sorted by subgraph size.
+
+            step (int): Current step index in the construction process.
+
+            digraph (list): Current digraph representing the reaction assembly.
+
+        Returns:
+        --------
+            tuple:
+                - pieces_mod (list): Updated list of pathway fragments after integration.
+                - steps_mod (list): Updated list of pathway steps.
+                - sorted_repeated_mod1_cp (list): Deep copy of the original motif list for reference.
+                - step (int): Updated step counter.
+                - digraph (list): Updated digraph structure.
+                - indexes (list): Index mapping of added fragments to step references.
+        """
         step_ind = [1] * len(sorted_repeated_mod1)
         indexes = [0] * len(sorted_repeated_mod1)
         sorted_repeated_mod1_cp = copy.deepcopy(sorted_repeated_mod1)
@@ -366,6 +449,29 @@ class AssemblyConstruction:
         return pieces_mod, steps_mod, sorted_repeated_mod1_cp, step, digraph, indexes
 
     def generate_pathway(self):
+        """
+        Construct the reaction pathway by combining initial fragments and resolving overlaps.
+
+        This method builds the overall pathway graph by:
+            - Initializing edges as disjoint fragments (`pieces`)
+            - Applying equivalence mappings to handle duplicate structures
+            - Sorting and incorporating repeated motifs using a construction algorithm
+            - Iteratively merging consistent fragments until convergence
+
+        Intermediate steps and the resulting pathway are stored as attributes 
+        on the instance for downstream use (e.g., visualization, logging, or graph generation).
+
+        Parameters:
+        -----------
+            None
+
+        Returns:
+        --------
+            None: The results are stored in the following instance attributes:
+                - self.steps (list): Sequence of transformation steps forming the pathway.
+                - self.digraph (list): Final digraph structure representing stepwise assembly.
+                - self.pieces_mod (list): Remaining or modified substructures after construction.
+        """
         step = 0
         digraph = []
         steps = []
@@ -398,6 +504,30 @@ class AssemblyConstruction:
         return None
 
     def generate_vo(self):
+        """
+        Generate virtual objects (VOs) and transformation steps based on the specified VO type.
+
+        This method processes the list of atoms and steps from a pathway to create their 
+        corresponding molecular representations in one of several formats: NetworkX graph, 
+        RDKit molecule, SMILES, or InChI. The generated data is stored as attributes on 
+        the class instance for further use in graph construction or analysis.
+
+        Parameters:
+        -----------
+            None
+
+        Returns:
+        --------
+            None: All generated data is stored in the instance attributes:
+                - self.molecules_vo (list): List of individual molecule representations per atom.
+                - self.molecules_steps (list): List of molecule representations per transformation step.
+                - self.steps_indx_s (list): Indexed and encoded transformation step data.
+                - self.vs_atoms (list): Vertex (atom) labels for each step.
+    
+        Raises:
+        -------
+            ValueError: If `self.vo_type` is not one of 'graph', 'mol', 'smiles', or 'inchi'.
+        """    
         # Generate the virtual objects
         molecules_vo = []
         for atom in self.atoms_list:
@@ -529,6 +659,24 @@ class AssemblyConstruction:
         return graph, list(unique_molecules)
 
     def pathway_log_string(self) -> str:
+        """
+        Generate a formatted string summarizing the pathway construction.
+
+        This method builds a multi-section string that summarizes the graph 
+        structure, atoms involved, transformation steps, and the digraph 
+        representation associated with the pathway.
+
+        Sections included:
+            - Graph metadata (`self.v`, `self.e`, `self.v_l`, `self.e_l`)
+            - List of atoms (`self.atoms_list`)
+            - Step descriptions (`self.steps`)
+            - Digraph structure (`self.digraph`)
+
+        Returns:
+        --------
+            str: A multi-line formatted string representing the internal state 
+                 of the pathway and its graph structure.
+        """
         pathway_file = []
         pathway_file.append("#####Graph#####\n")
         pathway_file.append(str(self.v) + "\n")
@@ -548,6 +696,38 @@ class AssemblyConstruction:
 
 
 def parse_pathway_file(file, vo_type="smiles", debug=False, log=False):
+    """
+    Parse a pathway JSON file and construct an assembly graph.
+
+    This function loads a pathway JSON file, constructs the corresponding
+    assembly directed graph using the specified virtual object (VO) type,
+    and optionally prints debug information or returns a pathway log.
+
+    Parameters:
+    -----------
+        file (str): Path to the JSON pathway file.
+
+        vo_type (str, optional): Type of virtual object representation 
+            to use (e.g., "smiles"). Default is "smiles".
+
+        debug (bool, optional): If True, prints debug information about
+            each node. Default is False.
+
+        log (bool, optional): If True, returns an additional string 
+            describing the pathway log. Default is False.
+
+    Returns:
+    --------
+        tuple:
+            If log is False:
+                (graph, vo_list): 
+                    graph (nx.DiGraph): The constructed assembly directed graph.
+                    vo_list (list): List of virtual objects used in the graph.
+            
+            If log is True:
+                (graph, vo_list, log_string): 
+                    log_string (str): A summary log string of the pathway steps.
+    """
     # Load the pathway file
     with open(file) as f:
         data = json.load(f)
