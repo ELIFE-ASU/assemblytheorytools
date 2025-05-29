@@ -121,6 +121,32 @@ def atoms_to_nx(atoms: Atoms) -> nx.Graph:
 
 
 def find_clusters(atoms, cutoff_smear=1.5):
+    """
+    Identify disconnected atom clusters in an atomic structure using a neighbor-based graph.
+
+    This function builds a connectivity graph of atoms based on natural covalent radii (optionally smeared), 
+    and identifies whether the atomic system is fully connected. If multiple disconnected clusters exist, 
+    it returns the indices of atoms not belonging to the largest cluster.
+
+    Parameters:
+    -----------
+        atoms (ase.Atoms): An ASE `Atoms` object representing the molecular or periodic structure.
+        
+        cutoff_smear (float, optional): A multiplicative factor applied to the natural cutoff 
+            radii to loosen bonding criteria. Default is 1.5.
+
+    Returns:
+    --------
+        list or None:
+            - If only one cluster exists (fully connected), returns `None`.
+            - If multiple clusters are found, returns a list of atom indices that do not 
+              belong to the largest connected cluster.
+
+    Notes:
+    ------
+        - Uses ASE's `NeighborList` for graph construction.
+        - Uses SciPy's `connected_components` for clustering.
+    """
     # Get the natural cutoffs
     cutoffs = natural_cutoffs(atoms)
     # Apply the smear to the cutoffs
