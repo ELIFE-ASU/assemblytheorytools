@@ -349,6 +349,28 @@ class assemblyConstruction:
         return pieces_mod, steps_mod, sorted_repeated_mod1_cp, step, digraph, indexes
 
     def generate_pathway(self):
+        """
+        Generate a full assembly pathway from disjoint remnant fragments.
+
+        This method builds a reaction or molecular assembly pathway by:
+            - Initializing graph fragments from remnant edges
+            - Incorporating repeated substructures using equivalence mappings
+            - Iteratively combining overlapping or related fragments in a consistent manner
+
+        The result is a stepwise list of constructed subgraphs and a directed graph (digraph)
+        representing the order and dependencies of the assembly process.
+
+        Parameters:
+        -----------
+            None
+
+        Returns:
+        --------
+            None: The results are stored in the following instance attributes:
+                - self.steps (list): Stepwise sequence of constructed molecular fragments.
+                - self.digraph (list): Directed edges representing step dependencies.
+                - self.pieces_mod (list): Final state of pathway fragments after processing.
+        """
         ## Construct Remant Graph
         # The Remnant Graph are usually are usually disjoing pieces
         step = 0
@@ -526,6 +548,27 @@ def generate_string_pathway(filename):
 
 
 def generate_string_pathway_ian(file):
+    """
+    Generate an assembly pathway from a string-based molecular input file.
+
+    This function reads a JSON file containing a string representation of a molecule,
+    its fragments, remnant edges, and known duplicate regions. It initializes the
+    assembly construction object, runs the pathway generation algorithm, and converts
+    the resulting steps into a human-readable string format.
+
+    Parameters:
+    -----------
+        file (str): Path to a JSON file containing the molecular input structure and metadata.
+
+    Returns:
+    --------
+        tuple:
+            - construction_object (assemblyConstruction): The constructed pathway object containing
+              structural information, intermediate steps, and pathway metadata.
+
+            - pathway_success (bool): True if pathway generation completed successfully,
+              False if an exception occurred (e.g., ValueError or IndexError).
+    """
     f = open(file)
     data = json.load(f)
     string = data["file_graph"][0]['Fragments'][0]
