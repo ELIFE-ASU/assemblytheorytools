@@ -432,6 +432,24 @@ def compression_lzma_smi(mol: Mol,
 
 
 def compress_zlib_graph(graph: nx.Graph, level: int = 9) -> bytes:
+    """
+    Compress a NetworkX graph using zlib compression.
+
+    This function converts a NetworkX graph into a JSON-serializable 
+    node-link format, encodes it to a UTF-8 JSON string, and compresses 
+    it using zlib.
+
+    Parameters:
+    -----------
+        graph (nx.Graph): The NetworkX graph to compress.
+        
+        level (int, optional): Compression level (0-9). Default is 9 
+            (maximum compression).
+
+     Returns:
+    ---------
+        bytes: The compressed graph data as a byte string.
+    """
     # Convert graph to node-link data (JSON-serialisable)
     data = json_graph.node_link_data(graph)
 
@@ -443,6 +461,21 @@ def compress_zlib_graph(graph: nx.Graph, level: int = 9) -> bytes:
 
 
 def decompress_zlib_graph(compressed_data: bytes) -> nx.Graph:
+    """
+    Decompress a zlib-compressed NetworkX graph.
+
+    This function takes zlib-compressed bytes representing a 
+    NetworkX graph in JSON node-link format, decompresses and 
+    decodes them, and reconstructs the original graph.
+
+    Parameters:
+    -----------
+        compressed_data (bytes): The compressed graph data as a byte string.
+
+    Returns:
+    --------
+        nx.Graph: The reconstructed NetworkX graph.
+    """
     # Decompress to JSON string
     json_str = zlib.decompress(compressed_data).decode('utf-8')
 
