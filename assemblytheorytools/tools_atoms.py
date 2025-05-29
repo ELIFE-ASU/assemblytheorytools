@@ -138,6 +138,48 @@ def orca_calc_preset(orca_path=None,
                      calc_extra=None,
                      blocks_extra=None,
                      scf_option=None):
+    """
+    Create a pre-configured ORCA quantum chemistry calculation object.
+
+    This function assembles an ORCA input configuration based on typical 
+    calculation parameters such as functional, basis set, dispersion model, 
+    solvent model, and type of calculation (e.g., DFT, MP2, CCSD, QM/XTB2).
+    It returns an ORCA calculation object ready to run.
+
+    Parameters:
+    -----------
+        orca_path (str, optional): Path to the ORCA binary. If None, attempts to read from `ORCA_PATH` environment variable.
+        
+        directory (str, optional): Directory for the ORCA calculation. If None, a temporary directory is created.
+
+        calc_type (str, optional): Type of quantum chemical calculation. Supported: 'DFT', 'MP2', 'CCSD', 'QM/XTB2'. Default is 'DFT'.
+
+        xc (str, optional): Exchange-correlation functional (e.g., 'B3LYP'). Used for DFT or QM/XTB2. Default is 'B3LYP'.
+
+        charge (int, optional): Molecular charge. Default is 0.
+
+        multiplicity (int, optional): Spin multiplicity. Default is 1.
+
+        basis_set (str, optional): Basis set used in the calculation. Default is '6-311G'.
+
+        nprocs (int, optional): Number of processors to request for the calculation. Default is 1.
+
+        f_solv (bool or str, optional): Solvent model. If True, uses 'WATER'. If a string, uses the specified solvent. Default is False.
+
+        f_disp (bool or str, optional): Dispersion correction. If True, uses 'D4'. If a string, uses the specified correction. Default is False.
+
+        atom_list (list, optional): List of atom indices used in QM/XTB2 calculations. Ignored otherwise.
+
+        calc_extra (str, optional): Additional options to append to the ORCA simple input line. Default is None.
+
+        blocks_extra (str, optional): Additional blocks to insert into the ORCA input file. Default is None.
+
+        scf_option (str, optional): Additional SCF convergence options. Default is None.
+
+    Returns:
+    --------
+        ORCA: An ORCA calculation object (from the `ORCA` class) initialized with the assembled input settings.
+    """ 
     if orca_path is None:
         # try and read the path from the environment
         orca_path = os.environ.get('ORCA_PATH')
