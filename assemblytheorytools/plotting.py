@@ -190,10 +190,10 @@ def plot_mol_graph(graph: nx.Graph, f_labs: bool = False, filename: str = "atom_
         'Pt': 'lightgray'  # Platinum
     }
 
-    color_dict_edge = {1.0: "black",
-                       2.0: "green",
-                       3.0: "red",
-                       4.0: "orange"}
+    color_dict_edge = {1: "black",
+                       2: "green",
+                       3: "red",
+                       4: "orange"}
     # Get the colors for the nodes
     graph_colors = [cols_conv.get(graph.nodes[idx]['color'], 'black') for idx in graph.nodes()]
     # Get the colors for the edges
