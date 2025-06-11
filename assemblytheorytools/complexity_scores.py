@@ -57,7 +57,9 @@ def wiener_index(mol: Mol) -> float:
     molecule's branching and can be used to estimate various physicochemical properties.
 
     :param mol: An RDKit molecule object.
+    :type mol: rdkit.Chem.rdchem.Mol
     :return: The Wiener index.
+    :rtype: int
     """
     distance_matrix = Chem.rdmolops.GetDistanceMatrix(mol)
     graph = nx.Graph()
