@@ -6,7 +6,6 @@ import signal
 import subprocess
 import tempfile
 import time
-import warnings
 from datetime import datetime
 from functools import partial
 from typing import Union, List
@@ -152,32 +151,14 @@ def calculate_assembly_index(mol,
                              debug=False,
                              joint_corr=True,
                              strip_hydrogen=False,
-                             return_log_file=False):
-    """
-    Calculate the assembly index for a given molecule.
-
-    WARNING: It is the responsibility of the user to ensure the mol file has H or not!
-
-    Args:
-        mol (Union[nx.Graph, Chem.Mol, str]): The molecule (NetworkX graph, RDKit molecule, or .mol file path).
-        dir_code (str, optional): The directory code for the assembly tool. Defaults to None.
-        timeout (float, optional): Maximum time in seconds before termination. Defaults to 100.0.
-        debug (bool, optional): If True, creates a directory with a timestamp for debugging. Defaults to False.
-        joint_corr (bool, optional): If True, corrects disjointed graphs. Defaults to True.
-        strip_hydrogen (bool, optional): If True, removes hydrogen atoms before calculation. Defaults to False.
-        return_log_file (bool, optional): If True, includes log file in return. Defaults to False.
-
-    Returns:
-        - (ai, virt_obj, path) if return_log_file=False
-        - (ai, virt_obj, path, log_file) if return_log_file=True
-    """
-
+                             return_log_file=False,
+                             exact=False):
     # Initialize variables
     ai = -1
     virt_obj = None
     path = None
     file_path_in = None
-    timed_out = False  # Flag for timeout tracking
+    timed_out = False
 
     # Check if input is a string and not a .mol file
     if isinstance(mol, str) and not mol.endswith(".mol"):
@@ -241,13 +222,13 @@ def calculate_assembly_index(mol,
                     # Check for timeout
                     if time.time() - start_time > timeout:
                         print("Warning: Assembly calculation timed out. Terminating...", flush=True)
-                        process.send_signal(
-                            signal.SIGINT)  # This simulates Ctrl+C, getting the right output from assemblyCpp
+                        # This simulates Ctrl+C, getting the right output from assemblyCpp
+                        process.send_signal(signal.SIGINT)
                         process.wait()
-                        time.sleep(0.5)
+                        time.sleep(0.1)
                         if process.poll() is None:
                             process.kill()
-                        timed_out = True  # Mark timeout
+                        timed_out = True
                         break
 
         except Exception as e:
@@ -267,7 +248,8 @@ def calculate_assembly_index(mol,
                         last_ai = int(match.group(1))
                         break
 
-                ai = last_ai  # Assign found AI
+                if not exact:
+                    ai = last_ai  # Assign found AI
 
                 # Print appropriate messages based on timeout
                 if ai == -1 and timed_out:
@@ -316,22 +298,8 @@ def calculate_assembly_semi_metric(graph1,
                                    timeout=100.0,
                                    debug=False,
                                    strip_hydrogen=False,
+                                   exact=False,
                                    normalise=False):
-    """
-    Calculate the assembly semi-metric distance between a pair of molecular graphs.
-
-    Args:
-        graph1 (nx.Graph): First input molecule as a NetworkX graph.
-        graph2 (nx.Graph): Second input molecule as a NetworkX graph.
-        dir_code (str, optional): The directory code for the assembly tool. Defaults to None.
-        timeout (float, optional): The maximum time in seconds to allow the command to run. Defaults to 100.0 seconds.
-        debug (bool, optional): If True, create a directory with a timestamp for debugging. Defaults to False.
-        strip_hydrogen (bool, optional): If True, removes hydrogen atoms from the molecule before calculation. Defaults to False.
-        normalise (bool, optional): If True, normalizes the semi-metric distance. Defaults to False.
-
-    Returns:
-        int: The difference between the joint assembly index and the sum of the assembly indices of the disconnected subgraphs.
-    """
     # Make input type checks
     assert isinstance(graph1, nx.Graph), "Input must be a NetworkX graph"
     assert isinstance(graph2, nx.Graph), "Input must be a NetworkX graph"
@@ -345,9 +313,10 @@ def calculate_assembly_semi_metric(graph1,
     assert nx.is_connected(graph1), "Input graph must be connected"
     assert nx.is_connected(graph2), "Input graph must be connected"
 
-    # Check if the inputs are isomorphic, in which case the semi-metric distance is 0 and the user may not intend to compare these mols
+    # Check if the inputs are isomorphic
+    # in which case the semi-metric distance is 0 and the user may not intend to compare these mols
     if nx.is_isomorphic(graph1, graph2):
-        warnings.warn("Input graphs are isomorphic.")
+        print("Input graphs are isomorphic.", flush=True)
         return 0
 
     # Combine the graphs into a single molecular object with 2 disjoint components
@@ -359,7 +328,12 @@ def calculate_assembly_semi_metric(graph1,
                                          dir_code=dir_code,
                                          timeout=timeout,
                                          debug=debug,
-                                         strip_hydrogen=strip_hydrogen)
+                                         strip_hydrogen=strip_hydrogen,
+                                         exact=exact)
+    if jai <= -1:
+        print("No minimum JAI found before timeout.", flush=True)
+        return -1
+
     if debug:
         print(f"Joint Assembly Index: {jai}", flush=True)
 
@@ -370,7 +344,8 @@ def calculate_assembly_semi_metric(graph1,
                                             dir_code=dir_code,
                                             timeout=timeout,
                                             debug=debug,
-                                            strip_hydrogen=strip_hydrogen)
+                                            strip_hydrogen=strip_hydrogen,
+                                            exact=exact)
         if debug:
             print(f"Assembly Index: {ai}", flush=True)
         result += ai

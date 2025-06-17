@@ -250,10 +250,21 @@ def test_taxol_file():
     """
     print(flush=True)
     mol_file = os.path.expanduser(os.path.abspath("data/mol_files/taxol.mol"))
-    # Mol file
-    ai_mol_file, _, _ = att.calculate_assembly_index(mol_file, timeout=60.0, strip_hydrogen=True, debug=False)
+    ai, _, _ = att.calculate_assembly_index(mol_file, timeout=60.0, strip_hydrogen=True, debug=False)
 
-    assert ai_mol_file <= 24  # actual value is 23, but for time out this is ok
+    assert ai <= 24  # actual value is 23, but for time out this is ok
+
+
+def test_exact_flag():
+    print(flush=True)
+    mol_file = os.path.expanduser(os.path.abspath("data/mol_files/taxol.mol"))
+    ai, _, _ = att.calculate_assembly_index(mol_file,
+                                            timeout=10.0,
+                                            strip_hydrogen=True,
+                                            debug=False,
+                                            exact=True)
+
+    assert ai == -1
 
 
 def test_joint_ass():
