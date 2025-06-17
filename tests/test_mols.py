@@ -161,7 +161,22 @@ def test_calculate_assembly_index_flag_for_logs():
     """
     Test the `calculate_assembly_index` function with different input types
     and configuration options.
+
+    This function performs the following steps:
+    1. Converts a SMILES string to a molecule object.
+    2. Calculates the assembly index for the molecule without returning a log file.
+    3. Writes the molecule object to a mol file and calculates the assembly index from the file.
+    4. Compares the assembly index calculated from the molecule and the mol file.
+    5. Calculates the assembly index for the molecule with the flag to return a log file.
+    6. Verifies that the log file is generated.
+    7. Cleans up temporary files created during the test.
+
+    Asserts:
+        - The assembly index is an integer and greater than 0.
+        - The assembly index is consistent across representations (molecule and mol file).
+        - The log file is generated when the `return_log_file` flag is set.
     """
+    print(flush=True)
 
     # Test case 1: SMILES to RDKit molecule
     smi = "C1=CC=CC=C1"  # Benzene
@@ -406,12 +421,33 @@ def test_semi_metric():
 
 
 def test_construction_pathway_file():
+    """
+    Test the construction of a pathway graph and virtual object list from a pathway file.
+
+    This function performs the following steps:
+    1. Defines the file path for the pathway file.
+    2. Loads the pathway graph and virtual object list from the file.
+    3. Compares the virtual object list to a reference list.
+    4. Checks the number of nodes and edges in the pathway graph.
+
+    Asserts:
+        - The pathway graph has 8 nodes.
+        - The pathway graph has 9 edges.
+        - The virtual object list matches the reference list.
+
+    Variables:
+        pathway_str (str): Path to the pathway file.
+        digraph (networkx.DiGraph): Pathway graph loaded from the file.
+        vo_list (list): Virtual object list loaded from the file.
+        vo_list_ref (list): Reference list of expected virtual objects.
+    """
     print(flush=True)
     pathway_str = "data/pathway/tmpPathway"
 
     # Try to load the pathway
     digraph, vo_list = att.parse_pathway_file(pathway_str, vo_type='inchi')
 
+    # Define the reference virtual object list
     vo_list_ref = ['InChI=1S/C2H6/c1-2/h1-2H3',
                    'InChI=1S/CH2O/c1-2/h1H2',
                    'InChI=1S/CH4/h1H4',
@@ -422,19 +458,39 @@ def test_construction_pathway_file():
     # Check the number of edges
     assert digraph.number_of_edges() == 9
 
+    # Assert that the virtual object list matches the reference list
     assert att.check_elements(vo_list, vo_list_ref)
 
 
 def test_construction_pathway_smi():
+    """
+    Test the construction of a pathway graph and virtual object list for a molecule.
+
+    This function performs the following steps:
+    1. Defines a SMILES string representing a molecule (Acetaldehyde).
+    2. Converts the SMILES string to a molecule object.
+    3. Calculates the assembly index, pathway graph, and virtual object list for the molecule.
+    4. Compares the virtual object list to a reference list.
+    5. Asserts the correctness of the assembly index, pathway graph nodes, edges, and virtual object list.
+
+    Asserts:
+        - The calculated assembly index is equal to 5.
+        - The virtual object list matches the reference list.
+        - The pathway graph has 8 nodes.
+        - The pathway graph has 9 edges.
+    """
     print(flush=True)
 
     smi = "CC=O"  # Acetaldehyde
-    mol = att.smi_to_mol(smi)
-    ai, virt_obj, pathway = att.calculate_assembly_index(mol)
-    pathway, vo_list = pathway
+    mol = att.smi_to_mol(smi)  # Convert the SMILES string to a molecule object
+    ai, virt_obj, pathway = att.calculate_assembly_index(mol)  # Calculate the assembly index and pathway
+    pathway, vo_list = pathway  # Extract the pathway graph and virtual object list
 
+    # Define the reference virtual object list
     vo_list_ref = ['[H]C([H])([H])C', 'C=O', '[H]C[H]', '[H]C', '[H]CC([H])([H])[H]', 'CC', '[H]C(=O)C([H])([H])[H]',
                    '[H]C([H])[H]']
+
+    # Assert the correctness of the assembly index, pathway graph, and virtual object list
     assert ai == 5
     assert len(vo_list) == len(set(vo_list_ref))
     assert pathway.number_of_nodes() == 8
@@ -444,12 +500,31 @@ def test_construction_pathway_smi():
 
 
 def test_construction_pathway_joint():
-    print(flush=True)
-    smi = "CC=O.OCC"
-    mol = att.smi_to_mol(smi)
-    ai, virt_obj, pathway = att.calculate_assembly_index(mol)
-    pathway, vo_list = pathway
+    """
+    Test the construction of a pathway graph and virtual object list for a joint molecule.
 
+    This function performs the following steps:
+    1. Defines a SMILES string representing a joint molecule.
+    2. Converts the SMILES string to a molecule object.
+    3. Calculates the assembly index, pathway graph, and virtual object list for the molecule.
+    4. Compares the virtual object list to a reference list.
+    5. Plots the pathway graph and saves it as temporary files.
+    6. Removes the temporary files.
+    7. Asserts the correctness of the assembly index, pathway graph nodes, edges, and virtual object list.
+
+    Asserts:
+        - The calculated assembly index is equal to 8.
+        - The pathway graph has 13 nodes.
+        - The pathway graph has 16 edges.
+        - The virtual object list matches the reference list.
+    """
+    print(flush=True)
+    smi = "CC=O.OCC"  # Define the SMILES string for the joint molecule
+    mol = att.smi_to_mol(smi)  # Convert the SMILES string to a molecule object
+    ai, virt_obj, pathway = att.calculate_assembly_index(mol)  # Calculate the assembly index and pathway
+    pathway, vo_list = pathway  # Extract the pathway graph and virtual object list
+
+    # Define the reference virtual object list
     vo_list_ref = ['[H]C',
                    '[H]C([H])C',
                    'CC',
@@ -464,37 +539,76 @@ def test_construction_pathway_joint():
                    '[H]CO[H]',
                    '[H]OC([H])([H])C([H])([H])[H]']
 
+    # Plot the pathway graph and save it as temporary files
     att.plot_digraph_metro(pathway, filename="test")
-    os.remove("test.png")
-    os.remove("test.svg")
+    os.remove("test.png")  # Remove the temporary PNG file
+    os.remove("test.svg")  # Remove the temporary SVG file
 
+    # Assert the correctness of the assembly index, pathway graph, and virtual object list
     assert ai == 8
     assert pathway.number_of_nodes() == 13
     assert pathway.number_of_edges() == 16
-
     assert att.check_elements(vo_list, vo_list_ref)
 
 
 def test_calculate_assembly_index_parallel():
+    """
+    Test the calculation of the assembly index for multiple molecules in parallel.
+
+    This function performs the following steps:
+    1. Defines a list of SMILES strings representing molecules.
+    2. Converts the SMILES strings to RDKit molecule objects with added hydrogens.
+    3. Calculates the assembly index for the molecules in parallel using the `calculate_assembly_index_parallel` function.
+    4. Compares the calculated assembly indices to a reference list.
+
+    Asserts:
+        - The calculated assembly indices match the reference list.
+
+    Variables:
+        smiles (list of str): List of SMILES strings representing molecules.
+        mols (list of Chem.Mol): List of RDKit molecule objects created from the SMILES strings.
+        ai (list of int): List of calculated assembly indices for the molecules.
+        vo (list): Virtual objects associated with the assembly index calculation.
+        pathway (object): Pathway data generated during the assembly index calculation.
+        ref_list (list of int): Reference list of expected assembly indices.
+    """
     smiles = ['[H]OC(=O)C([H])([H])N([H])[H]',
               '[H]OC(=O)C([H])(N([H])[H])C([H])([H])[H]',
               '[H]OC(=O)C([H])([H])N([H])[H]',
               '[H]C([H])([H])C([H])([H])[H]',
               '[H]OC(=O)C([H])([H])N([H])[H]']
+    # Convert SMILES strings to RDKit molecule objects with added hydrogens
     mols = [Chem.AddHs(Chem.MolFromSmiles(smi, sanitize=True)) for smi in smiles]
 
     # Calculate the assembly index in parallel
     ai, vo, pathway = att.calculate_assembly_index_parallel(mols, dict(strip_hydrogen=True))
     ref_list = [3, 4, 3, 0, 3]
+    # Assert that the calculated assembly indices match the reference list
     assert att.check_elements(ai, ref_list)
 
 
 def test_node_canonicalization():
     """
-    This is a specific example of a molecule that produced inaccurate assembly index results without node canonicalization.
-    """
+    Test the assembly index calculation for a specific molecular graph that produced inaccurate results
+    without node canonicalization.
 
+    This function creates a molecular graph with specific nodes and edges, calculates its assembly index,
+    and asserts that the result matches the expected value.
+
+    Steps:
+    1. Define a molecular graph using NetworkX.
+    2. Add nodes with specific attributes (e.g., color representing atom types).
+    3. Add edges with specific attributes (e.g., color representing bond types).
+    4. Calculate the assembly index using the `calculate_assembly_index` function.
+    5. Assert that the calculated assembly index is equal to the expected value.
+
+    Asserts:
+        - The calculated assembly index is equal to 8.
+    """
+    # Create a new graph
     G = nx.Graph()
+
+    # Add nodes with attributes (color represents atom type)
     G.add_node(0, color='C')
     G.add_node(1, color='C')
     G.add_node(2, color='C')
@@ -514,6 +628,7 @@ def test_node_canonicalization():
     G.add_node(16, color='O')
     G.add_node(19, color='O')
 
+    # Add edges with attributes (color represents bond type)
     G.add_edge(18, 19, color=2)
     G.add_edge(8, 18, color=1)
     G.add_edge(6, 8, color=1)
@@ -534,38 +649,78 @@ def test_node_canonicalization():
     G.add_edge(12, 13, color=2)
     G.add_edge(12, 14, color=1)
 
+    # Calculate the assembly index
     a, _, _ = att.calculate_assembly_index(G)
 
+    # Assert that the calculated assembly index matches the expected value
     assert a == 8
 
 
 def test_calculate_assembly_upper_bound():
+    """
+    Test the calculation of the assembly upper bound for a molecule.
+
+    This function performs the following steps:
+    1. Defines a SMILES string representing a molecule.
+    2. Converts the SMILES string to a molecule object.
+    3. Calculates the assembly upper bound with hydrogen stripping enabled.
+    4. Asserts that the calculated upper bound is equal to 0.
+    5. Calculates the assembly upper bound without hydrogen stripping.
+    6. Asserts that the calculated upper bound is equal to 2.
+    7. Converts the molecule object to a NetworkX graph.
+    8. Calculates the assembly upper bound for the graph without hydrogen stripping.
+    9. Asserts that the calculated upper bound is equal to 2.
+
+    Asserts:
+        - The assembly upper bound with hydrogen stripping is equal to 0.
+        - The assembly upper bound without hydrogen stripping is equal to 2.
+        - The assembly upper bound for the graph without hydrogen stripping is equal to 2.
+    """
     print(flush=True)
-    smi_in = "[H]C#C[H]"
+    smi_in = "[H]C#C[H]"  # Define the SMILES string for the molecule
     # Convert the SMILES string to a molecule object
     mol = att.smi_to_mol(smi_in)
     # Test strip hydrogen flag
     ai_upper_bound = att.calculate_assembly_upper_bound(mol, strip_hydrogen=True)
-    assert ai_upper_bound == 0
+    assert ai_upper_bound == 0  # Assert the upper bound with hydrogen stripping
     # Test without stripping hydrogen
     ai_upper_bound = att.calculate_assembly_upper_bound(mol, strip_hydrogen=False)
-    assert ai_upper_bound == 2
+    assert ai_upper_bound == 2  # Assert the upper bound without hydrogen stripping
     # Convert the molecule object to a NetworkX graph
     ai_upper_bound_graph = att.calculate_assembly_upper_bound(att.mol_to_nx(mol), strip_hydrogen=False)
-    assert ai_upper_bound_graph == 2
+    assert ai_upper_bound_graph == 2  # Assert the upper bound for the graph without hydrogen stripping
 
 
 def test_calculate_assembly_lower_bound():
+    """
+    Test the calculation of the assembly lower bound for a molecule.
+
+    This function performs the following steps:
+    1. Defines a SMILES string representing a molecule.
+    2. Converts the SMILES string to a molecule object.
+    3. Calculates the assembly lower bound with hydrogen stripping enabled.
+    4. Asserts that the calculated lower bound is equal to 0.
+    5. Calculates the assembly lower bound without hydrogen stripping.
+    6. Asserts that the calculated lower bound is equal to 1.
+    7. Converts the molecule object to a NetworkX graph.
+    8. Calculates the assembly lower bound for the graph without hydrogen stripping.
+    9. Asserts that the calculated lower bound is equal to 1.
+
+    Asserts:
+        - The assembly lower bound with hydrogen stripping is equal to 0.
+        - The assembly lower bound without hydrogen stripping is equal to 1.
+        - The assembly lower bound for the graph without hydrogen stripping is equal to 1.
+    """
     print(flush=True)
-    smi_in = "[H]C#C[H]"
+    smi_in = "[H]C#C[H]"  # Define the SMILES string for the molecule
     # Convert the SMILES string to a molecule object
     mol = att.smi_to_mol(smi_in)
     # Test strip hydrogen flag
     ai_lower_bound = att.calculate_assembly_lower_bound(mol, strip_hydrogen=True)
-    assert ai_lower_bound == 0
+    assert ai_lower_bound == 0  # Assert the lower bound with hydrogen stripping
     # Test without stripping hydrogen
     ai_lower_bound = att.calculate_assembly_lower_bound(mol, strip_hydrogen=False)
-    assert ai_lower_bound == 1
+    assert ai_lower_bound == 1  # Assert the lower bound without hydrogen stripping
     # Convert the molecule object to a NetworkX graph
     ai_lower_bound_graph = att.calculate_assembly_lower_bound(att.mol_to_nx(mol), strip_hydrogen=False)
-    assert ai_lower_bound_graph == 1
+    assert ai_lower_bound_graph == 1  # Assert the lower bound for the graph without hydrogen stripping
