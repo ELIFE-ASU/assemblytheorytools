@@ -153,6 +153,28 @@ def calculate_assembly_index(mol,
                              strip_hydrogen=False,
                              return_log_file=False,
                              exact=False):
+    """
+    Calculate the assembly index for a given molecule.
+
+    This function processes a molecule to compute its assembly index using an external assembly tool.
+    It supports various input types, including NetworkX graphs, RDKit molecules, and `.mol` files.
+
+    Args:
+        mol (Union[nx.Graph, Chem.Mol, str]): The molecule to process. Can be a NetworkX graph, RDKit molecule, or a file path.
+        dir_code (str, optional): Path to the assembly tool executable. Defaults to None.
+        timeout (float, optional): Maximum time allowed for assembly index calculation. Defaults to 100.0 seconds.
+        debug (bool, optional): If True, enables debug mode and creates a timestamped directory. Defaults to False.
+        joint_corr (bool, optional): If True, applies joint correction to the assembly index. Defaults to True.
+        strip_hydrogen (bool, optional): If True, removes hydrogen atoms from the molecule before processing. Defaults to False.
+        return_log_file (bool, optional): If True, returns the path to the log file. Defaults to False.
+        exact (bool, optional): If True, calculates the exact assembly index. Defaults to False.
+
+    Returns:
+        tuple: Contains the assembly index, virtual object, pathway, and optionally the log file path.
+
+    Raises:
+        ValueError: If the input type is unsupported.
+    """
     # Initialize variables
     ai = -1
     virt_obj = None
@@ -162,6 +184,7 @@ def calculate_assembly_index(mol,
 
     # Check if input is a string and not a .mol file
     if isinstance(mol, str) and not mol.endswith(".mol"):
+        # Calculate assembly index directly for string input
         ai, virt_obj, path = CFG.ai_with_pathways(mol, f_print=False)
         return (ai, virt_obj, path) if not return_log_file else (ai, virt_obj, path, None)
 
@@ -300,6 +323,30 @@ def calculate_assembly_semi_metric(graph1,
                                    strip_hydrogen=False,
                                    exact=False,
                                    normalise=False):
+    """
+    Calculate the semi-metric distance between two molecular graphs.
+
+    This function computes the semi-metric distance between two molecular graphs
+    based on their assembly indices. The semi-metric distance is calculated as:
+    `2 * Joint Assembly Index - Sum of Individual Assembly Indices`.
+
+    Args:
+        graph1 (nx.Graph): The first molecular graph.
+        graph2 (nx.Graph): The second molecular graph.
+        dir_code (str, optional): Path to the assembly tool executable. Defaults to None.
+        timeout (float, optional): Maximum time allowed for assembly index calculation. Defaults to 100.0 seconds.
+        debug (bool, optional): If True, prints debug information. Defaults to False.
+        strip_hydrogen (bool, optional): If True, removes hydrogen atoms from the graphs before processing. Defaults to False.
+        exact (bool, optional): If True, calculates the exact assembly index. Defaults to False.
+        normalise (bool, optional): If True, normalizes the semi-metric distance by the sum of individual assembly indices. Defaults to False.
+
+    Returns:
+        float: The semi-metric distance between the two graphs. If `normalise` is True, returns the normalized distance.
+        int: Returns 0 if the graphs are isomorphic, or -1 if the joint assembly index calculation fails.
+
+    Raises:
+        AssertionError: If the inputs are not NetworkX graphs or are not connected graphs.
+    """
     # Make input type checks
     assert isinstance(graph1, nx.Graph), "Input must be a NetworkX graph"
     assert isinstance(graph2, nx.Graph), "Input must be a NetworkX graph"
