@@ -488,6 +488,7 @@ def test_calculate_assembly_index_parallel():
     ref_list = [3, 4, 3, 0, 3]
     assert att.check_elements(ai, ref_list)
 
+
 def test_node_canonicalization():
     """
     This is a specific example of a molecule that produced inaccurate assembly index results without node canonicalization.
@@ -513,26 +514,58 @@ def test_node_canonicalization():
     G.add_node(16, color='O')
     G.add_node(19, color='O')
 
-    G.add_edge(18,19, color=2)
-    G.add_edge(8,18, color=1)
-    G.add_edge(6,8, color=1)
-    G.add_edge(6,7, color=2)
-    G.add_edge(0,18, color=1)
-    G.add_edge(0,6, color=1)
-    G.add_edge(0,1, color=1)
-    G.add_edge(0,10, color=1)
-    G.add_edge(1,5, color=1)
-    G.add_edge(1,2, color=1)
-    G.add_edge(2,3, color=2)
-    G.add_edge(2,4, color=1)
-    G.add_edge(4,15, color=1)
-    G.add_edge(10,15, color=1)
-    G.add_edge(15,16, color=2)
-    G.add_edge(10,11, color=2)
-    G.add_edge(11,12, color=1)
-    G.add_edge(12,13, color=2)
-    G.add_edge(12,14, color=1)
+    G.add_edge(18, 19, color=2)
+    G.add_edge(8, 18, color=1)
+    G.add_edge(6, 8, color=1)
+    G.add_edge(6, 7, color=2)
+    G.add_edge(0, 18, color=1)
+    G.add_edge(0, 6, color=1)
+    G.add_edge(0, 1, color=1)
+    G.add_edge(0, 10, color=1)
+    G.add_edge(1, 5, color=1)
+    G.add_edge(1, 2, color=1)
+    G.add_edge(2, 3, color=2)
+    G.add_edge(2, 4, color=1)
+    G.add_edge(4, 15, color=1)
+    G.add_edge(10, 15, color=1)
+    G.add_edge(15, 16, color=2)
+    G.add_edge(10, 11, color=2)
+    G.add_edge(11, 12, color=1)
+    G.add_edge(12, 13, color=2)
+    G.add_edge(12, 14, color=1)
 
     a, _, _ = att.calculate_assembly_index(G)
 
     assert a == 8
+
+
+def test_calculate_assembly_upper_bound():
+    print(flush=True)
+    smi_in = "[H]C#C[H]"
+    # Convert the SMILES string to a molecule object
+    mol = att.smi_to_mol(smi_in)
+    # Test strip hydrogen flag
+    ai_upper_bound = att.calculate_assembly_upper_bound(mol, strip_hydrogen=True)
+    assert ai_upper_bound == 0
+    # Test without stripping hydrogen
+    ai_upper_bound = att.calculate_assembly_upper_bound(mol, strip_hydrogen=False)
+    assert ai_upper_bound == 2
+    # Convert the molecule object to a NetworkX graph
+    ai_upper_bound_graph = att.calculate_assembly_upper_bound(att.mol_to_nx(mol), strip_hydrogen=False)
+    assert ai_upper_bound_graph == 2
+
+
+def test_calculate_assembly_lower_bound():
+    print(flush=True)
+    smi_in = "[H]C#C[H]"
+    # Convert the SMILES string to a molecule object
+    mol = att.smi_to_mol(smi_in)
+    # Test strip hydrogen flag
+    ai_lower_bound = att.calculate_assembly_lower_bound(mol, strip_hydrogen=True)
+    assert ai_lower_bound == 0
+    # Test without stripping hydrogen
+    ai_lower_bound = att.calculate_assembly_lower_bound(mol, strip_hydrogen=False)
+    assert ai_lower_bound == 1
+    # Convert the molecule object to a NetworkX graph
+    ai_lower_bound_graph = att.calculate_assembly_lower_bound(att.mol_to_nx(mol), strip_hydrogen=False)
+    assert ai_lower_bound_graph == 1
