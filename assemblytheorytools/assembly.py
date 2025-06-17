@@ -12,6 +12,7 @@ from functools import partial
 from typing import Union, List
 
 import networkx as nx
+import numpy as np
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 
@@ -836,3 +837,81 @@ def calculate_assembly_index_parallel(mols, args):
 
     # Transpose and convert the results into lists
     return [list(group) for group in zip(*results)]
+
+
+def calculate_assembly_upper_bound(mol, strip_hydrogen=False):
+    """
+    Calculate the upper bound of the assembly index for a given molecule.
+
+    The upper bound is defined as the number of bonds in the molecule minus one.
+    This function supports input as a NetworkX graph, an RDKit molecule, or a file path to a `.mol` file.
+
+    Args:
+        mol (Union[nx.Graph, Chem.Mol, str]): The molecule, which can be a NetworkX graph, an RDKit molecule,
+                                              or a file path to a `.mol` file.
+        strip_hydrogen (bool, optional): If True, removes hydrogen atoms from the molecule before processing.
+                                         Defaults to False.
+
+    Returns:
+        int: The upper bound of the assembly index.
+
+    Raises:
+        ValueError: If the input molecule type is not supported.
+    """
+    # Check if the input is a NetworkX graph
+    if isinstance(mol, nx.Graph):
+        if strip_hydrogen:
+            mol = remove_hydrogen_from_graph(mol)
+    # Check if the input is an RDKit molecule
+    elif isinstance(mol, Chem.Mol):
+        if strip_hydrogen:
+            mol = Chem.RemoveHs(mol)
+    # Check if the input is a file path to a `.mol` file
+    elif isinstance(mol, str) and mol.endswith(".mol"):
+        mol = Chem.MolFromMolFile(mol)
+        if strip_hydrogen:
+            mol = Chem.RemoveHs(mol)
+    else:
+        # Raise an error if the input type is not supported
+        raise ValueError("Input not supported")
+
+    # Calculate the number of bonds in the molecule
+    n_bonds = mol.GetNumBonds() if isinstance(mol, Chem.Mol) else mol.number_of_edges()
+
+    # Return the upper bound of the assembly index
+    return n_bonds - 1
+
+
+def calculate_assembly_lower_bound(mol, strip_hydrogen=False):
+    """
+    Calculate the lower bound of the assembly index for a given molecule.
+
+    The lower bound is defined as the logarithm (base 2) of the number of bonds in the molecule.
+    This function supports input as a NetworkX graph, an RDKit molecule, or a file path to a `.mol` file.
+
+    Args:
+        mol (Union[nx.Graph, Chem.Mol, str]): The molecule, which can be a NetworkX graph, an RDKit molecule,
+                                              or a file path to a `.mol` file.
+        strip_hydrogen (bool, optional): If True, removes hydrogen atoms from the molecule before processing.
+                                         Defaults to False.
+
+    Returns:
+        int: The lower bound of the assembly index.
+
+    Raises:
+        ValueError: If the input molecule type is not supported.
+    """
+    if isinstance(mol, nx.Graph):
+        if strip_hydrogen:
+            mol = remove_hydrogen_from_graph(mol)
+    elif isinstance(mol, Chem.Mol):
+        if strip_hydrogen:
+            mol = Chem.RemoveHs(mol)
+    elif isinstance(mol, str) and mol.endswith(".mol"):
+        mol = Chem.MolFromMolFile(mol)
+        if strip_hydrogen:
+            mol = Chem.RemoveHs(mol)
+    else:
+        raise ValueError("Input not supported")
+    n_bonds = mol.GetNumBonds() if isinstance(mol, Chem.Mol) else mol.number_of_edges()
+    return int(np.log2(n_bonds))

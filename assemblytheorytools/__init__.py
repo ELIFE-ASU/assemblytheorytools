@@ -9,7 +9,9 @@ from .assembly import (calculate_assembly_index,
                        assembly_dry_run,
                        add_assembly_to_path,
                        load_assembly_time,
-                       calculate_assembly_index_parallel)
+                       calculate_assembly_index_parallel,
+                       calculate_assembly_upper_bound,
+                       calculate_assembly_lower_bound)
 from .complexity_scores import (molecular_weight,
                                 bertz_complexity,
                                 wiener_index,
