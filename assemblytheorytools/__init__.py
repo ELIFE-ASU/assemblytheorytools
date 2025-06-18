@@ -111,7 +111,7 @@ from .tools_string import (load_fasta,
                            generate_random_strings)
 from .tools_test import (check_elements, print_graph_details)
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 
 """
 AssemblyTheoryTools

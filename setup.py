@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='assemblytheorytools',
-    version='1.6.0',
+    version='1.7.0',
     author='Louie Slocombe',
     author_email='louies@hotmail.co.uk',
     description='A centralised set of tools for doing assembly theory calculations.',
