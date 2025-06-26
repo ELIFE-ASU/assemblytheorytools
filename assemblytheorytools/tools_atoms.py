@@ -2,10 +2,12 @@ import os
 import tempfile
 
 from ase.atoms import Atoms
+from ase.calculators.cp2k import CP2K
 from ase.calculators.orca import ORCA
 from ase.calculators.orca import OrcaProfile
 from ase.io import read
 from ase.units import Hartree
+from ase.units import Rydberg
 from rdkit import Chem as Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem import Descriptors
@@ -202,6 +204,69 @@ def standardise_smiles(smi):
 
     # Return the standardised SMILES string with specified options
     return Chem.MolToSmiles(mol, isomericSmiles=True, kekuleSmiles=True, canonical=True)
+
+
+def cp2k_calc_preset(cp2k_command=None,
+                     directory=None,
+                     cutoff=400,
+                     charge=0,
+                     multiplicity=1,
+                     basis_set='DZVP-MOLOPT-SR-GTH',
+                     xc='PBE',
+                     calc_extra=None,
+                     blocks_extra=None):
+    """
+    Creates and configures a CP2K calculator preset for quantum chemistry calculations.
+
+    Parameters:
+        cp2k_command (str, optional): Path to the CP2K executable. Defaults to the 'CP2K_COMMAND' environment variable or 'cp2k.popt'.
+        directory (str, optional): Directory to store calculation files. Defaults to a temporary directory.
+        cutoff (int, optional): Plane-wave cutoff energy in Rydberg. Defaults to 400.
+        charge (int, optional): Molecular charge. Defaults to 0.
+        multiplicity (int, optional): Spin multiplicity. Defaults to 1.
+        basis_set (str, optional): Basis set to use. Defaults to 'DZVP-MOLOPT-SR-GTH'.
+        xc (str, optional): Exchange-correlation functional. Defaults to 'PBE'.
+        calc_extra (dict, optional): Additional calculation options to update the FORCE_EVAL section. Defaults to None.
+        blocks_extra (dict, optional): Additional CP2K input blocks. Defaults to None.
+
+    Returns:
+        CP2K: Configured CP2K calculator object.
+    """
+    if cp2k_command is None:
+        cp2k_command = os.environ.get('CP2K_COMMAND', 'cp2k.popt')
+    if directory is None:
+        directory = tempfile.mkdtemp()
+
+    # Basic input setup
+    input_data = {
+        'GLOBAL': {
+            'PROJECT': 'cp2k_calc',
+            'RUN_TYPE': 'ENERGY'
+        },
+        'FORCE_EVAL': {
+            'METHOD': 'Quickstep',
+            'DFT': {
+                'BASIS_SET': basis_set,
+                'XC': {'XC_FUNCTIONAL': xc}
+            },
+            'CHARGE': charge,
+            'MULTIPLICITY': multiplicity
+        }
+    }
+
+    # Add extra input if provided
+    if calc_extra:
+        input_data['FORCE_EVAL'].update(calc_extra)
+    if blocks_extra:
+        input_data.update(blocks_extra)
+
+    calc = CP2K(
+        cutoff=cutoff * Rydberg,
+        command=cp2k_command,
+        directory=directory,
+        inp=input_data
+    )
+    return calc
 
 
 def orca_calc_preset(orca_path=None,
