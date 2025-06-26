@@ -11,52 +11,9 @@ from ase.units import Rydberg
 from rdkit import Chem as Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem import Descriptors
-from rdkit.Chem.MolStandardize import rdMolStandardize
 from rdkit.Chem.rdchem import Mol
 
 from .tools_mol import standardize_mol
-
-
-def sanitize_mol(mol):
-    """
-    Standardizes and normalizes the given molecule.
-
-    Parameters:
-    mol (rdkit.Chem.Mol): The molecule to be sanitized.
-
-    Returns:
-    rdkit.Chem.Mol: The sanitized molecule.
-    """
-    # Standardize the molecule
-    mol.UpdatePropertyCache(strict=False)
-    Chem.SetConjugation(mol)
-    Chem.SetHybridization(mol)
-    # Normalize the molecule
-    Chem.SanitizeMol(mol, sanitizeOps=(Chem.SANITIZE_ALL ^ Chem.SANITIZE_CLEANUP ^ Chem.SANITIZE_PROPERTIES))
-    # Update the properties
-    mol.UpdatePropertyCache(strict=False)
-    return mol
-
-
-def standardize_mol(mol):
-    """
-    Standardizes the given molecule by sanitizing, normalizing, and kekulizing it.
-
-    Parameters:
-    mol (rdkit.Chem.Mol): The molecule to be standardized.
-
-    Returns:
-    rdkit.Chem.Mol: The standardized molecule.
-    """
-    # Sanitize the molecule
-    mol = sanitize_mol(mol)
-    # Normalize the molecule
-    rdMolStandardize.NormalizeInPlace(mol)
-    # Kekulize the molecule
-    Chem.Kekulize(mol)
-    # Update the properties
-    mol.UpdatePropertyCache(strict=False)
-    return mol
 
 
 def smi_to_atoms(smiles: str) -> Atoms:
