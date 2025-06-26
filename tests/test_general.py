@@ -411,37 +411,112 @@ def test_cif_ai():
 
 @pytest.mark.slow
 def test_auto_compile():
+    """
+    Test that the C++ assembly backend can be successfully compiled
+    using `compile_assembly_code()` from `assemblytheorytools`.
+
+    Method:
+    - Calls the compilation utility with the expected source directory:
+      'assemblycpp-main' in the current working directory.
+    - Test passes if no exception is raised during the compilation process.
+
+    Notes:
+    - Requires C++ toolchain and build dependencies to be present.
+    - Mark this test as @pytest.mark.slow if included in a suite,
+      as compilation may take several seconds.
+    """
     print(flush=True)
+    # Attempt to compile the C++ backend in the specified source directory
     att.compile_assembly_code(os.path.join(os.getcwd(), "assemblycpp-main"))
     pass
 
 
 def test_plot_digraph_metro():
+    """
+    Test that a metro-style plot of an assembly pathway can be
+    generated and saved successfully.
+
+    Workflow:
+    - Loads a saved pathway graph from disk using `parse_pathway_file()`.
+    - Uses `plot_digraph_metro()` to generate a visual diagram.
+    - Saves the plot to 'test.png' and 'test.svg'.
+    - Verifies plot generation by removing the files afterward.
+
+    Notes:
+    - Expects 'data/pathway/tmpPathway' to be a valid pathway file
+      (e.g., from a prior call to `att.save_pathway()`).
+    - Passes if no exceptions occur during loading, plotting, or file cleanup.
+    """
     print(flush=True)
+    # Path to saved pathway file (should be a valid .json or .pkl file)
     pathway_str = "data/pathway/tmpPathway"
-    # Try to load the pathway
+
+    # Load the assembly pathway graph
     digraph = att.parse_pathway_file(pathway_str)
-    digraph, _ = digraph
+    digraph, _ = digraph  # Unpack the graph and VO list (we only need the graph)
+
+    # Plot the pathway as a metro-style graph and save to files
     att.plot_digraph_metro(digraph, filename="test")
+
+    # Clean up generated files
     os.remove("test.png")
     os.remove("test.svg")
-    pass
 
+    pass  
 
 def test_get_mol_descriptors():
+    """
+    Test that `get_mol_descriptors()` correctly calculates molecular
+    descriptors for a known compound (doravirine).
+
+    Molecule:
+    - Doravirine (an antiretroviral drug)
+    - SMILES: 'Cn1c(n[nH]c1=O)Cn2ccc(c(c2=O)Oc3cc(cc(c3)Cl)C#N)C(F)(F)F'
+
+    Method:
+    - Uses RDKit to generate a Mol object.
+    - Uses `assemblytheorytools.get_mol_descriptors()` to extract descriptors.
+
+    Assertions:
+    - Molecular Weight (MolWt) ≈ 425.754
+    - Bertz Complexity (BertzCT) ≈ 1236.821427
+
+    Notes:
+    - Uses rounding to avoid test failures due to small floating-point differences.
+    """
+    # Create an RDKit Mol object from SMILES for doravirine (a drug molecule)
     doravirine = Chem.MolFromSmiles('Cn1c(n[nH]c1=O)Cn2ccc(c(c2=O)Oc3cc(cc(c3)Cl)C#N)C(F)(F)F')
 
+    # Compute molecular descriptors using assemblytheorytools
     desc = att.get_mol_descriptors(doravirine)
-    assert desc['MolWt'] == 425.754
-    assert desc['BertzCT'] == 1236.821427505276
+
+    # Check expected descriptor values (approximate)
+    assert round(desc['MolWt'], 3) == 425.754
+    assert round(desc['BertzCT'], 6) == 1236.821427
 
 
 def test_tanimoto_similarity():
+    """
+    Test that Tanimoto similarity between RDKit topological fingerprints
+    is computed correctly for a set of small molecules.
+
+    Method:
+    - Uses `tanimoto_similarity()` from `assemblytheorytools`, which wraps
+      RDKit's topological fingerprinting and similarity computation.
+
+    Assertions:
+    - Similarity(CCOC, CCO)  == 0.6
+    - Similarity(CCOC, COC)  == 0.4
+    - Similarity(CCO,  COC)  == 0.25
+    """
     # https://www.rdkit.org/docs/GettingStartedInPython.html#rdkit-topological-fingerprints
+    
+    # Create RDKit Mol objects from SMILES
     ms = [Chem.MolFromSmiles('CCOC'),
           Chem.MolFromSmiles('CCO'),
           Chem.MolFromSmiles('COC')]
 
+    # Compute and assert Tanimoto similarities using att's wrapper
     sim = att.tanimoto_similarity(ms[0], ms[1])
     assert sim == 0.6
     sim = att.tanimoto_similarity(ms[0], ms[2])
@@ -451,22 +526,68 @@ def test_tanimoto_similarity():
 
 
 def test_dice_morgan_similarity():
+    """
+    Test that the Dice similarity between two small molecules,
+    computed using Morgan fingerprints (radius=2), returns the expected value.
+
+    Molecules:
+    - Toluene: SMILES = 'Cc1ccccc1'
+    - Methylpyridine: SMILES = 'Cc1ncccc1'
+
+    Method:
+    - Uses `dice_morgan_similarity()` from `assemblytheorytools`
+      with circular fingerprints of radius 2.
+
+    Assertion:
+    - The computed similarity must be equal to 0.55.
+    """
     # https://www.rdkit.org/docs/GettingStartedInPython.html#morgan-fingerprints-circular-fingerprints
-    m1 = Chem.MolFromSmiles('Cc1ccccc1')
-    m2 = Chem.MolFromSmiles('Cc1ncccc1')
+    
+    # Create two RDKit Mol objects from SMILES strings
+    m1 = Chem.MolFromSmiles('Cc1ccccc1')   # Toluene
+    m2 = Chem.MolFromSmiles('Cc1ncccc1')   # Methylpyridine
+
+    # Compute Dice similarity between Morgan fingerprints (circular)
     sim = att.dice_morgan_similarity(m1, m2, radius=2)
+
+    # Assert similarity value (approximate comparison recommended)
     assert sim == 0.55
 
 
 def test_get_chirality():
+    """
+    Test that the `get_chirality` function correctly counts the number
+    of chiral centers in a stereochemically defined molecule.
+
+    Assertion:
+    - The function must return 3, matching the number of explicitly defined
+      stereocenters in the SMILES string.
+    """
+    # SMILES string for a chiral molecule (likely a sugar derivative)
     smi = "OC[C@H]1OC=C[C@@H](O)[C@@H]1O"
+    
+    # Convert SMILES to RDKit Mol object
     mol = att.smi_to_mol(smi)
 
+    # Compute number of chiral centers
     chirality = att.get_chirality(mol)
+
+    # Assert the expected number of stereocenters
     assert chirality == 3
 
 
 def test_jai_self():
+    """
+    Test that the joint assembly index (JAI) of two identical molecules
+    is equal to the assembly index (AI) of a single instance.
+
+    This validates that JAI does not artificially increase when the
+    same molecule is duplicated, ensuring internal deduplication and
+    fragment reuse work as expected.
+
+    Assertion:
+    - The JAI of two identical molecules must equal the AI of one.
+    """
     print(flush=True)
     molecules = ["O=P(O)(O)OC[C@@H](O)[C@@H](O)c1c[nH]c2ccccc12", "O=P(O)(O)OC[C@@H](O)[C@@H](O)c1c[nH]c2ccccc12"]
     # Convert all the SMILES strings to molecule objects
@@ -481,6 +602,21 @@ def test_jai_self():
 
 
 def test_jai_asymmetric():
+    """
+    Test that assembly index computation is order-independent
+    for asymmetric molecule inputs.
+
+    This function verifies that combining two molecules in different
+    orders results in the same assembly index, confirming that the
+    calculation is not sensitive to the input list sequence.
+
+    Molecules:
+    - L-serine: "N[C@@H](CCO)C(=O)O"
+    - Citric acid: "O=C(O)CC(C(=O)O)C(O)C(=O)O"
+
+    Assertion:
+    - The calculated assembly indices (ai_1 and ai_2) should be equal.
+    """
     print(flush=True)
     molecules = ["N[C@@H](CCO)C(=O)O", "O=C(O)CC(C(=O)O)C(O)C(=O)O"]
     # Convert all the SMILES strings to molecule objects
