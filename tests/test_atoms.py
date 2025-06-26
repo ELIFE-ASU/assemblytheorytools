@@ -1,9 +1,9 @@
 import shutil
 import tempfile
-
+import time as t
 import numpy as np
 from ase.build import molecule
-
+import matplotlib.pyplot as plt
 import assemblytheorytools as att
 
 
@@ -43,6 +43,63 @@ def test_orca_calc_preset():
 
     # Clean up the temporary directory
     shutil.rmtree(temp_dir, ignore_errors=True)  # Remove the temporary directory
+
+
+def test_orca_speed():
+    """
+    Tests the performance of the ORCA quantum chemistry calculator by measuring
+    the time taken to compute the potential energy of a benzene molecule using
+    different numbers of processors.
+
+    The function performs the following steps:
+    1. Creates a benzene molecule (`C6H6`) using ASE.
+    2. Iterates over a list of processor counts (`n_procs`).
+    3. For each processor count, runs multiple calculations (`n_reps`) to compute
+       the potential energy and records the average and standard deviation of the times.
+    4. Plots the average computation time with error bars for each processor count.
+
+    Parameters:
+    None
+
+    Returns:
+    None
+    """
+    print(flush=True)
+    atoms = molecule('C6H6')  # Create a benzene molecule
+    n_reps = 5  # Number of repetitions for each processor count
+    n_procs = [1, 2, 4, 6, 8, 10]  # List of processor counts to test
+    time_avg = []  # List to store average times
+    time_std = []  # List to store standard deviations of times
+
+    for n in n_procs:
+        times_i = []  # List to store times for the current processor count
+        for i in range(n_reps):
+            # Set up the ORCA calculator with the specified parameters
+            temp_dir = tempfile.mkdtemp()  # Create a temporary directory
+            calc = att.orca_calc_preset(xc='r2SCAN-3c',
+                                        basis_set='def2-QZVP',
+                                        f_solv=False,
+                                        f_disp=False,
+                                        n_procs=n,
+                                        )
+            atoms.calc = calc  # Assign the calculator to the molecule
+            t1 = t.perf_counter()  # Start timing
+            _ = atoms.get_potential_energy()  # Compute the potential energy
+            t2 = t.perf_counter()  # End timing
+            times_i.append(t2 - t1)  # Record the time taken
+            # Clean up the temporary directory
+            shutil.rmtree(temp_dir, ignore_errors=True)  # Remove the temporary directory
+
+        time_avg.append(np.mean(times_i))  # Compute the average time
+        time_std.append(np.std(times_i))  # Compute the standard deviation
+        print(f"Time taken for {n} processors: {time_avg[-1]}+/{time_std[-1]}  seconds", flush=True)
+
+    # Plot the results
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.errorbar(n_procs, time_avg, yerr=time_std, fmt='o', capsize=5)  # Plot with error bars
+    att.ax_plot(fig, ax, xlab='Number of processors', ylab='Time (s)')  # Add axis labels
+    plt.show()  # Display the plot
+    pass
 
 
 def test_optimise_atoms():
