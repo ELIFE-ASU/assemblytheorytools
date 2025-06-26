@@ -643,59 +643,86 @@ def calculate_free_energy(atoms,
         return energy
 
 
-def get_virtual_objects_energy(mol: Mol) -> float:
+def get_virtual_objects_energy(mol_list,
+                               orca_path=None,
+                               xc='wB97X',
+                               basis_set='def2-SVP',
+                               calc_extra='TIGHTOPT FREQ',
+                               f_solv=False,
+                               f_disp=False,
+                               n_procs=10,
+                               ccsd_energy=False,
+                               atom_list=None,
+                               blocks_extra=None,
+                               scf_option=None):
     """
-    Calculate the potential energy of a molecule using the ORCA quantum chemistry package.
+    Calculate the free energy of a list of molecules.
 
-    This function performs the following steps:
-    1. Sanitises the molecule by adding hydrogens and ensuring it is chemically valid.
-    2. Determines the formal charge of the molecule.
-    3. Calculates the spin multiplicity based on the number of unpaired electrons.
-    4. Converts the RDKit molecule to an ASE Atoms object.
-    5. Sets up an ORCA calculator with specified parameters.
-    6. Attaches the calculator to the Atoms object and performs the energy calculation.
+    This function processes a list of RDKit molecule objects, converts them to ASE Atoms objects,
+    and calculates their free energy using the ORCA quantum chemistry package.
 
     Parameters:
     -----------
-    mol : rdkit.Chem.rdchem.Mol
-        An RDKit molecule object to calculate the energy for.
+    mol_list : list
+        A list of RDKit molecule objects to process.
+    orca_path : str, optional
+        Path to the ORCA executable. If None, the function attempts to read it from the environment variable 'ORCA_PATH'.
+    xc : str, optional
+        Exchange-correlation functional to use. Default is 'wB97X'.
+    basis_set : str, optional
+        Basis set to use for the calculation. Default is 'def2-SVP'.
+    calc_extra : str, optional
+        Additional calculation options for ORCA. Default is 'TIGHTOPT FREQ'.
+    f_solv : bool or str, optional
+        Solvent model to use. If True, defaults to 'WATER'. Default is False (no solvent).
+    f_disp : bool or str, optional
+        Dispersion correction to use. If True, defaults to 'D4'. Default is False (no dispersion correction).
+    n_procs : int, optional
+        Number of processors to use. Default is 10.
+    ccsd_energy : bool, optional
+        Whether to include CCSD energy correction. Default is False.
+    atom_list : list, optional
+        List of atoms for QM/MM calculations. Default is None.
+    blocks_extra : dict, optional
+        Additional ORCA input blocks. Default is None.
+    scf_option : str, optional
+        Additional SCF options for ORCA. Default is None.
 
     Returns:
     --------
-    float
-        The calculated potential energy of the molecule in eV.
-
-    Raises:
-    -------
-    ValueError
-        If the molecule cannot be sanitised or converted to an Atoms object.
+    list
+        A list of free energy values (in eV) for the input molecules.
     """
-    # Sanitise the molecule
-    mol = Chem.AddHs(mol)
-    Chem.SanitizeMol(mol)
+    energy_list = []
+    for mol in mol_list:
+        # Sanitise the molecule
+        mol = Chem.AddHs(mol)
+        Chem.SanitizeMol(mol)
 
-    # Get the formal charge of the molecule
-    charge = Chem.GetFormalCharge(mol)
+        # Get the formal charge of the molecule
+        charge = Chem.GetFormalCharge(mol)
 
-    # Get the spin multiplicity (note that this assumes the molecule has been correctly assigned a spin state)
-    multiplicity = get_spin_multiplicity(mol)
+        # Get the spin multiplicity
+        multiplicity = get_spin_multiplicity(mol)
 
-    # Convert the RDKit molecule to an ASE Atoms object
-    atoms = mol_to_atoms(mol)
+        # Convert the RDKit molecule to an ASE Atoms object
+        atoms = mol_to_atoms(mol)
 
-    # Set up the ORCA calculator
-    calc = orca_calc_preset(
-        xc='B3LYP',
-        charge=charge,
-        multiplicity=multiplicity,
-        basis_set='6-311G',
-        nprocs=1,
-        calc_extra='OPT'
-    )
-
-    # Attach the calculator to the atoms object
-    atoms.calc = calc
-
-    # Perform the calculation
-    energy = atoms.get_potential_energy()
-    return energy
+        # Perform the calculation
+        energy = calculate_free_energy(atoms,
+                                       charge=charge,
+                                       multiplicity=multiplicity,
+                                       orca_path=orca_path,
+                                       xc=xc,
+                                       basis_set=basis_set,
+                                       calc_extra=calc_extra,
+                                       f_solv=f_solv,
+                                       f_disp=f_disp,
+                                       n_procs=n_procs,
+                                       ccsd_energy=ccsd_energy,
+                                       atom_list=atom_list,
+                                       blocks_extra=blocks_extra,
+                                       scf_option=scf_option)
+        # Append the energy to the list
+        energy_list.append(energy)
+    return energy_list
