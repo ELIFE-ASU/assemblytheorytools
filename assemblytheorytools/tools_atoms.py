@@ -1,20 +1,18 @@
 import os
 import tempfile
 
-import numpy as np
 from ase.atoms import Atoms
 from ase.calculators.cp2k import CP2K
 from ase.calculators.orca import ORCA
 from ase.calculators.orca import OrcaProfile
-from ase.data import covalent_radii
-from ase.io import read
+from ase.io import read, write
 from ase.units import Hartree
 from ase.units import Rydberg
 from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem import Descriptors
+from rdkit.Chem import rdDetermineBonds
 from rdkit.Chem.rdchem import Mol
-from rdkit.Geometry import Point3D
 
 from .tools_mol import standardize_mol
 
@@ -90,48 +88,48 @@ def mol_to_atoms(mol: Mol, optimise: bool = True) -> Atoms:
 
 
 def atoms_to_mol(atoms,
-                 tolerance: float = 0.1,
-                 sanitize: bool = True) -> Chem.Mol:
+                 sanitize: bool = True,
+                 charge: int = 0) -> Chem.Mol:
     """
-    Converts an ASE Atoms object to an RDKit Mol object.
+    Convert an ASE Atoms object to an RDKit Mol object.
 
-    Args:
-        atoms: An ASE Atoms object containing atomic information such as positions and atomic numbers.
-        tolerance: A float specifying the tolerance for bond formation based on covalent radii. Default is 0.1.
-        sanitize: A boolean indicating whether to sanitize the resulting RDKit Mol object. Default is True.
+    This function writes the ASE Atoms object to a temporary XYZ file, reads it back
+    as an RDKit Mol object, and optionally sanitizes the molecule.
+
+    Parameters:
+    -----------
+    atoms : ase.Atoms
+        The ASE Atoms object representing the molecule.
+    sanitize : bool, optional
+        Whether to sanitize the RDKit Mol object and ensure correct aromaticity. Default is True.
+    charge : int, optional
+        The formal charge of the molecule. Default is 0.
 
     Returns:
-        Chem.Mol: An RDKit Mol object representing the molecule.
+    --------
+    rdkit.Chem.rdchem.Mol
+        The RDKit Mol object representing the molecule.
 
     Raises:
-        ValueError: If the molecule cannot be sanitized (only if `sanitize` is True).
+    -------
+    OSError
+        If the temporary XYZ file cannot be created or removed.
+    ValueError
+        If the RDKit Mol object cannot be created from the XYZ file.
     """
-    rw_mol = Chem.RWMol()  # Create a mutable RDKit molecule object.
+    # Open a temporary file to write the Atoms object in XYZ format
+    write('tmp.xyz', atoms, format='xyz')
+    raw_mol = Chem.MolFromXYZFile('tmp.xyz')
+    mol = Chem.Mol(raw_mol)
+    rdDetermineBonds.DetermineBonds(mol, charge=charge)
 
-    # Add atoms to the RDKit molecule based on atomic numbers from the ASE Atoms object.
-    for ase_atom in atoms:
-        rd_atom = Chem.Atom(int(ase_atom.number))  # Atomic number
-        rw_mol.AddAtom(rd_atom)
+    # Remove the temporary file
+    os.remove('tmp.xyz')
 
-    # Create a conformer to store 3D coordinates of the atoms.
-    conf = Chem.Conformer(len(atoms))
-    for i, (x, y, z) in enumerate(atoms.positions):
-        conf.SetAtomPosition(i, Point3D(float(x), float(y), float(z)))
-
-    # Add bonds between atoms based on distances and covalent radii.
-    coords = atoms.positions  # Atomic positions
-    z = atoms.numbers  # Atomic numbers
-    n = len(atoms)  # Number of atoms
-    for i in range(n):
-        for j in range(i + 1, n):
-            distance = np.linalg.norm(coords[i] - coords[j])  # Calculate distance between atoms i and j.
-            r_sum = covalent_radii[z[i]] + covalent_radii[z[j]] + tolerance  # Sum of covalent radii + tolerance.
-            if distance <= r_sum:  # If distance is within the threshold, add a bond.
-                rw_mol.AddBond(i, j, Chem.BondType.SINGLE)
-
-    mol = rw_mol.GetMol()  # Get the immutable RDKit Mol object.
     if sanitize:
-        Chem.SanitizeMol(mol)  # Sanitize the molecule to ensure chemical validity.
+        mol = standardize_mol(mol)
+        # Make sure the aromaticity is correct
+        Chem.Kekulize(mol)
     return mol
 
 
