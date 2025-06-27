@@ -60,8 +60,10 @@ from .reassembler import (assemble,
                           enumerate_heterocycles,
                           reassemble)
 from .seb_reassembler import (MoleculeGenerationAssemblyPool, Molecule, MoleculeSpace, Assemble)
-from .tools_atoms import (smi_to_atoms,
+from .tools_atoms import (smiles_to_atoms,
                           mol_to_atoms,
+                          atoms_to_mol,
+                          atoms_to_smiles,
                           get_charge,
                           get_spin_multiplicity,
                           standardise_smiles,

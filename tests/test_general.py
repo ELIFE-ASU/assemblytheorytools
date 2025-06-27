@@ -462,7 +462,8 @@ def test_plot_digraph_metro():
     os.remove("test.png")
     os.remove("test.svg")
 
-    pass  
+    pass
+
 
 def test_get_mol_descriptors():
     """
@@ -510,7 +511,7 @@ def test_tanimoto_similarity():
     - Similarity(CCO,  COC)  == 0.25
     """
     # https://www.rdkit.org/docs/GettingStartedInPython.html#rdkit-topological-fingerprints
-    
+
     # Create RDKit Mol objects from SMILES
     ms = [Chem.MolFromSmiles('CCOC'),
           Chem.MolFromSmiles('CCO'),
@@ -542,10 +543,10 @@ def test_dice_morgan_similarity():
     - The computed similarity must be equal to 0.55.
     """
     # https://www.rdkit.org/docs/GettingStartedInPython.html#morgan-fingerprints-circular-fingerprints
-    
+
     # Create two RDKit Mol objects from SMILES strings
-    m1 = Chem.MolFromSmiles('Cc1ccccc1')   # Toluene
-    m2 = Chem.MolFromSmiles('Cc1ncccc1')   # Methylpyridine
+    m1 = Chem.MolFromSmiles('Cc1ccccc1')  # Toluene
+    m2 = Chem.MolFromSmiles('Cc1ncccc1')  # Methylpyridine
 
     # Compute Dice similarity between Morgan fingerprints (circular)
     sim = att.dice_morgan_similarity(m1, m2, radius=2)
@@ -565,7 +566,7 @@ def test_get_chirality():
     """
     # SMILES string for a chiral molecule (likely a sugar derivative)
     smi = "OC[C@H]1OC=C[C@@H](O)[C@@H]1O"
-    
+
     # Convert SMILES to RDKit Mol object
     mol = att.smi_to_mol(smi)
 
@@ -655,7 +656,7 @@ def test_smi_to_atoms():
     """
     print(flush=True)
     smi = 'c1ccccc1'  # SMILES string for benzene
-    atoms = att.smi_to_atoms(smi)  # Convert the SMILES string to an ASE Atoms object
+    atoms = att.smiles_to_atoms(smi)  # Convert the SMILES string to an ASE Atoms object
 
     # Assert that the chemical formula is correct
     assert atoms.get_chemical_formula() == 'C6H6'

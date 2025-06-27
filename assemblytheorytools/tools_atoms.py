@@ -1,22 +1,25 @@
 import os
 import tempfile
 
+import numpy as np
 from ase.atoms import Atoms
 from ase.calculators.cp2k import CP2K
 from ase.calculators.orca import ORCA
 from ase.calculators.orca import OrcaProfile
+from ase.data import covalent_radii
 from ase.io import read
 from ase.units import Hartree
 from ase.units import Rydberg
-from rdkit import Chem as Chem
+from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem import Descriptors
 from rdkit.Chem.rdchem import Mol
+from rdkit.Geometry import Point3D
 
 from .tools_mol import standardize_mol
 
 
-def smi_to_atoms(smiles: str) -> Atoms:
+def smiles_to_atoms(smiles: str) -> Atoms:
     """
     Convert a SMILES string to an ASE Atoms object via an SDF file.
 
@@ -84,6 +87,70 @@ def mol_to_atoms(mol: Mol, optimise: bool = True) -> Atoms:
 
     # Return the ASE Atoms object
     return atoms
+
+
+def atoms_to_mol(atoms,
+                 tolerance: float = 0.1,
+                 sanitize: bool = True) -> Chem.Mol:
+    """
+    Converts an ASE Atoms object to an RDKit Mol object.
+
+    Args:
+        atoms: An ASE Atoms object containing atomic information such as positions and atomic numbers.
+        tolerance: A float specifying the tolerance for bond formation based on covalent radii. Default is 0.1.
+        sanitize: A boolean indicating whether to sanitize the resulting RDKit Mol object. Default is True.
+
+    Returns:
+        Chem.Mol: An RDKit Mol object representing the molecule.
+
+    Raises:
+        ValueError: If the molecule cannot be sanitized (only if `sanitize` is True).
+    """
+    rw_mol = Chem.RWMol()  # Create a mutable RDKit molecule object.
+
+    # Add atoms to the RDKit molecule based on atomic numbers from the ASE Atoms object.
+    for ase_atom in atoms:
+        rd_atom = Chem.Atom(int(ase_atom.number))  # Atomic number
+        rw_mol.AddAtom(rd_atom)
+
+    # Create a conformer to store 3D coordinates of the atoms.
+    conf = Chem.Conformer(len(atoms))
+    for i, (x, y, z) in enumerate(atoms.positions):
+        conf.SetAtomPosition(i, Point3D(float(x), float(y), float(z)))
+
+    # Add bonds between atoms based on distances and covalent radii.
+    coords = atoms.positions  # Atomic positions
+    z = atoms.numbers  # Atomic numbers
+    n = len(atoms)  # Number of atoms
+    for i in range(n):
+        for j in range(i + 1, n):
+            distance = np.linalg.norm(coords[i] - coords[j])  # Calculate distance between atoms i and j.
+            r_sum = covalent_radii[z[i]] + covalent_radii[z[j]] + tolerance  # Sum of covalent radii + tolerance.
+            if distance <= r_sum:  # If distance is within the threshold, add a bond.
+                rw_mol.AddBond(i, j, Chem.BondType.SINGLE)
+
+    mol = rw_mol.GetMol()  # Get the immutable RDKit Mol object.
+    if sanitize:
+        Chem.SanitizeMol(mol)  # Sanitize the molecule to ensure chemical validity.
+    return mol
+
+
+def atoms_to_smiles(atoms: Atoms) -> str:
+    """
+    Convert an ASE Atoms object to a SMILES string.
+
+    Parameters:
+    -----------
+    atoms : ase.Atoms
+        An ASE Atoms object representing the molecule.
+
+    Returns:
+    --------
+    str
+        The SMILES representation of the molecule.
+    """
+    mol = atoms_to_mol(atoms)
+    return Chem.MolToSmiles(mol, isomericSmiles=True, kekuleSmiles=True, canonical=True)
 
 
 def get_charge(mol: Mol) -> int:
