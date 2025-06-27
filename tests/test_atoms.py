@@ -4,7 +4,46 @@ import time as t
 import numpy as np
 from ase.build import molecule
 import matplotlib.pyplot as plt
+from rdkit import Chem
+
 import assemblytheorytools as att
+
+
+def test_smi_to_atoms():
+    """
+    Test the conversion of a SMILES string to an ASE Atoms object.
+
+    This function performs the following steps:
+    1. Defines a SMILES string for benzene ('c1ccccc1').
+    2. Converts the SMILES string to an ASE Atoms object using the `smi_to_atoms` function.
+    3. Asserts that the chemical formula of the resulting Atoms object is 'C6H6'.
+    4. Asserts that the number of atoms in the Atoms object is 12 (6 carbons and 6 hydrogens).
+
+    Asserts:
+        - The chemical formula of the Atoms object matches 'C6H6'.
+        - The total number of atoms in the Atoms object is 12.
+    """
+    print(flush=True)
+    smi = 'c1ccccc1'  # SMILES string for benzene
+    atoms = att.smiles_to_atoms(smi)  # Convert the SMILES string to an ASE Atoms object
+
+    # Assert that the chemical formula is correct
+    assert atoms.get_chemical_formula() == 'C6H6'
+    # Assert that the total number of atoms is correct
+    assert len(atoms) == 12
+
+
+def test_atoms_interconvert():
+    print(flush=True)
+    smi = '[H]C1=C([H])C([H])=C([H])C([H])=C1[H]'
+    atoms = att.smiles_to_atoms(smi)
+    smi_out = att.atoms_to_smiles(atoms)
+    assert smi_out == smi
+
+    smi = '[H]O[H]'
+    atoms = att.smiles_to_atoms(smi)
+    smi_out = att.atoms_to_smiles(atoms)
+    assert smi_out == smi
 
 
 def test_orca_calc_preset():
