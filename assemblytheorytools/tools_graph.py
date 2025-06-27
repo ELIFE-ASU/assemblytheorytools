@@ -450,6 +450,27 @@ def relabel_digraph(graph: nx.DiGraph) -> nx.DiGraph:
     return graph
 
 
+def relabel_identifiers(graph: nx.Graph) -> nx.Graph:
+    """
+    Relabel the nodes of a NetworkX graph using their "label" attribute.
+
+    This function replaces the current node identifiers in the input graph
+    with the values of their "label" attribute. It is useful for creating
+    a graph with more meaningful or human-readable node identifiers.
+
+    Args:
+        graph (nx.Graph): The input NetworkX graph whose nodes will be relabeled.
+
+    Returns:
+        nx.Graph: A new NetworkX graph with nodes relabeled based on their "label" attribute.
+
+    Note:
+        - The "label" attribute must exist for all nodes in the graph.
+        - If the "label" attribute is not unique, the resulting graph may have issues.
+    """
+    return nx.relabel_nodes(graph, {n: graph.nodes[n]["label"] for n in graph})
+
+
 def canonicalize_node_labels(graph: nx.Graph) -> nx.Graph:
     """
     Relabel the nodes of a NetworkX graph to a sequence of integers from 0 to n-1.
