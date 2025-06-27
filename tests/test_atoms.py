@@ -1,9 +1,10 @@
 import shutil
 import tempfile
 import time as t
+
+import matplotlib.pyplot as plt
 import numpy as np
 from ase.build import molecule
-import matplotlib.pyplot as plt
 from rdkit import Chem
 
 import assemblytheorytools as att
@@ -59,6 +60,64 @@ def test_atoms_interconvert():
     atoms = att.smiles_to_atoms(smi)  # Convert the SMILES string to an ASE Atoms object
     smi_out = att.atoms_to_smiles(atoms)  # Convert the Atoms object back to a SMILES string
     assert smi_out == smi  # Assert that the output matches the input
+
+
+def test_get_charge():
+    """
+    Test the `get_charge` function for calculating the charge of a molecule.
+
+    This function performs the following steps:
+    1. Defines a SMILES string for a neutral water molecule ('[H]O[H]').
+    2. Converts the SMILES string to an RDKit Mol object.
+    3. Calculates the charge of the molecule using the `get_charge` function.
+    4. Asserts that the charge is 0 for the neutral water molecule.
+    5. Repeats the process for a charged molecule (hydroxide ion, '[OH-]') and
+       asserts that the charge is -1.
+
+    Asserts:
+        - The charge of the water molecule is 0.
+        - The charge of the hydroxide ion is -1.
+    """
+    print(flush=True)
+    smi = '[H]O[H]'  # SMILES string for water
+    mol = Chem.MolFromSmiles(smi)
+    charge = att.get_charge(mol)  # Calculate the charge of the molecule
+    assert charge == 0, "Charge should be zero for a neutral water molecule"  # Verify the charge
+
+    # Test with a charged molecule (e.g., hydroxide ion)
+    smi = '[OH-]'  # SMILES string for hydroxide ion
+    mol = Chem.MolFromSmiles(smi)
+    charge = att.get_charge(mol)  # Calculate the charge of the hydroxide ion
+    assert charge == -1, "Charge should be -1 for hydroxide ion"  # Verify the charge
+
+
+def test_get_spin_multiplicity():
+    """
+    Test the `get_spin_multiplicity` function for calculating the spin multiplicity of a molecule.
+
+    This function performs the following steps:
+    1. Defines a SMILES string for a water molecule ('[H]O[H]').
+    2. Converts the SMILES string to an RDKit Mol object.
+    3. Calculates the spin multiplicity of the molecule using the `get_spin_multiplicity` function.
+    4. Asserts that the spin multiplicity is 1 for the singlet state of the water molecule.
+    5. Repeats the process for a molecule with unpaired electrons (oxygen radical, '[O]') and
+       asserts that the spin multiplicity is 3 for the triplet state.
+
+    Asserts:
+        - The spin multiplicity of the water molecule is 1.
+        - The spin multiplicity of the oxygen radical is 3.
+    """
+    print(flush=True)
+    smi = '[H]O[H]'  # SMILES string for water
+    mol = Chem.MolFromSmiles(smi)
+    spin_mult = att.get_spin_multiplicity(mol)  # Calculate the spin multiplicity
+    assert spin_mult == 1, "Spin multiplicity should be 1 for a singlet state"  # Verify the result
+
+    # Test with a molecule that has unpaired electrons (e.g., oxygen radical)
+    smi = '[O]'  # SMILES string for oxygen radical
+    mol = Chem.MolFromSmiles(smi)
+    spin_mult = att.get_spin_multiplicity(mol)  # Calculate the spin multiplicity
+    assert spin_mult == 3, "Spin multiplicity should be 2 for a doublet state (one unpaired electron)"  # Verify the result
 
 
 def test_orca_calc_preset():
