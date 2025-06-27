@@ -66,7 +66,6 @@ from .tools_atoms import (smiles_to_atoms,
                           atoms_to_smiles,
                           get_charge,
                           get_spin_multiplicity,
-                          standardise_smiles,
                           cp2k_calc_preset,
                           orca_calc_preset,
                           optimise_atoms,
@@ -108,7 +107,8 @@ from .tools_mol import (safe_standardize_mol,
                         combine_mols,
                         write_v2k_mol_file,
                         split_mols,
-                        get_element_set_from_mols)
+                        get_element_set_from_mols,
+                        standardise_smiles)
 from .tools_mp import (mp_calc,
                        mp_calc_star,
                        tp_calc)

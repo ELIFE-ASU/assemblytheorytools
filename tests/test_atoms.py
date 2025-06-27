@@ -34,16 +34,31 @@ def test_smi_to_atoms():
 
 
 def test_atoms_interconvert():
-    print(flush=True)
-    smi = '[H]C1=C([H])C([H])=C([H])C([H])=C1[H]'
-    atoms = att.smiles_to_atoms(smi)
-    smi_out = att.atoms_to_smiles(atoms)
-    assert smi_out == smi
+    """
+    Test the interconversion between SMILES strings and ASE Atoms objects.
 
-    smi = '[H]O[H]'
-    atoms = att.smiles_to_atoms(smi)
-    smi_out = att.atoms_to_smiles(atoms)
-    assert smi_out == smi
+    This function performs the following steps:
+    1. Converts a SMILES string to an ASE Atoms object using the `smiles_to_atoms` function.
+    2. Converts the resulting Atoms object back to a SMILES string using the `atoms_to_smiles` function.
+    3. Asserts that the output SMILES string matches the input SMILES string.
+
+    The test is repeated for two different SMILES strings:
+    - Benzene ('[H]C1=C([H])C([H])=C([H])C([H])=C1[H]')
+    - Water ('[H]O[H]')
+
+    Asserts:
+        - The output SMILES string matches the input SMILES string for each test case.
+    """
+    print(flush=True)
+    smi = '[H]C1=C([H])C([H])=C([H])C([H])=C1[H]'  # SMILES string for benzene
+    atoms = att.smiles_to_atoms(smi)  # Convert the SMILES string to an ASE Atoms object
+    smi_out = att.atoms_to_smiles(atoms)  # Convert the Atoms object back to a SMILES string
+    assert smi_out == smi  # Assert that the output matches the input
+
+    smi = '[H]O[H]'  # SMILES string for water
+    atoms = att.smiles_to_atoms(smi)  # Convert the SMILES string to an ASE Atoms object
+    smi_out = att.atoms_to_smiles(atoms)  # Convert the Atoms object back to a SMILES string
+    assert smi_out == smi  # Assert that the output matches the input
 
 
 def test_orca_calc_preset():

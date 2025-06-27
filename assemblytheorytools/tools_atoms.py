@@ -194,40 +194,6 @@ def get_spin_multiplicity(mol: Mol) -> int:
     return multiplicity
 
 
-def standardise_smiles(smi):
-    """
-    Standardise a SMILES (Simplified Molecular Input Line Entry System) string.
-
-    This function takes a SMILES string, adds explicit hydrogens to the molecule,
-    and returns a standardised version of the SMILES string with canonical, isomeric,
-    and Kekulé representations.
-
-    Parameters:
-    -----------
-    smi : str
-        The input SMILES string to be standardised.
-
-    Returns:
-    --------
-    str
-        The standardised SMILES string.
-
-    Raises:
-    -------
-    ValueError
-        If the input SMILES string is invalid and cannot be parsed.
-    """
-    # Convert the SMILES string to an RDKit molecule object and add explicit hydrogens
-    mol = Chem.AddHs(Chem.MolFromSmiles(smi, sanitize=True))
-
-    # Raise an error if the molecule could not be created
-    if not mol:
-        raise ValueError(f"Invalid SMILES: {smi}")
-
-    # Return the standardised SMILES string with specified options
-    return Chem.MolToSmiles(mol, isomericSmiles=True, kekuleSmiles=True, canonical=True)
-
-
 def cp2k_calc_preset(cp2k_command=None,
                      directory=None,
                      cutoff=400,
