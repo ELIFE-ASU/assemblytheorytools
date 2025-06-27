@@ -449,19 +449,26 @@ def relabel_digraph(graph: nx.DiGraph) -> nx.DiGraph:
             graph.nodes[node]["label"] = f"Step {step}"
     return graph
 
-def nxG_canonicalize_node_labels(G):
-    """
-    This function takes a networkx graph and makes its node labels 
-    into a sequence of integers from 0 to n-1, where n is the number of nodes.
-    Input graph will potentially skip some numbers, so this function will
-    relabel the nodes to be a sequence of integers from 0 to n-1.
 
-    This will make the code more stable.
+def canonicalize_node_labels(graph: nx.Graph) -> nx.Graph:
     """
-    # Get the current node labels
-    current_labels = list(G.nodes())
-    # Create a mapping from current labels to new labels
+    Relabel the nodes of a NetworkX graph to a sequence of integers from 0 to n-1.
+
+    This function ensures that the node labels in the input graph are a contiguous
+    sequence of integers starting from 0. This is useful for stabilizing the graph
+    structure when the original node labels are non-sequential or arbitrary.
+
+    Args:
+        graph (nx.Graph): The input NetworkX graph whose nodes need to be relabeled.
+
+    Returns:
+        nx.Graph: A new NetworkX graph with nodes relabeled to a sequence of integers
+                  from 0 to n-1.
+    """
+    # Get the current node labels from the graph
+    current_labels = list(graph.nodes())
+    # Create a mapping from current labels to new sequential labels
     label_mapping = {current_labels[i]: i for i in range(len(current_labels))}
-    # Relabel the graph
-    G = nx.relabel_nodes(G, label_mapping)
-    return G
+    # Relabel the graph using the mapping
+    graph = nx.relabel_nodes(graph, label_mapping)
+    return graph

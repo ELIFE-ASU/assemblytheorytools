@@ -23,7 +23,7 @@ from .pathway import (get_pathway_to_graph,
 from .tools_graph import (write_ass_graph_file,
                           remove_hydrogen_from_graph,
                           nx_to_mol,
-                          nxG_canonicalize_node_labels)
+                          canonicalize_node_labels)
 from .tools_mol import (write_v2k_mol_file,
                         combine_mols,
                         safe_standardize_mol)
@@ -201,7 +201,7 @@ def calculate_assembly_index(mol,
         if isinstance(mol, nx.Graph):
             if strip_hydrogen:
                 mol = remove_hydrogen_from_graph(mol)
-            mol = nxG_canonicalize_node_labels(mol)
+            mol = canonicalize_node_labels(mol)
             file_path_in = os.path.join(temp_dir, "graph_in")
             write_ass_graph_file(mol, file_name=file_path_in)
         # Input is an RDKit mol
@@ -287,7 +287,7 @@ def calculate_assembly_index(mol,
         if os.path.isfile(file_path_pathway):
             try:
                 if isinstance(mol, nx.Graph):
-                    mol = nxG_canonicalize_node_labels(mol)
+                    mol = canonicalize_node_labels(mol)
                     virt_obj = get_pathway_to_graph(file_path_pathway)
                     path = parse_pathway_file(file_path_pathway, vo_type='graph')
                 elif isinstance(mol, Chem.Mol):
