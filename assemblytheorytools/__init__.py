@@ -134,12 +134,7 @@ powerful molecular and graph analysis capabilities.
 
 Contributors:
 ------------
-Louie Slocombe
-Joey Fedrow
-Estelle Janin
-Gage Siebert
-Veronica Mierzejewski
-Marina Fernandez-Ruz
+Louie Slocombe, Joey Fedrow, Estelle Janin, Gage Siebert, Keith Patarroyo, Ian Seet, Sebastian Pagel, Veronica Mierzejewski, Marina Fernandez-Ruz.
 
 Key Features:
 ------------
