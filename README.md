@@ -24,7 +24,7 @@ To contribute, branch the repo, make changes, and submit a pull request.
 
 # Contributors
 
-Louie Slocombe, Joey Fedrow, Estelle Janin, Gage Siebert, Veronica Mierzejewski, Marina Fernandez-Ruz.
+Louie Slocombe, Joey Fedrow, Estelle Janin, Gage Siebert, Keith Patarroyo, Ian Seet, Sebastian Pagel, Veronica Mierzejewski, Marina Fernandez-Ruz.
 
 # Installation instructions
 
