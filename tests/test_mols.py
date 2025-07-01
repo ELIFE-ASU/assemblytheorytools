@@ -706,3 +706,27 @@ def test_calculate_assembly_lower_bound():
     # Convert the molecule object to a NetworkX graph
     ai_lower_bound_graph = att.calculate_assembly_lower_bound(att.mol_to_nx(mol), strip_hydrogen=False)
     assert ai_lower_bound_graph == 1  # Assert the lower bound for the graph without hydrogen stripping
+
+
+def test_standardise_smiles():
+    """
+    Tests the standardization of a SMILES string using the `standardise_smiles` function.
+
+    Steps:
+    1. Defines an input SMILES string ('O').
+    2. Calls the `standardise_smiles` function to standardize the input.
+    3. Verifies that the output is a string.
+    4. Asserts that the standardized output matches the expected value ('[H]O[H]').
+
+    Parameters:
+    None
+
+    Returns:
+    None
+    """
+    smi_in = 'O'  # Input SMILES string
+    out = att.standardise_smiles(smi_in)  # Standardize the SMILES string
+    # Check that the output is a string
+    assert isinstance(out, str)
+    # Check that the output matches the expected standardized SMILES
+    assert out == '[H]O[H]'
