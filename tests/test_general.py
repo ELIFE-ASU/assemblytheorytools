@@ -880,19 +880,23 @@ def test_circle_plot():
 
 
 def test_calculate_assembly_similarity():
+    """
+    Test the calculation of assembly similarity between two molecular graphs.
+
+    This function performs the following steps:
+    1. Converts two SMILES strings to NetworkX graphs.
+    2. Calculates the assembly similarity between the two graphs using the `calculate_assembly_similarity` function.
+    3. Prints the calculated similarity value.
+    4. Asserts that the calculated similarity matches the expected value.
+
+    Asserts:
+        - The calculated similarity is equal to 0.75.
+    """
     print(flush=True)
-    mol1 = att.mol_to_nx(att.smi_to_mol("C1=CC=CC=C1"))
-    mol2 = att.mol_to_nx(att.smi_to_mol("C1=CC=CC=C1O"))
-    #
-    # ai_sum = att.calculate_assembly_index(mol1, strip_hydrogen=True)[0] + att.calculate_assembly_index(mol2, strip_hydrogen=True)[0]
-    # # Calculate the joint assembly index
-    # jai, _, _ = att.calculate_assembly_index(nx.disjoint_union(mol1,mol2), strip_hydrogen=True)
-    #
-    # similarity = att.calculate_assembly_similarity(ai_sum, jai)
-    # print(similarity)
-    # assert similarity == 0.75
-    similarity = att.calculate_assembly_similarity([mol1, mol2], {'strip_hydrogen': True})
+    graphs = [att.smi_to_nx("C1=CC=CC=C1"), att.smi_to_nx("C1=CC=CC=C1O")]
+    similarity = att.calculate_assembly_similarity(graphs, {'strip_hydrogen': True})
     print(similarity)
+    assert similarity == 0.75
 
 
 def test_join_graphs():

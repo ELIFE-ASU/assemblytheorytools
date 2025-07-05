@@ -23,7 +23,8 @@ from .pathway import (get_pathway_to_graph,
 from .tools_graph import (write_ass_graph_file,
                           remove_hydrogen_from_graph,
                           nx_to_mol,
-                          canonicalize_node_labels)
+                          canonicalize_node_labels,
+                          join_graphs)
 from .tools_mol import (write_v2k_mol_file,
                         combine_mols,
                         safe_standardize_mol)
@@ -940,6 +941,19 @@ def calculate_assembly_lower_bound(mol, strip_hydrogen=False):
 
 
 def _core_calc_ass_sim(ai_sum: int, ai_jai: int) -> float:
+    """
+    Compute the assembly similarity based on the sum of individual assembly indices and the joint assembly index.
+
+    This function calculates the assembly similarity using the formula:
+    `(ai_sum / ai_jai) - 1.0` if `ai_jai` is not zero. If `ai_jai` is zero, the similarity is set to 0.0.
+
+    Args:
+        ai_sum (int): The sum of assembly indices for individual graphs.
+        ai_jai (int): The joint assembly index for the combined graph.
+
+    Returns:
+        float: The calculated assembly similarity value. Returns 0.0 if `ai_jai` is zero.
+    """
     if ai_jai != 0:
         ai_sim = (ai_sum / ai_jai) - 1.0
     else:
@@ -948,17 +962,34 @@ def _core_calc_ass_sim(ai_sum: int, ai_jai: int) -> float:
 
 
 def calculate_assembly_similarity(graphs, calc_settings=None) -> float:
+    """
+    Calculate the assembly similarity for a set of molecular graphs.
+
+    This function computes the assembly similarity by:
+    1. Calculating the sum of assembly indices for individual graphs.
+    2. Calculating the joint assembly index for the combined graph.
+    3. Using a core similarity calculation function to compute the final similarity.
+
+    Args:
+        graphs (list[nx.Graph]): A list of NetworkX graphs representing molecular structures.
+        calc_settings (dict, optional): A dictionary of settings for the assembly index calculation. Defaults to None.
+
+    Returns:
+        float: The calculated assembly similarity value.
+
+    Raises:
+        ValueError: If the input list of graphs is empty.
+    """
     if calc_settings is None:
         calc_settings = {}
 
     # Loop over the graphs in the input
     ai_sum = 0
-    joint_graph = nx.Graph()
     for graph in graphs:
         ai_sum += calculate_assembly_index(graph, **calc_settings)[0]
-        # Get the combined joint graph
-        joint_graph = nx.disjoint_union(joint_graph, graph)
 
-    jai = calculate_assembly_index(joint_graph, **calc_settings)[0]
+    # Calculate the joint assembly index for the combined graph
+    jai = calculate_assembly_index(join_graphs(graphs), **calc_settings)[0]
 
-    return calculate_assembly_similarity(ai_sum, jai)
+    # Return the assembly similarity using the core calculation function
+    return _core_calc_ass_sim(ai_sum, jai)
