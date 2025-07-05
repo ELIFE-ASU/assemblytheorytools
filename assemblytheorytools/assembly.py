@@ -968,6 +968,20 @@ def calculate_assembly_similarity(graphs, calc_settings=None) -> float:
     return _core_calc_ass_sim(ai_sum, jai)
 
 
+def regularise_ai(ai):
+    """
+    Regularise the assembly index to be non-negative
+    :param ai: Assembly index
+    :return: Regularised assembly index
+    """
+    if ai < 0:
+        return 0
+    elif ai is None:
+        return 0
+    else:
+        return ai
+
+
 def calculate_assembly_index_parallel(mols, args):
     """
     Calculates the assembly index for a list of molecules in parallel.
@@ -993,20 +1007,6 @@ def calculate_assembly_index_parallel(mols, args):
 
     # Transpose and convert the results into lists
     return [list(group) for group in zip(*results)]
-
-
-def regularise_ai(ai):
-    """
-    Regularise the assembly index to be non-negative
-    :param ai: Assembly index
-    :return: Regularised assembly index
-    """
-    if ai < 0:
-        return 0
-    elif ai is None:
-        return 0
-    else:
-        return ai
 
 
 def get_sum_assembly(trials, ai):

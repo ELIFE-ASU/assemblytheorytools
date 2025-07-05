@@ -12,7 +12,11 @@ from .assembly import (calculate_assembly_index,
                        calculate_assembly_index_parallel,
                        calculate_assembly_upper_bound,
                        calculate_assembly_lower_bound,
-                       calculate_assembly_similarity)
+                       calculate_assembly_similarity,
+                       regularise_ai,
+                       calculate_assembly_index_parallel,
+                       get_parallel_sum_assembly,
+                       get_parallel_joint_assembly)
 from .complexity_scores import (molecular_weight,
                                 bertz_complexity,
                                 wiener_index,
