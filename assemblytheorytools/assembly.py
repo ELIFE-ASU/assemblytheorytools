@@ -946,6 +946,23 @@ def get_parallel_sum_assembly(list_trials, smiles, strip_hydrogen=False):
     return np.array(get_sum_assembly(list_trials, ai_list), dtype=int)
 
 
+def _get_joint_assembly(random_indices, smiles=None, strip_hydrogen=False):
+    # Combine selected SMILES strings into a single string separated by dots
+    smiles_combined = ".".join(smiles[s] for s in random_indices)
+    # Create a molecule object from the combined SMILES string and add hydrogens
+    mol = Chem.AddHs(Chem.MolFromSmiles(smiles_combined, sanitize=True))
+    # Calculate and regularise the assembly index with hydrogens stripped
+    return regularise_ai(calculate_assembly_index(mol, strip_hydrogen=strip_hydrogen)[0])
+
+
+def get_parallel_joint_assembly(list_trials, smiles, strip_hydrogen=False, quantum=False):
+    joint_assembly_func = partial(_get_joint_assembly,
+                                  smiles=smiles,
+                                  strip_hydrogen=strip_hydrogen,
+                                  quantum=quantum)
+    return np.array(mp_calc(joint_assembly_func, list_trials), dtype=int)
+
+
 def calculate_assembly_upper_bound(mol, strip_hydrogen=False):
     """
     Calculate the upper bound of the assembly index for a given molecule.
