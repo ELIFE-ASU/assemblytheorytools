@@ -37,6 +37,44 @@ def test_graph_to_mol():
     assert att.is_graph_isomorphic(graph, att.mol_to_nx(mol_out))
 
 
+def test_smi_to_nx_conversion():
+    """
+    Test the conversion of a SMILES string to a NetworkX graph and back to a SMILES string.
+
+    This function performs the following steps:
+    1. Converts a SMILES string to a NetworkX graph.
+    2. Converts the NetworkX graph back to a SMILES string.
+    3. Asserts that the original SMILES string and the converted SMILES string are equal.
+
+    Asserts:
+        - The converted SMILES string is equal to the original SMILES string.
+    """
+    print(flush=True)
+    smi = "[H][O][H]"
+    graph = att.smi_to_nx(smi)
+    smi_out = att.nx_to_smi(graph)
+    assert smi_out == smi, f"Expected {smi}, but got {smi_out}"
+
+
+def test_inchi_to_nx_conversion():
+    """
+    Test the conversion of an InChI string to a NetworkX graph and back to an InChI string.
+
+    This function performs the following steps:
+    1. Converts an InChI string to a NetworkX graph.
+    2. Converts the NetworkX graph back to an InChI string.
+    3. Checks if the original InChI string and the converted InChI string are equal.
+
+    Asserts:
+        - The converted InChI string is equal to the original InChI string.
+    """
+    print(flush=True)
+    inchi = "InChI=1S/H2O/h1H2"
+    graph = att.inchi_to_nx(inchi)
+    inchi_out = att.nx_to_inchi(graph)
+    assert inchi_out == inchi, f"Expected {inchi}, but got {inchi_out}"
+
+
 def test_hydrogen_stripping():
     """
     Test the calculation of the assembly index for a molecule with and without hydrogen stripping.
