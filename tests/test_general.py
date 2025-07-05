@@ -893,3 +893,42 @@ def test_calculate_assembly_similarity():
     # assert similarity == 0.75
     similarity = att.calculate_assembly_similarity([mol1, mol2], {'strip_hydrogen': True})
     print(similarity)
+
+
+def test_join_graphs():
+    """
+    Test the functionality of joining and splitting molecular graphs.
+
+    This function performs the following steps:
+    1. Creates two molecular graphs from SMILES strings.
+    2. Joins the two graphs into a single graph.
+    3. Asserts that the joined graph has the correct number of nodes and edges.
+    4. Splits the joined graph back into its disconnected subgraphs.
+    5. Asserts that the split subgraphs have the correct number of nodes and edges.
+    6. Verifies that the original graphs are isomorphic to the split subgraphs.
+
+    Asserts:
+        - The joined graph has 5 nodes and 3 edges.
+        - The split subgraphs have the correct number of nodes and edges.
+        - The original graphs are isomorphic to the split subgraphs.
+    """
+    print(flush=True)
+    # Create a molecular graph for water
+    g1 = att.smi_to_nx('[H][O][H]')
+    # Create a molecular graph for oxygen
+    g2 = att.smi_to_nx('[O][O]')
+    # Join the two graphs into a single graph
+    joined = att.join_graphs([g1, g2])
+    assert joined.number_of_nodes() == 5
+    assert joined.number_of_edges() == 3
+
+    # Split the joined graph back into its components
+    g1_split, g2_split = att.get_disconnected_subgraphs(joined)
+    assert g1_split.number_of_nodes() == 3
+    assert g1_split.number_of_edges() == 2
+    assert g2_split.number_of_nodes() == 2
+    assert g2_split.number_of_edges() == 1
+
+    # Check that the original graphs are equal to the split graphs
+    assert nx.is_isomorphic(g1, g1_split)
+    assert nx.is_isomorphic(g2, g2_split)
