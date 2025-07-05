@@ -289,7 +289,7 @@ def read_graphml(file_name: str = "graph.graphml") -> nx.Graph:
     return nx.read_graphml(os.path.abspath(file_name))
 
 
-def get_bond_smiles(mol: Chem.Mol) -> Set[str]:
+def get_bond_smi(mol: Chem.Mol) -> Set[str]:
     """
     Get the list of bonds of the system in SMILES format.
 
@@ -325,7 +325,7 @@ def get_bond_smiles(mol: Chem.Mol) -> Set[str]:
     return bond_smiles
 
 
-def graph_to_smiles(graph: nx.Graph, add_hydrogens: bool = True) -> str:
+def nx_to_smi(graph: nx.Graph, add_hydrogens: bool = True) -> str:
     """
     Convert a NetworkX graph to a SMILES string.
 
@@ -340,7 +340,7 @@ def graph_to_smiles(graph: nx.Graph, add_hydrogens: bool = True) -> str:
     return Chem.MolToSmiles(mol, allHsExplicit=True, kekuleSmiles=True)
 
 
-def graph_to_inchi(graph: nx.Graph, add_hydrogens: bool = True) -> str:
+def nx_to_inchi(graph: nx.Graph, add_hydrogens: bool = True) -> str:
     """
     Convert a NetworkX graph to an InChI string.
 
