@@ -939,21 +939,26 @@ def calculate_assembly_lower_bound(mol, strip_hydrogen=False):
     return int(np.log2(n_bonds))
 
 
-def calculate_assembly_similarity(ai_sum: int, ai_jai: int) -> float:
-    """
-    Calculate the assembly similarity metric.
-
-    This function computes the similarity between two assembly indices based on their sum and joint assembly index.
-
-    Args:
-        ai_sum (int): The sum of individual assembly indices.
-        ai_jai (int): The joint assembly index.
-
-    Returns:
-        float: The assembly similarity metric. If `ai_jai` is 0, returns 0.0.
-    """
+def _core_calc_ass_sim(ai_sum: int, ai_jai: int) -> float:
     if ai_jai != 0:
         ai_sim = (ai_sum / ai_jai) - 1.0
     else:
         ai_sim = 0.0
     return ai_sim
+
+
+def calculate_assembly_similarity(graphs, calc_settings=None) -> float:
+    if calc_settings is None:
+        calc_settings = {}
+
+    # Loop over the graphs in the input
+    ai_sum = 0
+    joint_graph = nx.Graph()
+    for graph in graphs:
+        ai_sum += calculate_assembly_index(graph, **calc_settings)[0]
+        # Get the combined joint graph
+        joint_graph = nx.disjoint_union(joint_graph, graph)
+
+    jai = calculate_assembly_index(joint_graph, **calc_settings)[0]
+
+    return calculate_assembly_similarity(ai_sum, jai)

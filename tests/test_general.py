@@ -839,3 +839,19 @@ def test_circle_plot():
 
     assert os.path.isfile('circle_plot.png'), "Failed to generate the file."
     os.remove('circle_plot.png')
+
+
+def test_calculate_assembly_similarity():
+    print(flush=True)
+    mol1 = att.mol_to_nx(att.smi_to_mol("C1=CC=CC=C1"))
+    mol2 = att.mol_to_nx(att.smi_to_mol("C1=CC=CC=C1O"))
+    #
+    # ai_sum = att.calculate_assembly_index(mol1, strip_hydrogen=True)[0] + att.calculate_assembly_index(mol2, strip_hydrogen=True)[0]
+    # # Calculate the joint assembly index
+    # jai, _, _ = att.calculate_assembly_index(nx.disjoint_union(mol1,mol2), strip_hydrogen=True)
+    #
+    # similarity = att.calculate_assembly_similarity(ai_sum, jai)
+    # print(similarity)
+    # assert similarity == 0.75
+    similarity = att.calculate_assembly_similarity([mol1, mol2], {'strip_hydrogen': True})
+    print(similarity)
