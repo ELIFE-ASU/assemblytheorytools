@@ -937,3 +937,23 @@ def calculate_assembly_lower_bound(mol, strip_hydrogen=False):
         raise ValueError("Input not supported")
     n_bonds = mol.GetNumBonds() if isinstance(mol, Chem.Mol) else mol.number_of_edges()
     return int(np.log2(n_bonds))
+
+
+def calculate_assembly_similarity(ai_sum: int, ai_jai: int) -> float:
+    """
+    Calculate the assembly similarity metric.
+
+    This function computes the similarity between two assembly indices based on their sum and joint assembly index.
+
+    Args:
+        ai_sum (int): The sum of individual assembly indices.
+        ai_jai (int): The joint assembly index.
+
+    Returns:
+        float: The assembly similarity metric. If `ai_jai` is 0, returns 0.0.
+    """
+    if ai_jai != 0:
+        ai_sim = (ai_sum / ai_jai) - 1.0
+    else:
+        ai_sim = 0.0
+    return ai_sim
