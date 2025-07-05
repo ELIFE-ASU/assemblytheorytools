@@ -1,5 +1,6 @@
 import os
 import random
+from functools import reduce
 from typing import Set
 from typing import Tuple, List
 
@@ -259,6 +260,60 @@ def get_disconnected_subgraphs(graph: nx.Graph) -> List[nx.Graph]:
         List[nx.Graph]: A list of subgraphs, each representing a connected component.
     """
     return [graph.subgraph(c) for c in nx.connected_components(graph)]
+
+
+def join_graphs(graphs: List[nx.Graph], disjoint: int = True, rename_prefix: str = "G") -> nx.Graph:
+    """
+    Combine multiple NetworkX graphs into a single graph.
+
+    This function merges a list of NetworkX graphs into one. It supports two modes:
+    - Disjoint union: Ensures no node ID clashes by creating separate components for each graph.
+    - Composition: Combines graphs while preserving node IDs, unless conflicts are detected.
+
+    Args:
+        graphs (List[nx.Graph]): A list of NetworkX graphs to be combined.
+        disjoint (int, optional): If True, performs a disjoint union of the graphs.
+                                  If False, attempts to compose the graphs. Default is True.
+        rename_prefix (str, optional): Prefix used for relabeling nodes in case of conflicts. Default is "G".
+
+    Returns:
+        nx.Graph: The combined graph.
+
+    Raises:
+        ValueError: If the input list of graphs is empty.
+        TypeError: If the graphs are not of the same NetworkX type.
+
+    Note:
+        - When `disjoint` is False, node ID clashes are checked. If clashes exist, nodes are relabeled with a prefix.
+    """
+    graphs = list(graphs)  # Convert the input iterable to a list
+    if not graphs:
+        raise ValueError("Need at least one graph.")
+
+        # Ensure all inputs have the same concrete class
+    first_type = type(graphs[0])
+    if any(type(g) is not first_type for g in graphs[1:]):
+        raise TypeError("All graphs must be of the same NetworkX type.")
+
+    # Perform a disjoint union of the graphs
+    if disjoint:
+        return reduce(nx.disjoint_union, graphs)
+
+    # Check for node ID clashes
+    node_sets = [set(g) for g in graphs]
+    if all(node_sets[i].isdisjoint(node_sets[j])
+           for i in range(len(node_sets)) for j in range(i + 1, len(node_sets))):
+        # Compose graphs directly if no clashes are detected
+        return nx.compose_all(graphs)
+
+    # Relabel nodes with a prefix to avoid clashes
+    relabelled = []
+    for i, g in enumerate(graphs):
+        # Add prefix to node labels
+        prefix = f"{rename_prefix}{i}_"
+        relabelled.append(nx.relabel_nodes(g, lambda n, p=prefix: f"{p}{n}"))
+    # Compose the relabeled graphs
+    return nx.compose_all(relabelled)
 
 
 def write_graphml(graph: nx.Graph, file_name: str = "graph.graphml") -> None:
