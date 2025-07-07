@@ -730,3 +730,36 @@ def test_standardise_smiles():
     assert isinstance(out, str)
     # Check that the output matches the expected standardized SMILES
     assert out == '[H]O[H]'
+
+
+def test_vo_problem():
+    print(flush=True)
+    smi = [
+        'O',  # H2O
+        'O=S=O',  # SO2
+        'OS(=O)(=O)O',  # H2SO4
+    ]
+    print(f'input smi: {smi}',flush=True)
+    graphs = [att.smi_to_nx(s) for s in smi]
+    mols = [att.smi_to_mol(s) for s in smi]
+
+    venus_smi = [att.nx_to_smi(g) for g in graphs]
+    print(f'back converted smi: {venus_smi}')
+
+    for i in range(len(graphs)):
+        print(f'\ngraph {i} smi: {att.nx_to_smi(graphs[i])}', flush=True)
+        ai, virt_obj, path = att.calculate_assembly_index(graphs[i])
+        print(f'ai: {ai}', flush=True)
+        virt_obj = att.convert_pathway_dict_to_list(virt_obj)
+        # convert to smi
+        virt_obj = [Chem.MolToSmiles(att.nx_to_mol(graph, add_hydrogens=False)) for graph in virt_obj]
+        print('from vo', virt_obj)
+
+        virt_obj = path[-1]
+        # convert to smi
+        virt_obj = [Chem.MolToSmiles(att.nx_to_mol(graph, add_hydrogens=False)) for graph in virt_obj]
+        print('from graph path', virt_obj)
+
+        ai, virt_obj, path = att.calculate_assembly_index(mols[i])
+        virt_obj = path[-1]
+        print('from mol path', virt_obj)
