@@ -171,7 +171,7 @@ def get_pathway_to_mol(file_path: str) -> dict[str, list[Chem.Mol]]:
     # Convert each section to RDKit molecule objects and store in out_dict
     for key in ['file_graph', 'remnant', 'duplicates', 'removed_edges']:
         if key in graphs:
-            out_dict[key] = [nx_to_mol(g) for g in graphs[key]]
+            out_dict[key] = [nx_to_mol(g, add_hydrogens=False) for g in graphs[key]]
     return out_dict
 
 
@@ -191,7 +191,7 @@ def get_pathway_to_inchi(file_path: str) -> dict[str, list[str]]:
     # Convert each section to InChI and store in out_dict
     for key in ['file_graph', 'remnant', 'duplicates', 'removed_edges']:
         if key in graphs:
-            out_dict[key] = [Chem.MolToInchi(nx_to_mol(g)) for g in graphs[key]]
+            out_dict[key] = [Chem.MolToInchi(nx_to_mol(g, add_hydrogens=False)) for g in graphs[key]]
     return out_dict
 
 
@@ -211,7 +211,7 @@ def get_pathway_to_smi(file_path: str) -> dict[str, list[str]]:
     # Convert each section and store in out_dict
     for key in ['file_graph', 'remnant', 'duplicates', 'removed_edges']:
         if key in graphs:
-            out_dict[key] = [Chem.MolToSmiles(nx_to_mol(g)) for g in graphs[key]]
+            out_dict[key] = [Chem.MolToSmiles(nx_to_mol(g, add_hydrogens=False)) for g in graphs[key]]
     return out_dict
 
 
@@ -235,7 +235,7 @@ def get_mol_pathway_to_inchi(pathway: dict[str, list[nx.Graph | Chem.Mol]]) -> d
     for key in ['file_graph', 'remnant', 'duplicates', 'removed_edges']:
         if key in pathway:
             if dtype == nx.Graph:
-                out_dict[key] = [Chem.MolToInchi(nx_to_mol(g)) for g in pathway[key]]
+                out_dict[key] = [Chem.MolToInchi(nx_to_mol(g, add_hydrogens=False)) for g in pathway[key]]
             else:
                 out_dict[key] = [Chem.MolToInchi(g) for g in pathway[key]]
     return out_dict
@@ -261,7 +261,7 @@ def get_mol_pathway_to_smi(pathway: dict[str, list[nx.Graph | Chem.Mol]]) -> dic
     for key in ['file_graph', 'remnant', 'duplicates', 'removed_edges']:
         if key in pathway:
             if dtype == nx.Graph:
-                out_dict[key] = [Chem.MolToSmiles(nx_to_mol(g)) for g in pathway[key]]
+                out_dict[key] = [Chem.MolToSmiles(nx_to_mol(g, add_hydrogens=False)) for g in pathway[key]]
             else:
                 out_dict[key] = [Chem.MolToSmiles(g) for g in pathway[key]]
     return out_dict
