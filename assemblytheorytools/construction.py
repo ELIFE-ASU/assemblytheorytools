@@ -240,12 +240,12 @@ def tables_to_nx(tables):
     graph = nx.Graph()
 
     # Add nodes with atom type attributes
-    for atom_idx, atom_type in atoms_info:
-        graph.add_node(atom_idx, color=atom_type)
+    for i, v in enumerate(atoms_info):
+        graph.add_node(i, color=v[1])
 
     # Add edges with bond type attributes
-    for start_idx, end_idx, bond_type in bonds_info:
-        graph.add_edge(start_idx, end_idx, color=int(bond_type))
+    for e in bonds_info:
+        graph.add_edge(e[0], e[1], color=int(e[2]))
 
     return graph
 
@@ -527,7 +527,7 @@ class AssemblyConstruction:
         Raises:
         -------
             ValueError: If `self.vo_type` is not one of 'graph', 'mol', 'smiles', or 'inchi'.
-        """    
+        """
         # Generate the virtual objects
         molecules_vo = []
         for atom in self.atoms_list:
