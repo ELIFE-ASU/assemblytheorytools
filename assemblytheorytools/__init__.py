@@ -34,7 +34,7 @@ from .complexity_scores import (molecular_weight,
                                 compress_zlib_graph,
                                 decompress_zlib_graph,
                                 compression_zlib_graph)
-from .construction import parse_pathway_file
+from .construction import parse_pathway_file, assign_levels
 from .construction_string import (generate_string_pathway_ian,
                                   get_graph_string_explicit)
 from .find_other_paths import (all_shortest_paths)
@@ -65,7 +65,6 @@ from .reassembler import (assemble,
                           enumerate_heterocycles,
                           reassemble)
 from .seb_reassembler import (MoleculeGenerationAssemblyPool, Molecule, MoleculeSpace, Assemble)
-from .tools_assemblydepth import assign_levels
 from .tools_atoms import (smiles_to_atoms,
                           mol_to_atoms,
                           atoms_to_mol,
