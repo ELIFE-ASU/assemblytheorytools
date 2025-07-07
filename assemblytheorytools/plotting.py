@@ -595,7 +595,7 @@ def _plot_directed_network(nodes: List[str],
         node_color=node_color,
         edge_color=edge_color,
         node_size=node_size,
-        font_size=node_size / 100,
+        font_size=node_size / 200,
         font_color="black",
         arrowstyle="->",
         arrowsize=arrow_size,
@@ -613,7 +613,7 @@ def _plot_directed_network(nodes: List[str],
 def plot_assembly_circle(nodes,
                          adj_matrix=None,
                          assembly_indices=None,
-                         labels=True,
+                         labels=None,
                          node_size=1000,
                          arrow_size=80,
                          node_color='Skyblue',
@@ -622,38 +622,38 @@ def plot_assembly_circle(nodes,
                          filename='assembly_circles.png'):
     '''
     Here is a function to plot a graph, where objects are displayed in concentric
-    circles according to their assembly index. 
+    circles according to their assembly index.
 
         Parameters:
         ----------
         nodes : list
             A list of nodes in the network that are to be visualized.
-        
+
         assembly_indices (OPTIONAL): list or numpy.ndarray
             If not provided, they will be calculated for strings.
-            
+
         adj_matrix (OPTIONAL, but recommended): numpy.ndarray
             A square adjacency matrix representing the relationships between nodes.
             If adj_matrix[i, j] >= 1, it signifies that node i points to node j.
             If not provided, rules_graph will be used as adjacency matrix.
             IMPORTANT: if provided, must be assembly-consistent, that is, all nodes
-            must be pointed to by at least one node with a lower assembly index, 
+            must be pointed to by at least one node with a lower assembly index,
             except for nodes with the minimum assembly index, which will be considered
-            the building blocks. 
-        
+            the building blocks.
+
         labels : list
             A list of labels corresponding to the nodes. These labels can be used for debugging or display purposes.
-        
+
         node_size : float
-        
+
         arrow_size (OPTIONAL): float
-        
+
         node_color (OPTIONAL): str or list
-        
+
         edge_color (OPTIONAL): str or list
-        
+
         fig_size (OPTIONAL): float
-        
+
         filename (OPTIONAL): str
 
     '''
@@ -704,13 +704,19 @@ def plot_assembly_circle(nodes,
     x_positions = (assembly_indices + 1) * np.cos(angles)
     y_positions = (assembly_indices + 1) * np.sin(angles)
 
+    # Add custom labels if not "None"
+    if labels is None:
+        display_labels = nodes
+    else:
+        display_labels = labels
+
     # Plot the network
-    fig, ax = _plot_directed_network(nodes,
+    fig, ax = _plot_directed_network(display_labels,
                                      adj_matrix,
                                      x_positions,
                                      y_positions,
                                      max_ai,
-                                     labels,
+                                     True,  # always show labels if custom provided
                                      node_size,
                                      arrow_size,
                                      node_color,
