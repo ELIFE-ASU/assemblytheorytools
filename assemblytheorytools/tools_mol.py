@@ -74,8 +74,8 @@ def smi_to_mol(smi: str, add_hydrogens: bool = True, safe_sanitise: bool = False
     """
     if '.' in smi:
         print("You have ionic molecules in your set, make sure you handle them appropriately. "
-              "Have a look at the create_ionic_molecule function in tools_graphs.py")
-    mol = Chem.MolFromSmiles(smi)
+              "Have a look at the create_ionic_molecule function in tools_graphs.py", flush=True)
+    mol = Chem.MolFromSmiles(smi, sanitize=False)
     # Sanitise the molecule
     if safe_sanitise:
         return safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
@@ -95,7 +95,7 @@ def inchi_to_mol(inchi: str, add_hydrogens: bool = True, safe_sanitise: bool = F
     Returns:
         Chem.Mol: The standardized RDKit molecule.
     """
-    mol = Chem.MolFromInchi(inchi)
+    mol = Chem.MolFromInchi(inchi, sanitize=False)
     # Sanitise the molecule
     if safe_sanitise:
         return safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
@@ -116,7 +116,7 @@ def molfile_to_mol(mol: str, add_hydrogens: bool = True, safe_sanitise: bool = F
         Chem.Mol: The standardized RDKit molecule.
     """
     # Convert the Molfile to an RDKit molecule
-    mol = Chem.MolFromMolFile(mol)
+    mol = Chem.MolFromMolFile(mol, sanitize=False)
     # Standardise the molecule
     if safe_sanitise:
         return safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
