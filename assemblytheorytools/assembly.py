@@ -296,7 +296,7 @@ def calculate_assembly_index(mol,
                     path = parse_pathway_file(file_path_pathway, vo_type='smiles')
                 elif ".mol" in mol:
                     virt_obj = get_pathway_to_inchi(file_path_pathway)
-                    path = parse_pathway_file(file_path_pathway, vo_type='smiles')
+                    path = parse_pathway_file(file_path_pathway, vo_type='inchi')
                 else:
                     virt_obj = None
                     path = (None, None)
