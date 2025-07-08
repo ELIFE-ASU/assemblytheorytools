@@ -906,6 +906,34 @@ def test_calculate_assembly_parallel():
     assert ai_list == [3, 4]
 
 
+def test_calculate_sum_assembly():
+    """
+    Test the calculation of the sum of assembly indices for molecular graphs.
+
+    This function performs the following steps:
+    1. Converts two SMILES strings to NetworkX graphs.
+    2. Defines settings for the assembly index calculation.
+    3. Calculates the sum of assembly indices in parallel mode.
+    4. Asserts that the calculated sum matches the expected value.
+    5. Calculates the sum of assembly indices in sequential mode.
+    6. Asserts that the calculated sum matches the expected value.
+
+    Asserts:
+        - The sum of assembly indices is equal to 7 in both parallel and sequential modes.
+    """
+    print(flush=True)
+    # Convert SMILES strings to NetworkX graphs
+    graphs = [att.smi_to_nx("C1=CC=CC=C1"), att.smi_to_nx("C1=CC=CC=C1O")]
+    # Define settings for the assembly index calculation
+    settings = {'strip_hydrogen': True}
+    # Calculate the sum of assembly indices in parallel mode
+    ai_sum = att.calculate_sum_assembly(graphs, settings, parallel=True)
+    assert ai_sum == 7
+    # Calculate the sum of assembly indices in sequential mode
+    ai_sum = att.calculate_sum_assembly(graphs, settings, parallel=False)
+    assert ai_sum == 7
+
+
 def test_calculate_assembly_similarity():
     """
     Test the calculation of assembly similarity between two molecular graphs.
@@ -921,10 +949,11 @@ def test_calculate_assembly_similarity():
     """
     print(flush=True)
     graphs = [att.smi_to_nx("C1=CC=CC=C1"), att.smi_to_nx("C1=CC=CC=C1O")]
-    similarity = att.calculate_assembly_similarity(graphs, {'strip_hydrogen': True}, parallel=True)
+    settings = {'strip_hydrogen': True}
+    similarity = att.calculate_assembly_similarity(graphs, settings, parallel=True)
     print(similarity, flush=True)
     assert similarity == 0.75
-    similarity = att.calculate_assembly_similarity(graphs, {'strip_hydrogen': True}, parallel=False)
+    similarity = att.calculate_assembly_similarity(graphs, settings, parallel=False)
     print(similarity, flush=True)
     assert similarity == 0.75
 
