@@ -22,6 +22,9 @@ Currently, ATT supports and connects to:
 - Approximate fast methods [https://github.com/ELIFE-ASU/CFGgraph](https://github.com/ELIFE-ASU/CFGgraph).
 - Strings [https://github.com/ELIFE-ASU/CFG](https://github.com/ELIFE-ASU/CFG).
 
+If you find this package useful, please cite the following papers: 
+Sharma _et al._ 2023 and Seet _et al._ 2024 which can be found in paper.bib.
+
 # Getting started
 Checkout the requirements and installation instructions below.
 
@@ -33,7 +36,7 @@ pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git
 The code needs a compiled assemblyCPP, which is included in this package. 
 However, if you want to use your own version, you can do so by setting the `ASS_PATH` environmental 
 variable to the path of your AssemblyCPP installation.
-For example, put `export ASS_PATH=/data/grp_swalke10/asscpp/v5_boost/asscpp` in your submission 
+For example, put `export ASS_PATH=/home/user/asscpp` in your submission 
 script or your `.bashrc`. 
 For compilation instructions to make your own version from source checkout AssemblyCPP for instructions.
 
