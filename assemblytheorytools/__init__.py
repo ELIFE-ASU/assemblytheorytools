@@ -13,6 +13,7 @@ from .assembly import (calculate_assembly_index,
                        calculate_assembly_lower_bound,
                        regularise_ai,
                        calculate_assembly_parallel,
+                       calculate_sum_assembly,
                        calculate_assembly_similarity)
 from .complexity_scores import (molecular_weight,
                                 bertz_complexity,

@@ -948,6 +948,27 @@ def calculate_assembly_parallel(graphs, settings):
     return [list(group) for group in zip(*results)]
 
 
+def calculate_sum_assembly(graphs, settings, parallel=True):
+    """
+    Calculate the sum of assembly indices for a list of molecular graphs.
+
+    Args:
+        graphs (list): List of molecular graphs to process.
+        settings (dict): Settings for the assembly index calculation.
+        parallel (bool, optional): If True, calculate assembly indices in parallel. Defaults to True.
+
+    Returns:
+        int: The sum of assembly indices for the input graphs.
+    """
+    # Calculate assembly indices based on the parallel flag
+    if parallel:
+        ai_list = calculate_assembly_parallel(graphs, settings)[0]
+    else:
+        ai_list = [calculate_assembly_index(graph, **settings)[0] for graph in graphs]
+    # Sum the assembly indices
+    return sum(ai_list)
+
+
 def calculate_assembly_similarity(graphs, settings, parallel=True) -> float:
     """
     Calculate the assembly similarity index for a set of graphs.
@@ -971,24 +992,3 @@ def calculate_assembly_similarity(graphs, settings, parallel=True) -> float:
 
     # Compute the assembly similarity index
     return (ai_sum / ai_jai - 1.0) if ai_jai != 0 else 0.0
-
-
-def calculate_sum_assembly(graphs, settings, parallel=True):
-    """
-    Calculate the sum of assembly indices for a list of molecular graphs.
-
-    Args:
-        graphs (list): List of molecular graphs to process.
-        settings (dict): Settings for the assembly index calculation.
-        parallel (bool, optional): If True, calculate assembly indices in parallel. Defaults to True.
-
-    Returns:
-        int: The sum of assembly indices for the input graphs.
-    """
-    # Calculate assembly indices based on the parallel flag
-    if parallel:
-        ai_list = calculate_assembly_parallel(graphs, settings)[0]
-    else:
-        ai_list = [calculate_assembly_index(graph, **settings)[0] for graph in graphs]
-    # Sum the assembly indices
-    return sum(ai_list)
