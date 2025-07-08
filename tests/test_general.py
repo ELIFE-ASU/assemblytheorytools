@@ -879,6 +879,33 @@ def test_circle_plot():
     os.remove('circle_plot.png')
 
 
+def test_calculate_assembly_parallel():
+    """
+    Test the parallel calculation of assembly indices for molecular graphs.
+
+    This function performs the following steps:
+    1. Converts two SMILES strings to NetworkX graphs.
+    2. Defines settings for the assembly index calculation.
+    3. Calculates the assembly indices for the graphs in parallel.
+    4. Prints the calculated assembly indices.
+    5. Asserts that the calculated assembly indices match the expected values.
+
+    Asserts:
+        - The calculated assembly indices are [3, 4].
+    """
+    print(flush=True)
+    # Convert SMILES strings to NetworkX graphs
+    graphs = [att.smi_to_nx("C1=CC=CC=C1"), att.smi_to_nx("C1=CC=CC=C1O")]
+    # Define settings for the assembly index calculation
+    settings = {'strip_hydrogen': True}
+    # Calculate assembly indices in parallel
+    ai_list = att.calculate_assembly_parallel(graphs, settings)[0]
+    # Print the calculated assembly indices
+    print(ai_list)
+    # Assert that the calculated assembly indices match the expected values
+    assert ai_list == [3, 4]
+
+
 def test_calculate_assembly_similarity():
     """
     Test the calculation of assembly similarity between two molecular graphs.
@@ -894,8 +921,11 @@ def test_calculate_assembly_similarity():
     """
     print(flush=True)
     graphs = [att.smi_to_nx("C1=CC=CC=C1"), att.smi_to_nx("C1=CC=CC=C1O")]
-    similarity = att.calculate_assembly_similarity(graphs, {'strip_hydrogen': True})
-    print(similarity)
+    similarity = att.calculate_assembly_similarity(graphs, {'strip_hydrogen': True}, parallel=True)
+    print(similarity, flush=True)
+    assert similarity == 0.75
+    similarity = att.calculate_assembly_similarity(graphs, {'strip_hydrogen': True}, parallel=False)
+    print(similarity, flush=True)
     assert similarity == 0.75
 
 
