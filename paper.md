@@ -30,9 +30,12 @@ authors:
     affiliation: 1
 affiliations:
   - name: Beyond Center for Fundamental Concepts in Science, Arizona State University, United States
-   index: 1
+    index: 1
   - name: Centro De Astrobiologia-CAB, Spain
-   index: 1
+    index: 2
+  - name: School of Earth and Space Exploration, Arizona State University, United States
+  - index: 3
+      
 date: 30 June 2025
 bibliography: paper.bib
 ---
@@ -90,12 +93,15 @@ In molecular assembly space, the joining operations are defined by: $J(x,y,z)=1$
 
 # Statement of Need
 
-`Assembly Theory Tools` (ATT) is a Python package for doing Assembly Theory calculations. 
-`ATT` was designed to be used by both researchers working at the interface between 
+`AssemblyTheoryTools` (ATT) is a Python package for doing Assembly Theory calculations. 
+ATT was designed to be used by both researchers working at the interface between 
 complexity, evolution, and synthetic chemistry, and students in courses on complexity. 
 Over the years, the initial code base for doing Assembly calculations has been 
 continually refined, starting from the GO language, to C++, to now being wrapped within
 Python for ease of use and exploration.
+
+ATT is the centralised package for doing Assembly Theory calculations, 
+it is primarily a tools ecosystem that interfaces with other packages such as CFG, assemblyCPP, and CFGgraph.
 
 # Functionality and Usage Examples
 
@@ -103,7 +109,7 @@ Python for ease of use and exploration.
 
 # Availability and Governance
 
-`Assembly Theory Tools` source code and documentation are available on [GitHub](https://github.com/ELIFE-ASU/assemblytheorytools). The package is licensed under the MIT license.
+`AssemblyTheoryTools` source code and documentation are available on [GitHub](https://github.com/ELIFE-ASU/assemblytheorytools). The package is licensed under the MIT license.
 External feedback and code contributions are handled through the usual Issues and Pull Request interfaces; guidelines for contributions are listed in `HACKING.md`.
 The project's maintainers (initially Louie Slocombe and Gage Siebert) will govern it using the committee model: high-level decisions about the project's direction require maintainer consensus, major code changes require majority approval, hotfixes and patches require at least one approval, new maintainers may be added by unanimous decision of the existing maintainers, and existing maintainers may step down with advance notice.
 
@@ -111,10 +117,26 @@ The project's maintainers (initially Louie Slocombe and Gage Siebert) will gover
 
 # Author Contributions
 
+Louie Slocombe, orchestration, development and conceptualisation.
 
+Joey Fedrow, development, maintenance, documentation.
+
+Estelle Janin, bonding and joint assembly index calculations,
+
+Gage Siebert, string assembly index calculations and CFG integration.
+
+Keith Patarroyo, assembly path reconstruction and visualisation.
+
+Ian Seet, joining operations index calculations.
+
+Sebastian Pagel, reassembly calculations and visualisation.
+
+Veronica Mierzejewski, integration of reassembly calculations.
+
+Marina Fernandez-Ruz, visualisation and circle plots.
 
 # Acknowledgements
 
-
+Louie Slocombe acknowledges support from the Beyond Center for Fundamental Concepts in Science at Arizona State University.
 
 # References
