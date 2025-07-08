@@ -804,7 +804,7 @@ def add_assembly_to_path(str_mode=False):
     return os.environ.get(key)
 
 
-def load_assembly_time():
+def load_assembly_time() -> float:
     """
     Load the assembly time from the most recent output file in the most recent "ai_calc_" folder.
 
@@ -835,7 +835,7 @@ def load_assembly_time():
     return float(time_to_completion) * 1e-6
 
 
-def calculate_assembly_upper_bound(mol, strip_hydrogen=False):
+def calculate_assembly_upper_bound(mol, strip_hydrogen=False) -> int:
     """
     Calculate the upper bound of the assembly index for a given molecule.
 
@@ -878,7 +878,7 @@ def calculate_assembly_upper_bound(mol, strip_hydrogen=False):
     return n_bonds - 1
 
 
-def calculate_assembly_lower_bound(mol, strip_hydrogen=False):
+def calculate_assembly_lower_bound(mol, strip_hydrogen=False) -> int:
     """
     Calculate the lower bound of the assembly index for a given molecule.
 
@@ -913,7 +913,7 @@ def calculate_assembly_lower_bound(mol, strip_hydrogen=False):
     return int(np.log2(n_bonds))
 
 
-def regularise_ai(ai):
+def regularise_ai(ai: int) -> int:
     """
     Regularise the assembly index to be non-negative
     :param ai: Assembly index
@@ -948,7 +948,7 @@ def calculate_assembly_parallel(graphs, settings):
     return [list(group) for group in zip(*results)]
 
 
-def calculate_sum_assembly(graphs, settings, parallel=True):
+def calculate_sum_assembly(graphs, settings, parallel=True) -> int:
     """
     Calculate the sum of assembly indices for a list of molecular graphs.
 
