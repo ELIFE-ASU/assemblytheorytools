@@ -51,6 +51,9 @@ def bond_order_int_to_rdkit(bond_order: int) -> Chem.BondType:
 
     Returns:
         Chem.BondType: The corresponding RDKit BondType.
+
+    Raises:
+        ValueError: If the bond order is not supported.
     """
     converter = {
         1: Chem.rdchem.BondType.SINGLE,
@@ -60,7 +63,9 @@ def bond_order_int_to_rdkit(bond_order: int) -> Chem.BondType:
         5: Chem.rdchem.BondType.QUINTUPLE,
         6: Chem.rdchem.BondType.IONIC,
     }
-    return converter.get(bond_order, Chem.rdchem.BondType.SINGLE)
+    if bond_order not in converter:
+        raise ValueError(f"Unsupported bond order: {bond_order}")
+    return converter[bond_order]
 
 
 def bond_order_rdkit_to_int(bond_type: Chem.BondType) -> int:
@@ -72,6 +77,9 @@ def bond_order_rdkit_to_int(bond_type: Chem.BondType) -> int:
 
     Returns:
         int: The corresponding bond order int.
+
+    Raises:
+        ValueError: If the bond type is not recognized.
     """
     converter = {
         Chem.rdchem.BondType.SINGLE: 1,
@@ -81,7 +89,9 @@ def bond_order_rdkit_to_int(bond_type: Chem.BondType) -> int:
         Chem.rdchem.BondType.QUINTUPLE: 5,
         Chem.rdchem.BondType.IONIC: 6
     }
-    return converter.get(bond_type, 1)
+    if bond_type not in converter:
+        raise ValueError(f"Unsupported RDKit BondType: {bond_type}")
+    return converter[bond_type]
 
 
 def nx_to_mol(graph: nx.Graph, add_hydrogens: bool = True) -> Chem.Mol:
