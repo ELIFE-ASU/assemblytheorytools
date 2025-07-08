@@ -32,8 +32,13 @@ The simplest way to install ATT is to use pip, which is the recommended package 
 ```
 pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git
 ```
+When asked for a password, you will need your GitHub username and 'personal access token' (found in developer settings
+in your GitHub settings).
+See `https://stackoverflow.com/questions/2505096/clone-a-private-repository-github`
+This is because the package is private and requires authentication to access.
+Further instructions can be found on this [GitHub page](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository).
 
-The code needs a compiled assemblyCPP, which is included in this package. 
+The code needs a compiled assemblyCPP, which is included in this package by default. 
 However, if you want to use your own version, you can do so by setting the `ASS_PATH` environmental 
 variable to the path of your AssemblyCPP installation.
 For example, put `export ASS_PATH=/home/user/asscpp` in your submission 
