@@ -913,61 +913,6 @@ def calculate_assembly_lower_bound(mol, strip_hydrogen=False):
     return int(np.log2(n_bonds))
 
 
-def _core_calc_ass_sim(ai_sum: int, ai_jai: int) -> float:
-    """
-    Compute the assembly similarity based on the sum of individual assembly indices and the joint assembly index.
-
-    This function calculates the assembly similarity using the formula:
-    `(ai_sum / ai_jai) - 1.0` if `ai_jai` is not zero. If `ai_jai` is zero, the similarity is set to 0.0.
-
-    Args:
-        ai_sum (int): The sum of assembly indices for individual graphs.
-        ai_jai (int): The joint assembly index for the combined graph.
-
-    Returns:
-        float: The calculated assembly similarity value. Returns 0.0 if `ai_jai` is zero.
-    """
-    if ai_jai != 0:
-        ai_sim = (ai_sum / ai_jai) - 1.0
-    else:
-        ai_sim = 0.0
-    return ai_sim
-
-
-def calculate_assembly_similarity(graphs, calc_settings=None) -> float:
-    """
-    Calculate the assembly similarity for a set of molecular graphs.
-
-    This function computes the assembly similarity by:
-    1. Calculating the sum of assembly indices for individual graphs.
-    2. Calculating the joint assembly index for the combined graph.
-    3. Using a core similarity calculation function to compute the final similarity.
-
-    Args:
-        graphs (list[nx.Graph]): A list of NetworkX graphs representing molecular structures.
-        calc_settings (dict, optional): A dictionary of settings for the assembly index calculation. Defaults to None.
-
-    Returns:
-        float: The calculated assembly similarity value.
-
-    Raises:
-        ValueError: If the input list of graphs is empty.
-    """
-    if calc_settings is None:
-        calc_settings = {}
-
-    # Loop over the graphs in the input
-    ai_sum = 0
-    for graph in graphs:
-        ai_sum += calculate_assembly_index(graph, **calc_settings)[0]
-
-    # Calculate the joint assembly index for the combined graph
-    jai = calculate_assembly_index(join_graphs(graphs), **calc_settings)[0]
-
-    # Return the assembly similarity using the core calculation function
-    return _core_calc_ass_sim(ai_sum, jai)
-
-
 def regularise_ai(ai):
     """
     Regularise the assembly index to be non-negative
@@ -982,146 +927,68 @@ def regularise_ai(ai):
         return ai
 
 
-def calculate_assembly_index_parallel(mols, args):
+def calculate_assembly_parallel(graphs, settings):
     """
-    Calculates the assembly index for a list of molecules in parallel.
-
-    This function uses a preconfigured version of the `att.calculate_assembly_index`
-    function with the provided arguments (`args`) and applies it to the list of
-    molecules (`mols`) in parallel. The results are reformatted into lists.
+    Calculate assembly indices for multiple graphs in parallel.
 
     Args:
-        mols (list): A list of molecules to process.
-        args (dict): A dictionary of keyword arguments to configure the
-                     `att.calculate_assembly_index` function.
+        graphs (list): List of molecular graphs.
+        settings (dict): Settings for the assembly index calculation.
 
     Returns:
-        list: A list of lists, where each sublist contains a specific aspect
-              of the assembly index calculation for all molecules.
+        list: Transposed results of the assembly index calculations.
     """
-    # Create a partially applied function with the provided arguments
-    calc_ai = partial(calculate_assembly_index, **args)
-
-    # Perform the calculation in parallel for all molecules
-    results = mp_calc(calc_ai, mols)
-
-    # Transpose and convert the results into lists
+    # Use an empty dictionary if settings is None
+    settings = settings or {}
+    # Prepare the calculation function
+    calc_ai = partial(calculate_assembly_index, **settings)
+    # Perform parallel calculations
+    results = mp_calc(calc_ai, graphs)
+    # Transpose and return results
     return [list(group) for group in zip(*results)]
 
 
-def get_sum_assembly(trials, ai):
+def calculate_assembly_similarity(graphs, settings, parallel=True) -> float:
     """
-    Calculate the sum of assembly indices for each trial.
+    Calculate the assembly similarity index for a set of graphs.
 
     Args:
-        trials (list of list of int): A list of trials, where each trial is a list of indices.
-        ai (list of float): A list of assembly indices corresponding to the indices in the trials.
+        graphs (list): List of molecular graphs.
+        settings (dict): Settings for the assembly index calculation.
+        parallel (bool): If True, calculate assembly indices in parallel. Defaults to True.
 
     Returns:
-        list of float: A list where each element is the sum of assembly indices for a corresponding trial.
+        float: The assembly similarity index.
     """
-    return np.array([sum(ai[i] for i in trial) for trial in trials], dtype=int)
+    # Calculate assembly index sum
+    ai_sum = calculate_sum_assembly(graphs, settings, parallel=parallel)
+
+    # Join the graphs into a single joint graph
+    joint_graphs = join_graphs(graphs)
+
+    # Calculate the joint assembly index
+    ai_jai = calculate_assembly_index(joint_graphs, **settings)[0]
+
+    # Compute the assembly similarity index
+    return (ai_sum / ai_jai - 1.0) if ai_jai != 0 else 0.0
 
 
-def _get_sum_assembly(smile, strip_hydrogen=False):
+def calculate_sum_assembly(graphs, settings, parallel=True):
     """
-    Calculate the assembly index for a given SMILES string.
-
-    This function creates a molecule object from the provided SMILES string,
-    adds hydrogens to the molecule, and calculates the assembly index. The
-    calculated assembly index is then regularised to ensure it is non-negative.
-
-    Parameters:
-    -----------
-    smile : str
-        A SMILES string representing the molecule.
-    strip_hydrogen : bool, optional
-        Whether to strip hydrogens during the assembly index calculation. Default is False.
-
-    Returns:
-    --------
-    int
-        The regularised assembly index for the molecule.
-    """
-    # Create a molecule object from the combined SMILES string and add hydrogens
-    mol = Chem.AddHs(Chem.MolFromSmiles(smile, sanitize=True))
-    # Calculate and regularise the assembly index with hydrogens stripped
-    return regularise_ai(calculate_assembly_index(mol, strip_hydrogen=strip_hydrogen)[0])
-
-
-def get_parallel_sum_assembly(list_trials, smiles, strip_hydrogen=False):
-    """
-    Calculate the sum of assembly indices for multiple trials in parallel.
-
-    This function uses a partial function to pre-fill parameters for the `_get_sum_assembly`
-    function and applies it to a list of SMILES strings in parallel using multiprocessing.
-    The resulting assembly indices are then summed for each trial.
-
-    Parameters:
-    -----------
-    list_trials : list of list of int
-        A list of trials, where each trial is a list of indices representing combinations of molecules.
-    smiles : list of str
-        A list of SMILES strings representing the molecules.
-    strip_hydrogen : bool, optional
-        Whether to strip hydrogens during the assembly index calculation. Default is False.
-
-    Returns:
-    --------
-    numpy.ndarray
-        An array of summed assembly indices for each trial.
-    """
-    # Create a partial function for calculating the assembly index for each SMILES string
-    sum_assembly_func = partial(_get_sum_assembly, strip_hydrogen=strip_hydrogen)
-    # Calculate the assembly indices in parallel
-    ai_list = mp_calc(sum_assembly_func, smiles)
-    # Sum the assembly indices for each trial and return as a numpy array
-    return np.array(get_sum_assembly(list_trials, ai_list), dtype=int)
-
-
-def _get_joint_assembly(random_indices, smiles=None, strip_hydrogen=False):
-    """
-    Calculate the joint assembly index for a set of molecules.
-
-    This function combines selected SMILES strings into a single molecule,
-    calculates its assembly index, and applies regularization to ensure the
-    index is non-negative.
+    Calculate the sum of assembly indices for a list of molecular graphs.
 
     Args:
-        random_indices (list[int]): A list of indices representing the selected molecules.
-        smiles (list[str], optional): A list of SMILES strings representing the molecules. Defaults to None.
-        strip_hydrogen (bool, optional): If True, removes hydrogen atoms during the assembly index calculation. Defaults to False.
+        graphs (list): List of molecular graphs to process.
+        settings (dict): Settings for the assembly index calculation.
+        parallel (bool, optional): If True, calculate assembly indices in parallel. Defaults to True.
 
     Returns:
-        int: The regularized assembly index for the combined molecule.
+        int: The sum of assembly indices for the input graphs.
     """
-    # Combine selected SMILES strings into a single string separated by dots
-    smiles_combined = ".".join(smiles[s] for s in random_indices)
-    # Create a molecule object from the combined SMILES string and add hydrogens
-    mol = Chem.AddHs(Chem.MolFromSmiles(smiles_combined, sanitize=True))
-    # Calculate and regularize the assembly index with hydrogens stripped
-    return regularise_ai(calculate_assembly_index(mol, strip_hydrogen=strip_hydrogen)[0])
-
-
-def get_parallel_joint_assembly(list_trials, smiles, strip_hydrogen=False):
-    """
-    Calculate the joint assembly indices for multiple trials in parallel.
-
-    This function uses multiprocessing to calculate the joint assembly index for a set of molecules
-    represented by SMILES strings. Each trial consists of a combination of molecules, and the joint
-    assembly index is computed for each trial.
-
-    Args:
-        list_trials (list[list[int]]): A list of trials, where each trial is a list of indices representing
-                                       combinations of molecules.
-        smiles (list[str]): A list of SMILES strings representing the molecules.
-        strip_hydrogen (bool, optional): If True, removes hydrogen atoms during the assembly index calculation.
-                                         Defaults to False.
-
-    Returns:
-        numpy.ndarray: An array of joint assembly indices for each trial.
-    """
-    joint_assembly_func = partial(_get_joint_assembly,
-                                  smiles=smiles,
-                                  strip_hydrogen=strip_hydrogen)
-    return np.array(mp_calc(joint_assembly_func, list_trials), dtype=int)
+    # Calculate assembly indices based on the parallel flag
+    if parallel:
+        ai_list = calculate_assembly_parallel(graphs, settings)[0]
+    else:
+        ai_list = [calculate_assembly_index(graph, **settings)[0] for graph in graphs]
+    # Sum the assembly indices
+    return sum(ai_list)
