@@ -364,6 +364,69 @@ def test_joint_ass_graph():
     assert att.is_graph_isomorphic(graphs_joint, out_graph)
 
 
+def test_jai_self():
+    """
+    Test that the joint assembly index (JAI) of two identical molecules
+    is equal to the assembly index (AI) of a single instance.
+
+    This validates that JAI does not artificially increase when the
+    same molecule is duplicated, ensuring internal deduplication and
+    fragment reuse work as expected.
+
+    Assertion:
+    - The JAI of two identical molecules must equal the AI of one.
+    """
+    print(flush=True)
+    molecules = ["O=P(O)(O)OC[C@@H](O)[C@@H](O)c1c[nH]c2ccccc12", "O=P(O)(O)OC[C@@H](O)[C@@H](O)c1c[nH]c2ccccc12"]
+    # Convert all the SMILES strings to molecule objects
+    mols = [att.smi_to_mol(smile) for smile in molecules]
+    # Combine the molecule objects into a single molecule
+    mol = att.combine_mols(mols)
+
+    # Calculate the assembly index
+    jai, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
+    ai, _, _ = att.calculate_assembly_index(mols[0], strip_hydrogen=True)
+    assert jai == ai
+
+
+def test_jai_asymmetric():
+    """
+    Test that assembly index computation is order-independent
+    for asymmetric molecule inputs.
+
+    This function verifies that combining two molecules in different
+    orders results in the same assembly index, confirming that the
+    calculation is not sensitive to the input list sequence.
+
+    Molecules:
+    - L-serine: "N[C@@H](CCO)C(=O)O"
+    - Citric acid: "O=C(O)CC(C(=O)O)C(O)C(=O)O"
+
+    Assertion:
+    - The calculated assembly indices (ai_1 and ai_2) should be equal.
+    """
+    print(flush=True)
+    molecules = ["N[C@@H](CCO)C(=O)O", "O=C(O)CC(C(=O)O)C(O)C(=O)O"]
+    # Convert all the SMILES strings to molecule objects
+    mols = [att.smi_to_mol(smile) for smile in molecules]
+    # Combine the molecule objects into a single molecule
+    mol = att.combine_mols(mols)
+
+    # Calculate the assembly index
+    ai_1, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
+
+    molecules = ["O=C(O)CC(C(=O)O)C(O)C(=O)O", "N[C@@H](CCO)C(=O)O"]
+    # Convert all the SMILES strings to molecule objects
+    mols = [att.smi_to_mol(smile) for smile in molecules]
+    # Combine the molecule objects into a single molecule
+    mol = att.combine_mols(mols)
+
+    # Calculate the assembly index
+    ai_2, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
+
+    assert ai_1 == ai_2
+
+
 def test_semi_metric():
     """
     Test the calculation of the assembly semi-metric between two molecular graphs.
@@ -525,40 +588,92 @@ def test_construction_pathway_joint():
     assert att.check_elements(vo_list, vo_list_ref)
 
 
-def test_calculate_assembly_index_parallel():
+def test_calculate_assembly_parallel():
     """
-    Test the calculation of the assembly index for multiple molecules in parallel.
+    Test the parallel calculation of assembly indices for a list of molecular graphs.
 
     This function performs the following steps:
     1. Defines a list of SMILES strings representing molecules.
-    2. Converts the SMILES strings to RDKit molecule objects with added hydrogens.
-    3. Calculates the assembly index for the molecules in parallel using the `calculate_assembly_index_parallel` function.
-    4. Compares the calculated assembly indices to a reference list.
+    2. Converts the SMILES strings to NetworkX graphs.
+    3. Defines settings for the assembly index calculation.
+    4. Calculates the assembly indices for the graphs in parallel.
+    5. Prints the calculated assembly indices.
+    6. Asserts that the calculated assembly indices match the expected reference values.
 
     Asserts:
-        - The calculated assembly indices match the reference list.
-
-    Variables:
-        smiles (list of str): List of SMILES strings representing molecules.
-        mols (list of Chem.Mol): List of RDKit molecule objects created from the SMILES strings.
-        ai (list of int): List of calculated assembly indices for the molecules.
-        vo (list): Virtual objects associated with the assembly index calculation.
-        pathway (object): Pathway data generated during the assembly index calculation.
-        ref_list (list of int): Reference list of expected assembly indices.
+        - The calculated assembly indices match the reference list [3, 4, 3, 0, 3].
     """
+    print(flush=True)
+    # Define a list of SMILES strings
     smiles = ['[H]OC(=O)C([H])([H])N([H])[H]',
               '[H]OC(=O)C([H])(N([H])[H])C([H])([H])[H]',
               '[H]OC(=O)C([H])([H])N([H])[H]',
               '[H]C([H])([H])C([H])([H])[H]',
               '[H]OC(=O)C([H])([H])N([H])[H]']
-    # Convert SMILES strings to RDKit molecule objects with added hydrogens
-    mols = [Chem.AddHs(Chem.MolFromSmiles(smi, sanitize=True)) for smi in smiles]
-
-    # Calculate the assembly index in parallel
-    ai, vo, pathway = att.calculate_assembly_index_parallel(mols, dict(strip_hydrogen=True))
+    # Convert the SMILES strings to NetworkX graphs
+    graphs = [att.smi_to_nx(smi) for smi in smiles]
+    # Define settings for the assembly index calculation
+    settings = {'strip_hydrogen': True}
+    # Calculate assembly indices in parallel
+    ai = att.calculate_assembly_parallel(graphs, settings)[0]
+    # Print the calculated assembly indices
+    print(ai, flush=True)
+    # Define the reference list of expected assembly indices
     ref_list = [3, 4, 3, 0, 3]
-    # Assert that the calculated assembly indices match the reference list
+    # Assert that the calculated assembly indices match the expected values
     assert att.check_elements(ai, ref_list)
+
+
+def test_calculate_sum_assembly():
+    """
+    Test the calculation of the sum of assembly indices for molecular graphs.
+
+    This function performs the following steps:
+    1. Converts two SMILES strings to NetworkX graphs.
+    2. Defines settings for the assembly index calculation.
+    3. Calculates the sum of assembly indices in parallel mode.
+    4. Asserts that the calculated sum matches the expected value.
+    5. Calculates the sum of assembly indices in sequential mode.
+    6. Asserts that the calculated sum matches the expected value.
+
+    Asserts:
+        - The sum of assembly indices is equal to 7 in both parallel and sequential modes.
+    """
+    print(flush=True)
+    # Convert SMILES strings to NetworkX graphs
+    graphs = [att.smi_to_nx("C1=CC=CC=C1"), att.smi_to_nx("C1=CC=CC=C1O")]
+    # Define settings for the assembly index calculation
+    settings = {'strip_hydrogen': True}
+    # Calculate the sum of assembly indices in parallel mode
+    ai_sum = att.calculate_sum_assembly(graphs, settings, parallel=True)
+    assert ai_sum == 7
+    # Calculate the sum of assembly indices in sequential mode
+    ai_sum = att.calculate_sum_assembly(graphs, settings, parallel=False)
+    assert ai_sum == 7
+
+
+def test_calculate_assembly_similarity():
+    """
+    Test the calculation of assembly similarity between two molecular graphs.
+
+    This function performs the following steps:
+    1. Converts two SMILES strings to NetworkX graphs.
+    2. Calculates the assembly similarity between the two graphs using the `calculate_assembly_similarity` function.
+    3. Prints the calculated similarity value.
+    4. Asserts that the calculated similarity matches the expected value.
+
+    Asserts:
+        - The calculated similarity is equal to 0.75.
+    """
+    print(flush=True)
+    graphs = [att.smi_to_nx("C1=CC=CC=C1"), att.smi_to_nx("C1=CC=CC=C1O")]
+    settings = {'strip_hydrogen': True}
+    similarity = att.calculate_assembly_similarity(graphs, settings, parallel=True)
+    print(similarity, flush=True)
+    assert similarity == 0.75
+    similarity = att.calculate_assembly_similarity(graphs, settings, parallel=False)
+    print(similarity, flush=True)
+    assert similarity == 0.75
 
 
 def test_node_canonicalization():
