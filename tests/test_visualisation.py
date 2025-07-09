@@ -2,14 +2,65 @@ import os
 import shutil
 
 import networkx as nx
-import numpy as np
-import pytest
-from ase.io import read
-from ase.visualize import view
-from rdkit import Chem
-from rdkit.Chem import AllChem as Chem
 
 import assemblytheorytools as att
+
+
+def test_plot_graph():
+    print(flush=True)
+    # Create a simple graph
+    smi = "C1=CC=CC=C1"
+    graph = att.smi_to_nx(smi)
+    att.plot_graph(graph)
+    assert os.path.isfile('graph.png'), "Failed to generate the file."
+    assert os.path.isfile('graph.pdf'), "Failed to generate the file."
+    os.remove('graph.png')
+    os.remove('graph.pdf')
+
+
+def test_plot_mol_graph():
+    print(flush=True)
+    # Create a simple graph
+    smi = "C1=CC=CC=C1"
+    graph = att.smi_to_nx(smi)
+    att.plot_mol_graph(graph)
+    assert os.path.isfile('atom_graphs.png'), "Failed to generate the file."
+    assert os.path.isfile('atom_graphs.pdf'), "Failed to generate the file."
+    os.remove('atom_graphs.png')
+    os.remove('atom_graphs.pdf')
+
+
+def test_plot_interactive_graph():
+    print(flush=True)
+    # Create a simple graph
+    smi = "C1=CC=CC=C1"
+    graph = att.smi_to_nx(smi)
+    att.plot_interactive_graph(graph)
+    assert os.path.isfile('interactive_graph.html'), "Failed to generate the file."
+    os.remove('interactive_graph.html')
+    # remove the folder lib
+    if os.path.exists('lib'):
+        shutil.rmtree('lib')
+
+
+def test_plot_digraph():
+    print(flush=True)
+    # Create a directed graph
+    graph = nx.DiGraph()
+
+    # Define nodes and their levels
+    nodes = {"CC": 0, "CCC": 1, "CCCCC": 2, "CCCCCCCCC": 3}
+    graph.add_nodes_from(nodes)
+
+    # Define edges between nodes
+    edges = [("CC", "CCC"), ("CCC", "CCCCC"), ("CCCCC", "CCCCCCCCC")]
+    graph.add_edges_from(edges)
+    att.plot_digraph(graph)
+    assert os.path.isfile('digraph.png'), "Failed to generate the file."
+    assert os.path.isfile('digraph.pdf'), "Failed to generate the file."
+    os.remove('digraph.png')
+    os.remove('digraph.pdf')
+
 
 def test_plot_digraph_metro():
     """
@@ -36,29 +87,61 @@ def test_plot_digraph_metro():
     digraph, _ = digraph  # Unpack the graph and VO list (we only need the graph)
 
     # Plot the pathway as a metro-style graph and save to files
-    att.plot_digraph_metro(digraph, filename="test")
+    att.plot_digraph_metro(digraph)
+    assert os.path.isfile('metro.png'), "Failed to generate the file."
+    assert os.path.isfile('metro.svg'), "Failed to generate the file."
+    os.remove('metro.png')
+    os.remove('metro.svg')
 
-    # Clean up generated files
-    os.remove("test.png")
-    os.remove("test.svg")
 
+def test_plot_digraph_metro_calc():
+    print(flush=True)
+
+    # Define the SMILES string for glycine
+    smi = "C(C(=O)O)N"
+
+    # Convert the SMILES string to an RDKit Mol object
+    mol = att.smi_to_mol(smi)
+
+    # Compute the assembly index and associated data
+    _, _, pathway = att.calculate_assembly_index(mol, strip_hydrogen=True)
+
+    # Unpack pathway information
+    pathway, _ = pathway
+
+    att.plot_digraph_metro(pathway)
+    assert os.path.isfile('metro.png'), "Failed to generate the file."
+    assert os.path.isfile('metro.svg'), "Failed to generate the file."
+    os.remove('metro.png')
+    os.remove('metro.svg')
+
+
+def test_plot_digraph_topological():
+    print(flush=True)
+
+    # Define the SMILES string for glycine
+    smi = "C(C(=O)O)N"
+
+    # Convert the SMILES string to an RDKit Mol object
+    mol = att.smi_to_mol(smi)
+
+    # Compute the assembly index and associated data
+    _, _, pathway = att.calculate_assembly_index(mol, strip_hydrogen=True)
+
+    # Unpack pathway information
+    pathway, _ = pathway
+    att.plot_digraph_topological(pathway)
+    assert os.path.isfile('topological.png'), "Failed to generate the file."
+    assert os.path.isfile('topological.pdf'), "Failed to generate the file."
+    os.remove('topological.png')
+    os.remove('topological.pdf')
+
+
+def test_plot_digraph_with_images():
     pass
 
 
-def test_circle_plot():
-    """
-    Test the plot_assembly_circle function from the att module.
-
-    Steps:
-
-    1. Define a set of example node names.
-    2. Set visualization parameters.
-    3. Call att.plot_assembly_circle with the specified parameters.
-    4. Assert that the output file is created.
-
-    The test will fail if the file is not generated.
-    """
-
+def test_plot_assembly_circle():
     nodes = ['b', 'a', 'd', 'c', 'ba', 'dc', 'baa', 'bad', 'badc', 'baab', 'baba', 'ddbcd', 'bcdda']
 
     labels = True
@@ -79,4 +162,3 @@ def test_circle_plot():
 
     assert os.path.isfile('circle_plot.png'), "Failed to generate the file."
     os.remove('circle_plot.png')
-

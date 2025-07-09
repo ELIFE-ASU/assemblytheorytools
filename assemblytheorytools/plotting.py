@@ -364,8 +364,12 @@ def plot_digraph_topological(digraph: nx.DiGraph, filename: str = 'topological')
     fig, ax = plt.subplots()
     nx.draw_networkx(digraph, pos=pos, ax=ax)
     fig.tight_layout()
+    # Save the plot as PNG and PDF
     plt.savefig(f"{filename}.png", dpi=600)
-    plt.show()
+    plt.savefig(f"{filename}.pdf")
+
+    # Display or close the plot based on the operating system
+    os_plot_show()
     return None
 
 
