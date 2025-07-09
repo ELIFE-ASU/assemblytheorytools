@@ -4,14 +4,16 @@ from typing import List
 
 import cairosvg
 import dagviz
-import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 from IPython.display import HTML
 from matplotlib import colormaps, colors
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from matplotlib.patches import Circle
 from pyvis.network import Network
+from rdkit import Chem
+from rdkit.Chem import Draw
 
 import CFG
 from .tools_graph import relabel_digraph
@@ -373,97 +375,38 @@ def plot_digraph_topological(digraph: nx.DiGraph, filename: str = 'topological')
     return None
 
 
-def match_node_to_image(graph: nx.Graph, image_paths: list[str]) -> dict[str, str]:
-    """
-    Matches nodes in the graph to their respective image paths.
+def plot_digraph_with_images(G, show_molecules=True, seed=42):
+    fig, ax = plt.subplots(figsize=(12, 7))
+    cmap = plt.get_cmap("Blues")
+    node_colors = [cmap(0.4) for _ in G.nodes]
+    pos = nx.spring_layout(G, seed=seed)
 
-    This function iterates over the provided image paths, extracts the base name of each image file,
-    and checks if it matches any node in the graph. If a match is found, it maps the node to the image path.
+    nx.draw(G,
+            pos=pos,
+            ax=ax,
+            with_labels=False,
+            node_size=100,
+            node_color=node_colors,
+            connectionstyle="arc3,rad=0.05",
+            edge_color="grey",
+            width=2.0)
 
-    Args:
-        graph (nx.Graph): A NetworkX graph object containing nodes.
-        image_paths (list[str]): A list of image file paths.
+    # nx.draw_networkx_edges(
+    #     G,
+    #     pos=pos,
+    #     ax=ax,
+    #     arrows=True,
+    #     arrowstyle="->",
+    #     min_target_margin=40,
+    # )
 
-    Returns:
-        dict[str, str]: A dictionary mapping node labels to their corresponding image paths.
-    """
-    # Initialise an empty dictionary to store the node-to-image mapping
-    node_image_mapping = {}
-
-    # Iterate over each image path
-    for path in image_paths:
-        # Get the base name (without extension) of the image file
-        file_name = os.path.splitext(os.path.basename(path))[0]
-
-        # Check if the base name matches any node in the graph
-        if file_name in graph.nodes:
-            # Map the node to the image path
-            node_image_mapping[file_name] = path
-
-    return node_image_mapping
-
-
-def plot_digraph_with_images(graph: nx.DiGraph, image_paths: list[str]) -> None:
-    """
-    Plot a directed graph with images at each node.
-
-    Assumes the old function plot_pathway in the AssemblyConstruction class has been called!
-    def plot_pathway(self):
-        pic_path = "path_images"
-        os.makedirs(pic_path, exist_ok=True)
-        for i, vo in enumerate(self.molecules_vo):
-            Draw.MolToFile(vo, os.path.join(pic_path, "virtual_object{}.png").format(i))
-        for i, step in enumerate(self.molecules_steps):
-            Draw.MolToFile(step, os.path.join(pic_path, "step{}.png").format(i + 1))
-        return None
-
-    Args:
-        graph (nx.DiGraph): The directed graph to be plotted.
-        image_paths (list[str]): A list of image file paths to be matched with the nodes.
-
-    Returns:
-        None
-    """
-    # Create a mapping from node to image path
-    node_image_mapping = match_node_to_image(graph, image_paths)
-
-    # Add nodes with images
-    for n in graph:
-        graph.nodes[n]["image"] = mpimg.imread(node_image_mapping[n])
-
-    # Get graph layout
-    pos = nx.spring_layout(graph, seed=1734289230)
-    # Set up the plot
-    fig, ax = plt.subplots()
-
-    # Draw the graph edges
-    nx.draw_networkx_edges(graph,
-                           pos=pos,
-                           ax=ax,
-                           min_source_margin=15,
-                           min_target_margin=15)
-
-    # Transform from data coordinates (scaled between xlim and ylim) to display coordinates
-    tr_figure = ax.transData.transform
-    # Transform from display to figure coordinates
-    tr_axes = fig.transFigure.inverted().transform
-    # Select the size of the image (relative to the x axis)
-    icon_size = (ax.get_xlim()[1] - ax.get_xlim()[0]) * 0.06
-    icon_center = icon_size / 2.0
-    # Add the respective image to each node
-    for n in graph.nodes:
-        xf, yf = tr_figure(pos[n])
-        xa, ya = tr_axes((xf, yf))
-        # get overlapped axes and plot icon
-        a = plt.axes([xa - icon_center, ya - icon_center, icon_size, icon_size])
-        a.imshow(graph.nodes[n]["image"])
-        a.axis("off")
-
-    # Hide axes
-    ax.axis('off')
-    plt.tight_layout()
-    plt.show()
-    return None
+    if show_molecules:
+        for i, node in enumerate(G.nodes):
+            mol = G.nodes[node]["vo"]
+            img = Draw.MolToImage(Chem.MolFromSmiles(mol), size=(150, 150))
+            imagebox = OffsetImage(img, zoom=0.4)
+            ab = AnnotationBbox(imagebox, (pos[node][0], pos[node][1]), frameon=True)
+            ax.add_artist(ab)
 
 
 def _average_angles(angles: np.ndarray) -> float:
