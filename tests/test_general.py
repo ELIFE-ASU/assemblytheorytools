@@ -785,71 +785,92 @@ def test_join_graphs():
     assert nx.is_isomorphic(g2, g2_split)
 
 
-def test_assemblydepth():
+def test_assign_levels():
+    """
+    Test the `assign_levels` function with a directed graph.
+
+    This function performs the following steps:
+    1. Creates a directed graph.
+    2. Defines nodes with their expected levels and adds them to the graph.
+    3. Defines edges between the nodes and adds them to the graph.
+    4. Calls the `assign_levels` function to assign levels to the nodes.
+    5. Verifies that the assigned levels match the expected levels.
+
+    Asserts:
+        - Each node's assigned level matches its expected level.
+    """
     print(flush=True)
-    G = nx.DiGraph()
+    # Create a directed graph
+    graph = nx.DiGraph()
 
-    node_to_level = {
-        "CC": 0,
-        "C=C": 0,
-        "CO": 0,
-        "CC=C": 1,
-        "OCC=C": 2
-    }
+    # Define nodes with their levels and add them to the graph
+    nodes = {"CC": 0, "C=C": 0, "CO": 0, "CC=C": 1, "OCC=C": 2}
+    graph.add_nodes_from(nodes)
 
-    G.add_node("CC")  # AD 0
-    G.add_node("C=C")  # AD 0
-    G.add_node("CO")  # AD 0
-    G.add_node("CC=C")  # AD 1
-    G.add_node("OCC=C")  # AD 2
+    # Define edges and add them to the graph
+    edges = [("CC", "CC=C"), ("C=C", "CC=C"), ("CO", "OCC=C"), ("CC=C", "OCC=C")]
+    graph.add_edges_from(edges)
 
-    G.add_edge("CC", "CC=C")
-    G.add_edge("C=C", "CC=C")
+    # Assign levels to nodes
+    att.assign_levels(graph)
 
-    G.add_edge("CO", "OCC=C")
-    G.add_edge("CC=C", "OCC=C")
-
-    att.assign_levels(G)
-
-    for node, level in node_to_level.items():
-        assert G.nodes[node][
-                   "level"] == level, f"Node {node} has incorrect level: {G.nodes[node]['level']} instead of {level}"
-    print("All assembly depth tests passed.", flush=True)
+    # Verify node levels
+    for node, level in nodes.items():
+        assert graph.nodes[node]["level"] == level, \
+            f"Node {node} has incorrect level: {graph.nodes[node]['level']} instead of {level}"
 
 
-def test_assemblydepth_linear_chain():
+def test_assign_levels_linear_chain():
+    """
+    Test the `assign_levels` function with a linear chain graph.
+
+    This function performs the following steps:
+    1. Creates a directed graph representing a linear chain of nodes.
+    2. Defines nodes with their expected levels and adds them to the graph.
+    3. Defines edges between the nodes to form a linear chain.
+    4. Calls the `assign_levels` function to assign levels to the nodes.
+    5. Verifies that the assigned levels match the expected levels.
+
+    Asserts:
+        - Each node's assigned level matches its expected level.
+    """
     print(flush=True)
-    G = nx.DiGraph()
+    # Create a directed graph
+    graph = nx.DiGraph()
 
-    node_to_level = {
-        "CC": 0,  # AD 0
-        "CCC": 1,  # AD 1
-        "CCCCC": 2,  # AD 2
-        "CCCCCCCCC": 3  # AD 3
-    }
+    # Define nodes and their levels
+    nodes = {"CC": 0, "CCC": 1, "CCCCC": 2, "CCCCCCCCC": 3}
+    graph.add_nodes_from(nodes)
 
-    G.add_node("CC")  # AD 0
-    G.add_node("CCC")  # AD 1
-    G.add_node("CCCCC")  # AD 2
-    G.add_node("CCCCCCCCC")  # AD 3
+    # Define edges between nodes
+    edges = [("CC", "CCC"), ("CCC", "CCCCC"), ("CCCCC", "CCCCCCCCC")]
+    graph.add_edges_from(edges)
 
-    G.add_edge("CC", "CCC")
-    G.add_edge("CCC", "CCCCC")
-    G.add_edge("CCCCC", "CCCCCCCCC")
+    # Assign levels to nodes
+    att.assign_levels(graph)
 
-    att.assign_levels(G)
-
-    for node, level in node_to_level.items():
-        assert G.nodes[node][
-                   "level"] == level, f"Node {node} has incorrect level: {G.nodes[node]['level']} instead of {level}"
-    print("Linear chain assembly depth test passed.", flush=True)
+    # Verify node levels
+    for node, level in nodes.items():
+        assert graph.nodes[node][
+                   "level"] == level, f"Node {node} has incorrect level: {graph.nodes[node]['level']} instead of {level}"
 
 
-def test_assemblydepth_empty_graph():
+def test_assign_levels_empty_graph():
+    """
+    Test the `assign_levels` function with an empty graph.
+
+    This function performs the following steps:
+    1. Creates an empty directed graph.
+    2. Calls the `assign_levels` function on the empty graph.
+    3. Asserts that the graph remains empty after the function call.
+
+    Asserts:
+        - The graph has no nodes after calling `assign_levels`.
+    """
     print(flush=True)
-    G = nx.DiGraph()
-
-    att.assign_levels(G)
-
-    assert len(G.nodes) == 0, "Empty graph should have no nodes."
-    print("Empty graph assembly depth test passed.", flush=True)
+    # Create an empty directed graph
+    graph = nx.DiGraph()
+    # Assign levels to the empty graph
+    att.assign_levels(graph)
+    # Verify that the graph has no nodes
+    assert len(graph.nodes) == 0, "Empty graph should have no nodes."
