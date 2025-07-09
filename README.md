@@ -1,3 +1,6 @@
+![image](https://github.com/user-attachments/assets/864456bd-4b8a-4a11-b4e7-4d28bf27ea2f)
+
+
 # AssemblyTheoryTools
 A centralised set of tools for doing assembly theory calculations written in Python.
 The aim is that this package provides a platform to do calculations that works out of the box. 
