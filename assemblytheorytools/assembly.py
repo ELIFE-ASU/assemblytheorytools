@@ -1004,8 +1004,36 @@ def calculate_assembly_similarity(graphs, settings, parallel=True) -> float:
 
 
 def _parse_pathway_file(data):
+    """
+    Parse pathway data into a structured format.
+
+    Args:
+        data (dict): The pathway data to parse. It is expected to contain the following keys:
+            - 'file_graph': A list of dictionaries representing file graphs, each with keys:
+                - 'Vertices': List of vertices in the graph.
+                - 'Edges': List of edges in the graph.
+                - 'VertexColours': List of vertex colors.
+                - 'EdgeColours': List of edge colors.
+            - 'remnant': A list of dictionaries representing remnant graphs, each with keys:
+                - 'Vertices': List of vertices in the remnant graph.
+                - 'Edges': List of edges in the remnant graph.
+                - 'VertexColours': List of vertex colors.
+                - 'EdgeColours': List of edge colors.
+            - 'duplicates': A list of dictionaries representing duplicate fragments, each with keys:
+                - 'Left': List of left edges in the duplicate fragment.
+                - 'Right': List of right edges in the duplicate fragment.
+            - 'removed_edges': A list of edges that were removed.
+
+    Returns:
+        dict: A dictionary containing the parsed pathway data with the following keys:
+            - 'file_graph': A list of parsed file graphs.
+            - 'remnant': A list of parsed remnant graphs.
+            - 'duplicates': A list of parsed duplicate fragments.
+            - 'removed_edges': A list of removed edges.
+    """
     parsed_pathway = {}
 
+    # Parse file graphs
     file_graphs = []
     for idx, fg in enumerate(data.get('file_graph', [])):
         file_graphs.append({
@@ -1016,6 +1044,7 @@ def _parse_pathway_file(data):
         })
     parsed_pathway['file_graph'] = file_graphs
 
+    # Parse remnant graphs
     remnants = []
     for idx, rem in enumerate(data.get('remnant', [])):
         remnants.append({
@@ -1026,6 +1055,7 @@ def _parse_pathway_file(data):
         })
     parsed_pathway['remnant'] = remnants
 
+    # Parse duplicate fragments
     duplicates = []
     for dup in data.get('duplicates', []):
         duplicates.append({
@@ -1033,74 +1063,109 @@ def _parse_pathway_file(data):
             'right_edges': dup.get('Right', [])
         })
     parsed_pathway['duplicates'] = duplicates
+
+    # Parse removed edges
     parsed_pathway['removed_edges'] = data.get('removed_edges', [])
 
     return parsed_pathway
 
 
 def calculate_jo_from_pathway(json_file):
+    """
+    Calculate the joint assembly index (JO) from a pathway JSON file.
+
+    Args:
+        json_file (str): Path to the JSON file containing pathway data.
+
+    Returns:
+        int: The calculated joint assembly index (JO).
+
+    This function performs the following steps:
+    1. Parses the pathway data from the JSON file using `_parse_pathway_file`.
+    2. Initializes the original graph and calculates its connected components.
+    3. Iteratively processes duplicate fragments to update the graph and calculate corrections.
+    4. Computes the final JO value by combining the initial graph metrics and corrections.
+    """
     with open(json_file, 'r', encoding='utf-8') as f:
         data = json.load(f)
 
     data = _parse_pathway_file(data)
 
-    edge_set = set()
-    edge_list = []
-    edges = [fg["edges"] for fg in data["file_graph"]]
-
+    # Initialize the original graph and its connected components
+    edges = [tuple(edge) for edge in data["file_graph"][0]["edges"]]
     original_graph = nx.Graph()
-
-    for edge in edges[0]:
-        tuple_edge = tuple(edge)
-        edge_set.add(tuple_edge)
-        edge_list.append(tuple_edge)
-
-    original_graph.add_edges_from(edge_list)
+    original_graph.add_edges_from(edges)
     original_cc = nx.number_connected_components(original_graph)
 
-    jo_correction = 0
+    # Initialize variables for JO calculation
     ma = original_graph.number_of_edges() - original_cc
+    jo_correction = 0
+    edge_set = set(edges)
 
-    right_duplicates = [dup_dict["right_edges"] for dup_dict in data["duplicates"]]
+    # Process duplicate fragments
+    for fragment in [dup["right_edges"] for dup in data["duplicates"]]:
+        ma -= len(fragment) - 1
 
-    for fragment in right_duplicates:
-        ma -= (len(fragment) - 1)
-
-        fragment_atom_set = set()
-        remnant_atom_set = set()
+        # Update edge sets and calculate remnant graph
+        fragment_atoms = {atom for edge in fragment for atom in edge}
+        edge_set -= {tuple(edge) for edge in fragment}
+        remnant_edges = list(edge_set)
         remnant_graph = nx.Graph()
-        remnant_edge_list = []
+        remnant_graph.add_edges_from(remnant_edges)
 
-        for edge in fragment:
-            fragment_atom_set.add(edge[0])
-            fragment_atom_set.add(edge[1])
-            edge_set.remove(tuple(edge))
-
-        for edge in edge_set:
-            remnant_atom_set.add(edge[0])
-            remnant_atom_set.add(edge[1])
-            remnant_edge_list.append(tuple(edge))
-
-        remnant_graph.add_edges_from(remnant_edge_list)
+        # Update connected components and JO correction
         remnant_cc = nx.number_connected_components(remnant_graph)
         delta_cc = max(remnant_cc - original_cc, 0)
         original_cc = remnant_cc
-        jo_correction += max(0, len(fragment_atom_set & remnant_atom_set) - 1) - delta_cc
+        remnant_atoms = {atom for edge in remnant_edges for atom in edge}
+        jo_correction += max(0, len(fragment_atoms & remnant_atoms) - 1) - delta_cc
 
     return ma + jo_correction
 
 
-def calculate_jo(mol, timeout=100.0, strip_hydrogen=False, exact=False):
-    ai, vo, pathway = calculate_assembly_index(mol,
-                                               timeout=timeout,
-                                               debug=True,
-                                               strip_hydrogen=strip_hydrogen,
-                                               exact=exact)
+def calculate_jo(mol,
+                 dir_code=None,
+                 timeout=100.0,
+                 strip_hydrogen=False,
+                 return_log_file=False,
+                 exact=False):
+    """
+    Calculate the joining operations assembly index (JO) for a given molecule.
+
+    This function computes the JO by first calculating the assembly index (AI) of the molecule,
+    retrieving the pathway file from the most recent assembly calculation, and processing the
+    pathway file to compute the JO.
+
+    Args:
+        mol (Union[nx.Graph, Chem.Mol, str]): The molecule to process. Can be a NetworkX graph,
+                                              RDKit molecule, or a file path.
+        dir_code (str, optional): Path to the assembly tool executable. Defaults to None.
+        timeout (float, optional): Maximum time allowed for assembly index calculation. Defaults to 100.0 seconds.
+        strip_hydrogen (bool, optional): If True, removes hydrogen atoms from the molecule before processing. Defaults to False.
+        return_log_file (bool, optional): If True, returns the path to the log file. Defaults to False.
+        exact (bool, optional): If True, calculates the exact assembly index. Defaults to False.
+
+    Returns:
+        tuple: A tuple containing:
+            - jo (int): The calculated joint assembly index. Returns -1 if the calculation fails.
+            - vo (Any): The virtual object associated with the pathway (if available).
+            - pathway (Any): The pathway data (if available).
+    """
+    # Calculate the assembly index (AI) for the molecule
+    _, vo, pathway = calculate_assembly_index(mol,
+                                              dir_code=dir_code,
+                                              timeout=timeout,
+                                              debug=True,
+                                              strip_hydrogen=strip_hydrogen,
+                                              return_log_file=return_log_file,
+                                              exact=exact)
     # Get the most recent assembly calculation directory
     assembly_path = get_most_recent_calc()
+
     # Find the file that ends with "Pathway"
     pathway_files = [f for f in os.listdir(assembly_path) if f.endswith("Pathway")]
     if not pathway_files:
+        # If no pathway file is found, return -1
         print("No pathway file found. Returning -1.")
         return -1, None, None
 
@@ -1111,10 +1176,13 @@ def calculate_jo(mol, timeout=100.0, strip_hydrogen=False, exact=False):
     try:
         jo = calculate_jo_from_pathway(pathway_file)
     except Exception as e:
+        # Handle errors during JO calculation
         print(f"Error calculating joint assembly index: {e}")
         shutil.rmtree(assembly_path)
         return -1, None, None
 
     # Remove the temporary directory
     shutil.rmtree(assembly_path)
+
+    # Return the calculated JO, virtual object, and pathway
     return jo, vo, pathway

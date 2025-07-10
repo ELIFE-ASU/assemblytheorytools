@@ -873,6 +873,17 @@ def test_vo_problem():
 
 
 def test_calculate_jo_from_pathway():
+    """
+    Test the calculation of the joint assembly index (JO) from a pathway file.
+
+    This function performs the following steps:
+    1. Defines the file path for the pathway file.
+    2. Calculates the joint assembly index (JO) using the `calculate_jo_from_pathway` function.
+    3. Asserts that the calculated JO matches the expected value.
+
+    Asserts:
+        - The calculated JO is equal to 28.
+    """
     print(flush=True)
     file = os.path.expanduser(os.path.abspath("data/pathway/taxolPathway"))
     jo = att.calculate_jo_from_pathway(file)
@@ -880,6 +891,18 @@ def test_calculate_jo_from_pathway():
 
 
 def test_calculate_jo():
+    """
+    Test the calculation of the joint assembly index (JO) for a molecular graph.
+
+    This function performs the following steps:
+    1. Defines a SMILES string representing a molecule (Benzene).
+    2. Converts the SMILES string to a NetworkX graph.
+    3. Calculates the joint assembly index (JO) for the graph using the `calculate_jo` function.
+    4. Asserts that the calculated JO matches the expected value.
+
+    Asserts:
+        - The calculated JO is equal to 6.
+    """
     print(flush=True)
     smi = "C1=CC=CC=C1"  # Benzene
     graph = att.smi_to_nx(smi)
