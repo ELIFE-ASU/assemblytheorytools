@@ -870,3 +870,18 @@ def test_vo_problem():
         ai, virt_obj, path = att.calculate_assembly_index(mols[i])
         virt_obj = path[-1]
         print('from mol path', virt_obj)
+
+
+def test_calculate_jo_from_pathway():
+    print(flush=True)
+    file = os.path.expanduser(os.path.abspath("data/pathway/taxolPathway"))
+    jo = att.calculate_jo_from_pathway(file)
+    assert jo == 28, f"Expected JO to be 28, but got {jo}"
+
+
+def test_calculate_jo():
+    print(flush=True)
+    smi = "C1=CC=CC=C1"  # Benzene
+    graph = att.smi_to_nx(smi)
+    jo, _, _ = att.calculate_jo(graph)
+    assert jo == 6, f"Expected JO to be 6, but got {jo}"
