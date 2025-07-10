@@ -57,12 +57,18 @@ def molecular_weight(mol: Mol) -> float:
     """
     Calculates the molecular weight of a molecule.
 
-    Molecular weight is the sum of the atomic weights of all the atoms in a molecule.
-    It is a simple measure of the molecule's size and is often used to estimate
-    properties like solubility and boiling point.
+    This function uses RDKit's molecular descriptors to compute the
+    molecular weight of the given molecule.
 
-    :param mol: An RDKit molecule object.
-    :return: The molecular weight.
+    Parameters:
+    -----------
+    mol : rdkit.Chem.rdchem.Mol
+        The RDKit molecule object for which the molecular weight is to be calculated.
+
+    Returns:
+    --------
+    float
+        The molecular weight of the molecule.
     """
     return Descriptors.MolWt(mol)
 
@@ -71,37 +77,51 @@ def bertz_complexity(mol: Mol) -> float:
     """
     Calculates the Bertz complexity of a molecule.
 
-    Bertz complexity is a topological index that combines both bond and atom
-    information. It is a measure of the structural complexity of the molecule
-    and is used to compare the complexity of different molecules.
+    The Bertz complexity is a molecular descriptor that quantifies the
+    structural complexity of a molecule. It is based on graph theory
+    and considers factors such as the number of atoms, bonds, and
+    branching in the molecular structure.
 
-    :param mol: An RDKit molecule object.
-    :return: The Bertz complexity.
+    Parameters:
+    -----------
+    mol : rdkit.Chem.rdchem.Mol
+        The RDKit molecule object for which the Bertz complexity is to be calculated.
+
+    Returns:
+    --------
+    float
+        The Bertz complexity of the molecule.
     """
     return BertzCT(mol)
 
 
-def wiener_index(mol: Mol) -> float:
+def wiener_index(mol: Mol) -> int:
     """
     Calculates the Wiener index of a molecule.
 
-    Wiener index is a topological descriptor calculated as the sum of the shortest
-    path lengths between all pairs of atoms in a molecule. It is a measure of the
-    molecule's branching and can be used to estimate various physicochemical properties.
+    The Wiener index is a topological descriptor that represents the sum of
+    all shortest path distances between pairs of vertices in a molecular graph.
+    It is used in cheminformatics to study molecular structure-activity
+    relationships and predict physicochemical properties.
 
-    :param mol: An RDKit molecule object.
-    :type mol: rdkit.Chem.rdchem.Mol
-    :return: The Wiener index.
-    :rtype: int
+    Parameters:
+    -----------
+    mol : rdkit.Chem.rdchem.Mol
+        The RDKit molecule object for which the Wiener index is to be calculated.
+
+    Returns:
+    --------
+    int
+        The Wiener index of the molecule.
     """
     distance_matrix = Chem.rdmolops.GetDistanceMatrix(mol)
     graph = nx.Graph()
 
-    # Add nodes
+    # Add nodes to the graph
     for i in range(len(distance_matrix)):
         graph.add_node(i)
 
-    # Add edges
+    # Add edges with weights based on the distance matrix
     for i in range(len(distance_matrix)):
         for j in range(i + 1, len(distance_matrix)):
             graph.add_edge(i, j, weight=distance_matrix[i, j])
@@ -113,12 +133,19 @@ def balaban_index(mol: Mol) -> float:
     """
     Calculates the Balaban index of a molecule.
 
-    Balaban index is a topological descriptor that quantifies the degree of
-    branching in a molecule. It is useful for predicting physicochemical
-    properties and biological activities of molecules.
+    The Balaban index is a topological descriptor that provides a measure of
+    molecular connectivity. It is used in cheminformatics to study molecular
+    structure-activity relationships and predict physicochemical properties.
 
-    :param mol: An RDKit molecule object.
-    :return: The Balaban index.
+    Parameters:
+    -----------
+    mol : rdkit.Chem.rdchem.Mol
+        The RDKit molecule object for which the Balaban index is to be calculated.
+
+    Returns:
+    --------
+    float
+        The Balaban index of the molecule.
     """
     return Descriptors.BalabanJ(mol)
 
