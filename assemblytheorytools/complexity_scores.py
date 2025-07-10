@@ -20,6 +20,39 @@ from .tools_graph import remove_hydrogen_from_graph
 from .tools_mol import standardize_mol
 
 
+def count_unique_bonds(mol: Mol) -> int:
+    """
+    Counts the number of unique bonds in a molecule.
+
+    This function iterates over all the bonds in the given RDKit molecule object,
+    identifies unique bonds based on the atom types (symbols) and bond type,
+    and returns the count of these unique bonds.
+
+    A bond is considered unique if the pair of atom types (sorted alphabetically)
+    and the bond type are distinct.
+
+    Parameters:
+    ----------
+    mol : rdkit.Chem.rdchem.Mol
+        The RDKit molecule object whose bonds are to be analyzed.
+
+    Returns:
+    -------
+    int
+        The number of unique bonds in the molecule.
+    """
+    unique_bonds = set()  # A set to store unique bonds
+    for bond in mol.GetBonds():
+        # Get the atom types (symbols) of the bonded atoms and sort them
+        atom_types = tuple(sorted([bond.GetBeginAtom().GetSymbol(), bond.GetEndAtom().GetSymbol()]))
+        # Get the bond type (e.g., single, double, etc.)
+        bond_type = bond.GetBondType()
+        # Add the unique bond (atom types and bond type) to the set
+        unique_bonds.add((atom_types, bond_type))
+    # Return the count of unique bonds
+    return len(unique_bonds)
+
+
 def molecular_weight(mol: Mol) -> float:
     """
     Calculates the molecular weight of a molecule.

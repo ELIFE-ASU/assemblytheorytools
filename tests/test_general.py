@@ -469,6 +469,33 @@ def test_auto_compile():
     pass
 
 
+def test_count_unique_bonds():
+    """
+    Test the `count_unique_bonds` function.
+
+    This function performs the following tests:
+    1. Converts a SMILES string for water ("O") to a molecule object.
+       - Asserts that the number of unique bonds is 1.
+    2. Converts a SMILES string for benzene ("c1ccccc1") to a molecule object.
+       - Asserts that the number of unique bonds is 3.
+
+    Asserts:
+        - The number of unique bonds matches the expected value for each test case.
+    """
+    print(flush=True)
+    # Test with water
+    smi = "O"
+    mol = att.smi_to_mol(smi)  # Convert SMILES to molecule object
+    n = att.count_unique_bonds(mol)  # Count unique bonds
+    assert n == 1, f"Expected 1 unique bonds for {smi}, got {n}"
+
+    # Test with benzene
+    smi = "c1ccccc1"  # Benzene
+    mol = att.smi_to_mol(smi)  # Convert SMILES to molecule object
+    n = att.count_unique_bonds(mol)  # Count unique bonds
+    assert n == 3, f"Expected 2 unique bonds for {smi}, got {n}"
+
+
 def test_get_mol_descriptors():
     """
     Test that `get_mol_descriptors()` correctly calculates molecular
