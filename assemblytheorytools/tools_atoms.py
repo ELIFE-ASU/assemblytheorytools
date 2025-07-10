@@ -17,52 +17,81 @@ from rdkit.Chem.rdchem import Mol
 from .tools_mol import standardize_mol
 
 
-def smiles_to_atoms(smiles: str) -> Atoms:
+def smiles_to_atoms(smiles: str,
+                    sanitize: bool = True,
+                    add_hydrogen: bool = True) -> Atoms:
     """
-    Convert a SMILES string to an ASE Atoms object via an SDF file.
+    Convert a SMILES string to an ASE Atoms object.
+
+    This function parses a SMILES string into an RDKit Mol object, optionally sanitizes it,
+    adds hydrogens, and converts it to an ASE Atoms object.
 
     Parameters:
     -----------
     smiles : str
-        SMILES string representing the molecule.
+        The SMILES string representing the molecule.
+    sanitize : bool, optional
+        Whether to sanitize the RDKit Mol object. Default is True.
+    add_hydrogen : bool, optional
+        Whether to add explicit hydrogens to the molecule. Default is True.
 
     Returns:
     --------
     Atoms
-        Atoms object representing the molecule.
+        The ASE Atoms object representing the molecule.
 
     Raises:
     -------
     ValueError
-        If SMILES parsing fails.
+        If the SMILES string cannot be parsed into a valid RDKit Mol object.
     """
-    mol = Chem.MolFromSmiles(smiles, sanitize=True)
-    mol = Chem.AddHs(mol)
-    mol = standardize_mol(mol)
+    mol = Chem.MolFromSmiles(smiles, sanitize=sanitize)
+    if sanitize:
+        mol = standardize_mol(mol)
+    if add_hydrogen:
+        mol = Chem.AddHs(mol)
     if mol is None:
         raise ValueError(f"Failed to parse SMILES string: {smiles}")
 
     return mol_to_atoms(mol)
 
 
-def mol_to_atoms(mol: Mol, optimise: bool = True) -> Atoms:
+def mol_to_atoms(mol: Mol,
+                 sanitize: bool = True,
+                 add_hydrogen: bool = True,
+                 optimise: bool = True) -> Atoms:
     """
-    Convert an RDKit molecule to an ASE Atoms object via an SDF file.
+    Convert an RDKit Mol object to an ASE Atoms object.
+
+    This function processes an RDKit Mol object by optionally sanitizing it, adding hydrogens,
+    and optimizing its geometry. The molecule is then written to a temporary SDF file, which
+    is read back and converted into an ASE Atoms object.
 
     Parameters:
     -----------
     mol : rdkit.Chem.rdchem.Mol
-        RDKit molecule object to be converted.
+        The RDKit Mol object to be converted.
+    sanitize : bool, optional
+        Whether to sanitize the molecule (e.g., standardize its structure). Default is True.
+    add_hydrogen : bool, optional
+        Whether to add explicit hydrogens to the molecule. Default is True.
     optimise : bool, optional
-        Whether to optimise the molecule geometry before conversion (default is True).
+        Whether to optimize the molecule's geometry using RDKit's MMFF force field. Default is True.
 
     Returns:
     --------
     ase.Atoms
-        Atoms object representing the molecule.
+        The ASE Atoms object representing the molecule.
+
+    Raises:
+    -------
+    ValueError
+        If the molecule cannot be embedded or optimized.
     """
-    mol = standardize_mol(mol)
-    mol = Chem.AddHs(mol)
+    if sanitize:
+        mol = standardize_mol(mol)
+    if add_hydrogen:
+        mol = Chem.AddHs(mol)
     # If optimisation is enabled, embed and optimise the molecule using RDKit
     if optimise:
         AllChem.EmbedMolecule(mol, maxAttempts=5000, useRandomCoords=True, randomSeed=0xf00d)
@@ -89,19 +118,22 @@ def mol_to_atoms(mol: Mol, optimise: bool = True) -> Atoms:
 
 def atoms_to_mol(atoms,
                  sanitize: bool = True,
+                 add_hydrogen: bool = False,
                  charge: int = 0) -> Chem.Mol:
     """
     Convert an ASE Atoms object to an RDKit Mol object.
 
-    This function writes the ASE Atoms object to a temporary XYZ file, reads it back
-    as an RDKit Mol object, and optionally sanitizes the molecule.
+    This function writes the ASE Atoms object to a temporary XYZ file, reads it back as an RDKit Mol object,
+    determines the bonds, and optionally sanitizes and adds hydrogens to the molecule.
 
     Parameters:
     -----------
     atoms : ase.Atoms
         The ASE Atoms object representing the molecule.
     sanitize : bool, optional
-        Whether to sanitize the RDKit Mol object and ensure correct aromaticity. Default is True.
+        Whether to sanitize the RDKit Mol object (e.g., standardize its structure). Default is True.
+    add_hydrogen : bool, optional
+        Whether to add explicit hydrogens to the molecule. Default is False.
     charge : int, optional
         The formal charge of the molecule. Default is 0.
 
@@ -112,8 +144,6 @@ def atoms_to_mol(atoms,
 
     Raises:
     -------
-    OSError
-        If the temporary XYZ file cannot be created or removed.
     ValueError
         If the RDKit Mol object cannot be created from the XYZ file.
     """
@@ -130,6 +160,9 @@ def atoms_to_mol(atoms,
         mol = standardize_mol(mol)
         # Make sure the aromaticity is correct
         Chem.Kekulize(mol)
+    if add_hydrogen:
+        # Add hydrogens to the molecule
+        mol = Chem.AddHs(mol)
     return mol
 
 
