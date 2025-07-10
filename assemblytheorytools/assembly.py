@@ -805,6 +805,13 @@ def add_assembly_to_path(str_mode=False):
     return os.environ.get(key)
 
 
+def get_most_recent_calc():
+    assembly_folders = [folder for folder in os.listdir(os.getcwd()) if folder.startswith("ai_calc_")]
+    assembly_folder = max(assembly_folders, key=os.path.getctime)
+    assembly_path = os.path.join(os.getcwd(), assembly_folder)
+    return assembly_path
+
+
 def load_assembly_time() -> float:
     """
     Load the assembly time from the most recent output file in the most recent "ai_calc_" folder.
@@ -822,6 +829,7 @@ def load_assembly_time() -> float:
     assembly_folders = [folder for folder in os.listdir(os.getcwd()) if folder.startswith("ai_calc_")]
     assembly_folder = max(assembly_folders, key=os.path.getctime)
     assembly_path = os.path.join(os.getcwd(), assembly_folder)
+    assembly_path = get_most_recent_calc()
 
     # Get the most recent file ending with "Out"
     assembly_files = [file for file in os.listdir(assembly_path) if file.endswith("Out")]
@@ -1030,7 +1038,7 @@ def _parse_pathway_file(data):
     return parsed_pathway
 
 
-def calculate_jo(json_file):
+def calculate_jo_from_pathway(json_file):
     with open(json_file, 'r', encoding='utf-8') as f:
         data = json.load(f)
 
@@ -1080,3 +1088,33 @@ def calculate_jo(json_file):
         jo_correction += max(0, len(fragment_atom_set & remnant_atom_set) - 1) - delta_cc
 
     return ma + jo_correction
+
+
+def calculate_jo(mol, timeout=100.0, strip_hydrogen=False, exact=False):
+    ai, vo, pathway = calculate_assembly_index(mol,
+                                               timeout=timeout,
+                                               debug=True,
+                                               strip_hydrogen=strip_hydrogen,
+                                               exact=exact)
+    # Get the most recent assembly calculation directory
+    assembly_path = get_most_recent_calc()
+    # Find the file that ends with "Pathway"
+    pathway_files = [f for f in os.listdir(assembly_path) if f.endswith("Pathway")]
+    if not pathway_files:
+        print("No pathway file found. Returning -1.")
+        return -1, None, None
+
+    # Get the pathway file
+    pathway_file = os.path.join(assembly_path, pathway_files[0])
+
+    # Calculate the joint assembly index from the pathway file
+    try:
+        jo = calculate_jo_from_pathway(pathway_file)
+    except Exception as e:
+        print(f"Error calculating joint assembly index: {e}")
+        shutil.rmtree(assembly_path)
+        return -1, None, None
+
+    # Remove the temporary directory
+    shutil.rmtree(assembly_path)
+    return jo, vo, pathway
