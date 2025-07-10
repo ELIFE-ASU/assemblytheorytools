@@ -874,11 +874,11 @@ def test_vo_problem():
 
 def test_calculate_jo_from_pathway():
     """
-    Test the calculation of the joint assembly index (JO) from a pathway file.
+    Test the calculation of the joining operation index (JO) from a pathway file.
 
     This function performs the following steps:
     1. Defines the file path for the pathway file.
-    2. Calculates the joint assembly index (JO) using the `calculate_jo_from_pathway` function.
+    2. Calculates the joining operation index (JO) using the `calculate_jo_from_pathway` function.
     3. Asserts that the calculated JO matches the expected value.
 
     Asserts:
@@ -892,12 +892,12 @@ def test_calculate_jo_from_pathway():
 
 def test_calculate_jo():
     """
-    Test the calculation of the joint assembly index (JO) for a molecular graph.
+    Test the calculation of the joining operation index (JO) for a molecular graph.
 
     This function performs the following steps:
     1. Defines a SMILES string representing a molecule (Benzene).
     2. Converts the SMILES string to a NetworkX graph.
-    3. Calculates the joint assembly index (JO) for the graph using the `calculate_jo` function.
+    3. Calculates the joining operation index (JO) for the graph using the `calculate_jo` function.
     4. Asserts that the calculated JO matches the expected value.
 
     Asserts:
