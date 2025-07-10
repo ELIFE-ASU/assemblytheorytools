@@ -1,3 +1,4 @@
+import json
 import os
 import platform
 import re
@@ -992,3 +993,90 @@ def calculate_assembly_similarity(graphs, settings, parallel=True) -> float:
 
     # Compute the assembly similarity index
     return (ai_sum / ai_jai - 1.0) if ai_jai != 0 else 0.0
+
+
+def _parse_pathway_file(data):
+    parsed_pathway = {}
+
+    file_graphs = []
+    for idx, fg in enumerate(data.get('file_graph', [])):
+        file_graphs.append({
+            'vertices': fg.get('Vertices', []),
+            'edges': fg.get('Edges', []),
+            'vertex_colours': fg.get('VertexColours', []),
+            'edge_colours': fg.get('EdgeColours', []),
+        })
+    parsed_pathway['file_graph'] = file_graphs
+
+    remnants = []
+    for idx, rem in enumerate(data.get('remnant', [])):
+        remnants.append({
+            'vertices': rem.get('Vertices', []),
+            'edges': rem.get('Edges', []),
+            'vertex_colours': rem.get('VertexColours', []),
+            'edge_colours': rem.get('EdgeColours', []),
+        })
+    parsed_pathway['remnant'] = remnants
+
+    duplicates = []
+    for dup in data.get('duplicates', []):
+        duplicates.append({
+            'left_edges': dup.get('Left', []),
+            'right_edges': dup.get('Right', [])
+        })
+    parsed_pathway['duplicates'] = duplicates
+    parsed_pathway['removed_edges'] = data.get('removed_edges', [])
+
+    return parsed_pathway
+
+
+def calculate_jo(json_file):
+    with open(json_file, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    data = _parse_pathway_file(data)
+
+    edge_set = set()
+    edge_list = []
+    edges = [fg["edges"] for fg in data["file_graph"]]
+
+    original_graph = nx.Graph()
+
+    for edge in edges[0]:
+        tuple_edge = tuple(edge)
+        edge_set.add(tuple_edge)
+        edge_list.append(tuple_edge)
+
+    original_graph.add_edges_from(edge_list)
+    original_cc = nx.number_connected_components(original_graph)
+
+    jo_correction = 0
+    ma = original_graph.number_of_edges() - original_cc
+
+    right_duplicates = [dup_dict["right_edges"] for dup_dict in data["duplicates"]]
+
+    for fragment in right_duplicates:
+        ma -= (len(fragment) - 1)
+
+        fragment_atom_set = set()
+        remnant_atom_set = set()
+        remnant_graph = nx.Graph()
+        remnant_edge_list = []
+
+        for edge in fragment:
+            fragment_atom_set.add(edge[0])
+            fragment_atom_set.add(edge[1])
+            edge_set.remove(tuple(edge))
+
+        for edge in edge_set:
+            remnant_atom_set.add(edge[0])
+            remnant_atom_set.add(edge[1])
+            remnant_edge_list.append(tuple(edge))
+
+        remnant_graph.add_edges_from(remnant_edge_list)
+        remnant_cc = nx.number_connected_components(remnant_graph)
+        delta_cc = max(remnant_cc - original_cc, 0)
+        original_cc = remnant_cc
+        jo_correction += max(0, len(fragment_atom_set & remnant_atom_set) - 1) - delta_cc
+
+    return ma + jo_correction

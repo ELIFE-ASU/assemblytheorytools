@@ -14,7 +14,8 @@ from .assembly import (calculate_assembly_index,
                        regularise_ai,
                        calculate_assembly_parallel,
                        calculate_sum_assembly,
-                       calculate_assembly_similarity)
+                       calculate_assembly_similarity,
+                       calculate_jo)
 from .complexity_scores import (molecular_weight,
                                 bertz_complexity,
                                 wiener_index,
