@@ -1078,7 +1078,7 @@ def calculate_jo_from_pathway(json_file):
         json_file (str): Path to the JSON file containing pathway data.
 
     Returns:
-        int: The calculated joint assembly index (JO).
+        int: The calculated joining operation index (JO).
 
     This function performs the following steps:
     1. Parses the pathway data from the JSON file using `_parse_pathway_file`.
