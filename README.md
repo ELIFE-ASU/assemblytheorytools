@@ -1,5 +1,7 @@
-![image](https://github.com/user-attachments/assets/864456bd-4b8a-4a11-b4e7-4d28bf27ea2f)
 
+
+
+<img width="1882" height="618" alt="Logo_NOBG3" src="https://github.com/user-attachments/assets/94b123da-7704-458a-80bd-e44e8d6aad92" />
 
 # AssemblyTheoryTools
 A centralised set of tools for doing assembly theory calculations written in Python.
