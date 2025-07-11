@@ -452,7 +452,8 @@ def _plot_directed_network(nodes: List[str],
                            node_color: str,
                            edge_color: str,
                            fig_size: float,
-                           filename: str):
+                           filename: str,
+                           arrowstyle: str = "->"):
     """
     Generate and save a circle network plot as a PNG file.
 
@@ -544,7 +545,7 @@ def _plot_directed_network(nodes: List[str],
         node_size=node_size,
         font_size=node_size / 200,
         font_color="black",
-        arrowstyle="->",
+        arrowstyle=arrowstyle,
         arrowsize=arrow_size,
         connectionstyle="arc3,rad=0.2"  # For curved edges
     )
@@ -566,7 +567,8 @@ def plot_assembly_circle(nodes,
                          node_color='Skyblue',
                          edge_color='Grey',
                          fig_size=10,
-                         filename='assembly_circles.png'):
+                         filename='assembly_circles.png',
+                         arrowstyle: str = "->"):
     '''
     Here is a function to plot a graph, where objects are displayed in concentric
     circles according to their assembly index.
@@ -669,5 +671,6 @@ def plot_assembly_circle(nodes,
                                      node_color,
                                      edge_color,
                                      fig_size,
-                                     filename)
+                                     filename,
+                                     arrowstyle=arrowstyle)
     return fig, ax
