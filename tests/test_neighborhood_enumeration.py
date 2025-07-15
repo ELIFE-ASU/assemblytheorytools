@@ -2,10 +2,10 @@
 import random
 
 import networkx as nx
+
 node_match = nx.algorithms.isomorphism.categorical_node_match('color', None)
 edge_match = nx.algorithms.isomorphism.categorical_edge_match('color', None)
 import assemblytheorytools as att
-import n_enum
 
 
 def test_enumerate_down():
@@ -19,7 +19,7 @@ def test_enumerate_down():
     graph.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 0), (3, 6)])
 
     # Get the partitions from the down_enum function
-    partitions = n_enum.enumerate_down(graph)
+    partitions = att.enumerate_down(graph)
     assert len(partitions) == 21  # By hand, I think there are 21 partitions, before modding out by isomorphism
     # Check that the partitions are valid
     for partition in partitions:
@@ -39,7 +39,7 @@ def test_enumerate_down2():
     graph.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (2, 5), (5, 6)])
 
     # Get the partitions from the down_enum function
-    partitions = n_enum.enumerate_down(graph)
+    partitions = att.enumerate_down(graph)
     assert len(partitions) == 6  # By hand, I think there are 6 partitions, before modding out by isomorphism
     # Check that the partitions are valid
     for partition in partitions:
@@ -84,7 +84,7 @@ def test_enumerate_up_small():
         for e in g.edges():
             g.edges[e]['color'] = 1
 
-    N_up_graphs = n_enum.enumerate_up(g1, g2)
+    N_up_graphs = att.enumerate_up(g1, g2)
     print(f"Number of enum_up graphs before iso-check: {len(N_up_graphs)}")
     unique_graphs = [N_up_graphs[0]]
     for g in N_up_graphs[1:]:
@@ -116,7 +116,7 @@ def test_enumerate_up_runs():
         for e in g.edges():
             g.edges[e]['color'] = 1
 
-    N_up_graphs = n_enum.enumerate_up(g1, g2)
+    N_up_graphs = att.enumerate_up(g1, g2)
 
     assert len(N_up_graphs) > 0
 
@@ -143,9 +143,9 @@ def test_enumerate_up():
         for e in g.edges():
             g.edges[e]['color'] = 1
 
-    output = n_enum.enumerate_neighborhood([g1, g2])
+    output = att.enumerate_neighborhood([g1, g2])
 
-    output_scrambled = n_enum.enumerate_neighborhood([g1_scrambled, g2_scrambled])
+    output_scrambled = att.enumerate_neighborhood([g1_scrambled, g2_scrambled])
 
     print("Scrambled graphs:")
     for i, g in enumerate(output_scrambled['input_graphs']):
@@ -192,12 +192,12 @@ def test_multicolored_graph_full_pipeline():
     g1.nodes[0]['color'] = 'P'
     g2.nodes[1]['color'] = 'P'
 
-    output = n_enum.enumerate_neighborhood([g1, g2])
+    output = att.enumerate_neighborhood([g1, g2])
 
     g1_scrambled = att.scramble_node_indices(g1.copy(), seed=42)
     g2_scrambled = att.scramble_node_indices(g2.copy(), seed=42)
 
-    output_scrambled = n_enum.enumerate_neighborhood([g1_scrambled, g2_scrambled])
+    output_scrambled = att.enumerate_neighborhood([g1_scrambled, g2_scrambled])
 
     print(f"Number of graphs in neighborhood: {len(output['N_graphs'])}")
     # print(f"Number of graphs in neighborhood (scrambled): {len(output_scrambled['N_graphs'])}")
@@ -249,119 +249,119 @@ def test_rTCA():
     # Convert the RDKit molecules to NetworkX graphs and remove hydrogen atoms
     graphs = [att.remove_hydrogen_from_graph(att.mol_to_nx(mol)) for mol in mols]
     # Limit the number of graphs for testing
-    output = n_enum.enumerate_neighborhood(graphs[:3])  # Limit to 3 graphs for test speed
+    output = att.enumerate_neighborhood(graphs[:3])  # Limit to 3 graphs for test speed
     assert len(output['N_graphs']) > 0
 
 
 def test_enum_up_C_2_O():
     g = nx.Graph()
-    g.add_edges_from([(0, 1),])
+    g.add_edges_from([(0, 1), ])
     g.nodes[0]['color'] = 'C'
     g.nodes[1]['color'] = 'O'
-    g.edges[(0,1)]['color'] = 2
+    g.edges[(0, 1)]['color'] = 2
 
-    up_graphs = n_enum.enumerate_up(g, g, 1, 1)
+    up_graphs = att.enumerate_up(g, g, 1, 1)
 
     print(f"Neighborhood+ size = {len(up_graphs)}")
 
     g2 = nx.Graph()
-    g2.add_edges_from([(0,1),(1,2)])
+    g2.add_edges_from([(0, 1), (1, 2)])
     g2.nodes[1]['color'] = 'C'
     g2.nodes[0]['color'] = 'O'
     g2.nodes[2]['color'] = 'O'
-    g2.edges[(0,1)]['color'] = 2
-    g2.edges[(1,2)]['color'] = 2
+    g2.edges[(0, 1)]['color'] = 2
+    g2.edges[(1, 2)]['color'] = 2
 
     flag = False
     for gN in up_graphs:
         if nx.is_isomorphic(gN, g2, node_match=node_match, edge_match=edge_match):
             flag = True
             break
-    
+
     assert flag
 
 
 def test_C_2_O():
     g = nx.Graph()
-    g.add_edges_from([(0, 1),])
+    g.add_edges_from([(0, 1), ])
     g.nodes[0]['color'] = 'C'
     g.nodes[1]['color'] = 'O'
-    g.edges[(0,1)]['color'] = 2
+    g.edges[(0, 1)]['color'] = 2
 
-    output = n_enum.enumerate_neighborhood([g])
+    output = att.enumerate_neighborhood([g])
 
     print("Neighborhood size:")
     print(len(output["N_graphs"]))
 
     g2 = nx.Graph()
-    g2.add_edges_from([(0,1),(1,2)])
+    g2.add_edges_from([(0, 1), (1, 2)])
     g2.nodes[1]['color'] = 'C'
     g2.nodes[0]['color'] = 'O'
     g2.nodes[2]['color'] = 'O'
-    g2.edges[(0,1)]['color'] = 2
-    g2.edges[(1,2)]['color'] = 2
+    g2.edges[(0, 1)]['color'] = 2
+    g2.edges[(1, 2)]['color'] = 2
 
     flag = False
     for gN in output["N_graphs"]:
         if nx.is_isomorphic(gN, g2, node_match=node_match, edge_match=edge_match):
             flag = True
             break
-    
+
     assert flag
 
 
 def test_enum_up_S_2_O():
     g = nx.Graph()
-    g.add_edges_from([(0, 1),])
+    g.add_edges_from([(0, 1), ])
     g.nodes[0]['color'] = 'S'
     g.nodes[1]['color'] = 'O'
-    g.edges[(0,1)]['color'] = 2
+    g.edges[(0, 1)]['color'] = 2
 
-    up_graphs = n_enum.enumerate_up(g, g, 1, 1, 1)
+    up_graphs = att.enumerate_up(g, g, 1, 1, 1)
 
     print(f"Neighborhood+ size = {len(up_graphs)}")
 
     g2 = nx.Graph()
-    g2.add_edges_from([(0,1),(1,2)])
+    g2.add_edges_from([(0, 1), (1, 2)])
     g2.nodes[1]['color'] = 'S'
     g2.nodes[0]['color'] = 'O'
     g2.nodes[2]['color'] = 'O'
-    g2.edges[(0,1)]['color'] = 2
-    g2.edges[(1,2)]['color'] = 2
+    g2.edges[(0, 1)]['color'] = 2
+    g2.edges[(1, 2)]['color'] = 2
 
     flag = False
     for gN in up_graphs:
         if nx.is_isomorphic(gN, g2, node_match=node_match, edge_match=edge_match):
             flag = True
             break
-    
+
     assert flag
 
 
 def test_S_2_O():
     g = nx.Graph()
-    g.add_edges_from([(0, 1),])
+    g.add_edges_from([(0, 1), ])
     g.nodes[0]['color'] = 'S'
     g.nodes[1]['color'] = 'O'
-    g.edges[(0,1)]['color'] = 2
+    g.edges[(0, 1)]['color'] = 2
 
-    output = n_enum.enumerate_neighborhood([g])
+    output = att.enumerate_neighborhood([g])
 
     print("Neighborhood size:")
     print(len(output["N_graphs"]))
 
     g2 = nx.Graph()
-    g2.add_edges_from([(0,1),(1,2)])
+    g2.add_edges_from([(0, 1), (1, 2)])
     g2.nodes[1]['color'] = 'S'
     g2.nodes[0]['color'] = 'O'
     g2.nodes[2]['color'] = 'O'
-    g2.edges[(0,1)]['color'] = 2
-    g2.edges[(1,2)]['color'] = 2
+    g2.edges[(0, 1)]['color'] = 2
+    g2.edges[(1, 2)]['color'] = 2
 
     flag = False
     for gN in output["N_graphs"]:
         if nx.is_isomorphic(gN, g2, node_match=node_match, edge_match=edge_match):
             flag = True
             break
-    
+
     assert flag
