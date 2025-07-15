@@ -128,6 +128,9 @@ from .tools_string import (load_fasta,
                            get_unique_char,
                            generate_random_strings)
 from .tools_test import (check_elements, print_graph_details)
+from .neighborhood_enumeration import (enumerate_neighborhood,
+                                       enumerate_up,
+                                       enumerate_down)
 
 __version__ = "1.7.0"
 
