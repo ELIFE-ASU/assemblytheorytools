@@ -60,27 +60,19 @@ def standardize_mol(mol: Chem.Mol, add_hydrogens: bool = True) -> Chem.Mol:
     return mol
 
 
-def smi_to_mol(smi: str, add_hydrogens: bool = True, safe_sanitise: bool = False) -> Chem.Mol:
-    """
-    Convert a SMILES string to a standardized RDKit molecule.
-
-    Args:
-        smi (str): The SMILES string representing the molecule.
-        add_hydrogens (bool, optional): Whether to add hydrogens to the molecule. Default is True.
-        safe_sanitise (bool, optional): Whether to use safe sanitisation. Default is False.
-
-    Returns:
-        Chem.Mol: The standardized RDKit molecule.
-    """
+def smi_to_mol(smi: str, add_hydrogens: bool = True, safe_sanitise: bool = False, sanitize=True) -> Chem.Mol:
     if '.' in smi:
         print("You have ionic molecules in your set, make sure you handle them appropriately. "
               "Have a look at the create_ionic_molecule function in tools_graphs.py", flush=True)
     mol = Chem.MolFromSmiles(smi, sanitize=False)
     # Sanitise the molecule
-    if safe_sanitise:
-        return safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
+    if sanitize:
+        if safe_sanitise:
+            return safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
+        else:
+            return standardize_mol(mol, add_hydrogens=add_hydrogens)
     else:
-        return standardize_mol(mol, add_hydrogens=add_hydrogens)
+        return mol
 
 
 def inchi_to_mol(inchi: str, add_hydrogens: bool = True, safe_sanitise: bool = False) -> Chem.Mol:

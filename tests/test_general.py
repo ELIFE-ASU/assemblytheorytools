@@ -55,6 +55,26 @@ def test_smi_to_nx_conversion():
     smi_out = att.nx_to_smi(graph)
     assert smi_out == smi, f"Expected {smi}, but got {smi_out}"
 
+def test_smi_to_nx_conversion_2():
+    print(flush=True)
+    smiles_list = ['C=O', 'N#N', '[C-]#[O+]', '[H]O', 'O=S', 'OS', 'C=S', '[H]Cl', '[H]S', '[H]P', 'N=O', 'O=O']
+    # mols = [att.smi_to_mol(smi, add_hydrogens=False) for smi in smiles_list]
+    # graphs = [att.mol_to_nx(mol, add_hydrogens=False) for mol in mols]
+    # smiles_from_graphs = [Chem.MolToSmiles(att.nx_to_mol(g, add_hydrogens=False), allHsExplicit = True) for g in graphs]
+    # print(smiles_from_graphs)
+    # smiles_from_graphs = [att.nx_to_smi(g, add_hydrogens=False) for g in graphs]
+    # print(smiles_from_graphs)
+
+    # graphs = [att.mol_to_nx(mol, add_hydrogens=False) for mol in mols]
+    # mols = [att.nx_to_mol(g, add_hydrogens=False) for g in graphs]
+
+    smiles_list = ['C=O', 'N#N', '[C-]#[O+]', '[H]O', 'O=S', 'OS', 'C=S', '[H]Cl', '[H]S', '[PH1+2]', 'N=O', 'O=O']
+    mols = [Chem.MolFromSmiles(smi, sanitize=False) for smi in smiles_list]
+    smiles_out = [Chem.MolToSmiles(m, allHsExplicit=False) for m in mols]
+    print(smiles_out)
+
+
+
 
 def test_inchi_to_nx_conversion():
     """
