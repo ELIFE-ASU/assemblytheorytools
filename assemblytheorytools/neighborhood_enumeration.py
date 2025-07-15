@@ -1,11 +1,9 @@
-# This script will take a molgraph and return the neighborhood in assembly space with connectivity information
-
 import itertools
-import random
 from typing import List
-from rdkit import Chem
+
 import networkx as nx
 import numpy as np
+from rdkit import Chem
 
 node_match = nx.algorithms.isomorphism.categorical_node_match('color', None)
 edge_match = nx.algorithms.isomorphism.categorical_edge_match('color', None)
@@ -147,7 +145,11 @@ def get_valence(atom_symbol: str, ptable: Chem.rdchem.PeriodicTable = ptable) ->
     return ptable.GetNOuterElecs(atomic_num)  # Return the default valence for the atomic number.
 
 
-def enumerate_up(graph1: nx.Graph, graph2: nx.Graph, obey_valence: bool = True, allow_dots: bool = True, debug: bool = False):
+def enumerate_up(graph1: nx.Graph,
+                 graph2: nx.Graph,
+                 obey_valence: bool = True,
+                 allow_dots: bool = True,
+                 debug: bool = False):
     """
     Given two graphs, graph1 and graph2, this function will return the set of graphs that can be formed by
     a joining operation acting on graph1 and graph2. If obey_valence is True, then the we will resctict ourselves
@@ -161,12 +163,11 @@ def enumerate_up(graph1: nx.Graph, graph2: nx.Graph, obey_valence: bool = True, 
     5. Filter out combinations that produce multi-edges.
     6. Generate the output graphs from the set valid of vertex identification combinations.
     """
-    
 
     # # Copy graphs for safety
     # graph1 = graph1.copy()
     # graph2 = graph2.copy()
-    
+
     # Check that we have the information for valence checks
     if obey_valence:
         valence_budgets = [np.zeros(graph1.number_of_nodes()), np.zeros(graph2.number_of_nodes())]
@@ -177,7 +178,8 @@ def enumerate_up(graph1: nx.Graph, graph2: nx.Graph, obey_valence: bool = True, 
                         f"Node {node} does not have a color attribute. Please add a color attribute to the nodes.")
                 valence_budgets[g_idx][node] = get_valence(graph.nodes[node]['color'])
                 for edge in graph.edges(node):
-                    valence_budgets[g_idx][node] -= graph.edges[edge]['color']  # This assumes 1=single bond, 2=double bond, etc.
+                    valence_budgets[g_idx][node] -= graph.edges[edge][
+                        'color']  # This assumes 1=single bond, 2=double bond, etc.
 
     # Get the colors of the nodes in graph1 and graph2
     colors1 = set([graph1.nodes[node]['color'] for node in graph1.nodes])
@@ -256,42 +258,44 @@ def enumerate_up(graph1: nx.Graph, graph2: nx.Graph, obey_valence: bool = True, 
 
     # Now we need to generate the output graphs from the set of valid maps
     output_graphs = []
-    for map in valid_maps:
-        joined = map_application(map, graph1, graph2)
+    for m in valid_maps:
+        joined = map_application(m, graph1, graph2)
         if not allow_dots and not nx.is_connected(joined):
             continue
         output_graphs.append(joined)
     return output_graphs
 
 
-def map_outer_product(combinations, graph1, graph2): # BUG LOOKS TO BE HAPPENING HERE
+def map_outer_product(combinations, graph1, graph2):  # BUG LOOKS TO BE HAPPENING HERE
     """
     This function will return the valid maps from the outer product of the valid color-specific maps.
     """
-
+    # If there is only one color, we can just return the valid maps for that color
     if len(combinations) == 1:
-        return combinations[list(combinations.keys())[0]]  # If there is only one color, we can just return the valid maps for that color
+        return combinations[list(combinations.keys())[0]]
     valid_maps = []  # This will be the list of valid maps
     # Remove colors with empty sets
     filtered_combinations = {color: maps for color, maps in combinations.items() if maps}
     colors = list(filtered_combinations.keys())
     lists_of_maps = [filtered_combinations[color] for color in colors]
-    
+
     # We only need to worry about edges that connect two different colors
-    g1_check_edges = []  # This will be the set of edges in graph1 that we'll need to worry about generating multi-edges
+    g1_check_edges = []
     for edge in graph1.edges():
         if graph1.nodes[edge[0]]['color'] != graph1.nodes[edge[1]]['color']:
             if graph1.nodes[edge[0]]['color'] in colors and graph1.nodes[edge[1]]['color'] in colors:
                 g1_check_edges.append(tuple(sorted(edge)))
-    g2_check_edges = []  # This will be the set of edges in graph2 that we'll need to worry about generating multi-edges
+    g2_check_edges = []
     for edge in graph2.edges():
         if graph2.nodes[edge[0]]['color'] != graph2.nodes[edge[1]]['color']:
             if graph2.nodes[edge[0]]['color'] in colors and graph2.nodes[edge[1]]['color'] in colors:
                 g2_check_edges.append(tuple(sorted(edge)))
 
     # Now we will enumerate the outer product of these combinations
-    for candidate_map in itertools.product(*lists_of_maps): # THIS IS WHERE THE BUG IS HAPPENING, itertools is passing []
-        candidate_map = set(itertools.chain.from_iterable(candidate_map))  # This should flatten the tuple of sets of tuples into a single set of tuples
+    for candidate_map in itertools.product(
+            *lists_of_maps):  # THIS IS WHERE THE BUG IS HAPPENING, itertools is passing []
+        candidate_map = set(itertools.chain.from_iterable(
+            candidate_map))  # This should flatten the tuple of sets of tuples into a single set of tuples
         valid = conditional_check_multi_edge_generation(candidate_map, g1_check_edges, g2_check_edges)
 
         if valid:
@@ -327,8 +331,8 @@ def map_application(map, graph1, graph2):
 
     n1 = graph1.number_of_nodes()
     g1 = graph1.copy()
-    g2 = nx.relabel_nodes(graph2, lambda x: x + n1,
-                          copy=True)  # We are incrementing the node labels of graph2 by n1 to avoid collisions
+    # We are incrementing the node labels of graph2 by n1 to avoid collisions
+    g2 = nx.relabel_nodes(graph2, lambda x: x + n1, copy=True)
     joined_graph = nx.compose(g1, g2)
 
     for v1, v2 in map:
