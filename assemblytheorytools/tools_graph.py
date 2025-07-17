@@ -94,7 +94,7 @@ def bond_order_rdkit_to_int(bond_type: Chem.BondType) -> int:
     return converter[bond_type]
 
 
-def nx_to_mol(graph: nx.Graph, add_hydrogens: bool = False, sanitize: bool =False) -> Chem.Mol:
+def nx_to_mol(graph: nx.Graph, add_hydrogens: bool = False, sanitize: bool = False) -> Chem.Mol:
     # Create an editable RDKit molecule
     mol = Chem.RWMol()
     # Dictionary to map node identifiers to atom indices in the RDKit molecule
@@ -107,8 +107,7 @@ def nx_to_mol(graph: nx.Graph, add_hydrogens: bool = False, sanitize: bool =Fals
             raise KeyError(f"Node {node} is missing the 'color' attribute.")
         atom_symbol = data['color']
         atom = Chem.Atom(atom_symbol.strip())
-        idx = mol.AddAtom(atom)
-        node_to_idx[node] = idx
+        node_to_idx[node] = mol.AddAtom(atom)
 
     # Add bonds to the molecule
     for u, v, data in graph.edges(data=True):
@@ -127,8 +126,7 @@ def nx_to_mol(graph: nx.Graph, add_hydrogens: bool = False, sanitize: bool =Fals
     return mol
 
 
-def mol_to_nx(mol: Chem.Mol, add_hydrogens: bool = False, sanitize: bool =False) -> nx.Graph:
-
+def mol_to_nx(mol: Chem.Mol, add_hydrogens: bool = False, sanitize: bool = False) -> nx.Graph:
     if sanitize:
         mol = safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
 
@@ -140,9 +138,6 @@ def mol_to_nx(mol: Chem.Mol, add_hydrogens: bool = False, sanitize: bool =False)
     for bond in mol.GetBonds():
         bond_type = bond_order_rdkit_to_int(bond.GetBondType())
         graph.add_edge(bond.GetBeginAtomIdx(), bond.GetEndAtomIdx(), color=bond_type)
-
-    if not add_hydrogens:
-        graph = remove_hydrogen_from_graph(graph)
 
     return graph
 
@@ -377,16 +372,17 @@ def get_bond_smi(mol: Chem.Mol) -> Set[str]:
     return bond_smiles
 
 
-def nx_to_smi(graph: nx.Graph, add_hydrogens: bool = True, sanitize: bool =True) -> str:
+def nx_to_smi(graph: nx.Graph, add_hydrogens: bool = True, sanitize: bool = True) -> str:
     mol = nx_to_mol(graph, add_hydrogens=add_hydrogens, sanitize=sanitize)
     return Chem.MolToSmiles(mol, allHsExplicit=True, kekuleSmiles=True, allBondsExplicit=True)
 
 
-def smi_to_nx(smiles: str, add_hydrogens: bool = True, sanitize: bool =True) -> nx.Graph:
+def smi_to_nx(smiles: str, add_hydrogens: bool = True, sanitize: bool = True) -> nx.Graph:
     mol = smi_to_mol(smiles)  # Convert the SMILES string to an RDKit molecule object
     if mol is None:
         raise ValueError("Invalid SMILES string or conversion failed.")  # Raise an error if conversion fails
-    return mol_to_nx(mol, add_hydrogens=add_hydrogens, sanitize=sanitize)  # Convert the RDKit molecule to a NetworkX graph
+    return mol_to_nx(mol, add_hydrogens=add_hydrogens,
+                     sanitize=sanitize)  # Convert the RDKit molecule to a NetworkX graph
 
 
 def nx_to_inchi(graph: nx.Graph, add_hydrogens: bool = True) -> str:
