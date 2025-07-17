@@ -120,10 +120,11 @@ def nx_to_mol(graph: nx.Graph, add_hydrogens: bool = False, sanitize: bool = Fal
         # Add the bond to the molecule
         mol.AddBond(node_to_idx[u], node_to_idx[v], bond_type)
 
-    # Sanitise the molecule to generate implicit hydrogens and conformations
+    # Sanitise the molecule
     if sanitize:
-        mol = safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
-    return mol
+        return safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
+    else:
+        return mol
 
 
 def mol_to_nx(mol: Chem.Mol, add_hydrogens: bool = False, sanitize: bool = False) -> nx.Graph:
@@ -372,56 +373,28 @@ def get_bond_smi(mol: Chem.Mol) -> Set[str]:
     return bond_smiles
 
 
-def nx_to_smi(graph: nx.Graph, add_hydrogens: bool = True, sanitize: bool = True) -> str:
+def nx_to_smi(graph: nx.Graph, add_hydrogens: bool = False, sanitize: bool = False) -> str:
     mol = nx_to_mol(graph, add_hydrogens=add_hydrogens, sanitize=sanitize)
-    return Chem.MolToSmiles(mol, allHsExplicit=True, kekuleSmiles=True, allBondsExplicit=True)
+    return Chem.MolToSmiles(mol, allHsExplicit=True, kekuleSmiles=True)
 
 
-def smi_to_nx(smiles: str, add_hydrogens: bool = True, sanitize: bool = True) -> nx.Graph:
-    mol = smi_to_mol(smiles)  # Convert the SMILES string to an RDKit molecule object
+def smi_to_nx(smiles: str, add_hydrogens: bool = False, sanitize: bool = False) -> nx.Graph:
+    mol = smi_to_mol(smiles, add_hydrogens=add_hydrogens, sanitize=sanitize)
     if mol is None:
-        raise ValueError("Invalid SMILES string or conversion failed.")  # Raise an error if conversion fails
-    return mol_to_nx(mol, add_hydrogens=add_hydrogens,
-                     sanitize=sanitize)  # Convert the RDKit molecule to a NetworkX graph
+        raise ValueError("Invalid SMILES string or conversion failed.")
+    return mol_to_nx(mol, add_hydrogens=add_hydrogens, sanitize=sanitize)
 
 
-def nx_to_inchi(graph: nx.Graph, add_hydrogens: bool = True) -> str:
-    """
-    Convert a NetworkX graph to an InChI string.
-
-    Args:
-        graph (nx.Graph): The input NetworkX graph where nodes represent atoms and edges represent bonds.
-        add_hydrogens (bool, optional): Whether to add hydrogens to the molecule. Default is True.
-
-    Returns:
-        str: The InChI string representation of the molecule.
-    """
-    mol = nx_to_mol(graph, add_hydrogens=add_hydrogens)
+def nx_to_inchi(graph: nx.Graph, add_hydrogens: bool = False, sanitize: bool = False) -> str:
+    mol = nx_to_mol(graph, add_hydrogens=add_hydrogens, sanitize=sanitize)
     return Chem.MolToInchi(mol)
 
 
-def inchi_to_nx(inchi: str, add_hydrogens: bool = True) -> nx.Graph:
-    """
-    Convert an InChI string to a NetworkX graph.
-
-    This function takes an InChI string, converts it to an RDKit molecule object,
-    and then transforms the molecule into a NetworkX graph representation.
-
-    Args:
-        inchi (str): The InChI string representing the molecule.
-        add_hydrogens (bool, optional): Whether to add hydrogens to the molecule during conversion.
-                                        Default is True.
-
-    Returns:
-        nx.Graph: A NetworkX graph where nodes represent atoms and edges represent bonds.
-
-    Raises:
-        ValueError: If the InChI string is invalid or the conversion to an RDKit molecule fails.
-    """
+def inchi_to_nx(inchi: str, add_hydrogens: bool = False, sanitize: bool = False) -> nx.Graph:
     mol = inchi_to_mol(inchi)  # Convert the InChI string to an RDKit molecule object
     if mol is None:
-        raise ValueError("Invalid InChI string or conversion failed.")  # Raise an error if conversion fails
-    return mol_to_nx(mol, add_hydrogens=add_hydrogens)  # Convert the RDKit molecule to a NetworkX graph
+        raise ValueError("Invalid InChI string or conversion failed.")
+    return mol_to_nx(mol, add_hydrogens=add_hydrogens, sanitize=sanitize)
 
 
 def create_ionic_molecule(smiles: str) -> Tuple[nx.Graph, List[Chem.Mol]]:
