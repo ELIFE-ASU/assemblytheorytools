@@ -22,7 +22,8 @@ def safe_standardize_mol(mol: Chem.Mol, add_hydrogens: bool = True) -> Chem.Mol:
     Chem.SetConjugation(mol)
     Chem.SetHybridization(mol)
     # Normalise the molecule, excluding clean-up and property sanitisation
-    Chem.SanitizeMol(mol, sanitizeOps=(Chem.SANITIZE_ALL ^ Chem.SANITIZE_CLEANUP ^ Chem.SANITIZE_PROPERTIES),
+    Chem.SanitizeMol(mol,
+                     sanitizeOps=(Chem.SANITIZE_ALL ^ Chem.SANITIZE_CLEANUP ^ Chem.SANITIZE_PROPERTIES),
                      catchErrors=False)
     # Normalise the molecule in place using RDKit's MolStandardize
     rdMolStandardize.NormalizeInPlace(mol)
@@ -60,60 +61,35 @@ def standardize_mol(mol: Chem.Mol, add_hydrogens: bool = True) -> Chem.Mol:
     return mol
 
 
-def smi_to_mol(smi: str, add_hydrogens: bool = True, safe_sanitise: bool = False, sanitize=True) -> Chem.Mol:
+def smi_to_mol(smi: str, add_hydrogens: bool = True, sanitize: bool = True) -> Chem.Mol:
     if '.' in smi:
         print("You have ionic molecules in your set, make sure you handle them appropriately. "
               "Have a look at the create_ionic_molecule function in tools_graphs.py", flush=True)
     mol = Chem.MolFromSmiles(smi, sanitize=False)
     # Sanitise the molecule
     if sanitize:
-        if safe_sanitise:
-            return safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
-        else:
-            return standardize_mol(mol, add_hydrogens=add_hydrogens)
+        return safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
     else:
         return mol
 
 
-def inchi_to_mol(inchi: str, add_hydrogens: bool = True, safe_sanitise: bool = False) -> Chem.Mol:
-    """
-    Convert an InChI string to a standardized RDKit molecule.
-
-    Args:
-        inchi (str): The InChI string representing the molecule.
-        add_hydrogens (bool, optional): Whether to add hydrogens to the molecule. Default is True.
-        safe_sanitise (bool, optional): Whether to use safe sanitisation. Default is False.
-
-    Returns:
-        Chem.Mol: The standardized RDKit molecule.
-    """
+def inchi_to_mol(inchi: str, add_hydrogens: bool = True, sanitize: bool = True) -> Chem.Mol:
     mol = Chem.MolFromInchi(inchi, sanitize=False)
     # Sanitise the molecule
-    if safe_sanitise:
+    if sanitize:
         return safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
     else:
-        return standardize_mol(mol, add_hydrogens=add_hydrogens)
+        return mol
 
 
-def molfile_to_mol(mol: str, add_hydrogens: bool = True, safe_sanitise: bool = False) -> Chem.Mol:
-    """
-    Convert a Molfile to a standardized RDKit molecule.
-
-    Args:
-        mol (str): The path to the Molfile representing the molecule.
-        add_hydrogens (bool, optional): Whether to add hydrogens to the molecule. Default is True.
-        safe_sanitise (bool, optional): Whether to use safe sanitisation. Default is False.
-
-    Returns:
-        Chem.Mol: The standardized RDKit molecule.
-    """
+def molfile_to_mol(mol: str, add_hydrogens: bool = True, sanitize: bool = True) -> Chem.Mol:
     # Convert the Molfile to an RDKit molecule
     mol = Chem.MolFromMolFile(mol, sanitize=False)
-    # Standardise the molecule
-    if safe_sanitise:
+    # Sanitise the molecule
+    if sanitize:
         return safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
     else:
-        return standardize_mol(mol, add_hydrogens=add_hydrogens)
+        return mol
 
 
 def combine_mols(mols: Union[List[Chem.Mol], Chem.Mol]) -> Chem.Mol:
@@ -162,20 +138,7 @@ def write_v2k_mol_file(mol: Chem.Mol, file_path: str) -> None:
     return None
 
 
-def get_element_set_from_mols(mols):
-    """
-    Determine the set of unique elements present in a list of RDKit molecules.
-
-    Parameters:
-    -----------
-    mols : list
-        List of RDKit molecule objects.
-
-    Returns:
-    --------
-    set
-        Set of element symbols (strings) present in the molecules.
-    """
+def get_element_set_from_mols(mols: List[Chem.Mol]) -> set:
     element_set = set()
     for mol in mols:
         if mol:
@@ -184,31 +147,12 @@ def get_element_set_from_mols(mols):
     return element_set
 
 
-def standardise_smiles(smi):
-    """
-    Standardise a SMILES (Simplified Molecular Input Line Entry System) string.
-
-    This function takes a SMILES string, adds explicit hydrogens to the molecule,
-    and returns a standardised version of the SMILES string with canonical, isomeric,
-    and Kekulé representations.
-
-    Parameters:
-    -----------
-    smi : str
-        The input SMILES string to be standardised.
-
-    Returns:
-    --------
-    str
-        The standardised SMILES string.
-
-    Raises:
-    -------
-    ValueError
-        If the input SMILES string is invalid and cannot be parsed.
-    """
+def standardise_smiles(smi: str, add_hydrogens: bool = True, sanitize: bool = True) -> str:
     # Convert the SMILES string to an RDKit molecule object and add explicit hydrogens
-    mol = Chem.AddHs(Chem.MolFromSmiles(smi, sanitize=True))
+    mol = Chem.MolFromSmiles(smi, sanitize=sanitize)
+    if add_hydrogens:
+        # Standardise the molecule with hydrogens
+        mol = safe_standardize_mol(mol, add_hydrogens=True)
 
     # Raise an error if the molecule could not be created
     if not mol:
