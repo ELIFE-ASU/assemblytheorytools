@@ -36,6 +36,47 @@ def test_graph_to_mol():
     # Check if the original graph and the graph obtained from the converted molecule are isomorphic
     assert att.is_graph_isomorphic(graph, att.mol_to_nx(mol_out))
 
+def test_graph_to_mol_2():
+    graph = nx.Graph()
+
+    # # Hand construct a graph of water
+    # graph.add_node(0, color="O")
+    # graph.add_node(1, color="H")
+    # graph.add_node(2, color="H")
+    #
+    # # Add edges with bond type
+    # graph.add_edge(0, 1, color=1)
+    # graph.add_edge(0, 2, color=1)
+    #
+    #
+    # smi_in = "[H]O[H]"
+    # # Convert the SMILES string to a molecule object
+    # mol = att.smi_to_mol(smi_in)
+    # # Convert the molecule object to a NetworkX graph
+    # graph = att.mol_to_nx(mol, add_hydrogens=False)
+    #
+    # # view the graph
+    # att.plot_mol_graph(graph, f_labs=True, filename="water_graph")
+
+    # Test charged cases
+    # Hand construct a graph of water
+    graph.add_node(0, color="P")
+    graph.add_node(1, color="H")
+
+    # Add edges with bond type
+    graph.add_edge(0, 1, color=1)
+
+
+    # Convert the NetworkX graph back to a molecule object
+    mol = att.nx_to_mol(graph)
+
+    # Convert the molecule object to a NetworkX graph
+    graph = att.mol_to_nx(mol)
+
+    # view the graph
+    att.plot_mol_graph(graph, f_labs=True, filename="water_graph")
+
+
 
 def test_smi_to_nx_conversion():
     """
