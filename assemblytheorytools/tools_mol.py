@@ -1,5 +1,5 @@
 from typing import List, Union
-
+import warnings
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 from rdkit.Chem.MolStandardize import rdMolStandardize
@@ -61,10 +61,10 @@ def standardize_mol(mol: Chem.Mol, add_hydrogens: bool = True) -> Chem.Mol:
     return mol
 
 
-def smi_to_mol(smi: str, add_hydrogens: bool = True, sanitize: bool = True) -> Chem.Mol:
+def smi_to_mol(smi: str, add_hydrogens: bool = False, sanitize: bool = True) -> Chem.Mol:
     if '.' in smi:
-        print("You have ionic molecules in your set, make sure you handle them appropriately. "
-              "Have a look at the create_ionic_molecule function in tools_graphs.py", flush=True)
+        warnings.warn("Disconnected molecules detected in SMILES string. Ensure proper handling of these molecules.")
+    # Convert the SMILES string to an RDKit molecule object
     mol = Chem.MolFromSmiles(smi, sanitize=False)
     # Sanitise the molecule
     if sanitize:
@@ -73,7 +73,7 @@ def smi_to_mol(smi: str, add_hydrogens: bool = True, sanitize: bool = True) -> C
         return mol
 
 
-def inchi_to_mol(inchi: str, add_hydrogens: bool = True, sanitize: bool = True) -> Chem.Mol:
+def inchi_to_mol(inchi: str, add_hydrogens: bool = False, sanitize: bool = True) -> Chem.Mol:
     mol = Chem.MolFromInchi(inchi, sanitize=False)
     # Sanitise the molecule
     if sanitize:
@@ -82,9 +82,11 @@ def inchi_to_mol(inchi: str, add_hydrogens: bool = True, sanitize: bool = True) 
         return mol
 
 
-def molfile_to_mol(mol: str, add_hydrogens: bool = True, sanitize: bool = True) -> Chem.Mol:
+def molfile_to_mol(mol: str, add_hydrogens: bool = False, sanitize: bool = True) -> Chem.Mol:
     # Convert the Molfile to an RDKit molecule
     mol = Chem.MolFromMolFile(mol, sanitize=False)
+
+
     # Sanitise the molecule
     if sanitize:
         return safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
