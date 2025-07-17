@@ -5,6 +5,8 @@ import networkx as nx
 import numpy as np
 from rdkit import Chem
 
+from .tools_graph import canonicalize_node_labels
+
 node_match = nx.algorithms.isomorphism.categorical_node_match('color', None)
 edge_match = nx.algorithms.isomorphism.categorical_edge_match('color', None)
 ptable = Chem.GetPeriodicTable()
@@ -28,7 +30,7 @@ def enumerate_neighborhood(graphs: List[nx.Graph], obey_valence: bool = True, al
     """
 
     # Canonicalize the input graphs
-    graphs = [nxG_canonicalize(graph) for graph in graphs]
+    graphs = [canonicalize_node_labels(graph) for graph in graphs]
 
     # Enumerate graphs that can form the input graphs in one joining operation (down join)
     down_partitions = dict()
@@ -343,21 +345,3 @@ def map_application(map, graph1, graph2):
             f"The joined graph has the wrong number of edges, {len(joined_graph.edges())} =/= {len(g1.edges())} + {len(g2.edges())}. This is probably a bug. Please report it.")
 
     return joined_graph
-
-
-def nxG_canonicalize(G):
-    """
-    This function takes a networkx graph and makes its node labels 
-    into a sequence of integers from 0 to n-1, where n is the number of nodes.
-    Input graph will potentially skip some numbers, so this function will
-    relabel the nodes to be a sequence of integers from 0 to n-1.
-
-    This will make the code more stable.
-    """
-    # Get the current node labels
-    current_labels = list(G.nodes())
-    # Create a mapping from current labels to new labels
-    label_mapping = {current_labels[i]: i for i in range(len(current_labels))}
-    # Relabel the graph
-    G = nx.relabel_nodes(G, label_mapping)
-    return G
