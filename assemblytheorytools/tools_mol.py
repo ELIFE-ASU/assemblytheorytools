@@ -101,7 +101,7 @@ def get_free_valence(atom: Chem.Atom,
     atomic_number = pt.GetAtomicNumber(symbol)
 
     if method == '1':
-        return min(pt.GetValenceList(atomic_number)) - atom.GetDegree()
+        return min(pt.GetValenceList(atomic_number)) - int(sum([bond.GetBondTypeAsDouble() for bond in atom.GetBonds()]))
     elif method == '2':
         return pt.GetDefaultValence(symbol) - atom.GetExplicitValence()
     elif method == '3':

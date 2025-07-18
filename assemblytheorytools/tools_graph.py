@@ -586,14 +586,15 @@ def get_graph_charges(graph: nx.Graph,
     Calculate the formal charges of nodes in a NetworkX graph.
 
     This function computes the formal charge for each node in the graph based on its atomic symbol
-    and degree (number of bonds). The periodic table is used to retrieve atomic properties such as
-    valence.
+    and the sum of the edge colours (bond orders). The periodic table is used to retrieve atomic
+    properties such as valence.
 
     Parameters:
     -----------
     graph : nx.Graph
         A NetworkX graph where nodes represent atoms and edges represent bonds. Each node must have
-        a 'color' attribute indicating the atomic symbol.
+        a 'color' attribute indicating the atomic symbol, and each edge must have a 'color' attribute
+        indicating the bond order (as an integer).
     pt : Chem.rdchem.PeriodicTable, optional
         The RDKit periodic table object. If not provided, it defaults to the global periodic table.
 
@@ -605,15 +606,20 @@ def get_graph_charges(graph: nx.Graph,
     Notes:
     ------
     - The 'color' attribute of each node is expected to contain the atomic symbol (e.g., "C" for carbon).
-    - The formal charge is calculated as the difference between the atom's valence and its degree in the graph.
+    - The formal charge is calculated as the difference between the atom's valence and the sum of the
+      edge colours (bond orders) for that node.
     """
     pt = pt or GetPeriodicTable()
     charges = []
-    for i, node in enumerate(graph.nodes(data=True)):
-        node_id, node_data = node
+    for node_id, node_data in graph.nodes(data=True):
         symbol = node_data['color']
         atomic_number = pt.GetAtomicNumber(symbol)
         valence = min(pt.GetValenceList(atomic_number))
-        charge = valence - int(graph.degree(node_id))
+        # Sum the edge colours (bond orders) for this node
+        bond_order_sum = sum(
+            graph.edges[node_id, neighbor].get('color', 1)
+            for neighbor in graph.neighbors(node_id)
+        )
+        charge = valence - bond_order_sum
         charges.append(charge)
     return charges
