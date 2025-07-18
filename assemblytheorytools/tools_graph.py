@@ -134,6 +134,42 @@ def nx_to_mol(graph: nx.Graph,
               add_hydrogens: bool = False,
               sanitize: bool = True,
               reset_charge: bool = True) -> Chem.Mol:
+    """
+    Convert a NetworkX graph to an RDKit molecule object.
+
+    This function creates an RDKit molecule (`Chem.Mol`) from a NetworkX graph representation.
+    Nodes in the graph represent atoms, and edges represent bonds. The graph must have specific
+    attributes for nodes and edges to define atomic symbols and bond orders.
+
+    Parameters:
+    -----------
+    graph : nx.Graph
+        A NetworkX graph where nodes represent atoms and edges represent bonds. Each node must
+        have a 'color' attribute indicating the atomic symbol, and each edge must have a 'color'
+        attribute indicating the bond order (as an integer).
+    add_hydrogens : bool, optional
+        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to False.
+    sanitize : bool, optional
+        If True, sanitizes the molecule after creation. Defaults to True.
+    reset_charge : bool, optional
+        If True, recalculates the formal charges of the atoms in the molecule. Defaults to True.
+
+    Returns:
+    --------
+    Chem.Mol
+        An RDKit molecule object created from the input graph.
+
+    Raises:
+    -------
+    KeyError
+        If a node is missing the 'color' attribute or an edge is missing the 'color' attribute.
+
+    Notes:
+    ------
+    - The 'color' attribute of nodes is used to determine the atomic symbol.
+    - The 'color' attribute of edges is used to determine the bond order.
+    - The molecule can be sanitized and charges recalculated based on the input parameters.
+    """
     # Create an editable RDKit molecule
     mol = Chem.RWMol()
     # Dictionary to map node identifiers to atom indices in the RDKit molecule
@@ -171,6 +207,34 @@ def nx_to_mol(graph: nx.Graph,
 def mol_to_nx(mol: Chem.Mol,
               add_hydrogens: bool = False,
               sanitize: bool = True) -> nx.Graph:
+    """
+    Convert an RDKit molecule object to a NetworkX graph.
+
+    This function creates a NetworkX graph representation of a molecule. Nodes in the graph
+    represent atoms, and edges represent bonds. The graph includes attributes for nodes and
+    edges to define atomic symbols and bond types.
+
+    Parameters:
+    -----------
+    mol : Chem.Mol
+        An RDKit molecule object to be converted into a NetworkX graph.
+    add_hydrogens : bool, optional
+        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to False.
+    sanitize : bool, optional
+        If True, sanitizes the molecule before conversion. Defaults to True.
+
+    Returns:
+    --------
+    nx.Graph
+        A NetworkX graph where nodes represent atoms and edges represent bonds. Node attributes
+        include 'color' for atomic symbols, and edge attributes include 'color' for bond types.
+
+    Notes:
+    ------
+    - The 'color' attribute of nodes corresponds to the atomic symbol (e.g., "C" for carbon).
+    - The 'color' attribute of edges corresponds to the bond type as an integer.
+    - The graph's node labels are canonicalized to ensure sequential integer labels.
+    """
     if sanitize:
         mol = safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
 
@@ -417,11 +481,73 @@ def get_bond_smi(mol: Chem.Mol) -> Set[str]:
 
 
 def nx_to_smi(graph: nx.Graph, add_hydrogens: bool = False, sanitize: bool = True) -> str:
+    """
+    Convert a NetworkX graph to a SMILES string.
+
+    This function generates a SMILES (Simplified Molecular Input Line Entry System) representation
+    of a molecule from its NetworkX graph representation. The graph is first converted to an RDKit
+    molecule object, and then the SMILES string is generated.
+
+    Parameters:
+    -----------
+    graph : nx.Graph
+        A NetworkX graph where nodes represent atoms and edges represent bonds. Each node must
+        have a 'color' attribute indicating the atomic symbol, and each edge must have a 'color'
+        attribute indicating the bond order (as an integer).
+    add_hydrogens : bool, optional
+        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to False.
+    sanitize : bool, optional
+        If True, sanitizes the molecule before generating the SMILES string. Defaults to True.
+
+    Returns:
+    --------
+    str
+        A SMILES string representing the molecule.
+
+    Notes:
+    ------
+    - The SMILES string is generated with explicit hydrogens and Kekulé form if specified.
+    - The 'color' attribute of nodes and edges in the graph is used to define atomic symbols
+      and bond orders, respectively.
+    """
     mol = nx_to_mol(graph, add_hydrogens=add_hydrogens, sanitize=sanitize)
     return Chem.MolToSmiles(mol, allHsExplicit=True, kekuleSmiles=True)
 
 
 def smi_to_nx(smiles: str, add_hydrogens: bool = False, sanitize: bool = True) -> nx.Graph:
+    """
+    Convert a SMILES string to a NetworkX graph.
+
+    This function takes a SMILES (Simplified Molecular Input Line Entry System) string,
+    converts it to an RDKit molecule object, and then transforms it into a NetworkX graph
+    representation. The graph includes attributes for nodes and edges to define atomic
+    symbols and bond types.
+
+    Parameters:
+    -----------
+    smiles : str
+        A SMILES string representing the molecular structure.
+    add_hydrogens : bool, optional
+        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to False.
+    sanitize : bool, optional
+        If True, sanitizes the molecule before conversion. Defaults to True.
+
+    Returns:
+    --------
+    nx.Graph
+        A NetworkX graph where nodes represent atoms and edges represent bonds. Node attributes
+        include 'color' for atomic symbols, and edge attributes include 'color' for bond types.
+
+    Raises:
+    -------
+    ValueError
+        If the SMILES string is invalid or the conversion to an RDKit molecule fails.
+
+    Notes:
+    ------
+    - The 'color' attribute of nodes corresponds to the atomic symbol (e.g., "C" for carbon).
+    - The 'color' attribute of edges corresponds to the bond type as an integer.
+    """
     mol = smi_to_mol(smiles, add_hydrogens=add_hydrogens, sanitize=sanitize)
     if mol is None:
         raise ValueError("Invalid SMILES string or conversion failed.")
@@ -429,11 +555,73 @@ def smi_to_nx(smiles: str, add_hydrogens: bool = False, sanitize: bool = True) -
 
 
 def nx_to_inchi(graph: nx.Graph, add_hydrogens: bool = False, sanitize: bool = True) -> str:
+    """
+    Convert a NetworkX graph to an InChI string.
+
+    This function generates an InChI (International Chemical Identifier) representation
+    of a molecule from its NetworkX graph representation. The graph is first converted
+    to an RDKit molecule object, and then the InChI string is generated.
+
+    Parameters:
+    -----------
+    graph : nx.Graph
+        A NetworkX graph where nodes represent atoms and edges represent bonds. Each node must
+        have a 'color' attribute indicating the atomic symbol, and each edge must have a 'color'
+        attribute indicating the bond order (as an integer).
+    add_hydrogens : bool, optional
+        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to False.
+    sanitize : bool, optional
+        If True, sanitizes the molecule before generating the InChI string. Defaults to True.
+
+    Returns:
+    --------
+    str
+        An InChI string representing the molecule.
+
+    Notes:
+    ------
+    - The 'color' attribute of nodes and edges in the graph is used to define atomic symbols
+      and bond orders, respectively.
+    - Sanitization ensures the molecule is chemically valid before conversion.
+    """
     mol = nx_to_mol(graph, add_hydrogens=add_hydrogens, sanitize=sanitize)
     return Chem.MolToInchi(mol)
 
 
 def inchi_to_nx(inchi: str, add_hydrogens: bool = False, sanitize: bool = True) -> nx.Graph:
+    """
+    Convert an InChI string to a NetworkX graph.
+
+    This function takes an InChI (International Chemical Identifier) string,
+    converts it to an RDKit molecule object, and then transforms it into a
+    NetworkX graph representation. The graph includes attributes for nodes
+    and edges to define atomic symbols and bond types.
+
+    Parameters:
+    -----------
+    inchi : str
+        An InChI string representing the molecular structure.
+    add_hydrogens : bool, optional
+        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to False.
+    sanitize : bool, optional
+        If True, sanitizes the molecule before conversion. Defaults to True.
+
+    Returns:
+    --------
+    nx.Graph
+        A NetworkX graph where nodes represent atoms and edges represent bonds. Node attributes
+        include 'color' for atomic symbols, and edge attributes include 'color' for bond types.
+
+    Raises:
+    -------
+    ValueError
+        If the InChI string is invalid or the conversion to an RDKit molecule fails.
+
+    Notes:
+    ------
+    - The 'color' attribute of nodes corresponds to the atomic symbol (e.g., "C" for carbon).
+    - The 'color' attribute of edges corresponds to the bond type as an integer.
+    """
     mol = inchi_to_mol(inchi)  # Convert the InChI string to an RDKit molecule object
     if mol is None:
         raise ValueError("Invalid InChI string or conversion failed.")
