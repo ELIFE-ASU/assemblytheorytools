@@ -47,6 +47,8 @@ def bond_order_int_to_rdkit(bond_order: int) -> Chem.BondType:
     """
     Convert a bond order int to RDKit's BondType.
 
+    https://www.rdkit.org/docs/cppapi/classRDKit_1_1Bond.html
+
     Args:
         bond_order (int): The bond order to convert.
 
@@ -62,7 +64,22 @@ def bond_order_int_to_rdkit(bond_order: int) -> Chem.BondType:
         3: Chem.rdchem.BondType.TRIPLE,
         4: Chem.rdchem.BondType.QUADRUPLE,
         5: Chem.rdchem.BondType.QUINTUPLE,
-        6: Chem.rdchem.BondType.IONIC,
+        6: Chem.rdchem.BondType.HEXTUPLE,
+        7: Chem.rdchem.BondType.ONEANDAHALF,
+        8: Chem.rdchem.BondType.TWOANDAHALF,
+        9: Chem.rdchem.BondType.THREEANDAHALF,
+        10: Chem.rdchem.BondType.FOURANDAHALF,
+        11: Chem.rdchem.BondType.FIVEANDAHALF,
+        12: Chem.rdchem.BondType.AROMATIC,
+        13: Chem.rdchem.BondType.IONIC,
+        14: Chem.rdchem.BondType.HYDROGEN,
+        15: Chem.rdchem.BondType.THREECENTER,
+        16: Chem.rdchem.BondType.DATIVEONE,
+        17: Chem.rdchem.BondType.DATIVE,
+        18: Chem.rdchem.BondType.DATIVEL,
+        19: Chem.rdchem.BondType.DATIVER,
+        20: Chem.rdchem.BondType.OTHER,
+        21: Chem.rdchem.BondType.ZERO,
     }
     if bond_order not in converter:
         raise ValueError(f"Unsupported bond order: {bond_order}")
@@ -72,6 +89,8 @@ def bond_order_int_to_rdkit(bond_order: int) -> Chem.BondType:
 def bond_order_rdkit_to_int(bond_type: Chem.BondType) -> int:
     """
     Convert RDKit's BondType to a bond order int.
+
+    https://www.rdkit.org/docs/cppapi/classRDKit_1_1Bond.html
 
     Args:
         bond_type (Chem.BondType): The RDKit BondType to convert.
@@ -83,12 +102,28 @@ def bond_order_rdkit_to_int(bond_type: Chem.BondType) -> int:
         ValueError: If the bond type is not recognized.
     """
     converter = {
+        Chem.rdchem.BondType.UNSPECIFIED: 0,
         Chem.rdchem.BondType.SINGLE: 1,
         Chem.rdchem.BondType.DOUBLE: 2,
         Chem.rdchem.BondType.TRIPLE: 3,
         Chem.rdchem.BondType.QUADRUPLE: 4,
         Chem.rdchem.BondType.QUINTUPLE: 5,
-        Chem.rdchem.BondType.IONIC: 6
+        Chem.rdchem.BondType.HEXTUPLE: 6,
+        Chem.rdchem.BondType.ONEANDAHALF: 7,
+        Chem.rdchem.BondType.TWOANDAHALF: 8,
+        Chem.rdchem.BondType.THREEANDAHALF: 9,
+        Chem.rdchem.BondType.FOURANDAHALF: 10,
+        Chem.rdchem.BondType.FIVEANDAHALF: 11,
+        Chem.rdchem.BondType.AROMATIC: 12,
+        Chem.rdchem.BondType.IONIC: 13,
+        Chem.rdchem.BondType.HYDROGEN: 14,
+        Chem.rdchem.BondType.THREECENTER: 15,
+        Chem.rdchem.BondType.DATIVEONE: 16,
+        Chem.rdchem.BondType.DATIVE: 17,
+        Chem.rdchem.BondType.DATIVEL: 18,
+        Chem.rdchem.BondType.DATIVER: 19,
+        Chem.rdchem.BondType.OTHER: 20,
+        Chem.rdchem.BondType.ZERO: 21
     }
     if bond_type not in converter:
         raise ValueError(f"Unsupported RDKit BondType: {bond_type}")
