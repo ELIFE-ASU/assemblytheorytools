@@ -83,73 +83,13 @@ def test_reset_mol_charge():
     assert charge == 2
 
 
-def test_graph_to_mol_2():
+def test_get_graph_charges():
     print(flush=True)
-
-    # # # Fully sanitise the molecule
-    # # mol = att.standardize_mol(mol, add_hydrogens=False)
-    # # Get the charge of the molecule
-    # charge = Chem.GetFormalCharge(mol)
-    # print("Charge of the molecule:", charge, flush=True)
-    #
-    # # convert the molecule object to a SMILES string
-    # smi_out = Chem.MolToSmiles(mol, allHsExplicit=True)
-    # print(smi_out)
-    #
-    # # Convert the molecule object to a NetworkX graph
-    # graph = att.mol_to_nx(mol)
-    # # print the graph details
-    # print("Graph details:", flush=True)
-    # att.print_graph_details(graph)
-    #
-    # smi_out = att.nx_to_smi(graph)
-    # print(smi_out)
-    # smi_out = '[PH1+2]'
-    # print(smi_out)
-    # graph_out = att.smi_to_nx(smi_out)
-    # mol = att.nx_to_mol(graph_out)
-    # charge = Chem.GetFormalCharge(Chem.MolFromSmiles(smi_out, ))
-    # print("Charge of the molecule:", charge, flush=True)
-    # att.print_graph_details(graph)
-    #
-    # mol = reset_mol_charge(mol)
-    # charge = Chem.GetFormalCharge(mol)
-    # print("Charge of the molecule:", charge, flush=True)
-    #
-    # # view the graph
-    # att.plot_mol_graph(graph, f_labs=True, filename="water_graph")
-    #
-    #
-    # pt = GetPeriodicTable()
-    # n_bonds = graph.number_of_edges()
-    #
-    # # loop over the nodes and print the color
-    # total_valence = 0
-    # charges = []
-    # for i, node in enumerate(graph.nodes(data=True)):
-    #     node_id, node_data = node
-    #     symbol = node_data['color']
-    #     atomic_number = pt.GetAtomicNumber(symbol)
-    #     valence = pt.GetNOuterElecs(atomic_number)
-    #     print(f"Node {node_id}: Symbol={symbol}, Atomic Number={atomic_number}, Valence={valence}", flush=True)
-    #     total_valence += valence
-    #     # count the number of edges connected to the node
-    #     n_edges = graph.degree(node_id)
-    #     print(f"Node {node_id} has {n_edges} edges", flush=True)
-    #     # calculate the charge of the node
-    #     charge = valence - n_edges
-    #     print(f"Node {node_id} has charge {charge}", flush=True)
-    #     charges.append(charge)
-    #
-    # print("Total valence:", total_valence, flush=True)
-    # # subtract the number of bonds from the total valence
-    # total_valence -= n_bonds
-    # print("Total valence after subtracting bonds:", total_valence, flush=True)
-    # # Calculate the charge of the molecule
-    # charge = total_valence
-    # print("Charge of the molecule:", charge, flush=True)
-    # # set the charge of the molecule
-    # Chem.SetFormalCharge(mol, charge)
+    print('Testing charged case', flush=True)
+    graph = att.ph_2p_graph()
+    charges = att.get_graph_charges(graph)
+    print("Charges of the graph:", charges, flush=True)
+    assert charges == [2, 0]
 
 
 def test_smi_to_nx_conversion():
