@@ -7,6 +7,7 @@ from typing import Tuple, List
 import networkx as nx
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
+from rdkit.Chem.rdchem import GetPeriodicTable
 
 from .tools_mol import safe_standardize_mol, reset_mol_charge, smi_to_mol, inchi_to_mol
 
@@ -542,3 +543,42 @@ def canonicalize_node_labels(graph: nx.Graph) -> nx.Graph:
     # Relabel the graph using the mapping
     graph = nx.relabel_nodes(graph, label_mapping)
     return graph
+
+
+def get_graph_charges(graph: nx.Graph,
+                      pt: Chem.rdchem.PeriodicTable = None) -> List[int]:
+    """
+    Calculate the formal charges of nodes in a NetworkX graph.
+
+    This function computes the formal charge for each node in the graph based on its atomic symbol
+    and degree (number of bonds). The periodic table is used to retrieve atomic properties such as
+    valence.
+
+    Parameters:
+    -----------
+    graph : nx.Graph
+        A NetworkX graph where nodes represent atoms and edges represent bonds. Each node must have
+        a 'color' attribute indicating the atomic symbol.
+    pt : Chem.rdchem.PeriodicTable, optional
+        The RDKit periodic table object. If not provided, it defaults to the global periodic table.
+
+    Returns:
+    --------
+    List[int]
+        A list of integers representing the formal charges of the nodes in the graph.
+
+    Notes:
+    ------
+    - The 'color' attribute of each node is expected to contain the atomic symbol (e.g., "C" for carbon).
+    - The formal charge is calculated as the difference between the atom's valence and its degree in the graph.
+    """
+    pt = pt or GetPeriodicTable()
+    charges = []
+    for i, node in enumerate(graph.nodes(data=True)):
+        node_id, node_data = node
+        symbol = node_data['color']
+        atomic_number = pt.GetAtomicNumber(symbol)
+        valence = min(pt.GetValenceList(atomic_number))
+        charge = valence - int(graph.degree(node_id))
+        charges.append(charge)
+    return charges

@@ -109,7 +109,9 @@ from .tools_graph import (nx_to_mol,
                           read_graphml,
                           longest_path_length,
                           relabel_digraph,
-                          relabel_identifiers)
+                          relabel_identifiers,
+                          canonicalize_node_labels,
+                          get_graph_charges)
 from .tools_mol import (safe_standardize_mol,
                         standardize_mol,
                         get_free_valence,
