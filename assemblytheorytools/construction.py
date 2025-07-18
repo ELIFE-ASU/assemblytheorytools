@@ -218,7 +218,7 @@ def tables_to_mol(tables):
         edit_mol.AddBond(e[0], e[1], bond_order_int_to_rdkit(e[2]))
 
     mol = edit_mol.GetMol()
-    return reset_mol_charge(safe_standardize_mol(mol))
+    return reset_mol_charge(mol)
 
 
 def tables_to_nx(tables):

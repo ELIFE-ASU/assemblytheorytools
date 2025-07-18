@@ -139,7 +139,6 @@ def reset_mol_charge(mol: Chem.Mol,
     for atom in rw.GetAtoms():
         atom.SetFormalCharge(get_free_valence(atom, pt=pt))
 
-    rw.UpdatePropertyCache()
     return rw.GetMol()
 
 
