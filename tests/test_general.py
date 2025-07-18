@@ -38,22 +38,27 @@ def test_graph_to_mol():
     assert att.is_graph_isomorphic(graph, att.mol_to_nx(mol_out))
 
 
-def get_free_valence(atom: Chem.Atom, pt: Chem.rdchem.PeriodicTable = None, method: str = '1') -> int:
-    if pt is None:
-        pt = GetPeriodicTable()
+def get_free_valence(atom: Chem.Atom,
+                     pt: Chem.rdchem.PeriodicTable = None,
+                     method: str = '1') -> int:
+    pt = pt or GetPeriodicTable()
+    symbol = atom.GetSymbol()
+    atomic_number = pt.GetAtomicNumber(symbol)
+
     if method == '1':
-        return min(list(pt.GetValenceList(pt.GetAtomicNumber(atom.GetSymbol())))) - atom.GetDegree()
+        return min(pt.GetValenceList(atomic_number)) - atom.GetDegree()
     elif method == '2':
-        return pt.GetDefaultValence(atom.GetSymbol()) - atom.GetExplicitValence()
+        return pt.GetDefaultValence(symbol) - atom.GetExplicitValence()
     elif method == '3':
-        return pt.GetNOuterElecs(pt.GetAtomicNumber(atom.GetSymbol()))
+        return pt.GetNOuterElecs(atomic_number)
     else:
-        raise ValueError(f"Unknown method {method} for calculating free valence of atom {atom.GetSymbol()}")
+        raise ValueError(f"Unknown method {method} for calculating free valence of atom {symbol}")
 
 
-def reset_mol_charge(mol: Chem.Mol) -> Chem.Mol:
+def reset_mol_charge(mol: Chem.Mol,
+                     pt: Chem.rdchem.PeriodicTable = None) -> Chem.Mol:
+    pt = pt or GetPeriodicTable()
     rw = Chem.RWMol(mol)
-    pt = GetPeriodicTable()
 
     for atom in rw.GetAtoms():
         atom.SetFormalCharge(get_free_valence(atom, pt=pt))
@@ -62,43 +67,29 @@ def reset_mol_charge(mol: Chem.Mol) -> Chem.Mol:
     return rw.GetMol()
 
 
-def water_graph() -> nx.Graph:
-    graph = nx.Graph()
-    # Hand construct a graph of water
-    graph.add_node(0, color="O")
-    graph.add_node(1, color="H")
-    graph.add_node(2, color="H")
+def test_reset_mol_charge():
+    print(flush=True)
 
-    # Add edges with bond type
-    graph.add_edge(0, 1, color=1)
-    graph.add_edge(0, 2, color=1)
-    return graph
+    print('Testing charged case', flush=True)
+    graph = att.ph_2p_graph()
+    mol = reset_mol_charge(att.nx_to_mol(graph))
+    charge = Chem.GetFormalCharge(mol)
+    print("Charge of the molecule:", charge, flush=True)
+    assert charge == 2
 
+    print('Testing uncharged case', flush=True)
+    graph = att.water_graph()
+    mol = reset_mol_charge(att.nx_to_mol(graph))
+    charge = Chem.GetFormalCharge(mol)
+    print("Charge of the molecule:", charge, flush=True)
+    assert charge == 0
 
-def phosphine_graph() -> nx.Graph:
-    graph = nx.Graph()
-    # Hand construct a graph of phosphine
-    graph.add_node(0, color="P")
-    graph.add_node(1, color="H")
-    graph.add_node(2, color="H")
-    graph.add_node(3, color="H")
-
-    # Add edges with bond type
-    graph.add_edge(0, 1, color=1)
-    graph.add_edge(0, 2, color=1)
-    graph.add_edge(0, 3, color=1)
-    return graph
-
-
-def ph_graph() -> nx.Graph:
-    graph = nx.Graph()
-    # Hand construct a graph of phosphine
-    graph.add_node(0, color="P")
-    graph.add_node(1, color="H")
-
-    # Add edges with bond type
-    graph.add_edge(0, 1, color=1)
-    return graph
+    print('Testing case where there are multiple possible charged cases and simplest one is picked', flush=True)
+    graph = att.phosphine_graph()
+    mol = reset_mol_charge(att.nx_to_mol(graph))
+    charge = Chem.GetFormalCharge(mol)
+    print("Charge of the molecule:", charge, flush=True)
+    assert charge == 0
 
 
 def test_graph_to_mol_2():
@@ -115,7 +106,7 @@ def test_graph_to_mol_2():
 
     # Test charged cases
     # Hand construct a graph of water
-    graph = ph_graph()
+    graph = att.ph_2p_graph()
     # graph = water_graph()
     # graph = phosphine_graph()
 
