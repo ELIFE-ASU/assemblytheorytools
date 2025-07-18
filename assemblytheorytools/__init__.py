@@ -112,6 +112,8 @@ from .tools_graph import (nx_to_mol,
                           relabel_identifiers)
 from .tools_mol import (safe_standardize_mol,
                         standardize_mol,
+                        get_free_valence,
+                        reset_mol_charge,
                         smi_to_mol,
                         inchi_to_mol,
                         molfile_to_mol,

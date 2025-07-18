@@ -8,7 +8,6 @@ from ase.io import read
 from ase.visualize import view
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
-from rdkit.Chem.rdchem import GetPeriodicTable
 
 import assemblytheorytools as att
 
@@ -38,55 +37,26 @@ def test_graph_to_mol():
     assert att.is_graph_isomorphic(graph, att.mol_to_nx(mol_out))
 
 
-def get_free_valence(atom: Chem.Atom,
-                     pt: Chem.rdchem.PeriodicTable = None,
-                     method: str = '1') -> int:
-    pt = pt or GetPeriodicTable()
-    symbol = atom.GetSymbol()
-    atomic_number = pt.GetAtomicNumber(symbol)
-
-    if method == '1':
-        return min(pt.GetValenceList(atomic_number)) - atom.GetDegree()
-    elif method == '2':
-        return pt.GetDefaultValence(symbol) - atom.GetExplicitValence()
-    elif method == '3':
-        return pt.GetNOuterElecs(atomic_number)
-    else:
-        raise ValueError(f"Unknown method {method} for calculating free valence of atom {symbol}")
-
-
-def reset_mol_charge(mol: Chem.Mol,
-                     pt: Chem.rdchem.PeriodicTable = None) -> Chem.Mol:
-    pt = pt or GetPeriodicTable()
-    rw = Chem.RWMol(mol)
-
-    for atom in rw.GetAtoms():
-        atom.SetFormalCharge(get_free_valence(atom, pt=pt))
-
-    rw.UpdatePropertyCache()
-    return rw.GetMol()
-
-
 def test_reset_mol_charge():
     print(flush=True)
 
     print('Testing charged case', flush=True)
     graph = att.ph_2p_graph()
-    mol = reset_mol_charge(att.nx_to_mol(graph))
+    mol = att.reset_mol_charge(att.nx_to_mol(graph))
     charge = Chem.GetFormalCharge(mol)
     print("Charge of the molecule:", charge, flush=True)
     assert charge == 2
 
     print('Testing uncharged case', flush=True)
     graph = att.water_graph()
-    mol = reset_mol_charge(att.nx_to_mol(graph))
+    mol = att.reset_mol_charge(att.nx_to_mol(graph))
     charge = Chem.GetFormalCharge(mol)
     print("Charge of the molecule:", charge, flush=True)
     assert charge == 0
 
     print('Testing case where there are multiple possible charged cases and simplest one is picked', flush=True)
     graph = att.phosphine_graph()
-    mol = reset_mol_charge(att.nx_to_mol(graph))
+    mol = att.reset_mol_charge(att.nx_to_mol(graph))
     charge = Chem.GetFormalCharge(mol)
     print("Charge of the molecule:", charge, flush=True)
     assert charge == 0
@@ -113,7 +83,7 @@ def test_graph_to_mol_2():
     # Convert the NetworkX graph back to a molecule object
     mol = att.nx_to_mol(graph)
 
-    mol = reset_mol_charge(mol)
+    mol = att.reset_mol_charge(mol)
     charge = Chem.GetFormalCharge(mol)
     print("Charge of the molecule:", charge, flush=True)
 
