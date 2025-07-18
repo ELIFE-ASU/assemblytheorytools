@@ -101,7 +101,8 @@ def get_free_valence(atom: Chem.Atom,
     atomic_number = pt.GetAtomicNumber(symbol)
 
     if method == '1':
-        return min(pt.GetValenceList(atomic_number)) - int(sum([bond.GetBondTypeAsDouble() for bond in atom.GetBonds()]))
+        return min(pt.GetValenceList(atomic_number)) - int(
+            sum([bond.GetBondTypeAsDouble() for bond in atom.GetBonds()]))
     elif method == '2':
         return pt.GetDefaultValence(symbol) - atom.GetExplicitValence()
     elif method == '3':
@@ -143,6 +144,38 @@ def reset_mol_charge(mol: Chem.Mol,
 
 
 def smi_to_mol(smi: str, add_hydrogens: bool = False, sanitize: bool = True) -> Chem.Mol:
+    """
+    Convert a SMILES string to an RDKit molecule object.
+
+    This function takes a SMILES (Simplified Molecular Input Line Entry System) string
+    and converts it into an RDKit molecule object. Optionally, the molecule can be
+    sanitized and explicit hydrogens can be added.
+
+    Parameters:
+    -----------
+    smi : str
+        A SMILES string representing the molecular structure.
+    add_hydrogens : bool, optional
+        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to False.
+    sanitize : bool, optional
+        If True, sanitizes the molecule after conversion. Defaults to True.
+
+    Returns:
+    --------
+    Chem.Mol
+        An RDKit molecule object representing the input SMILES string.
+
+    Raises:
+    -------
+    Warning
+        If the SMILES string contains disconnected molecules (indicated by a '.' character).
+
+    Notes:
+    ------
+    - The function uses RDKit's `MolFromSmiles` to create the molecule object.
+    - Sanitization ensures the molecule is chemically valid and standardized.
+    - Disconnected molecules in the SMILES string are flagged with a warning.
+    """
     if '.' in smi:
         warnings.warn("Disconnected molecules detected in SMILES string. Ensure proper handling of these molecules.")
     # Convert the SMILES string to an RDKit molecule object
@@ -155,6 +188,37 @@ def smi_to_mol(smi: str, add_hydrogens: bool = False, sanitize: bool = True) -> 
 
 
 def inchi_to_mol(inchi: str, add_hydrogens: bool = False, sanitize: bool = True) -> Chem.Mol:
+    """
+    Convert an InChI string to an RDKit molecule object.
+
+    This function takes an InChI (International Chemical Identifier) string
+    and converts it into an RDKit molecule object. Optionally, the molecule
+    can be sanitized and explicit hydrogens can be added.
+
+    Parameters:
+    -----------
+    inchi : str
+        An InChI string representing the molecular structure.
+    add_hydrogens : bool, optional
+        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to False.
+    sanitize : bool, optional
+        If True, sanitizes the molecule after conversion. Defaults to True.
+
+    Returns:
+    --------
+    Chem.Mol
+        An RDKit molecule object representing the input InChI string.
+
+    Raises:
+    -------
+    ValueError
+        If the InChI string is invalid or the molecule could not be created.
+
+    Notes:
+    ------
+    - The function uses RDKit's `MolFromInchi` to create the molecule object.
+    - Sanitization ensures the molecule is chemically valid and standardized.
+    """
     mol = Chem.MolFromInchi(inchi, sanitize=False)
     # Sanitise the molecule
     if sanitize:
@@ -164,6 +228,37 @@ def inchi_to_mol(inchi: str, add_hydrogens: bool = False, sanitize: bool = True)
 
 
 def molfile_to_mol(mol: str, add_hydrogens: bool = False, sanitize: bool = True) -> Chem.Mol:
+    """
+    Convert a Molfile to an RDKit molecule object.
+
+    This function takes a Molfile (a file format for storing molecular structures),
+    reads it, and converts it into an RDKit molecule object. Optionally, the molecule
+    can be sanitized and explicit hydrogens can be added.
+
+    Parameters:
+    -----------
+    mol : str
+        The path to the Molfile containing the molecular structure.
+    add_hydrogens : bool, optional
+        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to False.
+    sanitize : bool, optional
+        If True, sanitizes the molecule after conversion. Defaults to True.
+
+    Returns:
+    --------
+    Chem.Mol
+        An RDKit molecule object representing the input Molfile.
+
+    Raises:
+    -------
+    ValueError
+        If the Molfile is invalid or the molecule could not be created.
+
+    Notes:
+    ------
+    - The function uses RDKit's `MolFromMolFile` to create the molecule object.
+    - Sanitization ensures the molecule is chemically valid and standardized.
+    """
     # Convert the Molfile to an RDKit molecule
     mol = Chem.MolFromMolFile(mol, sanitize=False)
 
@@ -230,6 +325,38 @@ def get_element_set_from_mols(mols: List[Chem.Mol]) -> set:
 
 
 def standardise_smiles(smi: str, add_hydrogens: bool = True, sanitize: bool = True) -> str:
+    """
+    Standardize a SMILES string.
+
+    This function converts a SMILES (Simplified Molecular Input Line Entry System) string
+    into a standardized format using RDKit. Optionally, explicit hydrogens can be added
+    and the molecule can be sanitized.
+
+    Parameters:
+    -----------
+    smi : str
+        A SMILES string representing the molecular structure.
+    add_hydrogens : bool, optional
+        If True, adds explicit hydrogens to the molecule during standardization. Defaults to True.
+    sanitize : bool, optional
+        If True, sanitizes the molecule during conversion. Defaults to True.
+
+    Returns:
+    --------
+    str
+        A standardized SMILES string with isomeric, kekule, and canonical options enabled.
+
+    Raises:
+    -------
+    ValueError
+        If the SMILES string is invalid or the molecule could not be created.
+
+    Notes:
+    ------
+    - The function uses RDKit's `MolFromSmiles` to create the molecule object.
+    - Sanitization ensures the molecule is chemically valid and standardized.
+    - The standardized SMILES string is returned with specified options.
+    """
     # Convert the SMILES string to an RDKit molecule object and add explicit hydrogens
     mol = Chem.MolFromSmiles(smi, sanitize=sanitize)
     if add_hydrogens:
