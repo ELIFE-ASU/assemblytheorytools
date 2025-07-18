@@ -127,7 +127,11 @@ from .tools_string import (load_fasta,
                            prep_joint_string_ai,
                            get_unique_char,
                            generate_random_strings)
-from .tools_test import (check_elements, print_graph_details)
+from .tools_test import (check_elements,
+                         print_graph_details,
+                         water_graph,
+                         phosphine_graph,
+                         ph_2p_graph)
 
 __version__ = "1.7.0"
 
