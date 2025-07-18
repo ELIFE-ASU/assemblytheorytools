@@ -8,6 +8,7 @@ from ase.io import read
 from ase.visualize import view
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
+from rdkit.Chem.rdchem import GetPeriodicTable
 
 import assemblytheorytools as att
 
@@ -36,19 +37,73 @@ def test_graph_to_mol():
     # Check if the original graph and the graph obtained from the converted molecule are isomorphic
     assert att.is_graph_isomorphic(graph, att.mol_to_nx(mol_out))
 
-def test_graph_to_mol_2():
-    graph = nx.Graph()
 
-    # # Hand construct a graph of water
-    # graph.add_node(0, color="O")
-    # graph.add_node(1, color="H")
-    # graph.add_node(2, color="H")
-    #
-    # # Add edges with bond type
-    # graph.add_edge(0, 1, color=1)
-    # graph.add_edge(0, 2, color=1)
-    #
-    #
+def get_free_valence(atom: Chem.Atom, pt: Chem.rdchem.PeriodicTable = None, method: str = '1') -> int:
+    if pt is None:
+        pt = GetPeriodicTable()
+    if method == '1':
+        return min(list(pt.GetValenceList(pt.GetAtomicNumber(atom.GetSymbol())))) - atom.GetDegree()
+    elif method == '2':
+        return pt.GetDefaultValence(atom.GetSymbol()) - atom.GetExplicitValence()
+    elif method == '3':
+        return pt.GetNOuterElecs(pt.GetAtomicNumber(atom.GetSymbol()))
+    else:
+        raise ValueError(f"Unknown method {method} for calculating free valence of atom {atom.GetSymbol()}")
+
+
+def reset_mol_charge(mol: Chem.Mol) -> Chem.Mol:
+    rw = Chem.RWMol(mol)
+    pt = GetPeriodicTable()
+
+    for atom in rw.GetAtoms():
+        atom.SetFormalCharge(get_free_valence(atom, pt=pt))
+
+    rw.UpdatePropertyCache()
+    return rw.GetMol()
+
+
+def water_graph() -> nx.Graph:
+    graph = nx.Graph()
+    # Hand construct a graph of water
+    graph.add_node(0, color="O")
+    graph.add_node(1, color="H")
+    graph.add_node(2, color="H")
+
+    # Add edges with bond type
+    graph.add_edge(0, 1, color=1)
+    graph.add_edge(0, 2, color=1)
+    return graph
+
+
+def phosphine_graph() -> nx.Graph:
+    graph = nx.Graph()
+    # Hand construct a graph of phosphine
+    graph.add_node(0, color="P")
+    graph.add_node(1, color="H")
+    graph.add_node(2, color="H")
+    graph.add_node(3, color="H")
+
+    # Add edges with bond type
+    graph.add_edge(0, 1, color=1)
+    graph.add_edge(0, 2, color=1)
+    graph.add_edge(0, 3, color=1)
+    return graph
+
+
+def ph_graph() -> nx.Graph:
+    graph = nx.Graph()
+    # Hand construct a graph of phosphine
+    graph.add_node(0, color="P")
+    graph.add_node(1, color="H")
+
+    # Add edges with bond type
+    graph.add_edge(0, 1, color=1)
+    return graph
+
+
+def test_graph_to_mol_2():
+    print(flush=True)
+    # check that there are no modifications to the graph
     # smi_in = "[H]O[H]"
     # # Convert the SMILES string to a molecule object
     # mol = att.smi_to_mol(smi_in)
@@ -60,22 +115,81 @@ def test_graph_to_mol_2():
 
     # Test charged cases
     # Hand construct a graph of water
-    graph.add_node(0, color="P")
-    graph.add_node(1, color="H")
-
-    # Add edges with bond type
-    graph.add_edge(0, 1, color=1)
-
+    graph = ph_graph()
+    # graph = water_graph()
+    # graph = phosphine_graph()
 
     # Convert the NetworkX graph back to a molecule object
     mol = att.nx_to_mol(graph)
 
-    # Convert the molecule object to a NetworkX graph
-    graph = att.mol_to_nx(mol)
+    mol = reset_mol_charge(mol)
+    charge = Chem.GetFormalCharge(mol)
+    print("Charge of the molecule:", charge, flush=True)
 
-    # view the graph
-    att.plot_mol_graph(graph, f_labs=True, filename="water_graph")
-
+    # # # Fully sanitise the molecule
+    # # mol = att.standardize_mol(mol, add_hydrogens=False)
+    # # Get the charge of the molecule
+    # charge = Chem.GetFormalCharge(mol)
+    # print("Charge of the molecule:", charge, flush=True)
+    #
+    # # convert the molecule object to a SMILES string
+    # smi_out = Chem.MolToSmiles(mol, allHsExplicit=True)
+    # print(smi_out)
+    #
+    # # Convert the molecule object to a NetworkX graph
+    # graph = att.mol_to_nx(mol)
+    # # print the graph details
+    # print("Graph details:", flush=True)
+    # att.print_graph_details(graph)
+    #
+    # smi_out = att.nx_to_smi(graph)
+    # print(smi_out)
+    # smi_out = '[PH1+2]'
+    # print(smi_out)
+    # graph_out = att.smi_to_nx(smi_out)
+    # mol = att.nx_to_mol(graph_out)
+    # charge = Chem.GetFormalCharge(Chem.MolFromSmiles(smi_out, ))
+    # print("Charge of the molecule:", charge, flush=True)
+    # att.print_graph_details(graph)
+    #
+    # mol = reset_mol_charge(mol)
+    # charge = Chem.GetFormalCharge(mol)
+    # print("Charge of the molecule:", charge, flush=True)
+    #
+    # # view the graph
+    # att.plot_mol_graph(graph, f_labs=True, filename="water_graph")
+    #
+    #
+    # pt = GetPeriodicTable()
+    # n_bonds = graph.number_of_edges()
+    #
+    # # loop over the nodes and print the color
+    # total_valence = 0
+    # charges = []
+    # for i, node in enumerate(graph.nodes(data=True)):
+    #     node_id, node_data = node
+    #     symbol = node_data['color']
+    #     atomic_number = pt.GetAtomicNumber(symbol)
+    #     valence = pt.GetNOuterElecs(atomic_number)
+    #     print(f"Node {node_id}: Symbol={symbol}, Atomic Number={atomic_number}, Valence={valence}", flush=True)
+    #     total_valence += valence
+    #     # count the number of edges connected to the node
+    #     n_edges = graph.degree(node_id)
+    #     print(f"Node {node_id} has {n_edges} edges", flush=True)
+    #     # calculate the charge of the node
+    #     charge = valence - n_edges
+    #     print(f"Node {node_id} has charge {charge}", flush=True)
+    #     charges.append(charge)
+    #
+    # print("Total valence:", total_valence, flush=True)
+    # # subtract the number of bonds from the total valence
+    # total_valence -= n_bonds
+    # print("Total valence after subtracting bonds:", total_valence, flush=True)
+    # # Calculate the charge of the molecule
+    # charge = total_valence
+    # print("Charge of the molecule:", charge, flush=True)
+    # # set the charge of the molecule
+    # Chem.SetFormalCharge(mol, charge)
 
 
 def test_smi_to_nx_conversion():
@@ -96,25 +210,26 @@ def test_smi_to_nx_conversion():
     smi_out = att.nx_to_smi(graph)
     assert smi_out == smi, f"Expected {smi}, but got {smi_out}"
 
+
 def test_smi_to_nx_conversion_2():
     print(flush=True)
     smiles_list = ['C=O', 'N#N', '[C-]#[O+]', '[H]O', 'O=S', 'OS', 'C=S', '[H]Cl', '[H]S', '[H]P', 'N=O', 'O=O']
-    # mols = [att.smi_to_mol(smi, add_hydrogens=False) for smi in smiles_list]
-    # graphs = [att.mol_to_nx(mol, add_hydrogens=False) for mol in mols]
-    # smiles_from_graphs = [Chem.MolToSmiles(att.nx_to_mol(g, add_hydrogens=False), allHsExplicit = True) for g in graphs]
-    # print(smiles_from_graphs)
-    # smiles_from_graphs = [att.nx_to_smi(g, add_hydrogens=False) for g in graphs]
-    # print(smiles_from_graphs)
+    mols = [att.smi_to_mol(smi, add_hydrogens=False) for smi in smiles_list]
+    graphs = [att.mol_to_nx(mol, add_hydrogens=False) for mol in mols]
+    smiles_from_graphs = [Chem.MolToSmiles(att.nx_to_mol(g, add_hydrogens=False), allHsExplicit=True) for g in graphs]
+    print(smiles_from_graphs)
+    smiles_from_graphs = [att.nx_to_smi(g, add_hydrogens=False, sanitize=False) for g in graphs]
+    print(smiles_from_graphs)
 
-    # graphs = [att.mol_to_nx(mol, add_hydrogens=False) for mol in mols]
-    # mols = [att.nx_to_mol(g, add_hydrogens=False) for g in graphs]
+    graphs = [att.mol_to_nx(mol, add_hydrogens=False) for mol in mols]
+    mols = [att.nx_to_mol(g, add_hydrogens=False) for g in graphs]
+    smiles_out = [Chem.MolToSmiles(m, allHsExplicit=False) for m in mols]
+    print(smiles_out)
 
     smiles_list = ['C=O', 'N#N', '[C-]#[O+]', '[H]O', 'O=S', 'OS', 'C=S', '[H]Cl', '[H]S', '[PH1+2]', 'N=O', 'O=O']
     mols = [Chem.MolFromSmiles(smi, sanitize=False) for smi in smiles_list]
     smiles_out = [Chem.MolToSmiles(m, allHsExplicit=False) for m in mols]
     print(smiles_out)
-
-
 
 
 def test_inchi_to_nx_conversion():
