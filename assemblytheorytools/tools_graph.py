@@ -147,7 +147,7 @@ def mol_to_nx(mol: Chem.Mol,
         bond_type = bond_order_rdkit_to_int(bond.GetBondType())
         graph.add_edge(bond.GetBeginAtomIdx(), bond.GetEndAtomIdx(), color=bond_type)
 
-    return graph
+    return canonicalize_node_labels(graph)
 
 
 def remove_hydrogen_from_graph(graph: nx.Graph) -> nx.Graph:
