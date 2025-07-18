@@ -6,7 +6,8 @@ import numpy as np
 from rdkit import Chem
 from rdkit.Chem.rdchem import RWMol
 
-from .tools_graph import bond_order_assout_to_int, bond_order_int_to_rdkit
+from .tools_graph import bond_order_assout_to_int, bond_order_int_to_rdkit, canonicalize_node_labels
+from .tools_mol import safe_standardize_mol, reset_mol_charge
 
 
 def transform_array(target_array, comp_array, source_val, target_val, new_val, pairs_list):
@@ -217,8 +218,7 @@ def tables_to_mol(tables):
         edit_mol.AddBond(e[0], e[1], bond_order_int_to_rdkit(e[2]))
 
     mol = edit_mol.GetMol()
-
-    return mol
+    return reset_mol_charge(mol)
 
 
 def tables_to_nx(tables):
@@ -247,7 +247,7 @@ def tables_to_nx(tables):
     for e in bonds_info:
         graph.add_edge(e[0], e[1], color=int(e[2]))
 
-    return graph
+    return canonicalize_node_labels(graph)
 
 
 class AssemblyConstruction:

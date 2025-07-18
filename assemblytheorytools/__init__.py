@@ -109,9 +109,13 @@ from .tools_graph import (nx_to_mol,
                           read_graphml,
                           longest_path_length,
                           relabel_digraph,
-                          relabel_identifiers)
+                          relabel_identifiers,
+                          canonicalize_node_labels,
+                          get_graph_charges)
 from .tools_mol import (safe_standardize_mol,
                         standardize_mol,
+                        get_free_valence,
+                        reset_mol_charge,
                         smi_to_mol,
                         inchi_to_mol,
                         molfile_to_mol,
@@ -127,7 +131,12 @@ from .tools_string import (load_fasta,
                            prep_joint_string_ai,
                            get_unique_char,
                            generate_random_strings)
-from .tools_test import (check_elements, print_graph_details)
+
+from .tools_test import (check_elements,
+                         print_graph_details,
+                         water_graph,
+                         phosphine_graph,
+                         ph_2p_graph)
 from .neighborhood_enumeration import (enumerate_neighborhood,
                                        enumerate_up,
                                        enumerate_down)

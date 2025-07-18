@@ -37,6 +37,100 @@ def test_graph_to_mol():
     assert att.is_graph_isomorphic(graph, att.mol_to_nx(mol_out))
 
 
+def test_reset_mol_charge():
+    """
+    Test the functionality of resetting the formal charge of a molecule.
+
+    This function performs multiple tests to verify the behavior of the `reset_mol_charge` function
+    and related utilities. It checks the formal charge of molecules in various scenarios, including
+    charged and uncharged cases, as well as SMILES-based molecule creation.
+
+    Steps:
+    ------
+    1. Test a charged molecule graph and verify its formal charge.
+    2. Test an uncharged molecule graph and verify its formal charge.
+    3. Test a molecule graph with multiple possible charged cases and verify the simplest one is picked.
+    4. Test an uncharged molecule created from a SMILES string and verify its formal charge.
+    5. Test a charged molecule created from a SMILES string and verify its formal charge.
+
+    Asserts:
+    -------
+    - The formal charge of the molecule matches the expected value in each test case.
+
+    Notes:
+    ------
+    - The function uses RDKit utilities to calculate the formal charge of molecules.
+    - Molecules are created from graphs or SMILES strings using `assemblytheorytools`.
+    """
+    print(flush=True)
+    print('Testing charged case', flush=True)
+    graph = att.ph_2p_graph()
+    mol = att.nx_to_mol(graph)
+    charge = Chem.GetFormalCharge(mol)
+    print("Charge of the molecule:", charge, flush=True)
+    assert charge == 2
+
+    print('Testing uncharged case', flush=True)
+    graph = att.water_graph()
+    mol = att.nx_to_mol(graph)
+    charge = Chem.GetFormalCharge(mol)
+    print("Charge of the molecule:", charge, flush=True)
+    assert charge == 0
+
+    print('Testing case where there are multiple possible charged cases and simplest one is picked', flush=True)
+    graph = att.phosphine_graph()
+    mol = att.nx_to_mol(graph)
+    charge = Chem.GetFormalCharge(mol)
+    print("Charge of the molecule:", charge, flush=True)
+    assert charge == 0
+
+    print('Testing uncharged SMILES case', flush=True)
+    mol = att.smi_to_mol("[H]O[H]")
+    charge = Chem.GetFormalCharge(mol)
+    print("Charge of the molecule:", charge, flush=True)
+    assert charge == 0
+
+    graph = att.ph_2p_graph()
+    mol = att.nx_to_mol(graph)
+    # print the smiles of the molecule
+    smi_out = Chem.MolToSmiles(mol, allHsExplicit=True)
+    print(smi_out, flush=True)
+
+    print('Testing charged SMILES case', flush=True)
+    smi_out = '[H][P]'
+    print(smi_out)
+    graph_out = att.smi_to_nx(smi_out)
+    mol = att.nx_to_mol(graph_out)
+    charge = Chem.GetFormalCharge(mol)
+    print("Charge of the molecule:", charge, flush=True)
+    att.print_graph_details(graph)
+    assert charge == 2
+
+
+def test_get_graph_charges():
+    """
+    Test the calculation of formal charges for nodes in a molecular graph.
+
+    This function performs the following steps:
+    1. Creates a molecular graph using `att.ph_2p_graph()`.
+    2. Calculates the formal charges of the graph's nodes using `att.get_graph_charges()`.
+    3. Prints the calculated charges.
+    4. Asserts that the calculated charges match the expected values.
+
+    Asserts:
+        - The calculated charges are equal to [2, 0].
+
+    Notes:
+        - The graph represents a molecule with two nodes, where the expected charges are predefined.
+    """
+    print(flush=True)
+    print('Testing charged case', flush=True)
+    graph = att.ph_2p_graph()
+    charges = att.get_graph_charges(graph)
+    print("Charges of the graph:", charges, flush=True)
+    assert charges == [2, 0]
+
+
 def test_smi_to_nx_conversion():
     """
     Test the conversion of a SMILES string to a NetworkX graph and back to a SMILES string.
