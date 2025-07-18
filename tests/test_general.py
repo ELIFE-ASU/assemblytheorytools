@@ -39,53 +39,52 @@ def test_graph_to_mol():
 
 def test_reset_mol_charge():
     print(flush=True)
-
     print('Testing charged case', flush=True)
     graph = att.ph_2p_graph()
-    mol = att.reset_mol_charge(att.nx_to_mol(graph))
+    mol = att.nx_to_mol(graph)
     charge = Chem.GetFormalCharge(mol)
     print("Charge of the molecule:", charge, flush=True)
     assert charge == 2
 
     print('Testing uncharged case', flush=True)
     graph = att.water_graph()
-    mol = att.reset_mol_charge(att.nx_to_mol(graph))
+    mol = att.nx_to_mol(graph)
     charge = Chem.GetFormalCharge(mol)
     print("Charge of the molecule:", charge, flush=True)
     assert charge == 0
 
     print('Testing case where there are multiple possible charged cases and simplest one is picked', flush=True)
     graph = att.phosphine_graph()
-    mol = att.reset_mol_charge(att.nx_to_mol(graph))
+    mol = att.nx_to_mol(graph)
     charge = Chem.GetFormalCharge(mol)
     print("Charge of the molecule:", charge, flush=True)
     assert charge == 0
 
+    print('Testing uncharged SMILES case', flush=True)
+    mol = att.smi_to_mol("[H]O[H]")
+    charge = Chem.GetFormalCharge(mol)
+    print("Charge of the molecule:", charge, flush=True)
+    assert charge == 0
+
+    graph = att.ph_2p_graph()
+    mol = att.nx_to_mol(graph)
+    # print the smiles of the molecule
+    smi_out = Chem.MolToSmiles(mol, allHsExplicit=True)
+    print(smi_out, flush=True)
+
+    print('Testing charged SMILES case', flush=True)
+    smi_out = '[H][P]'
+    print(smi_out)
+    graph_out = att.smi_to_nx(smi_out)
+    mol = att.nx_to_mol(graph_out)
+    charge = Chem.GetFormalCharge(mol)
+    print("Charge of the molecule:", charge, flush=True)
+    att.print_graph_details(graph)
+    assert charge == 2
+
 
 def test_graph_to_mol_2():
     print(flush=True)
-    # check that there are no modifications to the graph
-    # smi_in = "[H]O[H]"
-    # # Convert the SMILES string to a molecule object
-    # mol = att.smi_to_mol(smi_in)
-    # # Convert the molecule object to a NetworkX graph
-    # graph = att.mol_to_nx(mol, add_hydrogens=False)
-    #
-    # # view the graph
-    # att.plot_mol_graph(graph, f_labs=True, filename="water_graph")
-
-    # Test charged cases
-    # Hand construct a graph of water
-    graph = att.ph_2p_graph()
-    # graph = water_graph()
-    # graph = phosphine_graph()
-
-    # Convert the NetworkX graph back to a molecule object
-    mol = att.nx_to_mol(graph)
-
-    mol = att.reset_mol_charge(mol)
-    charge = Chem.GetFormalCharge(mol)
-    print("Charge of the molecule:", charge, flush=True)
 
     # # # Fully sanitise the molecule
     # # mol = att.standardize_mol(mol, add_hydrogens=False)

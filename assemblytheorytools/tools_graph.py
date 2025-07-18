@@ -8,7 +8,7 @@ import networkx as nx
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 
-from .tools_mol import safe_standardize_mol, smi_to_mol, inchi_to_mol
+from .tools_mol import safe_standardize_mol, reset_mol_charge, smi_to_mol, inchi_to_mol
 
 
 def bond_order_assout_to_int(edge_color: str | int) -> int:
@@ -94,7 +94,10 @@ def bond_order_rdkit_to_int(bond_type: Chem.BondType) -> int:
     return converter[bond_type]
 
 
-def nx_to_mol(graph: nx.Graph, add_hydrogens: bool = False, sanitize: bool = True) -> Chem.Mol:
+def nx_to_mol(graph: nx.Graph,
+              add_hydrogens: bool = False,
+              sanitize: bool = True,
+              reset_charge: bool = True) -> Chem.Mol:
     # Create an editable RDKit molecule
     mol = Chem.RWMol()
     # Dictionary to map node identifiers to atom indices in the RDKit molecule
@@ -122,12 +125,16 @@ def nx_to_mol(graph: nx.Graph, add_hydrogens: bool = False, sanitize: bool = Tru
 
     # Sanitise the molecule
     if sanitize:
-        return safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
-    else:
-        return mol
+        mol = safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
+    # Re-calculate the charges if requested
+    if reset_charge:
+        mol = reset_mol_charge(mol)
+    return mol
 
 
-def mol_to_nx(mol: Chem.Mol, add_hydrogens: bool = False, sanitize: bool = True) -> nx.Graph:
+def mol_to_nx(mol: Chem.Mol,
+              add_hydrogens: bool = False,
+              sanitize: bool = True) -> nx.Graph:
     if sanitize:
         mol = safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
 
