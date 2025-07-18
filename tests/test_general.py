@@ -38,6 +38,30 @@ def test_graph_to_mol():
 
 
 def test_reset_mol_charge():
+    """
+    Test the functionality of resetting the formal charge of a molecule.
+
+    This function performs multiple tests to verify the behavior of the `reset_mol_charge` function
+    and related utilities. It checks the formal charge of molecules in various scenarios, including
+    charged and uncharged cases, as well as SMILES-based molecule creation.
+
+    Steps:
+    ------
+    1. Test a charged molecule graph and verify its formal charge.
+    2. Test an uncharged molecule graph and verify its formal charge.
+    3. Test a molecule graph with multiple possible charged cases and verify the simplest one is picked.
+    4. Test an uncharged molecule created from a SMILES string and verify its formal charge.
+    5. Test a charged molecule created from a SMILES string and verify its formal charge.
+
+    Asserts:
+    -------
+    - The formal charge of the molecule matches the expected value in each test case.
+
+    Notes:
+    ------
+    - The function uses RDKit utilities to calculate the formal charge of molecules.
+    - Molecules are created from graphs or SMILES strings using `assemblytheorytools`.
+    """
     print(flush=True)
     print('Testing charged case', flush=True)
     graph = att.ph_2p_graph()
@@ -84,6 +108,21 @@ def test_reset_mol_charge():
 
 
 def test_get_graph_charges():
+    """
+    Test the calculation of formal charges for nodes in a molecular graph.
+
+    This function performs the following steps:
+    1. Creates a molecular graph using `att.ph_2p_graph()`.
+    2. Calculates the formal charges of the graph's nodes using `att.get_graph_charges()`.
+    3. Prints the calculated charges.
+    4. Asserts that the calculated charges match the expected values.
+
+    Asserts:
+        - The calculated charges are equal to [2, 0].
+
+    Notes:
+        - The graph represents a molecule with two nodes, where the expected charges are predefined.
+    """
     print(flush=True)
     print('Testing charged case', flush=True)
     graph = att.ph_2p_graph()
@@ -109,27 +148,6 @@ def test_smi_to_nx_conversion():
     graph = att.smi_to_nx(smi)
     smi_out = att.nx_to_smi(graph)
     assert smi_out == smi, f"Expected {smi}, but got {smi_out}"
-
-
-def test_smi_to_nx_conversion_2():
-    print(flush=True)
-    smiles_list = ['C=O', 'N#N', '[C-]#[O+]', '[H]O', 'O=S', 'OS', 'C=S', '[H]Cl', '[H]S', '[H]P', 'N=O', 'O=O']
-    mols = [att.smi_to_mol(smi, add_hydrogens=False) for smi in smiles_list]
-    graphs = [att.mol_to_nx(mol, add_hydrogens=False) for mol in mols]
-    smiles_from_graphs = [Chem.MolToSmiles(att.nx_to_mol(g, add_hydrogens=False), allHsExplicit=True) for g in graphs]
-    print(smiles_from_graphs)
-    smiles_from_graphs = [att.nx_to_smi(g, add_hydrogens=False, sanitize=False) for g in graphs]
-    print(smiles_from_graphs)
-
-    graphs = [att.mol_to_nx(mol, add_hydrogens=False) for mol in mols]
-    mols = [att.nx_to_mol(g, add_hydrogens=False) for g in graphs]
-    smiles_out = [Chem.MolToSmiles(m, allHsExplicit=False) for m in mols]
-    print(smiles_out)
-
-    smiles_list = ['C=O', 'N#N', '[C-]#[O+]', '[H]O', 'O=S', 'OS', 'C=S', '[H]Cl', '[H]S', '[PH1+2]', 'N=O', 'O=O']
-    mols = [Chem.MolFromSmiles(smi, sanitize=False) for smi in smiles_list]
-    smiles_out = [Chem.MolToSmiles(m, allHsExplicit=False) for m in mols]
-    print(smiles_out)
 
 
 def test_inchi_to_nx_conversion():
