@@ -9,6 +9,8 @@ import networkx as nx
 import numpy as np
 from IPython.display import HTML
 from matplotlib import colormaps, colors
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from matplotlib.patches import Circle
 from pyvis.network import Network
@@ -17,6 +19,7 @@ from rdkit.Chem import Draw
 
 import CFG
 from .tools_graph import relabel_digraph
+from .tools_mol import smi_to_mol
 
 
 def n_plot(xlab: str, ylab: str, xs: int = 14, ys: int = 14) -> None:
@@ -337,7 +340,7 @@ def plot_digraph_metro(digraph: nx.DiGraph, filename: str = 'metro', steps: bool
     return None
 
 
-def plot_digraph_topological(digraph: nx.DiGraph, filename: str = 'topological') -> None:
+def plot_digraph_topological(digraph: nx.DiGraph, filename: str = 'topological') -> tuple[Figure, Axes]:
     """
     Plot a directed graph using a topological layout and save it as a PNG file.
 
@@ -369,10 +372,7 @@ def plot_digraph_topological(digraph: nx.DiGraph, filename: str = 'topological')
     # Save the plot as PNG and PDF
     plt.savefig(f"{filename}.png", dpi=600)
     plt.savefig(f"{filename}.pdf")
-
-    # Display or close the plot based on the operating system
-    os_plot_show()
-    return None
+    return fig, ax
 
 
 def plot_digraph_with_images(G, show_molecules=True, seed=42):
@@ -403,7 +403,8 @@ def plot_digraph_with_images(G, show_molecules=True, seed=42):
     if show_molecules:
         for i, node in enumerate(G.nodes):
             mol = G.nodes[node]["vo"]
-            img = Draw.MolToImage(Chem.MolFromSmiles(mol), size=(150, 150))
+            print(mol, flush=True)
+            img = Draw.MolToImage(smi_to_mol(mol, add_hydrogens=False), size=(150, 150), kekulize=False)
             imagebox = OffsetImage(img, zoom=0.4)
             ab = AnnotationBbox(imagebox, (pos[node][0], pos[node][1]), frameon=True)
             ax.add_artist(ab)
