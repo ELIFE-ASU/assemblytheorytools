@@ -123,7 +123,8 @@ from .tools_mol import (safe_standardize_mol,
                         write_v2k_mol_file,
                         split_mols,
                         get_element_set_from_mols,
-                        standardise_smiles)
+                        standardise_smiles,
+                        smi_remove_implicit_hydrogen)
 from .tools_mp import (mp_calc,
                        mp_calc_star,
                        tp_calc)

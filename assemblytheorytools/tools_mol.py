@@ -1,3 +1,4 @@
+import re
 import warnings
 from typing import List, Union
 
@@ -369,3 +370,13 @@ def standardise_smiles(smi: str, add_hydrogens: bool = True, sanitize: bool = Tr
 
     # Return the standardised SMILES string with specified options
     return Chem.MolToSmiles(mol, isomericSmiles=True, kekuleSmiles=True, canonical=True)
+
+
+def smi_remove_implicit_hydrogen(input_string):
+    pattern = r'\[([a-zA-Z]+[0-9]*)\]'
+
+    def update_match(match):
+        group = match.group(1)
+        return f"[{group[0]}]"
+
+    return re.sub(pattern, update_match, input_string)
