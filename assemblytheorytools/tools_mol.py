@@ -372,7 +372,28 @@ def standardise_smiles(smi: str, add_hydrogens: bool = True, sanitize: bool = Tr
     return Chem.MolToSmiles(mol, isomericSmiles=True, kekuleSmiles=True, canonical=True)
 
 
-def smi_remove_implicit_hydrogen(input_string):
+def smi_remove_implicit_hydrogen(input_string: str) -> str:
+    """
+    Remove implicit hydrogen counts from SMILES strings.
+
+    This function processes a SMILES (Simplified Molecular Input Line Entry System) string
+    and removes implicit hydrogen counts from atomic symbols enclosed in square brackets.
+
+    Parameters:
+    -----------
+    input_string : str
+        A SMILES string containing atomic symbols with implicit hydrogen counts.
+
+    Returns:
+    --------
+    str
+        A modified SMILES string with implicit hydrogen counts removed.
+
+    Notes:
+    ------
+    - The function uses a regular expression to identify atomic symbols with implicit hydrogen counts.
+    - Only the atomic symbol is retained, and the hydrogen count is removed.
+    """
     pattern = r'\[([a-zA-Z]+[0-9]*)\]'
 
     def update_match(match):
