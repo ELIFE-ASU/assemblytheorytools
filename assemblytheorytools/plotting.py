@@ -375,39 +375,59 @@ def plot_digraph_topological(digraph: nx.DiGraph, filename: str = 'topological')
     return fig, ax
 
 
-def plot_digraph_with_images(G, show_molecules=True, seed=42):
+def plot_digraph_with_images(digraph: nx.DiGraph, show_molecules=True, seed=42, arrow_style='1', frame_on=True) -> tuple[Figure, Axes]:
     fig, ax = plt.subplots(figsize=(12, 7))
     cmap = plt.get_cmap("Blues")
-    node_colors = [cmap(0.4) for _ in G.nodes]
-    pos = nx.spring_layout(G, seed=seed)
+    node_colors = [cmap(0.4) for _ in digraph.nodes]
+    pos = nx.spring_layout(digraph, seed=seed)
 
-    nx.draw(G,
+    if arrow_style == '1':
+        nx.draw(digraph,
+                pos=pos,
+                ax=ax,
+                with_labels=False,
+                node_size=100,
+                node_color=node_colors,
+                connectionstyle="arc3,rad=0.05",
+                edge_color="white",
+                arrows=True,
+                arrowstyle="->",
+                width=2.0)
+
+        nx.draw_networkx_edges(
+            digraph,
             pos=pos,
             ax=ax,
-            with_labels=False,
-            node_size=100,
-            node_color=node_colors,
-            connectionstyle="arc3,rad=0.05",
+            arrows=True,
+            arrowstyle="->",
+            width=2.0,
             edge_color="grey",
-            width=2.0)
-
-    # nx.draw_networkx_edges(
-    #     G,
-    #     pos=pos,
-    #     ax=ax,
-    #     arrows=True,
-    #     arrowstyle="->",
-    #     min_target_margin=40,
-    # )
+            connectionstyle="arc3,rad=0.05",
+            min_target_margin=50,
+        )
+    elif arrow_style == '2':
+        nx.draw(digraph,
+                pos=pos,
+                ax=ax,
+                with_labels=False,
+                node_size=100,
+                node_color=node_colors,
+                connectionstyle="arc3,rad=0.05",
+                edge_color="grey",
+                arrows=True,
+                arrowstyle="->",
+                width=2.0)
+    else:
+        raise ValueError("Invalid arrow style. Use '1' or '2'.")
 
     if show_molecules:
-        for i, node in enumerate(G.nodes):
-            mol = G.nodes[node]["vo"]
-            print(mol, flush=True)
+        for i, node in enumerate(digraph.nodes):
+            mol = digraph.nodes[node]["vo"]
             img = Draw.MolToImage(smi_to_mol(mol, add_hydrogens=False), size=(150, 150), kekulize=False)
             imagebox = OffsetImage(img, zoom=0.4)
-            ab = AnnotationBbox(imagebox, (pos[node][0], pos[node][1]), frameon=True)
+            ab = AnnotationBbox(imagebox, (pos[node][0], pos[node][1]), frameon=frame_on)
             ax.add_artist(ab)
+    return fig, ax
 
 
 def _average_angles(angles: np.ndarray) -> float:

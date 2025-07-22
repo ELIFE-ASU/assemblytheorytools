@@ -146,10 +146,7 @@ def test_plot_digraph_with_images():
     smi = "C(C(=O)O)N"
 
     # Convert the SMILES string to an RDKit Mol object
-    mol = att.smi_to_mol(smi, add_hydrogens=True)
-    graph = att.smi_to_nx(smi, add_hydrogens=True)
-    att.print_graph_details(graph)
-
+    mol = att.smi_to_mol(smi)
     # Compute the assembly index and associated data
     _, _, pathway = att.calculate_assembly_index(mol, strip_hydrogen=True)
 
