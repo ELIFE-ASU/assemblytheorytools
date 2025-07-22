@@ -3,7 +3,6 @@ import shutil
 
 import matplotlib.pyplot as plt
 import networkx as nx
-from rdkit import Chem
 
 import assemblytheorytools as att
 
@@ -126,6 +125,7 @@ def test_plot_digraph_topological():
 
     # Convert the SMILES string to an RDKit Mol object
     mol = att.smi_to_mol(smi)
+    mol = att.smi_to_nx(smi)
 
     # Compute the assembly index and associated data
     _, _, pathway = att.calculate_assembly_index(mol, strip_hydrogen=True)
@@ -146,10 +146,12 @@ def test_plot_digraph_with_images():
     smi = "C(C(=O)O)N"
 
     # Convert the SMILES string to an RDKit Mol object
-    mol = att.smi_to_mol(smi)
+    mol = att.smi_to_mol(smi, add_hydrogens=True)
+    graph = att.smi_to_nx(smi, add_hydrogens=True)
+    att.print_graph_details(graph)
 
     # Compute the assembly index and associated data
-    _, _, pathway = att.calculate_assembly_index(mol, strip_hydrogen=False)
+    _, _, pathway = att.calculate_assembly_index(mol, strip_hydrogen=True)
 
     # Unpack pathway information
     pathway, _ = pathway

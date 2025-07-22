@@ -103,8 +103,35 @@ def test_reset_mol_charge():
     mol = att.nx_to_mol(graph_out)
     charge = Chem.GetFormalCharge(mol)
     print("Charge of the molecule:", charge, flush=True)
-    att.print_graph_details(graph)
+    att.print_graph_details(graph_out)
     assert charge == 2
+
+def test_tmp():
+    smi_out = '[N]=O'
+    graph = att.smi_to_nx(smi_out)
+    mol = att.nx_to_mol(graph)
+    charge = Chem.GetFormalCharge(mol)
+    print("Charge of the molecule:", charge, flush=True)
+    att.print_graph_details(graph)
+    mol = att.smi_to_mol(smi_out)
+    charge = Chem.GetFormalCharge(mol)
+    print("Charge of the molecule:", charge, flush=True)
+
+
+
+
+
+def test_implicit_hydrogens():
+    str1 = '[H]-[C]' #-> '[H]-[C]'
+    str2 = '[H]-[CH](-[H])-[N]' #-> '[H]-[C](-[H])-[N]'
+    str3 = '[CH3]-[CH2]-[CH1]' #-> '[C]-[C]'
+
+    assert att.smi_remove_implicit_hydrogen(str1) == '[H]-[C]', "Test failed for str1"
+    assert att.smi_remove_implicit_hydrogen(str2) == '[H]-[C](-[H])-[N]', "Test failed for str2"
+    assert att.smi_remove_implicit_hydrogen(str3) == '[C]-[C]-[C]', "Test failed for str3"
+
+
+
 
 
 def test_get_graph_charges():
