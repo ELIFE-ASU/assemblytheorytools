@@ -131,9 +131,9 @@ def bond_order_rdkit_to_int(bond_type: Chem.BondType) -> int:
 
 
 def nx_to_mol(graph: nx.Graph,
-              add_hydrogens: bool = False,
+              add_hydrogens: bool = True,
               sanitize: bool = True,
-              reset_charge: bool = True) -> Chem.Mol:
+              reset_charge: bool = False) -> Chem.Mol:
     """
     Convert a NetworkX graph to an RDKit molecule object.
 
@@ -148,11 +148,11 @@ def nx_to_mol(graph: nx.Graph,
         have a 'color' attribute indicating the atomic symbol, and each edge must have a 'color'
         attribute indicating the bond order (as an integer).
     add_hydrogens : bool, optional
-        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to False.
+        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to True.
     sanitize : bool, optional
         If True, sanitizes the molecule after creation. Defaults to True.
     reset_charge : bool, optional
-        If True, recalculates the formal charges of the atoms in the molecule. Defaults to True.
+        If True, recalculates the formal charges of the atoms in the molecule. Defaults to False.
 
     Returns:
     --------
@@ -205,7 +205,7 @@ def nx_to_mol(graph: nx.Graph,
 
 
 def mol_to_nx(mol: Chem.Mol,
-              add_hydrogens: bool = False,
+              add_hydrogens: bool = True,
               sanitize: bool = True) -> nx.Graph:
     """
     Convert an RDKit molecule object to a NetworkX graph.
@@ -219,7 +219,7 @@ def mol_to_nx(mol: Chem.Mol,
     mol : Chem.Mol
         An RDKit molecule object to be converted into a NetworkX graph.
     add_hydrogens : bool, optional
-        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to False.
+        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to True.
     sanitize : bool, optional
         If True, sanitizes the molecule before conversion. Defaults to True.
 
@@ -480,7 +480,7 @@ def get_bond_smi(mol: Chem.Mol) -> Set[str]:
     return bond_smiles
 
 
-def nx_to_smi(graph: nx.Graph, add_hydrogens: bool = False, sanitize: bool = True) -> str:
+def nx_to_smi(graph: nx.Graph, add_hydrogens: bool = True, sanitize: bool = True) -> str:
     """
     Convert a NetworkX graph to a SMILES string.
 
@@ -495,7 +495,7 @@ def nx_to_smi(graph: nx.Graph, add_hydrogens: bool = False, sanitize: bool = Tru
         have a 'color' attribute indicating the atomic symbol, and each edge must have a 'color'
         attribute indicating the bond order (as an integer).
     add_hydrogens : bool, optional
-        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to False.
+        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to True.
     sanitize : bool, optional
         If True, sanitizes the molecule before generating the SMILES string. Defaults to True.
 
@@ -514,7 +514,7 @@ def nx_to_smi(graph: nx.Graph, add_hydrogens: bool = False, sanitize: bool = Tru
     return Chem.MolToSmiles(mol, allHsExplicit=True, kekuleSmiles=True)
 
 
-def smi_to_nx(smiles: str, add_hydrogens: bool = False, sanitize: bool = True) -> nx.Graph:
+def smi_to_nx(smiles: str, add_hydrogens: bool = True, sanitize: bool = True) -> nx.Graph:
     """
     Convert a SMILES string to a NetworkX graph.
 
@@ -528,7 +528,7 @@ def smi_to_nx(smiles: str, add_hydrogens: bool = False, sanitize: bool = True) -
     smiles : str
         A SMILES string representing the molecular structure.
     add_hydrogens : bool, optional
-        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to False.
+        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to True.
     sanitize : bool, optional
         If True, sanitizes the molecule before conversion. Defaults to True.
 
@@ -554,7 +554,7 @@ def smi_to_nx(smiles: str, add_hydrogens: bool = False, sanitize: bool = True) -
     return mol_to_nx(mol, add_hydrogens=add_hydrogens, sanitize=sanitize)
 
 
-def nx_to_inchi(graph: nx.Graph, add_hydrogens: bool = False, sanitize: bool = True) -> str:
+def nx_to_inchi(graph: nx.Graph, add_hydrogens: bool = True, sanitize: bool = True) -> str:
     """
     Convert a NetworkX graph to an InChI string.
 
@@ -569,7 +569,7 @@ def nx_to_inchi(graph: nx.Graph, add_hydrogens: bool = False, sanitize: bool = T
         have a 'color' attribute indicating the atomic symbol, and each edge must have a 'color'
         attribute indicating the bond order (as an integer).
     add_hydrogens : bool, optional
-        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to False.
+        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to True.
     sanitize : bool, optional
         If True, sanitizes the molecule before generating the InChI string. Defaults to True.
 
@@ -602,7 +602,7 @@ def inchi_to_nx(inchi: str, add_hydrogens: bool = False, sanitize: bool = True) 
     inchi : str
         An InChI string representing the molecular structure.
     add_hydrogens : bool, optional
-        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to False.
+        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to True.
     sanitize : bool, optional
         If True, sanitizes the molecule before conversion. Defaults to True.
 

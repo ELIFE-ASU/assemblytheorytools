@@ -143,7 +143,7 @@ def reset_mol_charge(mol: Chem.Mol,
     return rw.GetMol()
 
 
-def smi_to_mol(smi: str, add_hydrogens: bool = False, sanitize: bool = True) -> Chem.Mol:
+def smi_to_mol(smi: str, add_hydrogens: bool = True, sanitize: bool = True) -> Chem.Mol:
     """
     Convert a SMILES string to an RDKit molecule object.
 
@@ -156,7 +156,7 @@ def smi_to_mol(smi: str, add_hydrogens: bool = False, sanitize: bool = True) -> 
     smi : str
         A SMILES string representing the molecular structure.
     add_hydrogens : bool, optional
-        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to False.
+        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to True.
     sanitize : bool, optional
         If True, sanitizes the molecule after conversion. Defaults to True.
 
@@ -187,7 +187,7 @@ def smi_to_mol(smi: str, add_hydrogens: bool = False, sanitize: bool = True) -> 
         return mol
 
 
-def inchi_to_mol(inchi: str, add_hydrogens: bool = False, sanitize: bool = True) -> Chem.Mol:
+def inchi_to_mol(inchi: str, add_hydrogens: bool = True, sanitize: bool = True) -> Chem.Mol:
     """
     Convert an InChI string to an RDKit molecule object.
 
@@ -200,7 +200,7 @@ def inchi_to_mol(inchi: str, add_hydrogens: bool = False, sanitize: bool = True)
     inchi : str
         An InChI string representing the molecular structure.
     add_hydrogens : bool, optional
-        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to False.
+        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to True.
     sanitize : bool, optional
         If True, sanitizes the molecule after conversion. Defaults to True.
 
@@ -227,7 +227,7 @@ def inchi_to_mol(inchi: str, add_hydrogens: bool = False, sanitize: bool = True)
         return mol
 
 
-def molfile_to_mol(mol: str, add_hydrogens: bool = False, sanitize: bool = True) -> Chem.Mol:
+def molfile_to_mol(mol: str, add_hydrogens: bool = True, sanitize: bool = True) -> Chem.Mol:
     """
     Convert a Molfile to an RDKit molecule object.
 
@@ -240,7 +240,7 @@ def molfile_to_mol(mol: str, add_hydrogens: bool = False, sanitize: bool = True)
     mol : str
         The path to the Molfile containing the molecular structure.
     add_hydrogens : bool, optional
-        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to False.
+        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to True.
     sanitize : bool, optional
         If True, sanitizes the molecule after conversion. Defaults to True.
 
