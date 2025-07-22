@@ -219,7 +219,7 @@ def inchi_to_mol(inchi: str, add_hydrogens: bool = True, sanitize: bool = True) 
     - The function uses RDKit's `MolFromInchi` to create the molecule object.
     - Sanitization ensures the molecule is chemically valid and standardized.
     """
-    mol = Chem.MolFromInchi(inchi, sanitize=False)
+    mol = Chem.MolFromInchi(inchi, sanitize=False, removeHs=False)
     # Sanitise the molecule
     if sanitize:
         return safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
