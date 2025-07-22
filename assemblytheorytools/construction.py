@@ -537,7 +537,7 @@ class AssemblyConstruction:
                 mol = tables_to_mol(([(0, atom[0][0]), (1, atom[0][1])], [(0, 1, bond_order_assout_to_int(atom[1]))]))
             elif self.vo_type == "smiles":
                 mol = tables_to_mol(([(0, atom[0][0]), (1, atom[0][1])], [(0, 1, bond_order_assout_to_int(atom[1]))]))
-                mol = Chem.MolToSmiles(mol, allHsExplicit=True, isomericSmiles=True, allBondsExplicit=True)
+                mol = Chem.MolToSmiles(mol, allHsExplicit=True, isomericSmiles=True)
                 mol = smi_remove_implicit_hydrogen(mol)
             elif self.vo_type == "inchi":
                 mol = tables_to_mol(([(0, atom[0][0]), (1, atom[0][1])], [(0, 1, bond_order_assout_to_int(atom[1]))]))
@@ -565,12 +565,12 @@ class AssemblyConstruction:
             elif self.vo_type == "mol":
                 mol = tables_to_mol(([(i, at) for at in vs_atoms[i]],
                                      [(edge[0], edge[1], bond_order_assout_to_int(edge[2])) for edge in step]))
-                mol = Chem.MolToSmiles(mol, allHsExplicit=True, isomericSmiles=True, allBondsExplicit=True)
+                mol = Chem.MolToSmiles(mol, allHsExplicit=True, isomericSmiles=True)
                 mol = smi_remove_implicit_hydrogen(mol)
             elif self.vo_type == "smiles":
                 mol = tables_to_mol(([(i, at) for at in vs_atoms[i]],
                                      [(edge[0], edge[1], bond_order_assout_to_int(edge[2])) for edge in step]))
-                mol = Chem.MolToSmiles(mol, allHsExplicit=True, isomericSmiles=True, allBondsExplicit=True)
+                mol = Chem.MolToSmiles(mol, allHsExplicit=True, isomericSmiles=True)
                 mol = smi_remove_implicit_hydrogen(mol)
             elif self.vo_type == "inchi":
                 mol = tables_to_mol(([(i, at) for at in vs_atoms[i]],
@@ -649,7 +649,7 @@ class AssemblyConstruction:
                 graph.nodes[node[0]]["label"] = node[0]
             elif self.vo_type == "mol":
                 mol = node[1]["vo"]
-                mol = Chem.MolToSmiles(mol, allHsExplicit=True, isomericSmiles=True, allBondsExplicit=True)
+                mol = Chem.MolToSmiles(mol, allHsExplicit=True, isomericSmiles=True)
                 graph.nodes[node[0]]["label"] = smi_remove_implicit_hydrogen(mol)
 
             elif self.vo_type == "smiles":
