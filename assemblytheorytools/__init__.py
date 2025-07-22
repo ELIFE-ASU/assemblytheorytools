@@ -39,6 +39,9 @@ from .construction import parse_pathway_file, assign_levels
 from .construction_string import (generate_string_pathway_ian,
                                   get_graph_string_explicit)
 from .find_other_paths import (all_shortest_paths)
+from .neighborhood_enumeration import (enumerate_neighborhood,
+                                       enumerate_up,
+                                       enumerate_down)
 from .pathway import (get_pathway_to_graph,
                       get_pathway_to_mol,
                       get_pathway_to_inchi,
@@ -51,10 +54,8 @@ from .plotting import (n_plot,
                        plot_mol_graph,
                        plot_interactive_graph,
                        plot_graph,
-                       plot_digraph,
-                       plot_digraph_with_images,
+                       plot_pathway_with_images,
                        plot_digraph_metro,
-                       plot_digraph_topological,
                        plot_assembly_circle)
 from .reassembler import (assemble,
                           origami,
@@ -132,15 +133,11 @@ from .tools_string import (load_fasta,
                            prep_joint_string_ai,
                            get_unique_char,
                            generate_random_strings)
-
 from .tools_test import (check_elements,
                          print_graph_details,
                          water_graph,
                          phosphine_graph,
                          ph_2p_graph)
-from .neighborhood_enumeration import (enumerate_neighborhood,
-                                       enumerate_up,
-                                       enumerate_down)
 
 __version__ = "1.7.0"
 

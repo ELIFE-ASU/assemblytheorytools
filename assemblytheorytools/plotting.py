@@ -1,4 +1,3 @@
-import os
 from html import escape
 from typing import List
 
@@ -14,7 +13,6 @@ from matplotlib.figure import Figure
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from matplotlib.patches import Circle
 from pyvis.network import Network
-from rdkit import Chem
 from rdkit.Chem import Draw
 
 import CFG
@@ -23,21 +21,6 @@ from .tools_mol import smi_to_mol
 
 
 def n_plot(xlab: str, ylab: str, xs: int = 14, ys: int = 14) -> None:
-    """
-    Configure and style the plot with specified labels and tick parameters.
-
-    Use with
-    plt.rcParams['axes.linewidth'] = 2.0
-
-    Args:
-        xlab (str): The label for the x-axis.
-        ylab (str): The label for the y-axis.
-        xs (int, optional): Font size for the x-axis label. Default is 14.
-        ys (int, optional): Font size for the y-axis label. Default is 14.
-
-    Returns:
-        None
-    """
     plt.minorticks_on()
     plt.tick_params(axis='both', which='major', labelsize=ys - 2, direction='in', length=6, width=2)
     plt.tick_params(axis='both', which='minor', labelsize=ys - 2, direction='in', length=4, width=2)
@@ -49,23 +32,6 @@ def n_plot(xlab: str, ylab: str, xs: int = 14, ys: int = 14) -> None:
 
 
 def ax_plot(fig: plt.Figure, ax: plt.Axes, xlab: str, ylab: str, xs: int = 14, ys: int = 14) -> None:
-    """
-    Configure and style the plot with specified labels and tick parameters for a given axis.
-
-    Use with
-    plt.rcParams['axes.linewidth'] = 2.0
-
-    Args:
-        fig (plt.Figure): The figure object containing the plot.
-        ax (plt.Axes): The axes object to be styled.
-        xlab (str): The label for the x-axis.
-        ylab (str): The label for the y-axis.
-        xs (int, optional): Font size for the x-axis label. Default is 14.
-        ys (int, optional): Font size for the y-axis label. Default is 14.
-
-    Returns:
-        None
-    """
     ax.minorticks_on()
     ax.tick_params(axis='both', which='major', labelsize=ys - 2, direction='in', length=6, width=2)
     ax.tick_params(axis='both', which='minor', labelsize=ys - 2, direction='in', length=4, width=2)
@@ -73,24 +39,6 @@ def ax_plot(fig: plt.Figure, ax: plt.Axes, xlab: str, ylab: str, xs: int = 14, y
     ax.set_xlabel(xlab, fontsize=xs)
     ax.set_ylabel(ylab, fontsize=ys)
     fig.tight_layout()
-    return None
-
-
-def os_plot_show() -> None:
-    """
-    Display or close the plot based on the operating system.
-
-    If the operating system is Windows, the plot will be displayed using plt.show().
-    Otherwise, the plot will be closed using plt.close().
-
-    Returns:
-        None
-    """
-    # check if the OS is windows
-    if os.name == 'nt':
-        plt.show()
-    else:
-        plt.close()
     return None
 
 
@@ -102,26 +50,51 @@ def plot_graph(graph: nx.Graph,
                edgecolors: str = "black",
                width: int = 2,
                linewidths: int = 2,
-               filename: str = "graph",
-               seed: int = 42) -> None:
-    """
-    Plot a graph using NetworkX and Matplotlib with various layout options.
+               seed: int = 42) -> tuple[Figure, Axes]:
+    # Get the position of the nodes based on the specified layout
+    if layout == 'kawai':
+        pos = nx.kamada_kawai_layout(graph)
+    elif layout == 'spring':
+        pos = nx.spring_layout(graph, seed=seed)
+    elif layout == 'circular':
+        pos = nx.circular_layout(graph)
+    elif layout == 'shell':
+        pos = nx.shell_layout(graph)
+    elif layout == 'spectral':
+        pos = nx.spectral_layout(graph)
+    elif layout == 'spiral':
+        pos = nx.spiral_layout(graph)
+    elif layout == 'arf':
+        pos = nx.arf_layout(graph)
+    elif layout == 'topological':
+        for layer, nodes in enumerate(nx.topological_generations(graph)):
+            for node in nodes:
+                graph.nodes[node]["layer"] = layer
+        pos = nx.multipartite_layout(graph, subset_key="layer")
+    else:
+        pos = nx.kamada_kawai_layout(graph)
 
-    Args:
-        graph (nx.Graph): The graph to be plotted.
-        layout (str, optional): The layout algorithm to use for positioning nodes. Default is 'kawai'.
-        f_labs (bool, optional): Whether to display labels on the nodes. Default is False.
-        edge_color (str, optional): Color of the edges. Default is 'grey'.
-        node_size (int, optional): Size of the nodes. Default is 300.
-        edgecolors (str, optional): Color of the node borders. Default is 'black'.
-        width (int, optional): Width of the edges. Default is 2.
-        linewidths (int, optional): Width of the node borders. Default is 2.
-        filename (str, optional): Base name of the file where the plot will be saved. Default is 'graph'.
-        seed (int, optional): Seed for the layout algorithm (if applicable). Default is 42.
+    fig, ax = plt.subplots(figsize=(12, 7))
 
-    Returns:
-        None
-    """
+    # Draw the graph with the specified parameters
+    nx.draw_networkx(graph,
+                     ax=ax,
+                     pos=pos,
+                     with_labels=f_labs,
+                     edge_color=edge_color,
+                     node_size=node_size,
+                     edgecolors=edgecolors,
+                     width=width,
+                     linewidths=linewidths)
+    fig.tight_layout()
+    ax.axis('off')
+    return fig, ax
+
+
+def plot_mol_graph(graph: nx.Graph,
+                   layout: str = 'kawai',
+                   f_labs: bool = False,
+                   seed: int = 42) -> tuple[Figure, Axes]:
     # Get the position of the nodes based on the specified layout
     if layout == 'kawai':
         pos = nx.kamada_kawai_layout(graph)
@@ -140,38 +113,6 @@ def plot_graph(graph: nx.Graph,
     else:
         pos = nx.kamada_kawai_layout(graph)
 
-    # Draw the graph with the specified parameters
-    nx.draw(graph,
-            pos=pos,
-            with_labels=f_labs,
-            edge_color=edge_color,
-            node_size=node_size,
-            edgecolors=edgecolors,
-            width=width,
-            linewidths=linewidths)
-
-    # Save the plot as PNG and PDF
-    plt.savefig(f"{filename}.png", dpi=600)
-    plt.savefig(f"{filename}.pdf")
-
-    # Display or close the plot based on the operating system
-    os_plot_show()
-
-    return None
-
-
-def plot_mol_graph(graph: nx.Graph, f_labs: bool = False, filename: str = "atom_graphs") -> None:
-    """
-    Plot a molecular graph using NetworkX and Matplotlib.
-
-    Args:
-        graph (nx.Graph): The graph to be plotted where nodes represent atoms and edges represent bonds.
-        f_labs (bool, optional): Whether to display labels on the nodes. Default is False.
-        filename (str, optional): The base name of the file where the plot will be saved. Default is "atom_graphs".
-
-    Returns:
-        None
-    """
     cols_conv = {
         'H': 'white',  # Hydrogen
         'C': 'darkgray',  # Carbon
@@ -204,42 +145,27 @@ def plot_mol_graph(graph: nx.Graph, f_labs: bool = False, filename: str = "atom_
     # Get the colors for the edges
     edge_colors = [color_dict_edge.get(graph.edges[idx]['color']) for idx in graph.edges()]
 
-    # Get the position of the nodes
-    pos = nx.kamada_kawai_layout(graph)
+    fig, ax = plt.subplots(figsize=(12, 7))
 
     # Draw the graph
-    nx.draw(graph,
-            pos=pos,
-            with_labels=f_labs,
-            node_size=300,
-            edge_color=edge_colors,
-            node_color=graph_colors,
-            edgecolors="black",
-            width=2,
-            linewidths=2)
-    # Save the plot as PNG and PDF
-    plt.savefig(f"{filename}.png", dpi=600)
-    plt.savefig(f"{filename}.pdf")
-    # Display or close the plot based on the operating system
-    os_plot_show()
-    return None
+    nx.draw_networkx(graph,
+                     ax=ax,
+                     pos=pos,
+                     with_labels=f_labs,
+                     node_size=300,
+                     edge_color=edge_colors,
+                     node_color=graph_colors,
+                     edgecolors="black",
+                     width=2,
+                     linewidths=2)
+    fig.tight_layout()
+    ax.axis('off')
+    return fig, ax
 
 
 def plot_interactive_graph(graph: nx.Graph,
                            show: bool = False,
                            filename: str = "interactive_graph.html") -> Network:
-    """
-    Plot an interactive graph using PyVis and display it in a Jupyter notebook or save it as an HTML file.
-
-    Args:
-        graph (nx.Graph): The graph to be plotted.
-        show (bool, optional): Whether to display the graph in a Jupyter notebook. Default is False.
-        filename (str, optional): The name of the file where the graph will be saved if not displayed.
-            Default is "interactive_graph.html".
-
-    Returns:
-        Network: The PyVis network object representing the graph.
-    """
     # Color each node based on its degree
     max_nbr = len(max(graph.adj.values(), key=lambda x: len(x)))
     blues = colormaps.get_cmap("Blues")
@@ -266,62 +192,7 @@ def plot_interactive_graph(graph: nx.Graph,
     return net
 
 
-def plot_digraph(digraph: nx.DiGraph,
-                 layout: str = 'spring',
-                 f_labs: bool = True,
-                 edge_color: str = 'grey',
-                 node_size: int = 300,
-                 edgecolors: str = "black",
-                 width: int = 2,
-                 linewidths: int = 2,
-                 filename: str = "digraph",
-                 seed: int = 42) -> None:
-    """
-    Plot a directed graph using NetworkX and Matplotlib with various layout options.
-
-    Args:
-        digraph (nx.DiGraph): The directed graph to be plotted.
-        layout (str, optional): The layout algorithm to use for positioning nodes. Default is 'spring'.
-        f_labs (bool, optional): Whether to display labels on the nodes. Default is True.
-        edge_color (str, optional): Color of the edges. Default is 'grey'.
-        node_size (int, optional): Size of the nodes. Default is 300.
-        edgecolors (str, optional): Color of the node borders. Default is 'black'.
-        width (int, optional): Width of the edges. Default is 2.
-        linewidths (int, optional): Width of the node borders. Default is 2.
-        filename (str, optional): Base name of the file where the plot will be saved. Default is 'digraph'.
-        seed (int, optional): Seed for the layout algorithm (if applicable). Default is 42.
-
-    Returns:
-        None
-    """
-    plot_graph(digraph,
-               layout=layout,
-               f_labs=f_labs,
-               edge_color=edge_color,
-               node_size=node_size,
-               edgecolors=edgecolors,
-               width=width,
-               linewidths=linewidths,
-               filename=filename,
-               seed=seed)
-    return None
-
-
 def plot_digraph_metro(digraph: nx.DiGraph, filename: str = 'metro', steps: bool = False) -> None:
-    """
-    Plot a directed graph using a metro-style layout and save it as SVG and PNG files.
-
-    This function uses the `dagviz` library to render a directed graph in a metro-style layout.
-    Optionally, it can relabel the nodes of the graph based on their topological step before rendering.
-
-    Args:
-        digraph (nx.DiGraph): The directed graph to be plotted.
-        filename (str, optional): The base name of the output files (without extension). Default is 'metro'.
-        steps (bool, optional): If True, relabel the nodes of the graph with their topological step. Default is False.
-
-    Returns:
-        None
-    """
     if steps:
         # Relabel the graph nodes with their topological step if requested
         digraph = relabel_digraph(digraph)
@@ -340,62 +211,61 @@ def plot_digraph_metro(digraph: nx.DiGraph, filename: str = 'metro', steps: bool
     return None
 
 
-def plot_digraph_topological(digraph: nx.DiGraph, filename: str = 'topological') -> tuple[Figure, Axes]:
-    """
-    Plot a directed graph using a topological layout and save it as a PNG file.
-
-    This function assigns layers to nodes based on their topological generation and uses the
-    multipartite layout to position the nodes. The plot is saved as a PNG file.
-
-    https://networkx.org/documentation/stable/auto_examples/graph/plot_dag_layout.html
-
-    Args:
-        digraph (nx.DiGraph): The directed graph to be plotted.
-        filename (str, optional): The base name of the file where the plot will be saved. Default is 'topological'.
-
-    Returns:
-        None
-    """
-    for layer, nodes in enumerate(nx.topological_generations(digraph)):
-        # `multipartite_layout` expects the layer as a node attribute, so add the
-        # numeric layer value as a node attribute
-        for node in nodes:
-            digraph.nodes[node]["layer"] = layer
-
-    # Compute the multipartite_layout using the "layer" node attribute
-    pos = nx.multipartite_layout(digraph, subset_key="layer")
-
-    # Compute the multipartite_layout using the "layer" node attribute
-    fig, ax = plt.subplots()
-    nx.draw_networkx(digraph, pos=pos, ax=ax)
-    fig.tight_layout()
-    # Save the plot as PNG and PDF
-    plt.savefig(f"{filename}.png", dpi=600)
-    plt.savefig(f"{filename}.pdf")
-    return fig, ax
-
-
-def plot_digraph_with_images(digraph: nx.DiGraph, show_molecules=True, seed=42, arrow_style='1', frame_on=True) -> tuple[Figure, Axes]:
+def plot_pathway_with_images(graph: nx.DiGraph,
+                             show_molecules: bool = True,
+                             layout: str = 'topological',
+                             seed: int = 42,
+                             arrow_style: str = '1',
+                             frame_on: bool = True) -> tuple[Figure, Axes]:
     fig, ax = plt.subplots(figsize=(12, 7))
     cmap = plt.get_cmap("Blues")
-    node_colors = [cmap(0.4) for _ in digraph.nodes]
-    pos = nx.spring_layout(digraph, seed=seed)
+    node_colors = [cmap(0.4) for _ in graph.nodes]
+
+    # Get the position of the nodes based on the specified layout
+    if layout == 'kawai':
+        pos = nx.kamada_kawai_layout(graph)
+    elif layout == 'spring':
+        pos = nx.spring_layout(graph, seed=seed)
+    elif layout == 'circular':
+        pos = nx.circular_layout(graph)
+    elif layout == 'shell':
+        pos = nx.shell_layout(graph)
+    elif layout == 'spectral':
+        pos = nx.spectral_layout(graph)
+    elif layout == 'spiral':
+        pos = nx.spiral_layout(graph)
+    elif layout == 'arf':
+        pos = nx.arf_layout(graph)
+    elif layout == 'topological':
+        for layer, nodes in enumerate(nx.topological_generations(graph)):
+            for node in nodes:
+                graph.nodes[node]["layer"] = layer
+        pos = nx.multipartite_layout(graph, subset_key="layer")
+    else:
+        pos = nx.kamada_kawai_layout(graph)
 
     if arrow_style == '1':
-        nx.draw(digraph,
-                pos=pos,
-                ax=ax,
-                with_labels=False,
-                node_size=100,
-                node_color=node_colors,
-                connectionstyle="arc3,rad=0.05",
-                edge_color="white",
-                arrows=True,
-                arrowstyle="->",
-                width=2.0)
+        edge_color = 'white'
+    elif arrow_style == '2':
+        edge_color = 'grey'
+    else:
+        raise ValueError("Invalid arrow style. Use '1' or '2'.")
 
+    nx.draw_networkx(graph,
+            pos=pos,
+            ax=ax,
+            with_labels=False,
+            node_size=1000,
+            node_color=node_colors,
+            connectionstyle="arc3,rad=0.05",
+            edge_color=edge_color,
+            arrows=True,
+            arrowstyle="->",
+            width=2.0)
+
+    if arrow_style == '1':
         nx.draw_networkx_edges(
-            digraph,
+            graph,
             pos=pos,
             ax=ax,
             arrows=True,
@@ -405,28 +275,17 @@ def plot_digraph_with_images(digraph: nx.DiGraph, show_molecules=True, seed=42, 
             connectionstyle="arc3,rad=0.05",
             min_target_margin=50,
         )
-    elif arrow_style == '2':
-        nx.draw(digraph,
-                pos=pos,
-                ax=ax,
-                with_labels=False,
-                node_size=100,
-                node_color=node_colors,
-                connectionstyle="arc3,rad=0.05",
-                edge_color="grey",
-                arrows=True,
-                arrowstyle="->",
-                width=2.0)
-    else:
-        raise ValueError("Invalid arrow style. Use '1' or '2'.")
 
     if show_molecules:
-        for i, node in enumerate(digraph.nodes):
-            mol = digraph.nodes[node]["vo"]
-            img = Draw.MolToImage(smi_to_mol(mol, add_hydrogens=False), size=(150, 150), kekulize=False)
+        for i, node in enumerate(graph.nodes):
+            smi = graph.nodes[node]["vo"]
+            mol = smi_to_mol(smi, add_hydrogens=False)
+            img = Draw.MolToImage(mol, size=(150, 150), kekulize=False)
             imagebox = OffsetImage(img, zoom=0.4)
             ab = AnnotationBbox(imagebox, (pos[node][0], pos[node][1]), frameon=frame_on)
             ax.add_artist(ab)
+    fig.tight_layout()
+    ax.axis('off')
     return fig, ax
 
 

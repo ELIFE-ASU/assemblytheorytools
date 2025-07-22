@@ -1,6 +1,7 @@
 import os
 import shutil
 
+import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import pytest
@@ -370,7 +371,8 @@ def test_node_scramble():
     ai, virt_obj, _ = att.calculate_assembly_index(graph)
     # Get the input graph from the output dict
     input_graph = virt_obj["file_graph"][0]
-    att.plot_mol_graph(input_graph, f_labs=True, filename="graph")
+    att.plot_mol_graph(input_graph, f_labs=True)
+    plt.show()
     smi_out = Chem.MolToSmiles(att.nx_to_mol(input_graph))
 
     graph_sc = att.scramble_node_indices(graph)
@@ -378,7 +380,8 @@ def test_node_scramble():
     ai_sc, virt_obj_sc, _ = att.calculate_assembly_index(graph_sc)
     # Get the input graph from the output dict
     input_graph = virt_obj_sc["file_graph"][0]
-    att.plot_mol_graph(input_graph, f_labs=True, filename="scrambled")
+    att.plot_mol_graph(input_graph, f_labs=True)
+    plt.show()
     smi_out_sc = Chem.MolToSmiles(att.nx_to_mol(input_graph))
 
     # assert ai == ai_sc

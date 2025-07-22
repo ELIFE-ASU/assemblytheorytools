@@ -3,7 +3,7 @@ import os
 import networkx as nx
 import numpy as np
 import pandas as pd
-
+import matplotlib.pyplot as plt
 import assemblytheorytools as att
 
 if __name__ == "__main__":
@@ -40,3 +40,5 @@ if __name__ == "__main__":
 
     # plot  the graph
     att.plot_graph(G, f_labs=True, node_size=500)
+    plt.savefig("graph.png", dpi=600)
+    plt.savefig("graph.pdf")
