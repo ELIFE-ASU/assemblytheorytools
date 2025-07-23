@@ -157,6 +157,24 @@ def test_plot_pathway_graph():
     assert fig is not None, "Failed to create the figure."
     assert ax is not None, "Failed to create the axes."
 
+def test_plot_pathway_atoms():
+    print(flush=True)
+
+    # Define the SMILES string for glycine
+    smi = "C(C(=O)O)N"
+
+    # Convert the SMILES string to an RDKit Mol object
+    mol = att.smi_to_mol(smi)
+    # Compute the assembly index and associated data
+    _, _, pathway = att.calculate_assembly_index(mol, strip_hydrogen=False)
+
+    # Unpack pathway information
+    pathway, _ = pathway
+    fig, ax = att.plot_pathway_atoms(pathway)
+    plt.show()
+    assert fig is not None, "Failed to create the figure."
+    assert ax is not None, "Failed to create the axes."
+
 
 def test_plot_assembly_circle():
     nodes = ['b', 'a', 'd', 'c', 'ba', 'dc', 'baa', 'bad', 'badc', 'baab', 'baba', 'ddbcd', 'bcdda']

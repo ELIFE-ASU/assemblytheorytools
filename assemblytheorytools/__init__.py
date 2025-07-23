@@ -56,6 +56,7 @@ from .plotting import (n_plot,
                        plot_graph,
                        plot_pathway_mol,
                        plot_pathway_graph,
+                       plot_pathway_atoms,
                        plot_digraph_metro,
                        plot_assembly_circle)
 from .reassembler import (assemble,

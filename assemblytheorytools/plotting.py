@@ -15,11 +15,12 @@ from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from matplotlib.patches import Circle
 from pyvis.network import Network
 from rdkit.Chem import Draw
-
+from ase.io import write
+from ase.visualize.plot import plot_atoms
 import CFG
 from .tools_graph import relabel_digraph
 from .tools_mol import smi_to_mol
-
+from .tools_atoms import mol_to_atoms
 
 def n_plot(xlab: str, ylab: str, xs: int = 14, ys: int = 14) -> None:
     plt.minorticks_on()
@@ -385,6 +386,94 @@ def plot_pathway_graph(graph: nx.DiGraph,
     ax.axis('off')
     return fig, ax
 
+def plot_pathway_atoms(graph: nx.DiGraph,
+                       fig_size: tuple = (12, 7),
+                       show_icons: bool = True,
+                       layout: str = 'topological',
+                       seed: int = 42,
+                       arrow_style: str = '1',
+                       frame_on: bool = True) -> tuple[Figure, Axes]:
+    fig, ax = plt.subplots(figsize=fig_size)
+    cmap = plt.get_cmap("Blues")
+    node_colors = [cmap(0.4) for _ in graph.nodes]
+
+    # Get the position of the nodes based on the specified layout
+    if layout == 'kawai':
+        pos = nx.kamada_kawai_layout(graph)
+    elif layout == 'spring':
+        pos = nx.spring_layout(graph, seed=seed)
+    elif layout == 'circular':
+        pos = nx.circular_layout(graph)
+    elif layout == 'shell':
+        pos = nx.shell_layout(graph)
+    elif layout == 'spectral':
+        pos = nx.spectral_layout(graph)
+    elif layout == 'spiral':
+        pos = nx.spiral_layout(graph)
+    elif layout == 'arf':
+        pos = nx.arf_layout(graph)
+    elif layout == 'topological':
+        for layer, nodes in enumerate(nx.topological_generations(graph)):
+            for node in nodes:
+                graph.nodes[node]["layer"] = layer
+        pos = nx.multipartite_layout(graph, subset_key="layer")
+    else:
+        pos = nx.kamada_kawai_layout(graph)
+
+    if arrow_style == '1':
+        edge_color = 'white'
+    elif arrow_style == '2':
+        edge_color = 'grey'
+    else:
+        raise ValueError("Invalid arrow style. Use '1' or '2'.")
+
+    nx.draw_networkx(graph,
+                     pos=pos,
+                     ax=ax,
+                     with_labels=False,
+                     node_size=1000,
+                     node_color=node_colors,
+                     connectionstyle="arc3,rad=0.1",
+                     edge_color=edge_color,
+                     arrows=True,
+                     arrowstyle="->",
+                     width=2.0)
+
+    if arrow_style == '1':
+        nx.draw_networkx_edges(
+            graph,
+            pos=pos,
+            ax=ax,
+            arrows=True,
+            arrowstyle="->",
+            width=2.0,
+            edge_color="grey",
+            connectionstyle="arc3,rad=0.1",
+            min_target_margin=50,
+        )
+
+    if show_icons:
+        for i, node in enumerate(graph.nodes):
+            smi = graph.nodes[node]["vo"]
+            mol = smi_to_mol(smi, add_hydrogens=False)
+            atoms = mol_to_atoms(mol, sanitize=False, add_hydrogen=False)
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=True) as tmpfile:
+                _fig, _ax = plt.subplots()
+                plot_atoms(atoms, _ax, show_unit_cell=0, scale=2.0)
+                _fig.tight_layout()
+                _ax.axis('off')
+                _fig.savefig(tmpfile.name, dpi=600, bbox_inches='tight')
+
+                # close the figure
+                plt.close(_fig)
+                img = plt.imread(tmpfile.name)
+
+            imagebox = OffsetImage(img, zoom=0.01)
+            ab = AnnotationBbox(imagebox, (pos[node][0], pos[node][1]), frameon=frame_on)
+            ax.add_artist(ab)
+    fig.tight_layout()
+    ax.axis('off')
+    return fig, ax
 
 def _average_angles(angles: np.ndarray) -> float:
     """
