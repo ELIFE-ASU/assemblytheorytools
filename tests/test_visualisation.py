@@ -120,8 +120,7 @@ def test_plot_digraph_topological():
     assert ax is not None, "Failed to create the axes."
 
 
-
-def test_plot_digraph_with_images():
+def test_plot_pathway_mol():
     print(flush=True)
 
     # Define the SMILES string for glycine
@@ -134,7 +133,26 @@ def test_plot_digraph_with_images():
 
     # Unpack pathway information
     pathway, _ = pathway
-    fig, ax = att.plot_pathway_with_images(pathway)
+    fig, ax = att.plot_pathway_mol(pathway)
+    plt.show()
+    assert fig is not None, "Failed to create the figure."
+    assert ax is not None, "Failed to create the axes."
+
+
+def test_plot_pathway_graph():
+    print(flush=True)
+
+    # Define the SMILES string for glycine
+    smi = "C(C(=O)O)N"
+
+    # Convert the SMILES string to an RDKit Mol object
+    graph = att.smi_to_nx(smi)
+    # Compute the assembly index and associated data
+    _, _, pathway = att.calculate_assembly_index(graph, strip_hydrogen=True)
+
+    # Unpack pathway information
+    pathway, _ = pathway
+    fig, ax = att.plot_pathway_graph(pathway)
     plt.show()
     assert fig is not None, "Failed to create the figure."
     assert ax is not None, "Failed to create the axes."

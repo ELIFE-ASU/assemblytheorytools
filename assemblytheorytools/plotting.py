@@ -1,3 +1,4 @@
+import tempfile
 from html import escape
 from typing import List
 
@@ -43,6 +44,7 @@ def ax_plot(fig: plt.Figure, ax: plt.Axes, xlab: str, ylab: str, xs: int = 14, y
 
 
 def plot_graph(graph: nx.Graph,
+               fig_size: tuple = (12, 7),
                layout: str = 'kawai',
                f_labs: bool = False,
                edge_color: str = 'grey',
@@ -74,7 +76,7 @@ def plot_graph(graph: nx.Graph,
     else:
         pos = nx.kamada_kawai_layout(graph)
 
-    fig, ax = plt.subplots(figsize=(12, 7))
+    fig, ax = plt.subplots(figsize=fig_size)
 
     # Draw the graph with the specified parameters
     nx.draw_networkx(graph,
@@ -92,8 +94,12 @@ def plot_graph(graph: nx.Graph,
 
 
 def plot_mol_graph(graph: nx.Graph,
+                   fig_size: tuple = (12, 7),
                    layout: str = 'kawai',
                    f_labs: bool = False,
+                   node_size: int = 300,
+                   width: int = 2,
+                   linewidths: int = 2,
                    seed: int = 42) -> tuple[Figure, Axes]:
     # Get the position of the nodes based on the specified layout
     if layout == 'kawai':
@@ -145,19 +151,19 @@ def plot_mol_graph(graph: nx.Graph,
     # Get the colors for the edges
     edge_colors = [color_dict_edge.get(graph.edges[idx]['color']) for idx in graph.edges()]
 
-    fig, ax = plt.subplots(figsize=(12, 7))
+    fig, ax = plt.subplots(figsize=fig_size)
 
     # Draw the graph
     nx.draw_networkx(graph,
                      ax=ax,
                      pos=pos,
                      with_labels=f_labs,
-                     node_size=300,
+                     node_size=node_size,
                      edge_color=edge_colors,
                      node_color=graph_colors,
                      edgecolors="black",
-                     width=2,
-                     linewidths=2)
+                     width=width,
+                     linewidths=linewidths)
     fig.tight_layout()
     ax.axis('off')
     return fig, ax
@@ -211,13 +217,14 @@ def plot_digraph_metro(digraph: nx.DiGraph, filename: str = 'metro', steps: bool
     return None
 
 
-def plot_pathway_with_images(graph: nx.DiGraph,
-                             show_molecules: bool = True,
-                             layout: str = 'topological',
-                             seed: int = 42,
-                             arrow_style: str = '1',
-                             frame_on: bool = True) -> tuple[Figure, Axes]:
-    fig, ax = plt.subplots(figsize=(12, 7))
+def plot_pathway_mol(graph: nx.DiGraph,
+                     fig_size: tuple = (12, 7),
+                     show_icons: bool = True,
+                     layout: str = 'topological',
+                     seed: int = 42,
+                     arrow_style: str = '1',
+                     frame_on: bool = True) -> tuple[Figure, Axes]:
+    fig, ax = plt.subplots(figsize=fig_size)
     cmap = plt.get_cmap("Blues")
     node_colors = [cmap(0.4) for _ in graph.nodes]
 
@@ -252,16 +259,16 @@ def plot_pathway_with_images(graph: nx.DiGraph,
         raise ValueError("Invalid arrow style. Use '1' or '2'.")
 
     nx.draw_networkx(graph,
-            pos=pos,
-            ax=ax,
-            with_labels=False,
-            node_size=1000,
-            node_color=node_colors,
-            connectionstyle="arc3,rad=0.05",
-            edge_color=edge_color,
-            arrows=True,
-            arrowstyle="->",
-            width=2.0)
+                     pos=pos,
+                     ax=ax,
+                     with_labels=False,
+                     node_size=1000,
+                     node_color=node_colors,
+                     connectionstyle="arc3,rad=0.1",
+                     edge_color=edge_color,
+                     arrows=True,
+                     arrowstyle="->",
+                     width=2.0)
 
     if arrow_style == '1':
         nx.draw_networkx_edges(
@@ -272,16 +279,106 @@ def plot_pathway_with_images(graph: nx.DiGraph,
             arrowstyle="->",
             width=2.0,
             edge_color="grey",
-            connectionstyle="arc3,rad=0.05",
+            connectionstyle="arc3,rad=0.1",
             min_target_margin=50,
         )
 
-    if show_molecules:
+    if show_icons:
         for i, node in enumerate(graph.nodes):
             smi = graph.nodes[node]["vo"]
             mol = smi_to_mol(smi, add_hydrogens=False)
             img = Draw.MolToImage(mol, size=(150, 150), kekulize=False)
             imagebox = OffsetImage(img, zoom=0.4)
+            ab = AnnotationBbox(imagebox, (pos[node][0], pos[node][1]), frameon=frame_on)
+            ax.add_artist(ab)
+    fig.tight_layout()
+    ax.axis('off')
+    return fig, ax
+
+
+def plot_pathway_graph(graph: nx.DiGraph,
+                       fig_size: tuple = (12, 7),
+                       show_icons: bool = True,
+                       layout: str = 'topological',
+                       seed: int = 42,
+                       arrow_style: str = '1',
+                       frame_on: bool = True) -> tuple[Figure, Axes]:
+    fig, ax = plt.subplots(figsize=fig_size)
+    cmap = plt.get_cmap("Blues")
+    node_colors = [cmap(0.4) for _ in graph.nodes]
+
+    # Get the position of the nodes based on the specified layout
+    if layout == 'kawai':
+        pos = nx.kamada_kawai_layout(graph)
+    elif layout == 'spring':
+        pos = nx.spring_layout(graph, seed=seed)
+    elif layout == 'circular':
+        pos = nx.circular_layout(graph)
+    elif layout == 'shell':
+        pos = nx.shell_layout(graph)
+    elif layout == 'spectral':
+        pos = nx.spectral_layout(graph)
+    elif layout == 'spiral':
+        pos = nx.spiral_layout(graph)
+    elif layout == 'arf':
+        pos = nx.arf_layout(graph)
+    elif layout == 'topological':
+        for layer, nodes in enumerate(nx.topological_generations(graph)):
+            for node in nodes:
+                graph.nodes[node]["layer"] = layer
+        pos = nx.multipartite_layout(graph, subset_key="layer")
+    else:
+        pos = nx.kamada_kawai_layout(graph)
+
+    if arrow_style == '1':
+        edge_color = 'white'
+    elif arrow_style == '2':
+        edge_color = 'grey'
+    else:
+        raise ValueError("Invalid arrow style. Use '1' or '2'.")
+
+    nx.draw_networkx(graph,
+                     pos=pos,
+                     ax=ax,
+                     with_labels=False,
+                     node_size=1000,
+                     node_color=node_colors,
+                     connectionstyle="arc3,rad=0.1",
+                     edge_color=edge_color,
+                     arrows=True,
+                     arrowstyle="->",
+                     width=2.0)
+
+    if arrow_style == '1':
+        nx.draw_networkx_edges(
+            graph,
+            pos=pos,
+            ax=ax,
+            arrows=True,
+            arrowstyle="->",
+            width=2.0,
+            edge_color="grey",
+            connectionstyle="arc3,rad=0.1",
+            min_target_margin=50,
+        )
+
+    if show_icons:
+        for i, node in enumerate(graph.nodes):
+            atom_graph = graph.nodes[node]["vo"]
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=True) as tmpfile:
+                _fig, _ax = plot_mol_graph(atom_graph,
+                                           f_labs=False,
+                                           fig_size=(4, 4),
+                                           node_size=1000,
+                                           width=10)
+                # save the figure to a temporary file
+                _fig.savefig(tmpfile.name, dpi=400, bbox_inches='tight')
+                # close the figure
+                plt.close(_fig)
+
+                img = plt.imread(tmpfile.name)
+
+            imagebox = OffsetImage(img, zoom=0.05)
             ab = AnnotationBbox(imagebox, (pos[node][0], pos[node][1]), frameon=frame_on)
             ax.add_artist(ab)
     fig.tight_layout()
