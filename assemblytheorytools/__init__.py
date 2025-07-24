@@ -38,7 +38,9 @@ from .complexity_scores import (count_unique_bonds,
                                 fcfp4,
                                 bottcher,
                                 proudfoot,
-                                sascore)
+                                sascore,
+                                mc1,
+                                mc2)
 from .construction import parse_pathway_file, assign_levels
 from .construction_string import (generate_string_pathway_ian,
                                   get_graph_string_explicit)

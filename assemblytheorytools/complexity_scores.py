@@ -924,3 +924,48 @@ def sascore(mol: Mol) -> float:
         The synthetic accessibility score of the molecule.
     """
     return sascorer.calculateScore(mol)
+
+
+def mc1(mol: Mol) -> float:
+    atom_number = 0.0
+    divalent_node = 0.0
+
+    for atom in mol.GetAtoms():
+        atom_number += 1.0
+        degree = atom.GetDegree()
+
+        if degree == 2:
+            divalent_node += 1.0
+        else:
+            continue
+
+    return 1.0 - (divalent_node / atom_number)
+
+
+def mc2(mol: Mol) -> int:
+    atoms_in_C_O_X_double_bond = set()
+
+    for bond in mol.GetBonds():
+        # Check for a C=O double bond
+        if bond.GetBondType() == Chem.rdchem.BondType.DOUBLE:
+            begin_atom = bond.GetBeginAtom()
+            end_atom = bond.GetEndAtom()
+
+            if {begin_atom.GetAtomicNum(), end_atom.GetAtomicNum()} == {6, 8}:  # C and O
+                # Identify which one is the carbon
+                carbon = begin_atom if begin_atom.GetAtomicNum() == 6 else end_atom
+                oxygen = end_atom if carbon == begin_atom else begin_atom
+
+                # Check carbon's neighbors for N or O (excluding the double-bonded O)
+                for neighbor in carbon.GetNeighbors():
+                    if neighbor.GetIdx() != oxygen.GetIdx() and neighbor.GetAtomicNum() in [7, 8]:
+                        atoms_in_C_O_X_double_bond.update([carbon.GetIdx(), oxygen.GetIdx()])
+                        break  # Only need one N/O neighbor to satisfy the condition
+
+    # Count non-divalent atoms not in C=O-X double bonds
+    count = 0
+    for atom in mol.GetAtoms():
+        if atom.GetDegree() != 2 and atom.GetIdx() not in atoms_in_C_O_X_double_bond:
+            count += 1
+
+    return count
