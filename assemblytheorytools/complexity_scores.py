@@ -6,6 +6,7 @@ import os
 import sys
 import traceback
 import zlib
+from collections import defaultdict
 from typing import Dict, Any, Optional
 
 import networkx as nx
@@ -15,8 +16,7 @@ from networkx.readwrite import json_graph
 from rdkit import Chem
 from rdkit import DataStructs
 from rdkit.Chem import AllChem as Chem
-from rdkit.Chem import Descriptors
-from rdkit.Chem import RDConfig
+from rdkit.Chem import Descriptors, RDConfig, rdMolDescriptors
 from rdkit.Chem.GraphDescriptors import BertzCT
 from rdkit.Chem.SpacialScore import SPS
 from rdkit.Chem.rdchem import Mol
@@ -636,8 +636,7 @@ def _get_chemical_non_equivs(atom: Chem.rdchem.Atom, mol: Mol) -> float:
         for subatom in atom_substituents[key]:
             substituents[item].append(mol.GetAtomWithIdx(subatom).GetSymbol())
 
-    unique_substituents = set(tuple(sub) for sub in substituents if sub)
-    return float(len(unique_substituents))
+    return float(len(set(tuple(sub) for sub in substituents if sub)))
 
 
 def _get_bottcher_local_diversity(atom: Chem.rdchem.Atom) -> float:
@@ -678,6 +677,7 @@ def _get_bottcher_bond_index(atom: Chem.rdchem.Atom) -> float:
 
 
 def bottcher(mol: Mol) -> float:
+    # https://github.com/boskovicgroup/bottchercomplexity
     complexity = 0.0
     Chem.AssignStereochemistry(mol, cleanIt=True, force=True, flagPossibleStereoCenters=True)
     pt = Chem.GetPeriodicTable()
@@ -701,3 +701,39 @@ def bottcher(mol: Mol) -> float:
         complexity += d * e * s * math.log(v * b, 2)
 
     return complexity
+
+
+def proudfoot(mol):
+    fingerprint = rdMolDescriptors.GetMorganFingerprint(mol, 2)
+    paths = fingerprint.GetNonzeroElements()
+
+    # Calculate path frequencies per atom environment
+    atom_paths = defaultdict(list)
+    for path, count in paths.items():
+        atoms_in_path = path % mol.GetNumAtoms()
+        atom_paths[atoms_in_path].append(count)
+
+    # Step 1: Calculate atomic complexity (C_A)
+    c_a_values = {}
+    for atom, path_counts in atom_paths.items():
+        total_paths = sum(path_counts)
+        path_fractions = [count / total_paths for count in path_counts]
+        ca = -sum(p * math.log2(p) for p in path_fractions) + math.log2(total_paths)
+        c_a_values[atom] = ca
+
+    # Step 2: Calculate molecular complexity (C_M)
+    c_m = sum(c_a_values.values())
+
+    # Step 3: Calculate log-sum complexity (C_M*)
+    c_m_star = math.log2(sum(2 ** ca for ca in c_a_values.values()))
+
+    # Step 4: Calculate structural entropy complexity (C_SE)
+    atom_types = [atom.GetAtomicNum() for atom in mol.GetAtoms()]
+    total_atoms = len(atom_types)
+    type_frequencies = {atype: atom_types.count(atype) / total_atoms for atype in set(atom_types)}
+    c_se = -sum(freq * math.log2(freq) for freq in type_frequencies.values())
+
+    return c_m
+
+def sascore(mol):
+    return sascorer.calculateScore(mol)
