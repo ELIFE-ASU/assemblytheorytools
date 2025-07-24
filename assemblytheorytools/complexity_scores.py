@@ -927,45 +927,26 @@ def sascore(mol: Mol) -> float:
 
 
 def mc1(mol: Mol) -> float:
-    atom_number = 0.0
-    divalent_node = 0.0
-
-    for atom in mol.GetAtoms():
-        atom_number += 1.0
-        degree = atom.GetDegree()
-
-        if degree == 2:
-            divalent_node += 1.0
-        else:
-            continue
-
-    return 1.0 - (divalent_node / atom_number)
+    total_atoms = len(mol.GetAtoms())
+    divalent_nodes = sum(1 for atom in mol.GetAtoms() if atom.GetDegree() == 2)
+    return 1.0 - (divalent_nodes / total_atoms)
 
 
 def mc2(mol: Mol) -> int:
-    atoms_in_C_O_X_double_bond = set()
+    double_bond_set = set()
 
     for bond in mol.GetBonds():
         # Check for a C=O double bond
         if bond.GetBondType() == Chem.rdchem.BondType.DOUBLE:
-            begin_atom = bond.GetBeginAtom()
-            end_atom = bond.GetEndAtom()
-
-            if {begin_atom.GetAtomicNum(), end_atom.GetAtomicNum()} == {6, 8}:  # C and O
-                # Identify which one is the carbon
-                carbon = begin_atom if begin_atom.GetAtomicNum() == 6 else end_atom
-                oxygen = end_atom if carbon == begin_atom else begin_atom
+            atoms = [bond.GetBeginAtom(), bond.GetEndAtom()]
+            if {atom.GetAtomicNum() for atom in atoms} == {6, 8}:  # C and O
+                carbon = next(atom for atom in atoms if atom.GetAtomicNum() == 6)
+                oxygen = next(atom for atom in atoms if atom.GetAtomicNum() == 8)
 
                 # Check carbon's neighbors for N or O (excluding the double-bonded O)
-                for neighbor in carbon.GetNeighbors():
-                    if neighbor.GetIdx() != oxygen.GetIdx() and neighbor.GetAtomicNum() in [7, 8]:
-                        atoms_in_C_O_X_double_bond.update([carbon.GetIdx(), oxygen.GetIdx()])
-                        break  # Only need one N/O neighbor to satisfy the condition
+                if any(neighbor.GetIdx() != oxygen.GetIdx() and neighbor.GetAtomicNum() in [7, 8]
+                       for neighbor in carbon.GetNeighbors()):
+                    double_bond_set.update([carbon.GetIdx(), oxygen.GetIdx()])
 
     # Count non-divalent atoms not in C=O-X double bonds
-    count = 0
-    for atom in mol.GetAtoms():
-        if atom.GetDegree() != 2 and atom.GetIdx() not in atoms_in_C_O_X_double_bond:
-            count += 1
-
-    return count
+    return sum(1 for atom in mol.GetAtoms() if atom.GetDegree() != 2 and atom.GetIdx() not in double_bond_set)
