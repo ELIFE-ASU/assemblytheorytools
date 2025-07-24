@@ -307,3 +307,18 @@ def test_compression_zlib_graph():
     assert compressed == 111
     # Assert that the compressed size with hydrogens matches the expected value
     assert h_compressed == 111
+
+
+def test_fcfp4():
+    print(flush=True)
+    smi = "COC1=C(O)C=C(CC(=O)O)C=C1Br"
+    mol = Chem.MolFromSmiles(smi)
+    fp = att.fcfp4(mol)
+    assert fp == 29
+
+def test_bottcher():
+    print(flush=True)
+    smi = "COC1=C(O)C=C(CC(=O)O)C=C1Br"
+    mol = Chem.MolFromSmiles(smi)
+    fp = att.bottcher(mol)
+    assert fp == 161.80418485421137

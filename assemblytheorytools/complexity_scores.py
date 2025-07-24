@@ -1,6 +1,9 @@
 import bz2
 import json
 import lzma
+import math
+import os
+import sys
 import traceback
 import zlib
 from typing import Dict, Any, Optional
@@ -13,8 +16,16 @@ from rdkit import Chem
 from rdkit import DataStructs
 from rdkit.Chem import AllChem as Chem
 from rdkit.Chem import Descriptors
+from rdkit.Chem import RDConfig
 from rdkit.Chem.GraphDescriptors import BertzCT
+from rdkit.Chem.SpacialScore import SPS
 from rdkit.Chem.rdchem import Mol
+
+sys.path.append(os.path.join(RDConfig.RDContribDir, 'SA_Score'))
+import sascorer
+
+sys.path.append(os.path.join(RDConfig.RDContribDir, 'ChiralPairs'))
+import ChiralDescriptors
 
 from .tools_graph import remove_hydrogen_from_graph
 from .tools_mol import standardize_mol
@@ -606,3 +617,109 @@ def compression_zlib_graph(graph: nx.Graph,
         val -= len(overhead)
 
     return val
+
+
+def fcfp4(mol: Mol) -> int:
+    # https://doi.org/10.1021/ci0503558
+    # Generate FCFP_4 fingerprint (functional-based ECFP4)
+    # Use the 'useFeatures=True' argument to focus on functional groups
+    fp = Chem.GetMorganFingerprintAsBitVect(mol, radius=2, nBits=2048, useFeatures=True)
+    return fp.GetNumOnBits()
+
+
+def _get_chemical_non_equivs(atom, themol):
+    num_unique_substituents = 0
+    substituents = [[], [], [], []]
+    for item, key in enumerate(
+            ChiralDescriptors.determineAtomSubstituents(atom.GetIdx(), themol, Chem.GetDistanceMatrix(themol))[0]):
+        for subatom in \
+                ChiralDescriptors.determineAtomSubstituents(atom.GetIdx(), themol, Chem.GetDistanceMatrix(themol))[0][
+                    key]:
+            substituents[item].append(themol.GetAtomWithIdx(subatom).GetSymbol())
+            num_unique_substituents = len(set(tuple(tuple(substituent) for substituent in substituents if substituent)))
+            #
+            # Logic to determine e.g. whether repeats of CCCCC are cyclopentyl and pentyl or two of either
+            #
+    return num_unique_substituents
+
+
+def _get_bottcher_local_diversity(atom):
+    neighbors = []
+    for neighbor in atom.GetNeighbors():
+        neighbors.append(str(neighbor.GetSymbol()))
+    if atom.GetSymbol() in set(neighbors):
+        return len(set(neighbors))
+    else:
+        return len(set(neighbors)) + 1
+
+
+def _get_num_isomeric_possibilities(atom):
+    try:
+        if (atom.GetProp('_CIPCode')):
+            return 2
+    except:
+        return 1
+
+
+def _get_num_valence_electrons(atom):
+    valence = {1: ['H', 'Li', 'Na', 'K', 'Rb', 'Cs', 'Fr'],  # Alkali Metals
+               2: ['Be', 'Mg', 'Ca', 'Sr', 'Ba', 'Ra'],  # Alkali Earth Metals
+               # transition metals???
+               3: ['B', 'Al', 'Ga', 'In', 'Tl', 'Nh'],
+               4: ['C', 'Si', 'Ge', 'Sn', 'Pb', 'Fl'],
+               5: ['N', 'P', 'As', 'Sb', 'Bi', 'Mc'],  # Pnictogens
+               6: ['O', 'S', 'Se', 'Te', 'Po', 'Lv'],  # Chalcogens
+               7: ['F', 'Cl', 'Br', 'I', 'At', 'Ts'],  # Halogens
+               8: ['He', 'Ne', 'Ar', 'Kr', 'Xe', 'Rn', 'Og']}  # Noble Gases
+    for k in valence:
+        if atom.GetSymbol() in valence[k]:
+            return k
+    return 0
+
+
+def _get_bottcher_bond_index(atom):
+    b_sub_i_ranking = 0
+    bonds = []
+    for bond in atom.GetBonds():
+        bonds.append(str(bond.GetBondType()))
+    for bond in bonds:
+        if bond == 'SINGLE':
+            b_sub_i_ranking += 1
+        if bond == 'DOUBLE':
+            b_sub_i_ranking += 2
+        if bond == 'TRIPLE':
+            b_sub_i_ranking += 3
+    if 'AROMATIC' in bonds:
+        # This list can be expanded as errors arise.
+        if atom.GetSymbol() == 'C':
+            b_sub_i_ranking += 3
+        elif atom.GetSymbol() == 'N':
+            b_sub_i_ranking += 2
+    return b_sub_i_ranking
+
+
+def bottcher(mol: Mol) -> float:
+    # Current failures: Does not distinguish between cyclopentyl and pentyl (etc.)
+    #                   and so unfairly underestimates complexity.
+    # https://github.com/boskovicgroup/bottchercomplexity
+    complexity = 0.0
+    Chem.AssignStereochemistry(mol, cleanIt=True, force=True, flagPossibleStereoCenters=True)
+    atoms = mol.GetAtoms()
+    atom_stereo_classes = []
+    atoms_corrected_for_symmetry = []
+    pt = Chem.GetPeriodicTable()
+    for atom in atoms:
+        if atom.GetProp('_CIPRank') in atom_stereo_classes:
+            continue
+        else:
+            atoms_corrected_for_symmetry.append(atom)
+            atom_stereo_classes.append(atom.GetProp('_CIPRank'))
+    for atom in atoms_corrected_for_symmetry:
+        d = _get_chemical_non_equivs(atom, mol)
+        e = _get_bottcher_local_diversity(atom)
+        s = _get_num_isomeric_possibilities(atom)
+        v = _get_num_valence_electrons(atom)
+        b = _get_bottcher_bond_index(atom)
+        complexity += d * e * s * math.log(v * b, 2)
+
+    return complexity

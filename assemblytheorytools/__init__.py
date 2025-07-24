@@ -34,7 +34,9 @@ from .complexity_scores import (count_unique_bonds,
                                 compression_lzma_smi,
                                 compress_zlib_graph,
                                 decompress_zlib_graph,
-                                compression_zlib_graph)
+                                compression_zlib_graph,
+                                fcfp4,
+                                bottcher)
 from .construction import parse_pathway_file, assign_levels
 from .construction_string import (generate_string_pathway_ian,
                                   get_graph_string_explicit)
