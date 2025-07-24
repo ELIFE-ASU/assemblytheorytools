@@ -930,6 +930,8 @@ def mc1(mol: Mol) -> float:
     """
     Calculates the molecular connectivity index (MC1) of a molecule.
 
+    https://pubs.acs.org/doi/full/10.1021/acs.jcim.5c00334
+
     The MC1 index is a measure of the proportion of non-divalent nodes
     in a molecule. It is calculated as 1 minus the ratio of divalent nodes
     to the total number of atoms in the molecule.
@@ -952,6 +954,8 @@ def mc1(mol: Mol) -> float:
 def mc2(mol: Mol) -> int:
     """
     Calculates a molecular connectivity index (MC2) for a molecule.
+
+    https://pubs.acs.org/doi/full/10.1021/acs.jcim.5c00334
 
     This function identifies carbon-oxygen (C=O) double bonds in the molecule
     and checks if the carbon atom in the bond is connected to a nitrogen (N) or
