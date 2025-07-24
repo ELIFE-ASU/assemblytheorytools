@@ -313,12 +313,29 @@ def test_fcfp4():
     print(flush=True)
     smi = "COC1=C(O)C=C(CC(=O)O)C=C1Br"
     mol = Chem.MolFromSmiles(smi)
-    fp = att.fcfp4(mol)
-    assert fp == 29
+    assert att.fcfp4(mol) == 29
+
 
 def test_bottcher():
     print(flush=True)
     smi = "COC1=C(O)C=C(CC(=O)O)C=C1Br"
     mol = Chem.MolFromSmiles(smi)
-    fp = att.bottcher(mol)
-    assert fp == 161.80418485421137
+    assert att.bottcher(mol) == 161.80418485421137
+
+
+def test_bottcher_batch():
+    print(flush=True)
+    smiles = [r"CC(/C=C/C1=CC=CC=C1)=O",
+              r"Cl/C=C\C=C\Br",
+              r"CC/C(C1=CC=CC=C1)=C(C2=CC=CC=C2)/CC",
+              r"C/C(=C(/C=C/C)\CCC)/CC",
+              r"CC/C=C(C)/[2H]",
+              r"CC/C=C1CCC[C@H](Br)C/1",
+              "C/C=C(C)/C",
+              "CC/C=C1CCCCC/1"]
+    scores = [73.43, 54.25, 45.92, 60.34, 41.17, 95.8, 19.17, 34.17]
+    calc_scores = [att.bottcher(Chem.MolFromSmiles(smi)) for smi in smiles]
+    # round to 2 decimal places
+    calc_scores = [round(score, 2) for score in calc_scores]
+    # assert that the scores are the same
+    assert calc_scores == scores
