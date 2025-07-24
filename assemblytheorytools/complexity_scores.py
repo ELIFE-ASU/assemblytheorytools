@@ -620,39 +620,159 @@ def compression_zlib_graph(graph: nx.Graph,
 
 
 def fcfp4(mol: Mol) -> int:
-    # https://doi.org/10.1021/ci0503558
-    # Generate FCFP_4 fingerprint (functional-based ECFP4)
-    # Use the 'useFeatures=True' argument to focus on functional groups
+    """
+    Generates the FCFP_4 fingerprint (functional-based ECFP4) for a molecule.
+
+    https://doi.org/10.1021/ci0503558
+
+    This function computes the FCFP_4 fingerprint of a molecule using RDKit's
+    Morgan fingerprinting method. The fingerprint is generated with a radius of 2
+    and 2048 bits, focusing on functional groups by setting `useFeatures=True`.
+
+    Parameters:
+    -----------
+    mol : rdkit.Chem.rdchem.Mol
+        The RDKit molecule object for which the FCFP_4 fingerprint is to be generated.
+
+    Returns:
+    --------
+    int
+        The number of bits set to 1 in the generated FCFP_4 fingerprint.
+    """
+    # Generate the FCFP_4 fingerprint with functional group focus
     fp = Chem.GetMorganFingerprintAsBitVect(mol, radius=2, nBits=2048, useFeatures=True)
+    # Return the number of bits set to 1
     return fp.GetNumOnBits()
 
 
 def _get_chemical_non_equivs(atom: Chem.rdchem.Atom, mol: Mol) -> float:
+    """
+    Calculates the chemical non-equivalence of an atom in a molecule.
+
+    This function determines the number of unique substituent groups attached to an atom
+    in a molecule. It uses the distance matrix of the molecule and the atom's substituents
+    to identify unique groups based on their atomic symbols.
+
+    Parameters:
+    ----------
+    atom : Chem.rdchem.Atom
+        The RDKit atom object for which chemical non-equivalence is to be calculated.
+    mol : Mol
+        The RDKit molecule object containing the atom.
+
+    Returns:
+    -------
+    float
+        The number of unique substituent groups attached to the atom.
+    """
+    # Initialize a list to store substituents for up to 4 groups
     substituents = [[] for _ in range(4)]
+
+    # Get the distance matrix of the molecule
     distance_matrix = Chem.GetDistanceMatrix(mol)
+
+    # Determine the substituents of the atom using ChiralDescriptors
     atom_substituents = ChiralDescriptors.determineAtomSubstituents(atom.GetIdx(), mol, distance_matrix)[0]
 
+    # Populate the substituents list with atomic symbols of neighboring atoms
     for item, key in enumerate(atom_substituents):
         for subatom in atom_substituents[key]:
             substituents[item].append(mol.GetAtomWithIdx(subatom).GetSymbol())
 
+    # Calculate the number of unique substituent groups
     return float(len(set(tuple(sub) for sub in substituents if sub)))
 
 
 def _get_bottcher_local_diversity(atom: Chem.rdchem.Atom) -> float:
+    """
+    Calculates the Bottcher local diversity of an atom.
+
+    This function determines the diversity of an atom based on the unique
+    neighboring atom types. It adds an additional value of 1.0 if the atom's
+    own type is not present among its neighbors.
+
+    Parameters:
+    ----------
+    atom : Chem.rdchem.Atom
+        The RDKit atom object for which the Bottcher local diversity is to be calculated.
+
+    Returns:
+    -------
+    float
+        The Bottcher local diversity score of the atom.
+    """
+    # Get the set of unique symbols of neighboring atoms
     neighbors = {neighbor.GetSymbol() for neighbor in atom.GetNeighbors()}
+    # Calculate diversity, adding 1.0 if the atom's symbol is not in its neighbors
     return len(neighbors) + (1.0 if atom.GetSymbol() not in neighbors else 0.0)
 
 
 def _get_num_isomeric_possibilities(atom: Chem.rdchem.Atom) -> float:
+    """
+    Determines the number of isomeric possibilities for an atom.
+
+    This function checks if the atom has a '_CIPCode' property, which indicates
+    the presence of stereochemical information. If the property exists, the atom
+    has two isomeric possibilities (e.g., R/S or E/Z). Otherwise, it has only one.
+
+    Parameters:
+    ----------
+    atom : Chem.rdchem.Atom
+        The RDKit atom object for which the number of isomeric possibilities is to be determined.
+
+    Returns:
+    -------
+    float
+        The number of isomeric possibilities: 2.0 if the '_CIPCode' property exists, otherwise 1.0.
+    """
     return 2.0 if atom.HasProp('_CIPCode') else 1.0
 
 
 def _get_num_valence_electrons(atom: Chem.rdchem.Atom, pt: Chem.rdchem.PeriodicTable) -> float:
+    """
+    Calculates the number of valence electrons for a given atom.
+
+    This function uses the periodic table to determine the number of outer-shell
+    (valence) electrons for the specified atom based on its atomic number.
+
+    Parameters:
+    ----------
+    atom : Chem.rdchem.Atom
+        The RDKit atom object for which the number of valence electrons is to be calculated.
+    pt : Chem.rdchem.PeriodicTable
+        The RDKit periodic table object used to retrieve atomic properties.
+
+    Returns:
+    -------
+    float
+        The number of valence electrons for the given atom.
+    """
     return float(pt.GetNOuterElecs(pt.GetAtomicNumber(atom.GetSymbol())))
 
 
 def _get_bottcher_bond_index(atom: Chem.rdchem.Atom) -> float:
+    """
+    Calculates the Bottcher bond index for a given atom.
+
+    This function computes a ranking value based on the bond types connected to the atom.
+    Each bond type is assigned a specific weight, and additional adjustments are made
+    for aromatic bonds involving carbon or nitrogen atoms.
+
+    Parameters:
+    ----------
+    atom : Chem.rdchem.Atom
+        The RDKit atom object for which the Bottcher bond index is to be calculated.
+
+    Returns:
+    -------
+    float
+        The Bottcher bond index for the given atom.
+
+    Raises:
+    ------
+    ValueError
+        If an unsupported bond type is encountered.
+    """
     b_sub_i_ranking = 0.0
     bond_weights = {
         'SINGLE': 1.0,
@@ -677,8 +797,29 @@ def _get_bottcher_bond_index(atom: Chem.rdchem.Atom) -> float:
 
 
 def bottcher(mol: Mol) -> float:
-    # https://github.com/boskovicgroup/bottchercomplexity
+    """
+    Calculates the Bottcher complexity of a molecule.
+
+    https://github.com/boskovicgroup/bottchercomplexity
+    https://doi.org/10.1021/acs.jcim.5b00723
+
+    The Bottcher complexity is a molecular descriptor that quantifies the structural
+    complexity of a molecule. It considers factors such as chemical non-equivalence,
+    local diversity, isomeric possibilities, valence electrons, and bond indices
+    for each atom in the molecule.
+
+    Parameters:
+    ----------
+    mol : rdkit.Chem.rdchem.Mol
+        The RDKit molecule object for which the Bottcher complexity is to be calculated.
+
+    Returns:
+    -------
+    float
+        The Bottcher complexity of the molecule.
+    """
     complexity = 0.0
+    # Assign stereochemistry to the molecule
     Chem.AssignStereochemistry(mol, cleanIt=True, force=True, flagPossibleStereoCenters=True)
     pt = Chem.GetPeriodicTable()
 
@@ -693,23 +834,45 @@ def bottcher(mol: Mol) -> float:
 
     # Calculate complexity
     for atom in atoms_corrected_for_symmetry:
-        d = _get_chemical_non_equivs(atom, mol)
-        e = _get_bottcher_local_diversity(atom)
-        s = _get_num_isomeric_possibilities(atom)
-        v = _get_num_valence_electrons(atom, pt)
-        b = _get_bottcher_bond_index(atom)
+        d = _get_chemical_non_equivs(atom, mol)  # Chemical non-equivalence
+        e = _get_bottcher_local_diversity(atom)  # Local diversity
+        s = _get_num_isomeric_possibilities(atom)  # Isomeric possibilities
+        v = _get_num_valence_electrons(atom, pt)  # Number of valence electrons
+        b = _get_bottcher_bond_index(atom)  # Bond index
+        # Update complexity using the calculated factors
         complexity += d * e * s * math.log(v * b, 2)
 
     return complexity
 
 
-def proudfoot(mol):
+def proudfoot(mol: Mol) -> float:
+    """
+    Calculates the Proudfoot complexity of a molecule.
+
+    https://doi.org/10.1016/j.bmcl.2017.03.008
+
+    The Proudfoot complexity is a molecular descriptor that quantifies the structural
+    complexity of a molecule. It is based on the distribution of molecular paths,
+    atomic complexity, molecular complexity, log-sum complexity, and structural entropy.
+
+    Parameters:
+    ----------
+    mol : rdkit.Chem.rdchem.Mol
+        The RDKit molecule object for which the Proudfoot complexity is to be calculated.
+
+    Returns:
+    -------
+    float
+        The Proudfoot complexity of the molecule.
+    """
+    # Generate the Morgan fingerprint for the molecule with a radius of 2
     fingerprint = rdMolDescriptors.GetMorganFingerprint(mol, 2)
     paths = fingerprint.GetNonzeroElements()
 
     # Calculate path frequencies per atom environment
     atom_paths = defaultdict(list)
     for path, count in paths.items():
+        # Determine the atoms involved in the path
         atoms_in_path = path % mol.GetNumAtoms()
         atom_paths[atoms_in_path].append(count)
 
@@ -717,7 +880,9 @@ def proudfoot(mol):
     c_a_values = {}
     for atom, path_counts in atom_paths.items():
         total_paths = sum(path_counts)
+        # Calculate the fraction of each path
         path_fractions = [count / total_paths for count in path_counts]
+        # Compute atomic complexity using Shannon entropy
         ca = -sum(p * math.log2(p) for p in path_fractions) + math.log2(total_paths)
         c_a_values[atom] = ca
 
@@ -730,10 +895,32 @@ def proudfoot(mol):
     # Step 4: Calculate structural entropy complexity (C_SE)
     atom_types = [atom.GetAtomicNum() for atom in mol.GetAtoms()]
     total_atoms = len(atom_types)
+    # Calculate the frequency of each atom type
     type_frequencies = {atype: atom_types.count(atype) / total_atoms for atype in set(atom_types)}
+    # Compute structural entropy using Shannon entropy
     c_se = -sum(freq * math.log2(freq) for freq in type_frequencies.values())
 
     return c_m
 
-def sascore(mol):
+
+def sascore(mol: Mol) -> float:
+    """
+    Calculates the synthetic accessibility (SA) score of a molecule.
+
+    https://doi.org/10.1021/acs.jmedchem.3c00689
+
+    The SA score is a measure of how easily a molecule can be synthesized.
+    It is calculated using the `sascorer` module, which evaluates various
+    molecular properties to estimate synthetic accessibility.
+
+    Parameters:
+    ----------
+    mol : rdkit.Chem.rdchem.Mol
+        The RDKit molecule object for which the SA score is to be calculated.
+
+    Returns:
+    -------
+    float
+        The synthetic accessibility score of the molecule.
+    """
     return sascorer.calculateScore(mol)
