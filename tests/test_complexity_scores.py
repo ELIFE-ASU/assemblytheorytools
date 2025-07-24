@@ -351,3 +351,15 @@ def test_sascore():
     smi = "COC1=C(O)C=C(CC(=O)O)C=C1Br"
     mol = Chem.MolFromSmiles(smi)
     assert att.sascore(mol) == 2.180114265525818
+
+def test_mc1():
+    print(flush=True)
+    smi = "COC1=C(O)C=C(CC(=O)O)C=C1Br"
+    mol = Chem.MolFromSmiles(smi)
+    assert att.mc1(mol) == 0.7142857142857143
+
+def test_mc2():
+    print(flush=True)
+    smi = "COC1=C(O)C=C(CC(=O)O)C=C1Br"
+    mol = Chem.MolFromSmiles(smi)
+    assert att.mc2(mol) == 8
