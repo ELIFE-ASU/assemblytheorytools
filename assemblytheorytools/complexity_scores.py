@@ -726,14 +726,18 @@ def _get_chemical_non_equivs(atom: Chem.rdchem.Atom, mol: Mol) -> float:
 
     # Determine the substituents of the atom
     atom_substituents = _determine_atom_substituents(atom.GetIdx(), mol, distance_matrix)[0]
+    try:
+        # Populate the substituents list with atomic symbols of neighboring atoms
+        for item, key in enumerate(atom_substituents):
+            for subatom in atom_substituents[key]:
+                substituents[item].append(mol.GetAtomWithIdx(subatom).GetSymbol())
 
-    # Populate the substituents list with atomic symbols of neighboring atoms
-    for item, key in enumerate(atom_substituents):
-        for subatom in atom_substituents[key]:
-            substituents[item].append(mol.GetAtomWithIdx(subatom).GetSymbol())
-
-    # Calculate the number of unique substituent groups
-    return float(len(set(tuple(sub) for sub in substituents if sub)))
+        # Calculate the number of unique substituent groups
+        return float(len(set(tuple(sub) for sub in substituents if sub)))
+    except Exception as e:
+        print(f"Error calculating chemical non-equivalence for atom {atom.GetIdx()}: {e}")
+        print(traceback.format_exc())
+        return 0.0
 
 
 def _get_bottcher_local_diversity(atom: Chem.rdchem.Atom) -> float:
