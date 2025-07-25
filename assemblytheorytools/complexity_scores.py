@@ -21,9 +21,6 @@ from rdkit.Chem.GraphDescriptors import BertzCT
 from rdkit.Chem.SpacialScore import SPS
 from rdkit.Chem.rdchem import Mol
 
-sys.path.append(os.path.join(RDConfig.RDContribDir, 'SA_Score'))
-import sascorer
-
 from .tools_graph import remove_hydrogen_from_graph
 from .tools_mol import standardize_mol
 
@@ -959,29 +956,6 @@ def proudfoot(mol: Mol) -> float:
     c_se = -sum(freq * math.log2(freq) for freq in type_frequencies.values())
 
     return c_m
-
-
-def sascore(mol: Mol) -> float:
-    """
-    Calculates the synthetic accessibility (SA) score of a molecule.
-
-    https://doi.org/10.1021/acs.jmedchem.3c00689
-
-    The SA score is a measure of how easily a molecule can be synthesized.
-    It is calculated using the `sascorer` module, which evaluates various
-    molecular properties to estimate synthetic accessibility.
-
-    Parameters:
-    ----------
-    mol : rdkit.Chem.rdchem.Mol
-        The RDKit molecule object for which the SA score is to be calculated.
-
-    Returns:
-    -------
-    float
-        The synthetic accessibility score of the molecule.
-    """
-    return sascorer.calculateScore(mol)
 
 
 def mc1(mol: Mol) -> float:

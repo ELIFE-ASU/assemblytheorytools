@@ -340,23 +340,20 @@ def test_bottcher_batch():
     # assert that the scores are the same
     assert calc_scores == scores
 
+
 def test_proudfoot():
     print(flush=True)
     smi = "COC1=C(O)C=C(CC(=O)O)C=C1Br"
     mol = Chem.MolFromSmiles(smi)
     assert att.proudfoot(mol) == 30.54277674961796
 
-def test_sascore():
-    print(flush=True)
-    smi = "COC1=C(O)C=C(CC(=O)O)C=C1Br"
-    mol = Chem.MolFromSmiles(smi)
-    assert att.sascore(mol) == 2.180114265525818
 
 def test_mc1():
     print(flush=True)
     smi = "COC1=C(O)C=C(CC(=O)O)C=C1Br"
     mol = Chem.MolFromSmiles(smi)
     assert att.mc1(mol) == 0.7142857142857143
+
 
 def test_mc2():
     print(flush=True)
