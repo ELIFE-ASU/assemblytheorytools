@@ -24,9 +24,6 @@ from rdkit.Chem.rdchem import Mol
 sys.path.append(os.path.join(RDConfig.RDContribDir, 'SA_Score'))
 import sascorer
 
-sys.path.append(os.path.join(RDConfig.RDContribDir, 'ChiralPairs'))
-import ChiralDescriptors
-
 from .tools_graph import remove_hydrogen_from_graph
 from .tools_mol import standardize_mol
 
@@ -645,6 +642,67 @@ def fcfp4(mol: Mol) -> int:
     return fp.GetNumOnBits()
 
 
+def _determine_atom_substituents(atom_id, mol, distance_matrix):
+    """
+    Determines the substituents of an atom in a molecule.
+
+    This function identifies the substituents (neighboring atoms and their shells)
+    for a given atom in a molecule based on the distance matrix. It also tracks
+    shared neighbors and the maximum shell distance for each substituent.
+
+    Parameters:
+    ----------
+    atom_id : int
+        The index of the atom in the molecule for which substituents are to be determined.
+    mol : rdkit.Chem.rdchem.Mol
+        The RDKit molecule object containing the atom.
+    distance_matrix : np.ndarray
+        The distance matrix of the molecule, where each element represents the
+        shortest path distance between two atoms.
+
+    Returns:
+    -------
+    tuple
+        A tuple containing:
+        - subs (defaultdict): A dictionary mapping substituent indices to lists of atom indices.
+        - shared_neighbors (defaultdict): A dictionary tracking how many substituents each atom is involved in.
+        - max_shell (defaultdict): A dictionary mapping substituent indices to their maximum shell distance.
+    """
+    atom_paths = distance_matrix[atom_id]
+    # Determine the direct neighbors of the atom
+    neighbors = [n for n, i in enumerate(atom_paths) if i == 1]
+    # Store the ids of the neighbors (substituents)
+    subs = defaultdict(list)
+    # Track in how many substituents an atom is involved (can happen in rings)
+    shared_neighbors = defaultdict(int)
+    # Determine the max path length for each substituent
+    max_shell = defaultdict(int)
+    for n in neighbors:
+        subs[n].append(n)
+        shared_neighbors[n] += 1
+        max_shell[n] = 0
+    # Second shell of neighbors
+    min_dist = 2
+    # Max distance from atom
+    max_dist = int(np.max(atom_paths))
+    for d in range(min_dist, max_dist + 1):
+        new_shell = [n for n, i in enumerate(atom_paths) if i == d]
+        for a_idx in new_shell:
+            atom = mol.GetAtomWithIdx(a_idx)
+            # Find neighbors of the current atom that are part of the substituent already
+            for n in atom.GetNeighbors():
+                n_idx = n.GetIdx()
+                for k, v in subs.items():
+                    # Check if the neighbor is in the substituent, not in the same shell,
+                    # and the current atom hasn't been added yet
+                    if n_idx in v and n_idx not in new_shell and a_idx not in v:
+                        subs[k].append(a_idx)
+                        shared_neighbors[a_idx] += 1
+                        max_shell[k] = d
+
+    return subs, shared_neighbors, max_shell
+
+
 def _get_chemical_non_equivs(atom: Chem.rdchem.Atom, mol: Mol) -> float:
     """
     Calculates the chemical non-equivalence of an atom in a molecule.
@@ -671,8 +729,8 @@ def _get_chemical_non_equivs(atom: Chem.rdchem.Atom, mol: Mol) -> float:
     # Get the distance matrix of the molecule
     distance_matrix = Chem.GetDistanceMatrix(mol)
 
-    # Determine the substituents of the atom using ChiralDescriptors
-    atom_substituents = ChiralDescriptors.determineAtomSubstituents(atom.GetIdx(), mol, distance_matrix)[0]
+    # Determine the substituents of the atom
+    atom_substituents = _determine_atom_substituents(atom.GetIdx(), mol, distance_matrix)[0]
 
     # Populate the substituents list with atomic symbols of neighboring atoms
     for item, key in enumerate(atom_substituents):
