@@ -2,8 +2,6 @@ import bz2
 import json
 import lzma
 import math
-import os
-import sys
 import traceback
 import zlib
 from collections import defaultdict
@@ -16,7 +14,7 @@ from networkx.readwrite import json_graph
 from rdkit import Chem
 from rdkit import DataStructs
 from rdkit.Chem import AllChem as Chem
-from rdkit.Chem import Descriptors, RDConfig, rdMolDescriptors
+from rdkit.Chem import Descriptors, rdMolDescriptors
 from rdkit.Chem.GraphDescriptors import BertzCT
 from rdkit.Chem.SpacialScore import SPS
 from rdkit.Chem.rdchem import Mol

@@ -7,7 +7,7 @@ from rdkit import Chem
 from rdkit.Chem.rdchem import RWMol
 
 from .tools_graph import bond_order_assout_to_int, bond_order_int_to_rdkit, canonicalize_node_labels
-from .tools_mol import safe_standardize_mol, reset_mol_charge, smi_to_mol, smi_remove_implicit_hydrogen
+from .tools_mol import smi_remove_implicit_hydrogen
 
 
 def transform_array(target_array, comp_array, source_val, target_val, new_val, pairs_list):
@@ -218,7 +218,7 @@ def tables_to_mol(tables):
         edit_mol.AddBond(e[0], e[1], bond_order_int_to_rdkit(e[2]))
 
     mol = edit_mol.GetMol()
-    return mol #reset_mol_charge(mol) # mol  #
+    return mol  # reset_mol_charge(mol) # mol  #
 
 
 def tables_to_nx(tables):
