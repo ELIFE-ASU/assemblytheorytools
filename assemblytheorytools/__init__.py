@@ -146,7 +146,7 @@ from .tools_test import (check_elements,
                          phosphine_graph,
                          ph_2p_graph)
 
-__version__ = "1.7.0"
+__version__ = "1.8.0"
 
 """
 AssemblyTheoryTools
