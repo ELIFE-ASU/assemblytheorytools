@@ -1,14 +1,15 @@
 from rdkit import Chem
+
 import assemblytheorytools as att
 
 if __name__ == "__main__":
     # Define a list of SMILES strings representing molecules.
     smiles = [
-        '[H]OC(=O)C([H])([H])N([H])[H]',           # Glycine
-        '[H]OC(=O)C([H])(N([H])[H])C([H])([H])[H]', # Alanine
-        '[H]OC(=O)C([H])([H])N([H])[H]',           # Glycine (duplicate)
-        '[H]C([H])([H])C([H])([H])[H]',            # Ethane
-        '[H]OC(=O)C([H])([H])N([H])[H]'            # Glycine (again)
+        '[H]OC(=O)C([H])([H])N([H])[H]',  # Glycine
+        '[H]OC(=O)C([H])(N([H])[H])C([H])([H])[H]',  # Alanine
+        '[H]OC(=O)C([H])([H])N([H])[H]',  # Glycine (duplicate)
+        '[H]C([H])([H])C([H])([H])[H]',  # Ethane
+        '[H]OC(=O)C([H])([H])N([H])[H]'  # Glycine (again)
     ]
 
     # Convert SMILES to RDKit Mol objects and ensure explicit hydrogens

@@ -22,4 +22,3 @@ if __name__ == "__main__":
     print(f"Assembly index: {ai}", flush=True)
     print(f"virt_obj: {virt_obj}", flush=True)
     print(f"path: {path}", flush=True)
-

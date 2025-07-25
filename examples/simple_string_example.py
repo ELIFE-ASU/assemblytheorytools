@@ -7,10 +7,10 @@ if __name__ == "__main__":
     # Calculate the string assembly index
     ai, virt_obj, path = att.calculate_string_assembly_index(
         s_inpt,
-        dir_code=None,     # No direction code applied
-        timeout=100.0,     # Maximum time allowed for calculation
-        directed=False,    # Treat as undirected assembly
-        mode="mol"         # Use molecular assembly logic (general case)
+        dir_code=None,  # No direction code applied
+        timeout=100.0,  # Maximum time allowed for calculation
+        directed=False,  # Treat as undirected assembly
+        mode="mol"  # Use molecular assembly logic (general case)
     )
 
     # Output the results

@@ -1,9 +1,10 @@
 import os
 
+import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+
 import assemblytheorytools as att
 
 if __name__ == "__main__":
