@@ -157,6 +157,7 @@ def test_plot_pathway_graph():
     assert fig is not None, "Failed to create the figure."
     assert ax is not None, "Failed to create the axes."
 
+
 def test_plot_pathway_atoms():
     print(flush=True)
 
