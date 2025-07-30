@@ -1,10 +1,10 @@
 import os
 import tempfile
 
+import numpy as np
 from ase.atoms import Atoms
 from ase.calculators.cp2k import CP2K
-from ase.calculators.orca import ORCA
-from ase.calculators.orca import OrcaProfile
+from ase.calculators.orca import ORCA, OrcaProfile
 from ase.io import read, write
 from ase.units import Hartree
 from ase.units import Rydberg
@@ -507,43 +507,79 @@ def optimise_atoms(atoms,
         return read(orca_file, format="xyz")
 
 
-def calculate_ccsd_energy(atoms,
-                          orca_path=None,
-                          charge=0,
-                          multiplicity=1,
-                          basis_set='aug-cc-pVTZ',
-                          n_procs=10):
+def get_total_electrons(atoms: Atoms) -> int:
     """
-    Calculate the CCSD (Coupled Cluster with Single and Double excitations) energy of a molecule.
+    Calculate the total number of electrons in a molecule.
+
+    This function computes the total number of electrons in a molecule
+    represented by an ASE `Atoms` object. It sums the atomic numbers (Z)
+    of all atoms in the molecule and adjusts for the explicit charge
+    provided in the `Atoms.info` dictionary.
 
     Parameters:
     -----------
     atoms : ase.Atoms
-        The ASE Atoms object representing the molecule for which the energy is calculated.
-    orca_path : str, optional
-        Path to the ORCA executable. If None, the function attempts to read it from the environment variable 'ORCA_PATH'.
-    charge : int, optional
-        Total charge of the molecule. Default is 0.
-    multiplicity : int, optional
-        Spin multiplicity of the molecule. Default is 1.
-    basis_set : str, optional
-        Basis set to use for the calculation. Default is 'aug-cc-pVTZ'.
-    n_procs : int, optional
-        Number of processors to use for the calculation. Default is 10.
+        An ASE `Atoms` object representing the molecule.
 
     Returns:
     --------
-    float
-        The CCSD energy of the molecule in eV.
+    int
+        The total number of electrons in the molecule, corrected for its charge.
     """
+    # Sum atomic numbers (Z) for every atom in the molecule
+    n_electrons = int(np.sum(atoms.get_atomic_numbers()))
+
+    # Correct for explicit total charge, if provided in the `Atoms.info` dictionary
+    charge = atoms.info.get('charge', 0.0)
+    n_electrons -= int(round(charge))
+
+    return n_electrons
+
+
+def round_to_nearest_two(number):
+    """
+    Round a number to the nearest multiple of 2.
+    If the result would be 0, return 1 instead.
+
+    Parameters:
+    -----------
+    number : float or int
+        The number to be rounded
+
+    Returns:
+    --------
+    int
+        The nearest multiple of 2, or 1 if result would be 0
+    """
+    # Round to nearest multiple of 2
+    result = round(number / 2) * 2
+
+    # If result is 0, set it to 1
+    if result == 0:
+        result = 1
+
+    return result
+
+
+def calculate_ccsd_energy(atoms,
+                          charge=0,
+                          multiplicity=1,
+                          orca_path=None,
+                          basis_set='def2-TZVPP',
+                          n_procs=10):
     # If no ORCA path is provided, try to read it from the environment variable
-    if orca_path is None:
-        orca_path = os.environ.get('ORCA_PATH')
-    else:
-        orca_path = os.path.abspath(orca_path)
+    orca_path = os.path.abspath(orca_path or os.getenv('ORCA_PATH', 'orca'))
+
+    # Get the total number of electrons in the system
+    total_electrons = get_total_electrons(atoms)
+    # Prevent too many processors being used
+    if n_procs > total_electrons:
+        n_procs = round_to_nearest_two(total_electrons - 2)
 
     # Create a temporary directory for the ORCA calculation
     with tempfile.TemporaryDirectory() as temp_dir:
+        # temp_dir = os.path.join(tempfile.mkdtemp())
+
         # Set up the ORCA calculator with the specified parameters
         calc = orca_calc_preset(orca_path=orca_path,
                                 directory=temp_dir,
@@ -556,9 +592,7 @@ def calculate_ccsd_energy(atoms,
         atoms.calc = calc
 
         # Perform the energy calculation
-        energy = atoms.get_potential_energy()
-
-        return energy
+        return atoms.get_potential_energy()
 
 
 def calculate_free_energy(atoms,
