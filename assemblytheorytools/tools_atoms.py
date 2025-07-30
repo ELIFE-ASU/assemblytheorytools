@@ -741,6 +741,8 @@ def grab_value(orca_file, term, splitter):
 def calculate_free_energy(atoms,
                           charge=0,
                           multiplicity=1,
+                          temperature=None,
+                          pressure=None,
                           orca_path=None,
                           xc='r2SCAN-3c',
                           basis_set='def2-QZVP',
@@ -752,72 +754,111 @@ def calculate_free_energy(atoms,
                           use_ccsd=False,
                           ccsd_energy=None):
     """
-    Calculate the Gibbs free energy of a molecule.
+    Calculate the Gibbs free energy, enthalpy, and entropy of a molecule.
 
     This function performs a quantum chemistry calculation using the ORCA package to compute
-    the Gibbs free energy of a molecule represented by an ASE `Atoms` object. It supports
-    optional CCSD energy corrections and various calculation parameters.
+    the Gibbs free energy, enthalpy, and entropy of a molecule represented by an ASE `Atoms` object.
+    It supports temperature and pressure adjustments, CCSD energy calculations, and various ORCA options.
 
     Parameters:
     -----------
     atoms : ase.Atoms
         An ASE `Atoms` object representing the molecule.
     charge : int, optional
-        The total charge of the molecule. Default is 0.
+        Total charge of the molecule. Default is 0.
     multiplicity : int, optional
-        The spin multiplicity of the molecule. Default is 1.
+        Spin multiplicity of the molecule. Default is 1.
+    temperature : float, optional
+        Temperature in Kelvin for the calculation. Default is None.
+    pressure : float, optional
+        Pressure in atm for the calculation. Default is None.
     orca_path : str, optional
-        Path to the ORCA executable. If None, the function attempts to read it from the environment variable 'ORCA_PATH'.
+        Path to the ORCA executable. If None, it will attempt to read from the environment variable 'ORCA_PATH'.
     xc : str, optional
         Exchange-correlation functional to use. Default is 'r2SCAN-3c'.
     basis_set : str, optional
         Basis set to use for the calculation. Default is 'def2-QZVP'.
     tight_opt : bool, optional
-        Whether to use tight optimization parameters. Default is False.
+        Whether to use tight geometry optimization. Default is False.
     tight_scf : bool, optional
-        Whether to use tight SCF convergence parameters. Default is False.
-    f_solv : bool or str, optional
-        Solvent model to use. If True, defaults to 'WATER'. Default is False (no solvent).
-    f_disp : bool or str, optional
-        Dispersion correction to use. If True, defaults to 'D4'. Default is False (no dispersion correction).
+        Whether to use tight SCF convergence criteria. Default is False.
+    f_solv : bool, optional
+        Whether to include solvent effects in the calculation. Default is False.
+    f_disp : bool, optional
+        Whether to include dispersion corrections in the calculation. Default is False.
     n_procs : int, optional
         Number of processors to use for the calculation. Default is 10.
     use_ccsd : bool, optional
-        Whether to include CCSD energy correction. Default is False.
+        Whether to use CCSD energy calculations. Default is False.
     ccsd_energy : float, optional
-        Precomputed CCSD energy value. If None, the function calculates it. Default is None.
+        Precomputed CCSD energy in eV. If None, CCSD energy will be calculated if `use_ccsd` is True.
 
     Returns:
     --------
     tuple
         A tuple containing:
-        - energy (float): The Gibbs free energy of the molecule in eV.
-        - energy - entropy (float): The electronic energy corrected for entropy.
-        - entropy (float): The entropy correction in eV.
+        - energy : float
+            The Gibbs free energy in eV.
+        - enthalpy : float
+            The enthalpy in eV.
+        - entropy : float
+            The entropy correction in eV.
 
     Raises:
     -------
     ValueError
-        If the CCSD energy calculation fails when `use_ccsd` is True.
+        If the CCSD energy calculation fails or the ORCA setup is invalid.
     """
+    # Determine the ORCA path
     orca_path = os.path.abspath(orca_path or os.getenv('ORCA_PATH', 'orca'))
+
+    # Set optimization flags
     opt_flag = 'TIGHTOPT' if tight_opt else 'OPT'
-    if len(atoms) == 1:
+    if len(atoms) == 1:  # Skip optimization for single atoms
         opt_flag = ''
 
+    # Set SCF flags
     scf_flag = 'TIGHTSCF' if tight_scf else ''
     calc_extra = f'{opt_flag} {scf_flag} FREQ'.strip()
+
+    # Set up the %thermo block for this temperature and pressure
+    if temperature is not None and pressure is None:
+        blocks_extra = f'''
+                                  %freq
+                                      Temp {temperature}
+                                  end
+                                  '''
+    elif pressure is not None and temperature is None:
+        blocks_extra = f'''
+                                          %freq
+                                              Pressure {pressure}
+                                          end
+                                          '''
+    elif pressure is None and temperature is not None:
+        blocks_extra = f'''
+                                          %freq
+                                              Temp {temperature}
+                                              Pressure {pressure}
+                                          end
+                                          '''
+    else:
+        blocks_extra = None
+
+    # Perform CCSD energy calculation if required and not provided
     if use_ccsd and ccsd_energy is None:
         ccsd_energy = calculate_ccsd_energy(atoms,
                                             orca_path=orca_path,
                                             charge=charge,
                                             multiplicity=multiplicity,
-                                            n_procs=n_procs,
-                                            )
+                                            n_procs=n_procs)
         if ccsd_energy is None:
             raise ValueError("CCSD energy calculation failed. Please check the ORCA setup.")
+
+    # Create a temporary directory for the calculation
     with tempfile.TemporaryDirectory() as temp_dir:
         orca_file = os.path.join(temp_dir, 'orca.out')
+
+        # Set up the ORCA calculator
         calc = orca_calc_preset(orca_path=orca_path,
                                 directory=temp_dir,
                                 charge=charge,
@@ -827,12 +868,17 @@ def calculate_free_energy(atoms,
                                 n_procs=n_procs,
                                 f_solv=f_solv,
                                 f_disp=f_disp,
-                                calc_extra=calc_extra)
+                                calc_extra=calc_extra,
+                                blocks_extra=blocks_extra)
         atoms.calc = calc
+
+        # Trigger the calculation
         _ = atoms.get_potential_energy()
 
+        # Extract entropy correction
         entropy = grab_value(orca_file, 'Total entropy correction', '...')
 
+        # Calculate Gibbs free energy based on CCSD or DFT results
         if use_ccsd:
             g_e_ele = grab_value(orca_file, 'G-E(el)', '...')
             g_e_solv = grab_value(orca_file, 'Free-energy (cav+disp)', ':') if f_solv else 0.0
@@ -840,6 +886,7 @@ def calculate_free_energy(atoms,
         else:
             energy = grab_value(orca_file, 'Final Gibbs free energy', '...')
 
+        # Return energy, enthalpy, and entropy
         return energy, energy - entropy, entropy
 
 
