@@ -10,7 +10,6 @@ from ase.units import Hartree
 from ase.units import Rydberg
 from rdkit import Chem
 from rdkit.Chem import AllChem
-from rdkit.Chem import Descriptors
 from rdkit.Chem import rdDetermineBonds
 from rdkit.Chem.rdchem import Mol
 
@@ -201,30 +200,48 @@ def get_charge(mol: Mol) -> int:
     return Chem.GetFormalCharge(mol)
 
 
-def get_spin_multiplicity(mol: Mol) -> int:
-    """
-    Calculate the spin multiplicity of a molecule based on the number of radical electrons.
+def _calc_unpaired(capacity: int, electrons: int) -> int:
+    orbitals = capacity // 2
+    return electrons if electrons <= orbitals else 2 * orbitals - electrons
 
-    Spin multiplicity = 2 S + 1, where S is the total spin quantum number.
-    For radical electrons, S = n/2 where n is the number of unpaired electrons.
 
-    Parameters:
-    -----------
-    mol : rdkit.Chem.rdchem.Mol
-        An RDKit molecule object
+def _aufbau_multiplicity(z: int) -> int:
+    subshells = [
+        ('1s', 2), ('2s', 2), ('2p', 6), ('3s', 2), ('3p', 6),
+        ('4s', 2), ('3d', 10), ('4p', 6), ('5s', 2), ('4d', 10),
+        ('5p', 6), ('6s', 2), ('4f', 14), ('5d', 10), ('6p', 6),
+        ('7s', 2), ('5f', 14), ('6d', 10), ('7p', 6),
+    ]
+    remaining, unpaired = z, 0
+    for _, cap in subshells:
+        if remaining == 0:
+            break
+        n = min(cap, remaining)
+        remaining -= n
+        unpaired += _calc_unpaired(cap, n)
+    return unpaired + 1  # 2S+1
 
-    Returns:
-    --------
-    int
-        The spin multiplicity of the molecule (1 for singlet, 2 for doublet, etc.)
-    """
-    # Get the number of radical electrons
-    num_radical_electrons = Descriptors.NumRadicalElectrons(mol)
 
-    # Calculate spin multiplicity: 2 S + 1 = n + 1, where n is the number of unpaired electrons
-    multiplicity = num_radical_electrons + 1
+def get_spin_multiplicity(mol: Chem.Mol) -> int:
+    mol = Chem.AddHs(mol)
+    # 1 – explicit override
+    for key in ("spinMultiplicity", "SpinMultiplicity"):
+        if mol.HasProp(key):
+            return int(mol.GetProp(key))
 
-    return multiplicity
+    # 2 – isolated atom
+    if mol.GetNumAtoms() == 1:
+        _EXCEPTIONS = {24: 7, 29: 2, 42: 7, 47: 2}  # Cr, Cu, Mo, Ag
+        _GROUND_STATE_MULTIPLICITY = {
+            z: _EXCEPTIONS.get(z, _aufbau_multiplicity(z))
+            for z in range(1, 118 + 1)
+        }
+        z = mol.GetAtomWithIdx(0).GetAtomicNum()
+        return _GROUND_STATE_MULTIPLICITY.get(z, 1)
+
+    # 3 – molecule: use radical count if present
+    n_rad = sum(a.GetNumRadicalElectrons() for a in mol.GetAtoms())
+    return (n_rad + 1) if n_rad else 1
 
 
 def cp2k_calc_preset(cp2k_command=None,
@@ -406,6 +423,12 @@ def orca_calc_preset(orca_path=None,
     else:
         inpt_simple = '{} {}'.format(calc_type, basis_set)
 
+    if multiplicity > 1:
+        if calc_type == 'DFT' or calc_type == 'QM/XTB2':
+            inpt_simple = 'UKS  ' + inpt_simple
+        elif calc_type == 'MP2' or calc_type == 'CCSD':
+            inpt_simple = 'UKS ' + inpt_simple
+
     # Add the SCF option if provided
     if scf_option is not None:
         inpt_simple += ' ' + scf_option
@@ -426,31 +449,54 @@ def orca_calc_preset(orca_path=None,
     return calc
 
 
-def optimise_atoms(atoms, calc_settings=None):
-    """
-    Optimise the geometry of an ASE Atoms object using the ORCA quantum chemistry package.
+def optimise_atoms(atoms,
+                   charge=0,
+                   multiplicity=1,
+                   orca_path=None,
+                   xc='r2SCAN-3c',
+                   basis_set='def2-QZVP',
+                   tight_opt=False,
+                   tight_scf=False,
+                   f_solv=False,
+                   f_disp=False,
+                   n_procs=10):
+    # Determine the ORCA path
+    if orca_path is None:
+        # Try to read the path from the environment variable
+        orca_path = os.environ.get('ORCA_PATH')
+    else:
+        # Convert the provided path to an absolute path
+        orca_path = os.path.abspath(orca_path)
 
-    Parameters:
-    -----------
-    atoms : ase.Atoms
-        The ASE Atoms object representing the molecule to be optimised.
-    calc_settings : dict, optional
-        A dictionary of settings for the ORCA calculator. If None, defaults to {'calc_extra': 'TIGHTOPT'}.
+    if tight_opt:
+        # Set up geometry optimization and frequency calculation parameters
+        opt_option = 'TIGHTOPT'
+    else:
+        # Set up frequency calculation parameters only
+        opt_option = 'OPT'
 
-    Returns:
-    --------
-    ase.Atoms
-        The optimised ASE Atoms object, loaded from the ORCA output file.
-    """
-    if calc_settings is None:
-        # Default calculation settings if none are provided
-        calc_settings = {'calc_extra': 'TIGHTOPT'}
+    if tight_scf:
+        # Set up tight SCF convergence parameters
+        calc_extra = f'{opt_option} TIGHTSCF'
+    else:
+        # Use default SCF convergence parameters
+        calc_extra = f'{opt_option}'
 
-    # Create a temporary directory for the calculation
+    # Create a temporary working directory
     with tempfile.TemporaryDirectory() as temp_dir:
-        # Set up the ORCA calculator with the specified parameters
-        calc = orca_calc_preset(directory=temp_dir, **calc_settings)
+        orca_file = os.path.join(temp_dir, "orca.xyz")
 
+        # Set up the ORCA calculator with the specified parameters
+        calc = orca_calc_preset(orca_path=orca_path,
+                                directory=temp_dir,
+                                charge=charge,
+                                multiplicity=multiplicity,
+                                xc=xc,
+                                basis_set=basis_set,
+                                n_procs=n_procs,
+                                f_solv=f_solv,
+                                f_disp=f_disp,
+                                calc_extra=calc_extra)
         # Assign the calculator to the molecule
         atoms.calc = calc
 
@@ -458,7 +504,6 @@ def optimise_atoms(atoms, calc_settings=None):
         _ = atoms.get_potential_energy()
 
         # Load the optimised geometry from the ORCA output file
-        orca_file = os.path.join(temp_dir, "orca.xyz")
         return read(orca_file, format="xyz")
 
 
