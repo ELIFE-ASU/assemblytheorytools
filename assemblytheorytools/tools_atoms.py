@@ -207,11 +207,49 @@ def get_charge(mol: Mol) -> int:
 
 
 def _calc_unpaired(capacity: int, electrons: int) -> int:
+    """
+    Calculate the number of unpaired electrons in an orbital.
+
+    This function determines the number of unpaired electrons based on the
+    orbital capacity and the number of electrons present.
+
+    Parameters:
+    -----------
+    capacity : int
+        The maximum number of electrons the orbital can hold.
+    electrons : int
+        The number of electrons present in the orbital.
+
+    Returns:
+    --------
+    int
+        The number of unpaired electrons. If the number of electrons is less
+        than or equal to the orbital capacity, it returns the number of electrons.
+        Otherwise, it calculates the unpaired electrons based on the orbital capacity.
+    """
     orbitals = capacity // 2
     return electrons if electrons <= orbitals else 2 * orbitals - electrons
 
 
 def _aufbau_multiplicity(z: int) -> int:
+    """
+    Calculate the spin multiplicity of an atom based on the Aufbau principle.
+
+    This function determines the spin multiplicity (2S+1) of an atom by filling
+    its electron subshells according to the Aufbau principle. It calculates the
+    number of unpaired electrons in each subshell and sums them to compute the
+    total spin multiplicity.
+
+    Parameters:
+    -----------
+    z : int
+        The atomic number of the atom.
+
+    Returns:
+    --------
+    int
+        The spin multiplicity of the atom (2S+1).
+    """
     subshells = [
         ('1s', 2), ('2s', 2), ('2p', 6), ('3s', 2), ('3p', 6),
         ('4s', 2), ('3d', 10), ('4p', 6), ('5s', 2), ('4d', 10),
@@ -229,6 +267,24 @@ def _aufbau_multiplicity(z: int) -> int:
 
 
 def get_spin_multiplicity(mol: Chem.Mol) -> int:
+    """
+    Determine the spin multiplicity of a molecule.
+
+    This function calculates the spin multiplicity (2S+1) of a molecule based on its structure.
+    It first checks for explicit spin multiplicity properties, handles isolated atoms using
+    predefined exceptions and the Aufbau principle, and finally calculates the multiplicity
+    based on the radical count for molecules.
+
+    Parameters:
+    -----------
+    mol : rdkit.Chem.rdchem.Mol
+        An RDKit molecule object.
+
+    Returns:
+    --------
+    int
+        The spin multiplicity of the molecule.
+    """
     mol = Chem.AddHs(mol)
     # 1 – explicit override
     for key in ("spinMultiplicity", "SpinMultiplicity"):
@@ -466,6 +522,44 @@ def optimise_atoms(atoms,
                    f_solv=False,
                    f_disp=False,
                    n_procs=10):
+    """
+    Optimize the geometry of a molecule using ORCA.
+
+    This function sets up an ORCA quantum chemistry calculation to optimize the geometry
+    of a molecule represented by an ASE `Atoms` object. It allows customization of various
+    calculation parameters, including charge, spin multiplicity, basis set, and exchange-correlation
+    functional.
+
+    Parameters:
+    -----------
+    atoms : ase.Atoms
+        An ASE `Atoms` object representing the molecule to be optimized.
+    charge : int, optional
+        The total charge of the molecule. Default is 0.
+    multiplicity : int, optional
+        The spin multiplicity of the molecule. Default is 1.
+    orca_path : str, optional
+        Path to the ORCA executable. If None, the function attempts to read it from the environment variable 'ORCA_PATH'.
+    xc : str, optional
+        Exchange-correlation functional to use. Default is 'r2SCAN-3c'.
+    basis_set : str, optional
+        Basis set to use for the calculation. Default is 'def2-QZVP'.
+    tight_opt : bool, optional
+        Whether to use tight optimization parameters. Default is False.
+    tight_scf : bool, optional
+        Whether to use tight SCF convergence parameters. Default is False.
+    f_solv : bool or str, optional
+        Solvent model to use. If True, defaults to 'WATER'. Default is False (no solvent).
+    f_disp : bool or str, optional
+        Dispersion correction to use. If True, defaults to 'D4'. Default is False (no dispersion correction).
+    n_procs : int, optional
+        Number of processors to use for the calculation. Default is 10.
+
+    Returns:
+    --------
+    ase.Atoms
+        The ASE `Atoms` object representing the optimized geometry of the molecule.
+    """
     # Determine the ORCA path
     if orca_path is None:
         # Try to read the path from the environment variable
@@ -573,6 +667,33 @@ def calculate_ccsd_energy(atoms,
                           orca_path=None,
                           basis_set='def2-TZVPP',
                           n_procs=10):
+    """
+    Perform a CCSD energy calculation for a molecule.
+
+    This function sets up and executes a CCSD (Coupled Cluster Singles and Doubles) energy calculation
+    using the ORCA quantum chemistry package. It ensures that the number of processors used does not
+    exceed the total number of electrons in the system.
+
+    Parameters:
+    -----------
+    atoms : ase.Atoms
+        An ASE `Atoms` object representing the molecule.
+    charge : int, optional
+        The total charge of the molecule. Default is 0.
+    multiplicity : int, optional
+        The spin multiplicity of the molecule. Default is 1.
+    orca_path : str, optional
+        Path to the ORCA executable. If None, the function attempts to read it from the environment variable 'ORCA_PATH'.
+    basis_set : str, optional
+        Basis set to use for the calculation. Default is 'def2-TZVPP'.
+    n_procs : int, optional
+        Number of processors to use for the calculation. Default is 10.
+
+    Returns:
+    --------
+    float
+        The CCSD energy of the molecule in eV.
+    """
     # If no ORCA path is provided, try to read it from the environment variable
     orca_path = os.path.abspath(orca_path or os.getenv('ORCA_PATH', 'orca'))
 
@@ -622,6 +743,55 @@ def calculate_free_energy(atoms,
                           n_procs=10,
                           use_ccsd=False,
                           ccsd_energy=None):
+    """
+    Calculate the Gibbs free energy of a molecule.
+
+    This function performs a quantum chemistry calculation using the ORCA package to compute
+    the Gibbs free energy of a molecule represented by an ASE `Atoms` object. It supports
+    optional CCSD energy corrections and various calculation parameters.
+
+    Parameters:
+    -----------
+    atoms : ase.Atoms
+        An ASE `Atoms` object representing the molecule.
+    charge : int, optional
+        The total charge of the molecule. Default is 0.
+    multiplicity : int, optional
+        The spin multiplicity of the molecule. Default is 1.
+    orca_path : str, optional
+        Path to the ORCA executable. If None, the function attempts to read it from the environment variable 'ORCA_PATH'.
+    xc : str, optional
+        Exchange-correlation functional to use. Default is 'r2SCAN-3c'.
+    basis_set : str, optional
+        Basis set to use for the calculation. Default is 'def2-QZVP'.
+    tight_opt : bool, optional
+        Whether to use tight optimization parameters. Default is False.
+    tight_scf : bool, optional
+        Whether to use tight SCF convergence parameters. Default is False.
+    f_solv : bool or str, optional
+        Solvent model to use. If True, defaults to 'WATER'. Default is False (no solvent).
+    f_disp : bool or str, optional
+        Dispersion correction to use. If True, defaults to 'D4'. Default is False (no dispersion correction).
+    n_procs : int, optional
+        Number of processors to use for the calculation. Default is 10.
+    use_ccsd : bool, optional
+        Whether to include CCSD energy correction. Default is False.
+    ccsd_energy : float, optional
+        Precomputed CCSD energy value. If None, the function calculates it. Default is None.
+
+    Returns:
+    --------
+    tuple
+        A tuple containing:
+        - energy (float): The Gibbs free energy of the molecule in eV.
+        - energy - entropy (float): The electronic energy corrected for entropy.
+        - entropy (float): The entropy correction in eV.
+
+    Raises:
+    -------
+    ValueError
+        If the CCSD energy calculation fails when `use_ccsd` is True.
+    """
     orca_path = os.path.abspath(orca_path or os.getenv('ORCA_PATH', 'orca'))
     opt_flag = 'TIGHTOPT' if tight_opt else 'OPT'
     if len(atoms) == 1:
@@ -681,6 +851,49 @@ def calculate_hessian(atoms,
                       f_solv=False,
                       f_disp=False,
                       n_procs=10):
+    """
+    Perform a Hessian matrix calculation for a molecule.
+
+    This function sets up and executes a quantum chemistry calculation using the ORCA package
+    to compute the Hessian matrix and optimized geometry of a molecule represented by an ASE `Atoms` object.
+
+    Parameters:
+    -----------
+    atoms : ase.Atoms
+        An ASE `Atoms` object representing the molecule.
+    charge : int, optional
+        The total charge of the molecule. Default is 0.
+    multiplicity : int, optional
+        The spin multiplicity of the molecule. Default is 1.
+    orca_path : str, optional
+        Path to the ORCA executable. If None, the function attempts to read it from the environment variable 'ORCA_PATH'.
+    xc : str, optional
+        Exchange-correlation functional to use. Default is 'r2SCAN-3c'.
+    basis_set : str, optional
+        Basis set to use for the calculation. Default is 'def2-QZVP'.
+    tight_opt : bool, optional
+        Whether to use tight optimization parameters. Default is False.
+    tight_scf : bool, optional
+        Whether to use tight SCF convergence parameters. Default is False.
+    f_solv : bool or str, optional
+        Solvent model to use. If True, defaults to 'WATER'. Default is False (no solvent).
+    f_disp : bool or str, optional
+        Dispersion correction to use. If True, defaults to 'D4'. Default is False (no dispersion correction).
+    n_procs : int, optional
+        Number of processors to use for the calculation. Default is 10.
+
+    Returns:
+    --------
+    tuple
+        A tuple containing:
+        - ase.Atoms: The ASE `Atoms` object representing the optimized geometry.
+        - str: Path to the Hessian matrix file.
+
+    Raises:
+    -------
+    ValueError
+        If the ORCA executable path is not provided and cannot be determined from the environment.
+    """
     # Determine the ORCA path
     if orca_path is None:
         # Try to read the path from the environment variable
@@ -724,7 +937,7 @@ def calculate_hessian(atoms,
         # Perform the energy calculation
         _ = atoms.get_potential_energy()
 
-        # Load the optimised geometry from the ORCA output file
+        # Load the optimized geometry from the ORCA output file
         atoms_file = os.path.join(temp_dir, "orca.xyz")
         hessian_file = os.path.join(temp_dir, "orca.hess")
         return read(atoms_file, format="xyz"), hessian_file
