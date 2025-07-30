@@ -94,12 +94,16 @@ def mol_to_atoms(mol: Mol,
         If the molecule cannot be embedded or optimized.
     """
     if sanitize:
+        # Standardize the molecule structure
         mol = standardize_mol(mol)
     if add_hydrogen:
+        # Add explicit hydrogens to the molecule
         mol = Chem.AddHs(mol)
     # If optimisation is enabled, embed and optimise the molecule using RDKit
     if optimise:
+        # Embed the molecule in 3D space
         AllChem.EmbedMolecule(mol, maxAttempts=5000, useRandomCoords=True, randomSeed=0xf00d)
+        # Optimize the molecule's geometry using MMFF force field
         AllChem.MMFFOptimizeMolecule(mol)
 
     # Create a temporary file to store the molecule in SDF format
@@ -154,26 +158,27 @@ def atoms_to_mol(atoms,
     """
     # Open a temporary file to write the Atoms object in XYZ format
     write('tmp.xyz', atoms, format='xyz')
-    raw_mol = Chem.MolFromXYZFile('tmp.xyz')
-    mol = Chem.Mol(raw_mol)
-    rdDetermineBonds.DetermineBonds(mol, charge=charge)
+    raw_mol = Chem.MolFromXYZFile('tmp.xyz')  # Read the XYZ file as an RDKit Mol object
+    mol = Chem.Mol(raw_mol)  # Create a new RDKit Mol object
+    rdDetermineBonds.DetermineBonds(mol, charge=charge)  # Determine bonds based on the charge
 
     # Remove the temporary file
     os.remove('tmp.xyz')
 
     if sanitize:
-        mol = standardize_mol(mol)
-        # Make sure the aromaticity is correct
-        Chem.Kekulize(mol)
+        mol = standardize_mol(mol)  # Standardize the molecule structure
+        Chem.Kekulize(mol)  # Ensure correct aromaticity
     if add_hydrogen:
-        # Add hydrogens to the molecule
-        mol = Chem.AddHs(mol)
+        mol = Chem.AddHs(mol)  # Add explicit hydrogens to the molecule
     return mol
 
 
 def atoms_to_smiles(atoms: Atoms) -> str:
     """
     Convert an ASE Atoms object to a SMILES string.
+
+    This function takes an ASE Atoms object, converts it to an RDKit Mol object,
+    and generates its SMILES representation.
 
     Parameters:
     -----------
@@ -183,20 +188,23 @@ def atoms_to_smiles(atoms: Atoms) -> str:
     Returns:
     --------
     str
-        The SMILES representation of the molecule.
+        The SMILES representation of the molecule, including isomeric, kekule, and canonical forms.
     """
-    mol = atoms_to_mol(atoms)
-    return Chem.MolToSmiles(mol, isomericSmiles=True, kekuleSmiles=True, canonical=True)
+    mol = atoms_to_mol(atoms)  # Convert the ASE Atoms object to an RDKit Mol object
+    return Chem.MolToSmiles(mol, isomericSmiles=True, kekuleSmiles=True, canonical=True)  # Generate the SMILES string
 
 
 def get_charge(mol: Mol) -> int:
     """
     Calculate the formal charge of a molecule.
 
+    This function retrieves the formal charge of a molecule represented
+    by an RDKit `Mol` object using RDKit's `GetFormalCharge` method.
+
     Parameters:
     -----------
     mol : rdkit.Chem.rdchem.Mol
-        An RDKit molecule object
+        An RDKit molecule object.
 
     Returns:
     --------
