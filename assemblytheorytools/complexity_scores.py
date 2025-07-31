@@ -611,6 +611,41 @@ def compression_zlib_graph(graph: nx.Graph,
     return val
 
 
+def compression_ratio_zlib_graph(graph: nx.Graph,
+                                 add_hydrogens: bool = True,
+                                 level: int = 9,
+                                 check: bool = True,
+                                 rm_overhead: bool = True
+                                 ) -> float:
+    # Remove hydrogens from the graph if specified
+    if not add_hydrogens:
+        graph = remove_hydrogen_from_graph(graph)
+
+    # Get the size of the original graph in bytes
+    uncompressed_size = len(json.dumps(json_graph.node_link_data(graph)).encode('utf-8'))
+
+    # Compress the graph using zlib
+    comp = compress_zlib_graph(graph, level=level)
+
+    # Get the length of the compressed data
+    compressed_size = len(comp)
+
+    # Check if the compressed data can be decompressed and matches the original data
+    if check:
+        try:
+            decompress_zlib_graph(comp)
+        except Exception as e:
+            print(f"Decompression failed: {e}")
+            raise
+
+    # Calculate the overhead of the compression
+    if rm_overhead:
+        overhead = compress_zlib_graph(nx.Graph())
+        compressed_size -= len(overhead)
+
+    return uncompressed_size / compressed_size
+
+
 def fcfp4(mol: Mol) -> int:
     """
     Generates the FCFP_4 fingerprint (functional-based ECFP4) for a molecule.
