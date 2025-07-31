@@ -308,6 +308,13 @@ def test_compression_zlib_graph():
     # Assert that the compressed size with hydrogens matches the expected value
     assert h_compressed == 111
 
+def test_compression_ratio_zlib_graph():
+    print(flush=True)
+    smi = "C1=CC=C(C=C1)C(=O)O"  # SMILES for benzoic acid
+    mol = att.smi_to_mol(smi)  # Convert the SMILES string to a molecule object
+    graph = att.mol_to_nx(mol, add_hydrogens=True)
+    ratio = att.compression_ratio_zlib_graph(graph, add_hydrogens=True)
+    print(f"Compression ratio: {ratio:.2f}", flush=True)
 
 def test_fcfp4():
     print(flush=True)
