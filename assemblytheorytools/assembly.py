@@ -1189,12 +1189,29 @@ def calculate_jo(mol,
 
 
 def calculate_assembly_ratio(graph: Union[nx.Graph, Chem.Mol], settings: dict) -> float:
-    # get the number of edges in the graph
+    """
+    Calculate the assembly ratio of a molecular graph.
+
+    The assembly ratio is defined as the ratio of the number of edges in the graph
+    to its assembly index. If the graph has no edges, the function returns 1.0 to
+    avoid division by zero.
+
+    Args:
+        graph (Union[nx.Graph, Chem.Mol]): The molecular graph, which can be a NetworkX graph
+                                           or an RDKit molecule.
+        settings (dict): A dictionary of settings to be passed to the `calculate_assembly_index` function.
+
+    Returns:
+        float: The assembly ratio, calculated as the number of edges divided by the assembly index.
+               Returns 1.0 if the graph has no edges.
+    """
+    # Get the number of edges in the graph
     n_edges = graph.number_of_edges() if isinstance(graph, nx.Graph) else graph.GetNumBonds()
 
-    # calculate the assembly index
+    # Calculate the assembly index
     ai, _, _ = calculate_assembly_index(graph, **settings)
-    # calculate the assembly ratio
+
+    # Calculate the assembly ratio
     if n_edges == 0:
         # Avoid division by zero
         return 1.0
