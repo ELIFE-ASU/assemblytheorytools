@@ -1,7 +1,7 @@
 import networkx as nx
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
-
+import numpy as np
 import assemblytheorytools as att
 
 
@@ -316,11 +316,25 @@ def test_compression_ratio_zlib_graph():
     graph = att.mol_to_nx(mol, add_hydrogens=True)
     ratio = att.compression_ratio_zlib_graph(graph, add_hydrogens=True)
     print(f"Compression ratio: {ratio:.2f}", flush=True)
-    assert ratio == 6.97
+    assert np.allclose(ratio, 6.97, atol=0.01)
 
     ratio = att.compression_ratio_zlib_graph(graph, add_hydrogens=False)
     print(f"Compression ratio: {ratio:.2f}", flush=True)
-    assert ratio == 5.95
+    assert np.allclose(ratio,5.95, atol=0.01)
+
+
+def test_calculate_assembly_ratio():
+    print(flush=True)
+    smi = "C1=CC=C(C=C1)C(=O)O"  # SMILES for benzoic acid
+    mol = att.smi_to_mol(smi)  # Convert the SMILES string to a molecule object
+    graph = att.mol_to_nx(mol, add_hydrogens=True)
+    ratio = att.calculate_assembly_ratio(graph, settings={'strip_hydrogen': True})
+    print(f"Compression ratio: {ratio:.2f}", flush=True)
+    assert np.allclose(ratio, 2.50, atol=0.01)
+
+    ratio = att.calculate_assembly_ratio(graph, settings={'strip_hydrogen': False})
+    print(f"Compression ratio: {ratio:.2f}", flush=True)
+    assert np.allclose(ratio, 1.50, atol=0.01)
 
 
 def test_fcfp4():
