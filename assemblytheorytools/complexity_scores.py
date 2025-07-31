@@ -617,6 +617,40 @@ def compression_ratio_zlib_graph(graph: nx.Graph,
                                  check: bool = True,
                                  rm_overhead: bool = True
                                  ) -> float:
+    """
+    Calculates the compression ratio of a graph using zlib.
+
+    This function serializes a NetworkX graph into a JSON-compatible format,
+    compresses it using zlib, and calculates the compression ratio. The ratio
+    is determined by dividing the size of the uncompressed graph by the size
+    of the compressed graph. Optional parameters allow for removing hydrogens
+    from the graph, verifying the integrity of the compressed data, and
+    adjusting for compression overhead.
+
+    Parameters:
+    ----------
+    graph : nx.Graph
+        The NetworkX graph object to be compressed.
+    add_hydrogens : bool, optional
+        Whether to include hydrogens in the graph representation (default is True).
+    level : int, optional
+        The compression level for zlib (default is 9, maximum compression).
+    check : bool, optional
+        Whether to verify that the compressed data can be decompressed and matches the original (default is True).
+    rm_overhead : bool, optional
+        Whether to remove the overhead of compressing an empty graph (default is True).
+
+    Returns:
+    --------
+    float
+        The compression ratio of the graph, calculated as the size of the
+        uncompressed graph divided by the size of the compressed graph.
+
+    Raises:
+    -------
+    Exception
+        If decompression fails during the integrity check.
+    """
     # Remove hydrogens from the graph if specified
     if not add_hydrogens:
         graph = remove_hydrogen_from_graph(graph)
