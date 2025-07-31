@@ -1186,3 +1186,17 @@ def calculate_jo(mol,
 
     # Return the calculated JO, virtual object, and pathway
     return jo, vo, pathway
+
+
+def calculate_assembly_ratio(graph: Union[nx.Graph, Chem.Mol], settings: dict) -> float:
+    # get the number of edges in the graph
+    n_edges = graph.number_of_edges() if isinstance(graph, nx.Graph) else graph.GetNumBonds()
+
+    # calculate the assembly index
+    ai, _, _ = calculate_assembly_index(graph, **settings)
+    # calculate the assembly ratio
+    if n_edges == 0:
+        # Avoid division by zero
+        return 1.0
+    else:
+        return n_edges / ai
