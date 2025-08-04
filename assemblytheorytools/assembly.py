@@ -259,7 +259,7 @@ def calculate_assembly_index(mol,
         except Exception as e:
             print(f"Error: {e}", flush=True)
 
-        if timed_out == 0: # If the calculation finished properly, we can read the output file
+        if timed_out == 0:  # If the calculation finished properly, we can read the output file
 
             with open(file_path_out, "r") as f:
                 first_line = f.readline()
@@ -679,7 +679,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         except Exception as e:
             print(f"Error: {e}")
 
-        if timed_out == 0: # If the calculation finished properly, we can read the output file
+        if timed_out == 0:  # If the calculation finished properly, we can read the output file
 
             if debug:
                 print("Assembly calculation completed successfully.", flush=True)
@@ -1244,3 +1244,34 @@ def calculate_assembly_ratio(graph: Union[nx.Graph, Chem.Mol], settings: dict) -
         return 1.0
     else:
         return n_edges / ai
+
+
+def calculate_jo_assembly_ratio(graph: Union[nx.Graph, Chem.Mol], settings: dict) -> float:
+    """
+    Calculate the joining operation (JO) assembly ratio for a molecular graph.
+
+    The JO assembly ratio is defined as the ratio of the number of edges in the graph
+    to its joining operation index (JO). If the graph has no edges, the function returns
+    1.0 to avoid division by zero.
+
+    Args:
+        graph (Union[nx.Graph, Chem.Mol]): The molecular graph, which can be a NetworkX graph
+                                           or an RDKit molecule.
+        settings (dict): A dictionary of settings to be passed to the `calculate_jo` function.
+
+    Returns:
+        float: The JO assembly ratio, calculated as the number of edges divided by the JO.
+               Returns 1.0 if the graph has no edges.
+    """
+    # Get the number of edges in the graph
+    n_edges = graph.number_of_edges() if isinstance(graph, nx.Graph) else graph.GetNumBonds()
+
+    # Calculate the joining operation index (JO)
+    jo, _, _ = calculate_jo(graph, **settings)
+
+    # Calculate the JO assembly ratio
+    if n_edges == 0:
+        # Avoid division by zero
+        return 1.0
+    else:
+        return n_edges / jo
