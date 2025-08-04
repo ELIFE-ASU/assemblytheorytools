@@ -21,31 +21,29 @@ def smiles_to_molfile(smiles, molfile_path):
     return True
 
 
-def calculate_rust_ai(smiles, exec_path=None):
+def calculate_rust_ai(smiles, exec_path=None, timeout=300):
     if exec_path is None:
-        exec_path = "/home/mshahjah/assembly-theory/target/release/assembly-theory"  # Path to executable
-
+        exec_path = "/home/mshahjah/assembly-theory/target/release/assembly-theory"
     if not smiles:
-        return "No SMILES provided."
-    with tempfile.NamedTemporaryFile(suffix='.mol', delete=False) as tmp_file:
+        print("No SMILES provided.", flush=True)
+        return -1
+
+    with tempfile.NamedTemporaryFile(suffix='.mol', delete=True) as tmp_file:
         tmp_molfile = tmp_file.name
+
+        if not smiles_to_molfile(smiles, tmp_molfile):
+            print(f"Invalid SMILES: {smiles}", flush=True)
+            return -1
+
         try:
-            if not smiles_to_molfile(smiles, tmp_molfile):
-                print(f"Invalid SMILES: {smiles}")
+            result = subprocess.run([exec_path, tmp_molfile], capture_output=True, text=True, timeout=timeout)
+
+            if result.returncode != 0:
+                print(f"Error processing {smiles}: {result.stderr.strip()}", flush=True)
                 return -1
 
-            result = subprocess.run([exec_path, tmp_molfile], capture_output=True, text=True, timeout=300)
-            if result.returncode != 0:
-                print(f"Error processing {smiles}: {result.stderr.strip()}")
-                return -1
             match = re.search(r'\b\d+\b', result.stdout)
             return match.group(0) if match else result.stdout.strip()
         except Exception as e:
-            print(f"Exception occurred: {e}")
+            print(f"Exception occurred: {e}", flush=True)
             return -1
-
-
-# You can change the SMILES string here or use input()
-smiles = input("Enter SMILES: ").strip()
-rust_ai = calculate_rust_ai(smiles)
-print(f"Result: {rust_ai}")
