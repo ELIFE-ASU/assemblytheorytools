@@ -558,6 +558,11 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
     assert isinstance(debug, bool), "Debug must be a boolean"
     assert isinstance(directed, bool), "Directed must be a boolean"
 
+    if directed == False:
+        if mode in ["str", "cfg"]:
+            mode = "mol"  # Use the molecular assembly calculator for undirected strings
+            print("Warning: only mode 'mol' is supported for undirected strings. Switching to 'mol'.", flush=True)
+
     if mode == "mol":  # Use the molecular assembly cpp calculator
         if directed:
             graph = get_dir_str_molecule(string)
