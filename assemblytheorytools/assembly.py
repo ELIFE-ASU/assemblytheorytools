@@ -1250,6 +1250,7 @@ def calculate_assembly_ratio(graph: Union[nx.Graph, Chem.Mol], settings: dict) -
     else:
         return n_edges / ai
 
+
 def calculate_jo_assembly_ratio(graph: Union[nx.Graph, Chem.Mol], settings: dict) -> float:
     """
     Calculate the joining operation (JO) assembly ratio for a molecular graph.
@@ -1280,7 +1281,22 @@ def calculate_jo_assembly_ratio(graph: Union[nx.Graph, Chem.Mol], settings: dict
     else:
         return n_edges / jo
 
+
 def _input_helper(mol: Chem.Mol, file_path: str, strip_hydrogen: bool = False) -> bool:
+    """
+    Prepare a molecule and write it to a file in `.mol` format.
+
+    This function modifies the hydrogen content of the molecule based on the `strip_hydrogen` flag,
+    checks for wildcard atoms, and writes the molecule to the specified file path in `.mol` format.
+
+    Args:
+        mol (Chem.Mol): The RDKit molecule object to process.
+        file_path (str): The path to the file where the molecule will be written.
+        strip_hydrogen (bool, optional): If True, removes hydrogen atoms from the molecule. Defaults to False.
+
+    Returns:
+        bool: True if the molecule was successfully written to the file, False if wildcard atoms are present.
+    """
     mol = Chem.RemoveHs(mol) if strip_hydrogen else Chem.AddHs(mol)
 
     # Check for wildcard atoms (e.g., '*')
@@ -1296,24 +1312,48 @@ def calculate_rust_ai(mol: Chem.Mol,
                       exec_path: str | None = None,
                       timeout: int = 300,
                       strip_hydrogen: bool = False) -> int:
+    """
+    Calculate the assembly index using a Rust-based executable.
+
+    This function processes an RDKit molecule by optionally stripping hydrogen atoms,
+    writes the molecule to a temporary `.mol` file, and executes a Rust-based assembly
+    index calculator. The result is parsed from the standard output of the executable.
+
+    Args:
+        mol (Chem.Mol): The RDKit molecule object to process.
+        exec_path (str | None, optional): Path to the Rust executable. Defaults to a precompiled path.
+        timeout (int, optional): Maximum time allowed for the Rust executable to run, in seconds. Defaults to 300.
+        strip_hydrogen (bool, optional): If True, removes hydrogen atoms from the molecule before processing. Defaults to False.
+
+    Returns:
+        int: The calculated assembly index. Returns -1 if the input is invalid or an error occurs.
+    """
     # Set default executable path if not provided
     if exec_path is None:
         exec_path = os.path.abspath(
-                os.path.join(os.path.dirname(__file__), "precompiled", "Rust")
-            )
+            os.path.join(os.path.dirname(__file__), "precompiled", "Rust")
+        )
+
+    # Create a temporary file for the molecule
     with tempfile.NamedTemporaryFile(suffix='.mol', delete=True) as tmp_file:
+        # Prepare the molecule and write it to the temporary file
         if not _input_helper(mol, tmp_file.name, strip_hydrogen=strip_hydrogen):
             print("Invalid input", flush=True)
             return -1
 
         try:
+            # Run the Rust executable with the temporary file
             result = subprocess.run([exec_path, tmp_file.name], capture_output=True, text=True, timeout=timeout)
+
+            # Check for errors in the execution
             if result.returncode != 0:
                 print(f"Error processing {mol}: {result.stderr.strip()}", flush=True)
                 return -1
 
+            # Parse the assembly index from the standard output
             match = re.search(r'\b\d+\b', result.stdout)
             return int(match.group(0)) if match else -1
         except Exception as e:
+            # Handle exceptions during execution
             print(f"Exception occurred: {e}", flush=True)
             return -1
