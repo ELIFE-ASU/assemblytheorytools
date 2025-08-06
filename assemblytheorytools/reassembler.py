@@ -32,6 +32,7 @@ from .assembly import add_assembly_to_path
 from .construction import parse_pathway_file
 from .tools_mol import safe_standardize_mol
 
+
 def assemble_smarts():
     """
     Assemble comprehensive SMARTS reaction patterns for organic synthesis planning.
@@ -1229,7 +1230,7 @@ def printer(mols):
     Returns:
         None: Function saves images to disk but does not return any value.
     """
-    
+
     pages = []
     labels = []
     indexes = np.arange(len(mols), dtype=int)
@@ -1615,7 +1616,6 @@ def reassemble_old(mols,
                    one_atom_weight=2,
                    mw_delta=0.1
                    ):
-    
     """
     Generate new molecules by reassembling molecular fragments with comprehensive filtering.
     
@@ -1654,7 +1654,7 @@ def reassemble_old(mols,
         list[rdkit.Chem.Mol]: List of successfully generated and validated molecules.
                              Length may be less than n_mol_needed if generation fails.
     """
-    
+
     # Ensure that the input list of molecules is unique
     mols = get_unique_mols(mols)
 
@@ -2038,7 +2038,6 @@ def reassemble(mol_pool,
     return out_pool
 
 
-
 # -------------------------------------------------------------------------
 # REASSEMBLING FUNCTIONS BASED ON 
 # "Mapping Evolution of Molecules Across Biochemistry with Assembly Theory"
@@ -2311,7 +2310,7 @@ def accumulate_nodes_data(graphs, attribute="level"):
             - nodes_data: Maps node IDs to minimum attribute values across all graphs
             - node_counts: Maps node IDs to occurrence counts across all graphs
     """
-    
+
     nodes_data = {}
     node_counts = {}
 
@@ -2342,7 +2341,6 @@ def accumulate_node_usage(graph, attribute="usage"):
         node: [graph.nodes[edge[-1]][attribute] for edge in graph.out_edges(node)]
         for node in graph.nodes()
     }
-
 
 
 def get_atomic_distribution(graph) -> dict:
@@ -2528,7 +2526,7 @@ def get_allowed_pairs(combinations, k, max_iterations=1000):
               appears in multiple pairs. May contain fewer than k pairs
               if conflicts prevent further selection.
     """
-    
+
     sampled_sublists = []
     counter = 0
 
@@ -2704,7 +2702,6 @@ class ParsePathwayLog:
             bb[f"virtual_object_{i}"] = Chem.MolToSmiles(edmol.GetMol())
         return bb
 
-
     def _build_fragment_for_step(self, step):
         """
         Construct molecular fragment for a specific assembly step.
@@ -2720,7 +2717,7 @@ class ParsePathwayLog:
         Returns:
             str: SMILES string representation of the assembled fragment
         """
-        
+
         bonds_ids = self.steps_lines[step]
         atom_ids = list(set(atom for bond in bonds_ids for atom in bond))
         atoms = [self.atom_lines[-2][atom_id] for atom_id in atom_ids]
@@ -2867,7 +2864,7 @@ class Molecule:
                  assembly_index: Optional[int] = None,
                  G: Optional[nx.DiGraph] = None,
                  timeout: Optional[int] = 60):
-        
+
         """
         Initialize Molecule object with flexible input options for pathway analysis.
         
@@ -3008,6 +3005,7 @@ class MoleculeSpace:
     relationships across multiple target molecules. It constructs unified graphs that reveal
     the interconnected nature of molecular assembly space and supports fragment pool analysis.
     """
+
     def __init__(self, molecules: List['Molecule']):
         """
         Creates a MoleculeSpace object for analyzing multiple molecular pathways collectively.
@@ -3178,6 +3176,7 @@ class MoleculeGenerationAssemblyPool:
     based on fragment occurrence frequencies and chemical compatibility to generate chemically
     reasonable novel molecular structures.
     """
+
     def __init__(self, assembly_pool) -> None:
         """
         Sets up the molecular generation framework by connecting to a MoleculeSpace
@@ -3557,8 +3556,6 @@ class MoleculeGenerationAssemblyPool:
 
         return fragment, len(layer_fragments)
 
-
-
     def weighted_n_steps_sampler(self, n, min_level=1):
         """
         Sample number of assembly steps using target molecule distribution.
@@ -3601,7 +3598,7 @@ class MoleculeGenerationAssemblyPool:
                                 fragment2,
                                 assemble_object,
                                 layer=1):
-        
+
         """
         Combine two molecular fragments into a new molecule.
         
@@ -3638,7 +3635,6 @@ class MoleculeGenerationAssemblyPool:
             layer=layer,
         )
 
-    
     def random_construct_n_molecules(self,
                                      n,
                                      steps,
@@ -3649,7 +3645,7 @@ class MoleculeGenerationAssemblyPool:
                                      step_exponent: float = 1.0,
                                      remove_pathways: bool = False
                                      ):
-        
+
         """
         Generate N novel molecules through probabilistic fragment assembly.
         
@@ -3682,6 +3678,7 @@ class MoleculeGenerationAssemblyPool:
         Returns:
             None: Results stored in self.assembled_molecules and self.diverged_assembly_graph
         """
+
         def _combine_fragments(fragment1, layer, curr_depth=None):
             """
             Inner function to attempt fragment combination with compatibility checking.
@@ -3872,10 +3869,3 @@ class Assemble:
             if smiles:
                 return smiles
         return None
-
-
-
-
-
-
-
