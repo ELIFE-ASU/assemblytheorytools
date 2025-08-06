@@ -1218,8 +1218,8 @@ def calculate_assembly_ratio(graph: Union[nx.Graph, Chem.Mol], settings: dict) -
     else:
         return n_edges / ai
 
-def _input_helper(mol: Chem.Mol, file_path: str, add_hydrogens: bool = True) -> bool:
-    mol = Chem.AddHs(mol) if add_hydrogens else Chem.RemoveHs(mol)
+def _input_helper(mol: Chem.Mol, file_path: str, strip_hydrogen: bool = False) -> bool:
+    mol = Chem.RemoveHs(mol) if strip_hydrogen else Chem.AddHs(mol)
 
     # Check for wildcard atoms (e.g., '*')
     if any(atom.GetSymbol() == '*' for atom in mol.GetAtoms()):
@@ -1233,14 +1233,14 @@ def _input_helper(mol: Chem.Mol, file_path: str, add_hydrogens: bool = True) -> 
 def calculate_rust_ai(mol: Chem.Mol,
                       exec_path: str | None = None,
                       timeout: int = 300,
-                      add_hydrogens: bool = False) -> int:
+                      strip_hydrogen: bool = False) -> int:
     # Set default executable path if not provided
     if exec_path is None:
         exec_path = os.path.abspath(
                 os.path.join(os.path.dirname(__file__), "precompiled", "Rust")
             )
     with tempfile.NamedTemporaryFile(suffix='.mol', delete=True) as tmp_file:
-        if not _input_helper(mol, tmp_file.name, add_hydrogens=add_hydrogens):
+        if not _input_helper(mol, tmp_file.name, strip_hydrogen=strip_hydrogen):
             print("Invalid input", flush=True)
             return -1
 
