@@ -1,20 +1,15 @@
 
 <img width="2096" height="934" alt="Frame - 1 (2)" src="https://github.com/user-attachments/assets/4cc72e01-3ea4-4c0e-abd8-ba1af100b79b" />
 
-
-
-
-
 # AssemblyTheoryTools
 A centralised set of tools for doing assembly theory calculations written in Python.
-The aim is that this package provides a platform to do calculations that works out of the box. 
-We currently interface with AssemblyCPP and this package comes with a precompiled version.
-This version works on unix based systems and to use this package, it is strongly suggested that
-you use the Linux subsystem if you are using Windows.
+The aim is that this package provides a platform to do calculations that work out of the box. 
+We currently interface with [C++](https://github.com/croningp/assemblycpp-v5) and [Rust](https://github.com/DaymudeLab/assembly-theory) assembly calculators, and this package comes with precompiled versions of both.
+This version works best on Unix-based systems, and to use this package, it is strongly suggested that you use the Linux subsystem if you are using Windows.
 
 AssemblyTheoryTools (ATT) is a Python package designed to facilitate assembly theory calculations 
-across various domains, including molecules, minerals, and proteins. It provides a unified interface 
-to perform complex assembly theory computations, leveraging the power of AssemblyCPP.
+across various domains. It provides a unified interface to perform complex assembly theory computations, 
+leveraging the power of the underlying assembly calculators.
 
 Assembly theory is a framework that aims to quantify the complexity of 
 objects by considering the minimal number of steps needed to assemble them 
@@ -25,15 +20,16 @@ object or set of objects.
 
 Currently, ATT supports and connects to:
 
-- Molecules, including ionic bonded structures.
-- Approximate fast methods [https://github.com/ELIFE-ASU/CFGgraph](https://github.com/ELIFE-ASU/CFGgraph).
-- Strings [https://github.com/ELIFE-ASU/CFG](https://github.com/ELIFE-ASU/CFG).
+- General undirected graphs via NetworkX.
+- Molecules via RDKit.
+- Directed and undirected strings.
+- Approximate fast methods [CFGs](https://github.com/ELIFE-ASU/CFG).
 
 If you find this package useful, please cite the following papers: 
-Sharma _et al._ 2023 and Seet _et al._ 2024 which can be found in paper.bib.
+Sharma _et al._ 2023 and Seet _et al._ 2024, found in the paper.bib.
 
 # Getting started
-Checkout the requirements and installation instructions below.
+Check out the requirements and installation instructions below.
 
 The simplest way to install ATT is to use pip, which is the recommended package manager for Python. Installation is as simple as,
 ```
@@ -46,19 +42,19 @@ This is because the package is private and requires authentication to access.
 Further instructions can be found on this [GitHub page](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository).
 
 The code needs a compiled assemblyCPP, which is included in this package by default. 
-However, if you want to use your own version, you can do so by setting the `ASS_PATH` environmental 
+However, if you want to use your own version, you can set the `ASS_PATH` environmental 
 variable to the path of your AssemblyCPP installation.
 For example, put `export ASS_PATH=/home/user/asscpp` in your submission 
 script or your `.bashrc`. 
-For compilation instructions to make your own version from source checkout AssemblyCPP for instructions.
+For compilation instructions to make your own version from source, checkout AssemblyCPP for instructions.
 
 ## Simple example
 
-For most use cases the general calculation can be 
+For most use cases, the general calculation can be 
 exposed via the `calculate_assembly_index` function.
 
 Here is a simple example for Caffeine. First, bring up a terminal 
-and activate your conda or pip environment where you installed ATT. Type in:
+and activate the conda or pip environment where you installed ATT. Type in:
 ```
 python3
 ```
@@ -66,21 +62,21 @@ In Python, first import the package:
 ```
 import assemblytheorytools as att
 ```
-Next, there are several ways to define a system. In this example case we are 
-going to use a smiles string which corresponds to Caffeine.
+Next, there are several ways to define a system. In this example case, we are 
+going to use a SMILES string which corresponds to Caffeine.
 ```
 smi = 'CN1C=NC2=C1C(=O)N(C(=O)N2C)C'
 ```
-Next we must convert our smiles string into a molecular graph
+Next, we must convert our SMILES string into a molecular graph
 ```
 graph = att.smi_to_nx(smi)
 ```
-We are now ready to calculate the assembly index, to do this we will use the `calculate_assembly_index` function. 
+We are now ready to calculate the assembly index. To do this, we will use the `calculate_assembly_index` function. 
 We will also get the virtual objects and the assembly path.
 ```
 ai, virt_obj, pathway = att.calculate_assembly_index(graph, strip_hydrogen=True)
 ```
-Here, the `ai` integer representing the assembly index, 
+Here, the `ai` integer represents the assembly index, 
 `virt_obj` contains the virtual objects along the assembly path, 
 which is stored as a dictionary where the keys are the types of virtual objects
 and the values are the corresponding molecular graphs.
@@ -89,7 +85,7 @@ The `pathway` is a directional graph where each node represents a virtual object
 and each edge represents a joining operation that combines input virtual objects 
 into one output virtual object.
 
-Lets convert the virtual objects along the assembly path into smiles strings.
+Let's convert the virtual objects along the assembly path into SMILES strings.
 ```
 smi_out = att.get_mol_pathway_to_smi(virt_obj)
 ```
@@ -114,7 +110,7 @@ Contributions of all kinds—bug reports, feature suggestions, code improvements
 Please follow standard Python practices, write clear commit messages, and ensure all code is well-documented and tested.
 To contribute, branch the repo, make changes, and submit a pull request.
 
-Contribution check-list:
+Contribution checklist:
 
 - Code must be packaged into reusable functions or classes.
 - Code must use current tooling.
@@ -249,7 +245,7 @@ Then, install the ELIFE packages
 pip install git+https://github.com/ELIFE-ASU/dagviz.git git+https://github.com/ELIFE-ASU/CFG.git
 ```
 
-Clone the repo using Git or GitKraken. Then, open your favorite IDE (Pycharm/VS Code) and the cloned repo.
+Clone the repo using Git or GitKraken. Then, open your favourite IDE (Pycharm/VS Code) and the cloned repo.
 
 </details>
 
