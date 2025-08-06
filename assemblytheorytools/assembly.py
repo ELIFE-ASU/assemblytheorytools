@@ -1250,7 +1250,6 @@ def calculate_assembly_ratio(graph: Union[nx.Graph, Chem.Mol], settings: dict) -
     else:
         return n_edges / ai
 
-
 def calculate_jo_assembly_ratio(graph: Union[nx.Graph, Chem.Mol], settings: dict) -> float:
     """
     Calculate the joining operation (JO) assembly ratio for a molecular graph.
@@ -1280,3 +1279,41 @@ def calculate_jo_assembly_ratio(graph: Union[nx.Graph, Chem.Mol], settings: dict
         return 1.0
     else:
         return n_edges / jo
+
+def _input_helper(mol: Chem.Mol, file_path: str, strip_hydrogen: bool = False) -> bool:
+    mol = Chem.RemoveHs(mol) if strip_hydrogen else Chem.AddHs(mol)
+
+    # Check for wildcard atoms (e.g., '*')
+    if any(atom.GetSymbol() == '*' for atom in mol.GetAtoms()):
+        return False
+
+    with open(file_path, 'w') as f:
+        f.write(Chem.MolToMolBlock(mol))
+    return True
+
+
+def calculate_rust_ai(mol: Chem.Mol,
+                      exec_path: str | None = None,
+                      timeout: int = 300,
+                      strip_hydrogen: bool = False) -> int:
+    # Set default executable path if not provided
+    if exec_path is None:
+        exec_path = os.path.abspath(
+                os.path.join(os.path.dirname(__file__), "precompiled", "Rust")
+            )
+    with tempfile.NamedTemporaryFile(suffix='.mol', delete=True) as tmp_file:
+        if not _input_helper(mol, tmp_file.name, strip_hydrogen=strip_hydrogen):
+            print("Invalid input", flush=True)
+            return -1
+
+        try:
+            result = subprocess.run([exec_path, tmp_file.name], capture_output=True, text=True, timeout=timeout)
+            if result.returncode != 0:
+                print(f"Error processing {mol}: {result.stderr.strip()}", flush=True)
+                return -1
+
+            match = re.search(r'\b\d+\b', result.stdout)
+            return int(match.group(0)) if match else -1
+        except Exception as e:
+            print(f"Exception occurred: {e}", flush=True)
+            return -1

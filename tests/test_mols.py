@@ -896,3 +896,14 @@ def test_calculate_jo():
     graph = att.smi_to_nx(smi)
     jo, _, _ = att.calculate_jo(graph)
     assert jo == 6, f"Expected JO to be 6, but got {jo}"
+
+
+def test_calculate_rust_ai():
+    print(flush=True)
+    smi = "C1=CC=CC=C1"  # Benzene
+    mol = att.smi_to_mol(smi)
+    ai_r = att.calculate_rust_ai(mol, strip_hydrogen=True)
+    print(ai_r, flush=True)
+    ai_v5, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
+    print(ai_v5, flush=True)
+    assert ai_v5 == ai_r, f"Expected AI to be {ai_v5}, but got {ai_r}"
