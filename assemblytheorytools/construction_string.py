@@ -1,7 +1,4 @@
-import copy
 import json
-import re
-import numpy as np
 import networkx as nx
 
 def immediate_predecessors(data, interval):
@@ -16,7 +13,6 @@ def immediate_predecessors(data, interval):
     Returns:
         list: A list of strings representing the immediate predecessors in the pathway.
     """
-    print("Interval:", interval)
     output = []
 
     c_idx = interval[0]
@@ -38,7 +34,6 @@ def immediate_predecessors(data, interval):
         else:
             output.append(parent)
             c_idx += len(parent)
-        print("Current index:", c_idx, "Current output:", output)
     
     return output
 
@@ -57,12 +52,9 @@ def build_str(interval, data, path):
     """
 
     ledger = immediate_predecessors(data, interval)
-    print("Ledger:", ledger)
     c_idx = interval[0]
     for sub_str in ledger:
         if sub_str not in path.nodes:
-            print("Next interval:", [c_idx, c_idx+len(sub_str)], "Sub-string:", sub_str)
-            # sys.exit()
             path = build_str([c_idx, c_idx+len(sub_str)], data, path) # Recursively build the duplicate strings if not already in the path
         c_idx += len(sub_str)
     
