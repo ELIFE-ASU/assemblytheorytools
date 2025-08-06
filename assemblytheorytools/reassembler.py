@@ -2735,11 +2735,23 @@ class ParsePathwayLog:
         return Chem.MolToSmiles(edmol.GetMol())
 
     def _validate_graph(self):
+        """
+        Validate molecular assembly pathway graph structure.
+        Checks that no molecule is formed from more than two reactants.
+      
+        Raises:
+            ValueError: If any node has more than 2 incoming edges (predecessors),
+                    indicating an invalid assembly step with >2 reactants
+        """
         for node in self.G.nodes:
             if len(list(self.G.in_edges(node))) > 2:
                 raise ValueError("Node has more than 2 predecessors - invalid!")
 
     def _assign_levels(self):
+        """
+        Assign hierarchical levels to nodes based on assembly depth.
+        Building blocks start at level 0, and each subsequent assembly step increases the level.
+        """
         for node in self.G.nodes:
             if not list(self.G.predecessors(node)):
                 self.G.nodes[node].update({"level": 0, "assembly_index": 1})
@@ -2747,6 +2759,18 @@ class ParsePathwayLog:
                 self.G.nodes[node]["level"] = self._get_level(node)
 
     def _get_level(self, node):
+        """
+        Determines the assembly depth of a node based on its predecessors, where
+        level represents how many assembly steps were required to create this
+        molecular fragment from basic building blocks.
+        
+        Args:
+            node: Node identifier in the assembly graph
+        
+        Returns:
+            int: Hierarchical level (assembly depth) of the node
+        """
+
         predecessors = [edge[0] for edge in self.G.in_edges(node)]
         if not predecessors:
             return 0
@@ -2755,6 +2779,12 @@ class ParsePathwayLog:
         return self._get_level(predecessors[0])
 
     def _count_nodes_per_level(self):
+        """
+        Count the number of molecular fragments at each assembly depth level.
+      
+        Returns:
+            dict: Maps level numbers to node counts {level: count, ...}
+        """
         levels = {}
         for node in self.G.nodes:
             level = self.G.nodes[node]["level"]
@@ -2762,6 +2792,21 @@ class ParsePathwayLog:
         return levels
 
     def _get_node_positions(self):
+        """
+        Calculate 2D layout positions for hierarchical pathway visualization.
+        
+        Computes (x, y) coordinates for each node to create a layered graph layout
+        where nodes are arranged horizontally by assembly level and distributed
+        evenly within each level to avoid overlap.
+
+        Coordinate System:
+            - **X-axis**: Assembly depth (level * 2 for spacing)
+            - **Y-axis**: Even distribution within level (-N to +N)
+            - **Spacing**: Prevents node overlap in crowded levels
+        
+        Returns:
+            dict: Maps node IDs to [x, y] coordinate pairs for plotting
+        """
         positions = {}
         sorted_nodes = sorted(self.G.nodes(data=True), key=lambda x: x[1]["level"])
         current_level, layer_pos = None, None
@@ -2778,6 +2823,17 @@ class ParsePathwayLog:
         return positions
 
     def plot_layered_graph(self, show_molecules=False, save_fig=True):
+        """
+        Generates a layered graph plot showing the assembly pathway structure with
+        optional molecular structure overlays. Nodes represent molecular fragments
+        and edges show assembly relationships, arranged by with assembly depth levels.
+
+        Args:
+            show_molecules (bool, optional): If True, overlays molecular structure
+                                        images on nodes. Default: False
+            save_fig (bool, optional): If True, saves plot as SVG file. If False,
+                                    displays plot interactively. Default: True    
+        """
         fig, ax = plt.subplots(figsize=(12, 7))
         cmap = plt.get_cmap("Blues")
         node_colors = [cmap(0.4) for _ in self.G.nodes]
@@ -2800,12 +2856,38 @@ class ParsePathwayLog:
 
 
 class Molecule:
+    """
+    This class provides a unified interface for molecular structure analysis and hierarchical assembly visualization.
+    It can either work with existing assembly pathway data or compute new pathways using external tools.
+    """
+
     def __init__(self,
                  smiles: str = "",
                  pathway: Optional[list[str]] = None,
                  assembly_index: Optional[int] = None,
                  G: Optional[nx.DiGraph] = None,
                  timeout: Optional[int] = 60):
+        
+        """
+        Initialize Molecule object with flexible input options for pathway analysis.
+        
+        Creates a Molecule object that can work with various types of input:
+        existing molecular structures, known pathways/assembly graphs. The object
+        is designed for lazy evaluation - pathway computation and analysis occur
+        only when needed.
+        
+        Args:
+            smiles (str, optional): SMILES string of target molecule. If empty,
+                                will be extracted from graph or computed from pathway.
+            pathway (list[str], optional): Pre-existing assembly pathway steps.
+                                        Used when pathway is already known.
+            assembly_index (int, optional): Position index in assembly sequence.
+                                        Used for tracking molecular position.
+            G (nx.DiGraph, optional): NetworkX directed graph representing assembly pathway.
+                                    If provided, SMILES extracted from final node.
+            timeout (int, optional): Timeout in seconds for external pathway computation
+                                    tools. Default: 60 seconds.
+        """
         self.smiles = smiles
         self.pathway = pathway
         self.assembly_index = assembly_index
@@ -2820,12 +2902,32 @@ class Molecule:
             self.smiles = list(G.nodes)[-1]
 
     def get_smiles(self) -> str:
+        """
+        Returns the molecular SMILES string, automatically triggering pathway
+        computation and graph construction if the SMILES is not already available.
+
+        Returns:
+            str: SMILES string representation of the molecule
+        """
         if not self.smiles:
             self.reconstruct_pathway()
             self.construct_layered_graph()
         return self.smiles
 
     def calc_pathway(self) -> None:
+        """
+        Execute external molecular assembly tool to compute assembly pathway.
+        
+        Converts the molecule to MOL file format and runs external assembly software
+        to compute the assembly pathway. Handles process execution, timeout
+        management, and file path tracking for subsequent pathway analysis.
+        
+        Notes:
+            1. Converts SMILES to temporary MOL file format
+            2. Launches external assembly tool as subprocess
+            3. Interrupts process if computation exceeds time limit
+            4. Stores pathway output file location for further analysis
+        """
         mol = Chem.MolFromSmiles(self.smiles)
         Chem.MolToMolFile(mol, 'temp.mol')
         mol_file_path = Path("temp.mol")
@@ -2841,26 +2943,82 @@ class Molecule:
         self.assembly_output_path = f"{mol_file_path.parent / mol_file_path.stem}Pathway"
 
     def reconstruct_pathway(self) -> None:
+        """
+        Compute and parse molecular assembly pathway from external tools.
+        
+        Executes the complete pathway computation pipeline: runs external assembly
+        software, parses output files, and extracts pathway data for analysis.
+        Includes cleanup of all temporary files created during the process.
+        
+        Steps:
+            1. Call calc_pathway() to run external assembly tool
+            2. Extract pathway data from generated output files
+            3. Save fragments and log string to instance attributes
+            4.  Remove all temporary files from file system
+        
+        Attributes Set:
+            - self.pathway_fragments: List of molecular fragments in pathway
+            - self.pathway_log_string: Raw pathway computation log for analysis
+            - self.assembly_output_path: Path to pathway output (via calc_pathway)
+        """
         self.calc_pathway()
         _, self.pathway_fragments, self.pathway_log_string = parse_pathway_file(
             self.assembly_output_path, vo_type="inchi", log=True
         )
-        # remove the temp files
+        # Remove the temp files
         os.remove('temp.mol')
         os.remove('tempOut')
         os.remove('tempPathway')
 
     def construct_layered_graph(self):
+        """
+        Build hierarchical NetworkX graph from parsed assembly pathway log data.
+        
+        Creates a ParsePathwayLog object from the pathway results and
+        extracts the constructed graph and final molecule SMILES for analysis.
+        This converts raw pathway log into a structured, analyzable graph representation.
+        
+        Steps:
+            1. Create ParsePathwayLog object from pathway_log_string
+            2. Extract NetworkX MultiDiGraph from parsed log
+            3. Get final molecule from last graph node
+        """
         self.pathwayLogObj = ParsePathwayLog(self.pathway_log_string)
         self.G = self.pathwayLogObj.G
         self.smiles = list(self.G.nodes)[-1]
 
     def plot_layered_graph(self, show_molecule: bool = True):
+        """
+        Create hierarchical visualization of the molecular assembly pathway.
+        
+        Delegates to the ParsePathwayLog object to generate a layered graph plot
+        showing the step-by-step assembly process with optional molecular structure overlays.
+        
+        Args:
+            show_molecule (bool, optional): If True, displays molecular structure
+                                        images on graph nodes. Default: True
+        """
         self.pathwayLogObj.plot_layered_graph(show_molecule)
 
 
 class MoleculeSpace:
+    """
+    This class provides comprehensive analysis tools for collections of molecular pathways,
+    enabling the study of shared assembly fragments, common building blocks, and hierarchical
+    relationships across multiple target molecules. It constructs unified graphs that reveal
+    the interconnected nature of molecular assembly space and supports fragment pool analysis.
+    """
     def __init__(self, molecules: List['Molecule']):
+        """
+        Creates a MoleculeSpace object for analyzing multiple molecular pathways collectively.
+        Automatically extracts SMILES strings from all molecules, filters out invalid entries,
+        and sets up data structures for subsequent graph construction and analysis.
+        
+        Args:
+            molecules (List[Molecule]): Collection of Molecule objects with computed or
+                                    computable assembly pathways. Invalid molecules
+                                    (those returning None SMILES) are automatically filtered out.    
+        """
         self.molecules = molecules
         self.molecule_smiles = [molecule.get_smiles() for molecule in molecules]
         self._remove_none()
@@ -2872,22 +3030,60 @@ class MoleculeSpace:
         self.leaf_nodes = None
 
     def _remove_none(self):
+        """
+        Filter out molecules that cannot generate valid SMILES strings.
+    
+        Updates:
+            - self.molecules: Filtered to contain only molecules with valid SMILES
+            - self.molecule_smiles: Refreshed list of valid SMILES strings
+        """
         self.molecules = [mol for mol in self.molecules if mol.get_smiles() is not None]
         self.molecule_smiles = [mol.get_smiles() for mol in self.molecules]
 
     def _set_root_nodes(self):
+        """
+        Identify building blocks (root nodes) in the assembly graph.
+        Finds all nodes with no incoming edges.
+        
+        Sets:
+            self.root_nodes: List of molecular fragments that serve as starting
+                            materials (in_degree = 0) in the assembly hierarchy
+        """
         self.root_nodes = [
             node for node in self.joined_assembly_graph.nodes
             if self.joined_assembly_graph.in_degree(node) == 0
         ]
 
     def _set_leaf_nodes(self):
+        """
+        Identify observed, endpoint molecules (leaf nodes) present in the assembly graph.
+        These are the final assembled products. 
+        
+        Finds all observed molecule SMILES that exist as nodes in the joined graph,
+        representing the final products of assembly pathways in the collection.
+        
+        Sets:
+            self.leaf_nodes: List of observed molecule SMILES that appear as nodes
+                            in the unified assembly graph
+        """
         self.leaf_nodes = [
             node for node in self.molecule_smiles
             if node in self.joined_assembly_graph.nodes
         ]
 
     def construct_joined_graph(self):
+        """
+        Creates an estimated joint assembly graph by merging all individual molecular pathways.
+        
+        Combines pathway graphs from all molecules using compose_all() to create
+        a single graph showing shared fragments and interconnected assembly routes.
+        Automatically identifies root nodes (building blocks) and leaf nodes (targets).
+        
+        Creates:
+            - self.joined_assembly_graph: Unified NetworkX graph with occurrence counts
+            - self.root_nodes: List of building blocks
+            - self.leaf_nodes: List of observed (endpoint) molecules
+        """
         self.joined_assembly_graph = compose_all([mol.G for mol in self.molecules])
         self._set_root_nodes()
         self._set_leaf_nodes()
@@ -2895,6 +3091,33 @@ class MoleculeSpace:
     def a_minus_x_assembly_pool(
             self, X: int = 1, get_graph: bool = True, remove_paths: bool = False
     ) -> Union[nx.MultiDiGraph, List[str]]:
+        """
+        Generates fragment pool by reducing assembly depth by X levels.
+        
+        Creates a simplified molecular fragment pool by removing the X most complex
+        assembly levels, effectively "stepping back" in the assembly space to
+        obtain simpler fragments.
+        
+        Args:
+            X (int, optional): Number of assembly levels to remove (complexity reduction).
+                            Default: 1 (remove final assembly step)
+            get_graph (bool, optional): If True, returns graph object. If False,
+                                    returns node list. Default: True
+            remove_paths (bool, optional): If True, removes entire pathway fragments
+                                        and decrements usage counts. Default: False
+        
+        Returns:
+            Union[nx.MultiDiGraph, List[str]]: Simplified assembly graph or node list,
+                                            plus count of removed target molecules
+        
+        Steps
+            1. Ensure joined graph exists, find maximum complexity
+            2. Check X is within valid range
+            3. Find nodes exceeding threshold
+            4. Remove entire pathway fragments with count updates (Optional)
+            5. Remove all nodes above threshold
+            6. Return simplified graph/nodes plus removal statistics
+        """
         if self.joined_assembly_graph is None:
             print("Constructing joined assembly graph.", flush=True)
             self.construct_joined_graph()
@@ -2947,7 +3170,23 @@ class MoleculeSpace:
 
 
 class MoleculeGenerationAssemblyPool:
+    """
+    Generate novel molecules from molecular fragment pools.
+    
+    This class implements a molecular generation algorithm that creates new molecules
+    by randomly combining fragments from existing assembly pathways. It uses statistical sampling
+    based on fragment occurrence frequencies and chemical compatibility to generate chemically
+    reasonable novel molecular structures.
+    """
     def __init__(self, assembly_pool) -> None:
+        """
+        Sets up the molecular generation framework by connecting to a MoleculeSpace
+        object and initializing data structures for fragment-based molecule creation.
+        
+        Args:
+            assembly_pool (MoleculeSpace): Source of validated molecular fragments
+                                        and assembly pathway statistics
+        """
         self.diverged_assembly_graph = None
         self.original_a_minus_X = None
         self.bu_level_to_fragment = None
@@ -2956,12 +3195,32 @@ class MoleculeGenerationAssemblyPool:
         self.assembly_pool = assembly_pool
         self.assembled_molecules: dict[int, list] = defaultdict(list)
         self.original_a_minus_X: None
-
         self.diverged_assembly_graph: nx.MultiDiGraph
         self.level_to_fragment: dict[int, list[str]]
         self.sampling_weights: list[int]
 
     def set_assembly_pool(self, x=10, remove_pathways=False):
+        """
+        Configure fragment pool for molecule generation by reducing steps in assembly depth.
+        
+        Extracts and organizes molecular fragments from the assembly pool at a specified
+        depth level, creating structured fragment libraries organized by assembly
+        depth. Establishes the foundation for subsequent weighted sampling and generation.
+
+        Steps:
+            1. Extract fragments X levels 'below' in assembly depth
+            2. Group fragments by assembly depth levels
+            3. Include only fragments with valid atomic information
+            4. Store copies for reset operations during generation
+            5. Save snapshot of initial fragment pool state
+        
+        Args:
+            x (int, optional): Assembly depth reduction level. Higher values create
+                            simpler fragment pools. Default: 10
+            remove_pathways (bool, optional): If True, removes entire pathways and updates
+                                            usage counts. If False, simple node removal.
+                                            Default: False
+        """
         _, self.num_removed = self.assembly_pool.a_minus_x_assembly_pool(
             X=x, get_graph=False, remove_paths=remove_pathways
         )
@@ -2977,9 +3236,25 @@ class MoleculeGenerationAssemblyPool:
         self.original_a_minus_X = deepcopy(graph)
 
     def reset_level_to_fragment(self):
+        """
+        Reset fragment pool to original state for independent molecule generation.
+        
+        Restores the level_to_fragment mapping from backup, ensuring each molecule
+        generation process starts with the same initial fragment pool regardless
+        of modifications made during previous generation attempts.
+        """
         self.level_to_fragment = self.bu_level_to_fragment.copy()
 
     def get_leaf_nodes(self):
+        """
+        Identify 'observed' molecules in the diverged assembly graph.
+
+        Returns all nodes with no outgoing edges, representing both original 'observed'
+        molecules and newly generated molecules.
+        
+        Returns:
+            list: Node IDs of all terminal molecules (out_degree = 0)
+        """
         return [
             node
             for node in self.diverged_assembly_graph
@@ -2987,11 +3262,35 @@ class MoleculeGenerationAssemblyPool:
         ]
 
     def get_assembled_molecules(self):
+        """
+        Extract final products from all successful molecule generation attempts.
+        
+        Returns the terminal molecules from each generation process, representing
+        the completed assembled structures after all assembly steps.
+        
+        Returns:
+            list or None: List of final assembled molecule SMILES strings,
+                        or None if no molecules have been generated
+        """
         if not self.assembled_molecules:
             return None
         return [molecules[-1][-1] for molecules in self.assembled_molecules.values() if molecules]
 
     def get_leaf_counts_per_level(self, min_level=1) -> dict[int, int]:
+        """
+        Count target molecules (leaf nodes) at each assembly depth level.
+        
+        Creates a frequency distribution of final assembled molecules across
+        assembly hierarchy levels, used for statistical weighting in generation
+        algorithms to maintain realistic molecular complexity distributions.
+        
+        Args:
+            min_level (int, optional): Minimum assembly level to include in counts.
+                                    Default: 1 (excludes building blocks)
+        Returns:
+            dict[int, int]: Maps assembly levels to counts of target molecules
+                        at that complexity level
+        """
         leaf_counts = defaultdict(int)
         for node in self.assembly_pool.leaf_nodes:
             node_data = self.assembly_pool.joined_assembly_graph.nodes[node]
@@ -3004,6 +3303,28 @@ class MoleculeGenerationAssemblyPool:
         return leaf_counts
 
     def add_to_assembly_graph(self, parents, child) -> bool:
+        """
+        Integrate a newly generated molecule into the assembly depth graph.
+        
+        Adds a generated molecule to the extended assembly graph with proper
+        connectivity, hierarchy levels, and chemical metadata. Establishes
+        the molecule's position in the assembly network for future sampling.
+        
+        Args:
+            parents (list): List of two parent fragment SMILES that were combined
+            child (str): SMILES string of the newly generated molecule
+        
+        Returns:
+            bool: True if successfully added to graph, False if molecular
+                processing failed
+        
+        Integration Process:
+            1. Compute atomic composition and free valence
+            2. Add assembly relationships (parents → child)
+            3. Set hierarchical level (max(parent_levels) + 1)
+            4. Add count, level, and atomic information
+            5. Register molecule in level-based fragment lists
+        """
         pt = Chem.rdchem.GetPeriodicTable()
         atomic_count = []
         try:
@@ -3049,9 +3370,40 @@ class MoleculeGenerationAssemblyPool:
         return True
 
     def construct_diverged_assembly_graph(self):
+        """
+        Create snapshot of the extended assembly graph including generated molecules.
+        
+        Captures the current state of the assembly pathway graph that has been
+        expanded with newly generated molecules, preserving the complete network
+        for analysis and visualization of both original and generated pathways.
+        
+        Creates:
+            self.diverged_assembly_graph: Deep copy of the expanded assembly graph
+                                        containing original fragments plus generated molecules
+        """
         self.diverged_assembly_graph = deepcopy(self.assembly_pool.joined_assembly_graph_minus_x)
 
     def set_sw_layer(self, exponent: float = 2.0):
+        """
+        Calculate sampling weights for assembly depth layers.
+
+        Computes probabilistic weights for each assembly depth level based on fragment
+        occurrence frequencies, enabling biased sampling toward more common or
+        well-represented levels during molecule generation.
+
+        Weighting Strategy:
+            1. Sum fragment counts within each level
+            2. Apply power transformation (count^exponent)
+            3. Create weights for entire complexity layers
+        
+        Args:
+            exponent (float, optional): Power for frequency weighting. Higher values
+                                    increase bias toward frequent fragments.
+                                    Default: 2.0 (quadratic weighting)
+        Creates:
+            self.layer_sampling_weights: Dictionary mapping assembly levels to
+                                        aggregate sampling weights
+        """
 
         self.layer_sampling_weights: dict = defaultdict(int)
         for node in self.assembly_pool.joined_assembly_graph:
@@ -3063,7 +3415,30 @@ class MoleculeGenerationAssemblyPool:
             )
 
     def set_sw_n_steps(self, level: int = 0, exponent: float = 1.0):
-
+        """
+        Calculate sampling weights for assembly step counts based on target molecule distribution.
+        
+        Computes probabilistic weights for different numbers of assembly steps based on
+        the distribution of target molecules across assembly depth levels, enabling generation
+        of molecules with realistic assembly sequence lengths.
+        
+        Args:
+            level (int, optional): Minimum assembly depth level to consider. Default: 0
+            exponent (float, optional): Power for frequency weighting. Higher values
+                                    bias toward assembly depth levels with more targets.
+                                    Default: 1.0 (linear weighting)
+        
+        Weighting Strategy:
+            1. Use leaf molecule counts per complexity level
+            2. Fill gaps with zeros for missing levels
+            3. Apply power transformation to leaf counts
+            4. Create ordered list for step number sampling
+        
+        Creates:
+            self.n_steps_sampling_weights: List of weights indexed by step count,
+                                        where weights[i] represents probability
+                                        of taking i assembly step
+        """
         leaf_counts = self.get_leaf_counts_per_level(min_level=level + 1)
         keys = list(leaf_counts.keys())
         keys.sort()
@@ -3075,8 +3450,30 @@ class MoleculeGenerationAssemblyPool:
         )
 
     def sample_layer(self, exponent=2.0, curr_depth=0, black_listed_layers=None) -> int:
+        """
+        Randomly select assembly depth layer for fragment sampling.
+        This is done to ensure roughly same molecule size distribution as in the assembly pool
 
-        # sample layer this is done to ensure roughly same molecule size distribution as in the assembly pool
+        Performs weighted random selection of an assembly depth layer for
+        fragment selection, constrained by current assembly depth and excluding
+        problematic layers to maintain realistic molecular size distributions.
+                
+        Sampling Strategy:
+            1. Only consider layers at or below current assembly depth
+            2. Bias toward layers with higher statistical weights
+            3. Exclude problematic or exhausted layers
+            4. Compute sampling weights only when first needed
+        
+        Args:
+            exponent (float, optional): Power for frequency weighting calculation.
+                                    Default: 2.0 (quadratic bias toward common layers)
+            curr_depth (int, optional): Current assembly depth (maximum layer allowed).
+                                    Default: 0 (only building blocks available)
+            black_listed_layers (list, optional): Assembly levels to exclude from sampling.
+                                                Default: None (no exclusions)
+        Returns:
+            int: Selected assembly depth level for fragment sampling
+        """
         if black_listed_layers is None:
             black_listed_layers = []
         if not hasattr(self, "layer_sampling_weights"):
@@ -3101,6 +3498,30 @@ class MoleculeGenerationAssemblyPool:
                        exponent: float = 1.0,
                        blacklist=None,
                        ) -> tuple[str, int]:
+        """
+        Weighted random sampling (WRS) of chemically compatible fragments from an assembly depth layer.
+        
+        Selects a random fragment from the specified assembly layer that is theoretically
+        compatible with the base molecule, using weighted sampling based on fragment
+        usage frequencies and atomic bonding compatibility.
+
+        Compatibility:
+        - Fragments must share at least one atom type with free valence
+        - Uses atomic_count sets to check bonding compatibility
+        - Ensures selected fragments can actually bond to base molecule
+    
+        Args:
+            base_mol (str): SMILES string of base molecule to find compatible fragment for
+            inverse (bool, optional): If True, inverts exponent to bias toward rare fragments.
+                                    Default: False (bias toward common fragments)
+            layer (int, optional): Assembly depth layer to sample from. Default: 0
+            exponent (float, optional): Power for frequency weighting. Default: 1.0
+            blacklist (list, optional): Fragment SMILES to exclude from sampling. Default: None
+        
+        Returns:
+            tuple[str, int]: (selected_fragment_SMILES, number_of_compatible_fragments)
+                            Returns (None, 0) if no compatible fragments found
+        """
 
         # sample node from layer
         if blacklist is None:
@@ -3136,6 +3557,8 @@ class MoleculeGenerationAssemblyPool:
 
         return fragment, len(layer_fragments)
 
+
+# left off here
     def weighted_n_steps_sampler(self, n, min_level=1):
         return random.choices(
             list(range(1, n + 1)),
@@ -3165,7 +3588,7 @@ class MoleculeGenerationAssemblyPool:
             layer=layer,
         )
 
-    # This is a beast.
+    
     def random_construct_n_molecules(self,
                                      n,
                                      steps,
