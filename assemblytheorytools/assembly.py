@@ -186,6 +186,7 @@ def calculate_assembly_index(mol,
 
     # Check if input is a string and not a .mol file
     if isinstance(mol, str) and not mol.endswith(".mol"):
+        print("Warning: You input a string to a function that expects a molecule- returning upper bound on string assembly index.", flush=True)
         # Calculate assembly index directly for string input
         ai, virt_obj, path = CFG.ai_with_pathways(mol, f_print=False)
         return (ai, virt_obj, path) if not return_log_file else (ai, virt_obj, path, None)
@@ -744,11 +745,11 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
             # Convert to (joint) assembly index of directed strings
             return composite_ai - 2 * len(delimiters), virt_obj, path  # Note: there is no log file for CFG
         else:
-            ValueError(
+            raise ValueError(
                 "Current CFG code works natively for directed strings. Directed string assembly index is an upper bound to undirected string assembly index, so you may still use the directed calculator.")
 
     else:
-        ValueError("Mode must be either 'mol', 'str', or 'cfg'.")
+        raise ValueError("Mode must be either 'mol', 'str', or 'cfg'.")
 
 
 def assembly_dry_run(mol, temp_dir=None, strip_hydrogen=False):
