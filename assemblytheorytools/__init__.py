@@ -76,8 +76,11 @@ from .reassembler import (assemble,
                           enumerate_sterioisomers,
                           enumerate_tautomers,
                           enumerate_heterocycles,
-                          reassemble)
-from .seb_reassembler import (MoleculeGenerationAssemblyPool, Molecule, MoleculeSpace, Assemble)
+                          reassemble,
+                          MoleculeGenerationAssemblyPool,
+                          Molecule,
+                          MoleculeSpace,
+                          Assemble)
 from .tools_atoms import (smiles_to_atoms,
                           mol_to_atoms,
                           atoms_to_mol,
