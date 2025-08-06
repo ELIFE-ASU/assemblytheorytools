@@ -562,7 +562,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
     if directed == False:
         if mode in ["str", "cfg"]:
             mode = "mol"  # Use the molecular assembly calculator for undirected strings
-            print("Warning: only mode 'mol' is supported for undirected strings. Switching to 'mol'.", flush=True)
+            print("Warning: only mode 'mol' is currently supported for undirected strings. Switching to 'mol'.", flush=True)
 
     if mode == "mol":  # Use the molecular assembly cpp calculator
         if directed:
@@ -726,6 +726,13 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
                     print(f"Failed to read AI from log file: {e}")
 
         ai += - 2 * len(delimiters)  # Convert to (joint) assembly index of strings
+
+        # Process pathway output if available
+        if os.path.isfile(file_path_pathway):
+            try:
+                vitr_obj, path = parse_string_pathway_file(file_path_pathway)
+            except Exception as e:
+                print(f"Failed to load pathway data: {e}", flush=True)
 
         # Print log file path if required
         if return_log_file:
