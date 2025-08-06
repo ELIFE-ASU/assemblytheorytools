@@ -902,7 +902,7 @@ def test_calculate_rust_ai():
     print(flush=True)
     smi = "C1=CC=CC=C1"  # Benzene
     mol = att.smi_to_mol(smi)
-    ai_r = att.calculate_rust_ai(mol, add_hydrogens=False)
+    ai_r = att.calculate_rust_ai(mol, strip_hydrogen=True)
     print(ai_r, flush=True)
     ai_v5, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
     print(ai_v5, flush=True)
