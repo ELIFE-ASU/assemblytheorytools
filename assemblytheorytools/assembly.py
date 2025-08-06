@@ -539,7 +539,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         debug (bool, optional): If True, create a directory with a timestamp for debugging. Defaults to False.
         directed (bool, optional): If True, treat strings as directed. Defaults to False, treating strings as
         undirected.
-        mode ("mol"/"str"/"cfg",optional): "mol" uses the molecular assembly calculator, "str" uses the string assembly
+        mode ("mol"/"str"/"cfg", optional): "mol" uses the molecular assembly calculator, "str" uses the string assembly
         calculator, "cfg" uses the RePair upper bound.
     """
     log_file = None
@@ -730,13 +730,17 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         # Process pathway output if available
         if os.path.isfile(file_path_pathway):
             try:
-                vitr_obj, path = parse_string_pathway_file(file_path_pathway)
+                virt_obj, path = parse_string_pathway_file(file_path_pathway)
             except Exception as e:
                 print(f"Failed to load pathway data: {e}", flush=True)
 
         # Print log file path if required
         if return_log_file:
             print(f"Log file printed to: {log_file}", flush=True)
+
+        # Remove temporary file
+        if os.path.exists(file_path_in):
+            os.remove(file_path_in)
 
         # Return based on flag
         return (ai, virt_obj, path) if not return_log_file else (ai, virt_obj, path, log_file)
