@@ -17,7 +17,8 @@ from .assembly import (calculate_assembly_index,
                        calculate_assembly_similarity,
                        calculate_jo_from_pathway,
                        calculate_jo,
-                       calculate_assembly_ratio)
+                       calculate_assembly_ratio,
+                       calculate_rust_ai)
 from .complexity_scores import (count_unique_bonds,
                                 molecular_weight,
                                 bertz_complexity,
