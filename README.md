@@ -119,16 +119,6 @@ Contributions of all kinds—bug reports, feature suggestions, code improvements
 [`CONTRIBUTING.md`](https://github.com/ELIFE-ASU/assemblytheorytools/blob/main/CONTRIBUTING.md)
 for more details.
 
-Please follow standard Python practices, write clear commit messages, and ensure all code is well-documented and tested.
-To contribute, branch the repo, make changes, and submit a pull request.
-
-Contribution checklist:
-
-- Code must be packaged into reusable functions or classes.
-- Code must use current tooling.
-- Code must have documentation.
-- Code must have at least one passing test.
-
 ## 👥 Contributors
 
 Louie Slocombe, orchestration, development and conceptualisation.
@@ -150,14 +140,14 @@ Veronica Mierzejewski, integration of reassembly calculations.
 Marina Fernandez-Ruz, visualisation and circle plots.
 
 ## ⚖️ License
-MIT License. We just ask that you cite the relevant papers please!
+MIT License. We just ask that you cite the relevant papers, please!
 
 ## 📚 References
 - <a id="ref1">\[1\]</a> Sharma, A., Czégel, D., Lachmann, M., Kempes, C. P., Walker, S. I., & Cronin, L. (2023). Assembly theory explains and quantifies selection and evolution. Nature, 622(7982), 321-328. [doi:10.1038/s41586-023-06600-9](https://doi.org/10.1038/s41586-023-06600-9).
 - <a id="ref2">\[2\]</a> Seet, I., Patarroyo, K. Y., Siebert, G., Walker, S. I., & Cronin, L. (2024). Rapid computation of the assembly index of molecular graphs. arXiv preprint arXiv:2410.09100. [doi:10.48550/arXiv.2410.09100](
 https://doi.org/10.48550/arXiv.2410.09100).
 - <a id="ref3">\[3\]</a> https://github.com/DaymudeLab/assembly-theory
-## 🔧 Full installation instructions
+## 🛠️ Full installation instructions
 
 <details>
 <summary>Local</summary>
