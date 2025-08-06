@@ -3558,8 +3558,23 @@ class MoleculeGenerationAssemblyPool:
         return fragment, len(layer_fragments)
 
 
-# left off here
+
     def weighted_n_steps_sampler(self, n, min_level=1):
+        """
+        Sample number of assembly steps using target molecule distribution.
+        
+        Randomly selects how many assembly steps to perform based on the statistical
+        distribution of target molecule complexities, ensuring generated molecules
+        follow realistic assembly sequence lengths.
+        
+        Args:
+            n (int): Maximum number of assembly steps allowed
+            min_level (int, optional): Minimum complexity level to start weighting from.
+                                    Default: 1 (exclude building blocks)
+        
+        Returns:
+            int: Number of assembly steps to perform (1 to n)
+        """
         return random.choices(
             list(range(1, n + 1)),
             weights=self.n_steps_sampling_weights[min_level + 1:],
@@ -3567,6 +3582,18 @@ class MoleculeGenerationAssemblyPool:
         )[0]
 
     def get_random_fragment_with_level(self, node_level: int) -> str:
+        """
+        Randomly selects a fragment from a specific assembly depth level.
+        
+        Performs uniform random selection from all available fragments at the
+        specified assembly depth level, without weighting or compatibility constraints.
+
+        Args:
+            node_level (int): Assembly depth level to sample from
+        
+        Returns:
+            str: SMILES string of randomly selected fragment
+        """
         return random.choice(self.level_to_fragment[node_level])
 
     def combine_fragments_layer(self,
@@ -3574,6 +3601,29 @@ class MoleculeGenerationAssemblyPool:
                                 fragment2,
                                 assemble_object,
                                 layer=1):
+        
+        """
+        Combine two molecular fragments into a new molecule.
+        
+        Performs molecular fragment combination by parsing SMILES strings, extracting
+        atomic information, and delegating to the assembly object for bond formation.
+        Handles molecular preprocessing and error cases for robust generation.
+        
+        Args:
+            fragment1 (str): SMILES string of first fragment
+            fragment2 (str): SMILES string of second fragment
+            assemble_object: Assembly engine object with create_bond method
+            layer (int, optional): Assembly layer/complexity level. Default: 1
+        
+        Returns:
+            str or None: SMILES string of combined molecule if successful,
+                        None if parsing fails or combination is invalid
+        Steps:
+            1. Convert SMILES to RDKit molecules
+            2. Extract atom type and valence information
+            3. Check both molecules parsed successfully
+            4. Delegate to assembly object for bond formation 
+        """
         mol1, atomtype_index_mapping1 = get_atom_type_index_mapping(fragment1)
         mol2, atomtype_index_mapping2 = get_atom_type_index_mapping(fragment2)
 
@@ -3599,9 +3649,58 @@ class MoleculeGenerationAssemblyPool:
                                      step_exponent: float = 1.0,
                                      remove_pathways: bool = False
                                      ):
+        
+        """
+        Generate N novel molecules through probabilistic fragment assembly.
+        
+        Creates new molecules by iteratively combining fragments from existing assembly pathways. Uses statistical
+        sampling to balance chemical realism and novelty. 
 
+        Steps
+            1. Extract fragment pool at complexity level A-X
+            2. Compute sampling weights for layers and steps
+            3. For each target molecule:
+                - Select starting fragment from highest complexity level
+                - Determine assembly sequence length using weighted sampling
+                - Iteratively combine fragments through multi-step assembly
+                - Apply chemical validation and error recovery
+                - Track construction history and update assembly graph
+            4. Create extended assembly network with generated molecules
+
+        Args:
+            n (int): Target number of molecules to generate
+            steps (int): Maximum number of assembly steps per molecule
+            x (int, optional): Assembly complexity reduction level for fragment pool.
+                            Higher values use simpler fragments. Default: 10
+            inverse (bool, optional): If True, bias toward rare fragments for novelty.
+                                    If False, bias toward common fragments. Default: False
+            exponent (float, optional): Fragment frequency weighting power. Default: 1.0
+            layer_exponent (float, optional): Layer sampling bias strength. Default: 2.0
+            step_exponent (float, optional): Step count sampling bias strength. Default: 1.0
+            remove_pathways (bool, optional): If True, exclude entire pathways from pool.
+                                            Default: False
+        Returns:
+            None: Results stored in self.assembled_molecules and self.diverged_assembly_graph
+        """
         def _combine_fragments(fragment1, layer, curr_depth=None):
-
+            """
+            Inner function to attempt fragment combination with compatibility checking.
+            
+            Encapsulates the fragment selection and combination logic for a single assembly
+            step, handling weighted sampling of compatible fragments and molecular assembly
+            with comprehensive error reporting for adaptive retry mechanisms.
+            
+            Args:
+                fragment1 (str): SMILES string of base fragment to extend
+                layer (int): Assembly complexity layer to sample second fragment from
+                curr_depth (int, optional): Current assembly depth for layer assignment
+            
+            Returns:
+                tuple: (combined_molecule, selected_fragment, num_compatible_fragments)
+                    - combined_molecule (str or None): SMILES of successful combination or None
+                    - selected_fragment (str or None): SMILES of fragment that was selected
+                    - num_compatible_fragments (int): Count of chemically compatible options
+            """
             fragment2, num_fragments = self.wrs_from_layer(
                 base_mol=fragment1,
                 inverse=inverse,
@@ -3695,12 +3794,37 @@ class MoleculeGenerationAssemblyPool:
 
 
 class Assemble:
+    """
+    This class implements molecular assembly algorithms that combine two molecular
+    fragments by overlapping atoms and forming new bonds. It uses probabilistic selection of
+    overlap sites, chemical validation, and retry mechanisms to generate chemically reasonable
+    molecular products from fragment precursors.
+    """
+
+    # Empircal propabilities of number of atom overlaps, starting at 1
+    # e.g., there is a 90.8% of fragments connecting at 1 atom. 
     BASE_WEIGHTS = [0.908, 0.075, 0.0137, 0.003]
 
     def __init__(self) -> None:
         pass
 
     def select_n_overlaps(self, f1_atoms, f2_atoms, p_combinations_copy, layer=None) -> list:
+        """
+        Select atom overlap pairs for molecular assembly using empirical probability weights.
+        
+        Determines how many and which atom pairs to overlap when combining two molecular
+        fragments, using statistical weights derived from chemical reaction patterns established
+        in Pagel et al. Balances chemical realism with structural constraints to select feasible overlaps.
+        
+        Args:
+            f1_atoms (int): Number of atoms in first fragment
+            f2_atoms (int): Number of atoms in second fragment  
+            p_combinations_copy (list): Available atom pair combinations for overlapping
+            layer (optional): Assembly complexity layer for layer-specific weights
+        
+        Returns:
+            list: Selected atom pairs for overlapping [[atom1_idx, atom2_idx], ...]
+        """
         max_overlap = select_max_overlaps(f1_atoms, f2_atoms)
         allowed_combinations = min(count_non_overlapping_sublists(p_combinations_copy), max_overlap)
 
@@ -3715,6 +3839,24 @@ class Assemble:
         return get_allowed_pairs(p_combinations_copy, k=num_combinations)
 
     def create_bond(self, fragment1, fragment2, atomtype_index_mapping1, atomtype_index_mapping2, layer=None):
+        """
+        Combine two molecular fragments through probabilistic atom overlap assembly.
+        
+        The main assembly engine that attempts to create a new molecule by combining
+        two fragments through atom overlap. Uses iterative sampling with
+        empirical probability weights and extensive retry mechanisms to find successful
+        chemical combinations.
+        
+        Args:
+            fragment1 (rdkit.Chem.Mol): First molecular fragment to combine
+            fragment2 (rdkit.Chem.Mol): Second molecular fragment to combine
+            atomtype_index_mapping1 (dict): Atom index to [element, valence] mapping for fragment1
+            atomtype_index_mapping2 (dict): Atom index to [element, valence] mapping for fragment2
+            layer (optional): Assembly complexity layer for layer-specific overlap probabilities
+        
+        Returns:
+            str or None: SMILES string of successfully assembled molecule, or None if all attempts fail
+        """
         possible_combinations = get_possible_combinations(atomtype_index_mapping1, atomtype_index_mapping2)
         if not possible_combinations:
             return None
