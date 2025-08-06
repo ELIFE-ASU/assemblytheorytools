@@ -217,19 +217,18 @@ def test_big_chungus():
         - The assembly index calculated from the graph, mol file, and molecule object are equal to 8.
     """
     print(flush=True)
-    mol_file = os.path.expanduser(os.path.abspath("data/mol_files/big_chungus.mol"))
+    mol_file = os.path.expanduser(os.path.abspath("tests/data/mol_files/big_chungus.mol"))
     # Get the mol object
     mol = att.molfile_to_mol(mol_file)
     # Convert the system into graphs
     graph = att.mol_to_nx(mol)
-
     # Graph
     ai_graph, _, _ = att.calculate_assembly_index(graph, timeout=30.0, strip_hydrogen=True)
     # Mol file
     ai_mol_file, _, _ = att.calculate_assembly_index(mol_file, timeout=30.0, strip_hydrogen=True)
     # Mol
     ai_mol, _, _ = att.calculate_assembly_index(mol, timeout=30.0, strip_hydrogen=True)
-
+    print(ai_graph, ai_mol_file, ai_mol, flush=True)
     assert ai_graph <= 8
     assert ai_mol_file <= 8
     assert ai_mol <= 8
@@ -249,8 +248,9 @@ def test_taxol_file():
         - The calculated assembly index is equal to 23.
     """
     print(flush=True)
-    mol_file = os.path.expanduser(os.path.abspath("data/mol_files/taxol.mol"))
+    mol_file = os.path.expanduser(os.path.abspath("tests/data/mol_files/taxol.mol"))
     ai, _, _ = att.calculate_assembly_index(mol_file, timeout=30.0, strip_hydrogen=True)
+    print(ai, flush=True)
     # actual value is 23, but for timeout this is ok
     assert ai <= 24
 
