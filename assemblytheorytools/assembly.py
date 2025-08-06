@@ -18,6 +18,7 @@ from rdkit.Chem import AllChem as Chem
 
 import CFG
 from .construction import parse_pathway_file
+from .construction_string import parse_string_pathway_file
 from .pathway import (get_pathway_to_graph,
                       get_pathway_to_mol,
                       get_pathway_to_inchi)
