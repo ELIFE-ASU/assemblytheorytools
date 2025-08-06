@@ -1235,11 +1235,10 @@ def calculate_rust_ai(mol: Chem.Mol,
                       timeout: int = 300,
                       add_hydrogens: bool = False) -> int:
     # Set default executable path if not provided
-    exec_path = exec_path or "/home/mshahjah/assembly-theory/target/release/assembly-theory"
-
-    exec_path = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "precompiled", "Rust")
-        )
+    if exec_path is None:
+        exec_path = os.path.abspath(
+                os.path.join(os.path.dirname(__file__), "precompiled", "Rust")
+            )
     with tempfile.NamedTemporaryFile(suffix='.mol', delete=True) as tmp_file:
         if not _input_helper(mol, tmp_file.name, add_hydrogens=add_hydrogens):
             print("Invalid input", flush=True)
