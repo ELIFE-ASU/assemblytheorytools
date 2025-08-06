@@ -1,12 +1,12 @@
 
 <img width="2096" height="934" alt="Frame - 1 (2)" src="https://github.com/user-attachments/assets/4cc72e01-3ea4-4c0e-abd8-ba1af100b79b" />
 
-# 🚀 `AssemblyTheoryTools` <!-- [![Stars](https://img.shields.io/github/stars/ELIFE-ASU/assemblytheorytools.svg?style=social&maxAge=3600&label=Star)](https://github.com/ELIFE-ASU/assemblytheorytools/stargazers)-->
-A centralised set of tools for doing assembly theory calculations written in Python.
+# 🧪 `AssemblyTheoryTools` <!-- [![Stars](https://img.shields.io/github/stars/ELIFE-ASU/assemblytheorytools.svg?style=social&maxAge=3600&label=Star)](https://github.com/ELIFE-ASU/assemblytheorytools/stargazers)-->
+A centralised set of tools for doing assembly theory calculations [\[1\]](#ref1) written in Python.
 
 ## 🗺️ Overview
 The aim is that this package provides a platform to do assembly theory calculations that work out of the box. 
-We currently interface with [C++](https://github.com/croningp/assemblycpp-v5) and [Rust](https://github.com/DaymudeLab/assembly-theory) assembly calculators, and this package comes with precompiled versions of both.
+We currently interface with [C++](https://github.com/croningp/assemblycpp-v5) [\[2\]](#ref2) and [Rust](https://github.com/DaymudeLab/assembly-theory) [\[3\]](#ref3) assembly calculators, and this package comes with precompiled versions of both.
 This version works best on Unix-based systems, and to use this package, it is strongly suggested that you use the Linux subsystem if you are using Windows.
 
 AssemblyTheoryTools (ATT) is a Python package designed to facilitate assembly theory calculations 
@@ -28,7 +28,7 @@ Currently, ATT supports and connects to:
 - Approximate fast methods [CFGs](https://github.com/ELIFE-ASU/CFG).
 
 If you find this package useful, please cite the following papers: 
-Sharma _et al._ 2023 and Seet _et al._ 2024, found in the paper.bib.
+Sharma _et al._ 2023 [\[1\]](#ref1) and Seet _et al._ 2024 [\[2\]](#ref2), found in the paper.bib.
 
 ## 🔧 Installing
 Check out the requirements and installation instructions below.
@@ -150,12 +150,13 @@ Veronica Mierzejewski, integration of reassembly calculations.
 Marina Fernandez-Ruz, visualisation and circle plots.
 
 ## ⚖️ License
-MIT License. We just ask that you cite the relevant papers please! [\[1\]](#ref1)
+MIT License. We just ask that you cite the relevant papers please!
 
 ## 📚 References
-- <a id="ref1">\[1\]</a> hello
-
-
+- <a id="ref1">\[1\]</a> Sharma, A., Czégel, D., Lachmann, M., Kempes, C. P., Walker, S. I., & Cronin, L. (2023). Assembly theory explains and quantifies selection and evolution. Nature, 622(7982), 321-328. [doi:10.1038/s41586-023-06600-9](https://doi.org/10.1038/s41586-023-06600-9).
+- <a id="ref2">\[2\]</a> Seet, I., Patarroyo, K. Y., Siebert, G., Walker, S. I., & Cronin, L. (2024). Rapid computation of the assembly index of molecular graphs. arXiv preprint arXiv:2410.09100. [doi:10.48550/arXiv.2410.09100](
+https://doi.org/10.48550/arXiv.2410.09100).
+- <a id="ref3">\[3\]</a> https://github.com/DaymudeLab/assembly-theory
 ## 🔧 Full installation instructions
 
 <details>
