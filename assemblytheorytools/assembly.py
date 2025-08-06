@@ -259,31 +259,41 @@ def calculate_assembly_index(mol,
         except Exception as e:
             print(f"Error: {e}", flush=True)
 
-        # Extract the most recent "min AI found so far" from the log file
-        last_ai = -1
-        if os.path.exists(log_file):
-            try:
-                with open(log_file, "r") as log:
-                    log_lines = log.readlines()
+        if timed_out == 0:  # If the calculation finished properly, we can read the output file
 
-                # Reverse scan for last occurrence of "min AI found so far"
-                for line in reversed(log_lines):
-                    match = re.search(r"min AI found so far:\s*(\d+)", line)
-                    if match:
-                        last_ai = int(match.group(1))
-                        break
+            with open(file_path_out, "r") as f:
+                first_line = f.readline()
+                match = re.search(r'assembly index:\s*(\d+)', first_line)
+                if match:
+                    ai = int(match.group(1))
 
-                if not exact:
-                    ai = last_ai  # Assign found AI
+        else:
 
-                # Print appropriate messages based on timeout
-                if ai == -1 and timed_out:
-                    print("No minimum AI found before timeout.", flush=True)
-                elif ai != -1 and timed_out:
-                    print(f"Upper Bound to AI Found: AI =< {ai}", flush=True)
+            # Extract the most recent "min AI found so far" from the log file
+            last_ai = -1
+            if os.path.exists(log_file):
+                try:
+                    with open(log_file, "r") as log:
+                        log_lines = log.readlines()
 
-            except Exception as e:
-                print(f"Failed to read AI from log file: {e}", flush=True)
+                    # Reverse scan for last occurrence of "min AI found so far"
+                    for line in reversed(log_lines):
+                        match = re.search(r"min AI found so far:\s*(\d+)", line)
+                        if match:
+                            last_ai = int(match.group(1))
+                            break
+
+                    if not exact:
+                        ai = last_ai  # Assign found AI
+
+                    # Print appropriate messages based on timeout
+                    if ai == -1 and timed_out:
+                        print("No minimum AI found before timeout.", flush=True)
+                    elif ai != -1 and timed_out:
+                        print(f"Upper Bound to AI Found: AI =< {ai}", flush=True)
+
+                except Exception as e:
+                    print(f"Failed to read AI from log file: {e}", flush=True)
 
         # Process pathway output if available
         if os.path.isfile(file_path_pathway):
@@ -548,6 +558,11 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
     assert isinstance(debug, bool), "Debug must be a boolean"
     assert isinstance(directed, bool), "Directed must be a boolean"
 
+    if directed == False:
+        if mode in ["str", "cfg"]:
+            mode = "mol"  # Use the molecular assembly calculator for undirected strings
+            print("Warning: only mode 'mol' is supported for undirected strings. Switching to 'mol'.", flush=True)
+
     if mode == "mol":  # Use the molecular assembly cpp calculator
         if directed:
             graph = get_dir_str_molecule(string)
@@ -623,17 +638,22 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         file_path_pathway = os.path.join(file_path_in + "Pathway")
         log_file = os.path.join(temp_dir, "assembly_output.log")
 
+        if debug:
+            print(f"Temporary directory created: {temp_dir}", flush=True)
+
         # Run the assembly code and log output
         try:
             with open(log_file, "w") as log:
+
+                if debug:
+                    print(f"Calling\n {dir_code} {file_path_in} {str(int(directed == 0))} 1", flush=True)
+
                 # Start the process
                 process = subprocess.Popen(
                     [dir_code, file_path_in, str(int(directed == 0)), "1"],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT
                 )
-
-                start_time = time.time()
 
                 try:
                     # Wait for process to finish or timeout
@@ -664,42 +684,54 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         except Exception as e:
             print(f"Error: {e}")
 
-        # Extract the most recent "min AI found so far" from the log file
-        last_ai = -1
-        if os.path.exists(log_file):
+        if timed_out == 0:  # If the calculation finished properly, we can read the output file
+
             if debug:
-                print(f"log_file: {log_file}")
-            try:
-                with open(log_file, "r") as log:
-                    log_lines = log.readlines()
+                print("Assembly calculation completed successfully.", flush=True)
+
+            with open(file_path_out, "r") as f:
+                first_line = f.readline()
+                match = re.search(r'assembly index:\s*(\d+)', first_line)
+                if match:
+                    ai = int(match.group(1))
+
+        else:
+            # Extract the most recent "min AI found so far" from the log file
+            last_ai = -1
+            if os.path.exists(log_file):
                 if debug:
-                    print(f"log_lines: {log_lines}")
-                # Reverse scan for last occurrence of "min AI found so far"
-                for line in reversed(log_lines):
-                    match = re.search(r"min AI found so far:\s*(\d+)", line)
-                    if match:
-                        last_ai = int(match.group(1))
-                        break
+                    print(f"log_file: {log_file}")
+                try:
+                    with open(log_file, "r") as log:
+                        log_lines = log.readlines()
+                    if debug:
+                        print(f"log_lines: {log_lines}")
+                    # Reverse scan for last occurrence of "min AI found so far"
+                    for line in reversed(log_lines):
+                        match = re.search(r"min AI found so far:\s*(\d+)", line)
+                        if match:
+                            last_ai = int(match.group(1))
+                            break
 
-                ai = last_ai  # Assign found AI
+                    ai = last_ai  # Assign found AI
 
-                # Print appropriate messages based on timeout
-                if ai == -1 and timed_out:
-                    print("No assembly paths found before timeout.")
-                elif ai != -1 and timed_out:
-                    print(f"Upper Bound to AI Found: AI =< {ai - 2 * len(delimiters)}")
+                    # Print appropriate messages based on timeout
+                    if ai == -1 and timed_out:
+                        print("No assembly paths found before timeout.")
+                    elif ai != -1 and timed_out:
+                        print(f"Upper Bound to AI Found: AI =< {ai - 2 * len(delimiters)}")
 
-                ai += - 2 * len(delimiters)  # Convert to (joint) assembly index of strings
+                except Exception as e:
+                    print(f"Failed to read AI from log file: {e}")
 
-            except Exception as e:
-                print(f"Failed to read AI from log file: {e}")
+        ai += - 2 * len(delimiters)  # Convert to (joint) assembly index of strings
 
-            # Print log file path if required
-            if return_log_file:
-                print(f"Log file printed to: {log_file}", flush=True)
+        # Print log file path if required
+        if return_log_file:
+            print(f"Log file printed to: {log_file}", flush=True)
 
-            # Return based on flag
-            return (ai, virt_obj, path) if not return_log_file else (ai, virt_obj, path, log_file)
+        # Return based on flag
+        return (ai, virt_obj, path) if not return_log_file else (ai, virt_obj, path, log_file)
 
     elif mode == "cfg":  # Use the RePair upper bound
         if directed:
@@ -1217,6 +1249,36 @@ def calculate_assembly_ratio(graph: Union[nx.Graph, Chem.Mol], settings: dict) -
         return 1.0
     else:
         return n_edges / ai
+
+def calculate_jo_assembly_ratio(graph: Union[nx.Graph, Chem.Mol], settings: dict) -> float:
+    """
+    Calculate the joining operation (JO) assembly ratio for a molecular graph.
+
+    The JO assembly ratio is defined as the ratio of the number of edges in the graph
+    to its joining operation index (JO). If the graph has no edges, the function returns
+    1.0 to avoid division by zero.
+
+    Args:
+        graph (Union[nx.Graph, Chem.Mol]): The molecular graph, which can be a NetworkX graph
+                                           or an RDKit molecule.
+        settings (dict): A dictionary of settings to be passed to the `calculate_jo` function.
+
+    Returns:
+        float: The JO assembly ratio, calculated as the number of edges divided by the JO.
+               Returns 1.0 if the graph has no edges.
+    """
+    # Get the number of edges in the graph
+    n_edges = graph.number_of_edges() if isinstance(graph, nx.Graph) else graph.GetNumBonds()
+
+    # Calculate the joining operation index (JO)
+    jo, _, _ = calculate_jo(graph, **settings)
+
+    # Calculate the JO assembly ratio
+    if n_edges == 0:
+        # Avoid division by zero
+        return 1.0
+    else:
+        return n_edges / jo
 
 def _input_helper(mol: Chem.Mol, file_path: str, strip_hydrogen: bool = False) -> bool:
     mol = Chem.RemoveHs(mol) if strip_hydrogen else Chem.AddHs(mol)

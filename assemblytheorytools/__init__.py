@@ -18,7 +18,9 @@ from .assembly import (calculate_assembly_index,
                        calculate_jo_from_pathway,
                        calculate_jo,
                        calculate_assembly_ratio,
+                       calculate_jo_assembly_ratio,
                        calculate_rust_ai)
+
 from .complexity_scores import (count_unique_bonds,
                                 molecular_weight,
                                 bertz_complexity,
@@ -76,8 +78,11 @@ from .reassembler import (assemble,
                           enumerate_sterioisomers,
                           enumerate_tautomers,
                           enumerate_heterocycles,
-                          reassemble)
-from .seb_reassembler import (MoleculeGenerationAssemblyPool, Molecule, MoleculeSpace, Assemble)
+                          reassemble,
+                          MoleculeGenerationAssemblyPool,
+                          Molecule,
+                          MoleculeSpace,
+                          Assemble)
 from .tools_atoms import (smiles_to_atoms,
                           mol_to_atoms,
                           atoms_to_mol,

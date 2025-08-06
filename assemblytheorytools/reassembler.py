@@ -1,12 +1,20 @@
+import ast
 import math
+import os
 import random
+import signal
+import subprocess
+from collections import defaultdict
+from copy import deepcopy
+from pathlib import Path
+from typing import List, Union, Optional
 
+import matplotlib.pyplot as plt
+import networkx as nx
 import numpy as np
-from rdkit import Chem
-from rdkit import RDLogger
-from rdkit.Chem import AllChem
-from rdkit.Chem import Draw
-from rdkit.Chem import rdMolDescriptors
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+from rdkit import Chem, RDLogger
+from rdkit.Chem import AllChem, Draw, MolFromSmiles, rdMolDescriptors
 from rdkit.Chem.EnumerateHeterocycles import EnumerateHeterocycles
 from rdkit.Chem.EnumerateStereoisomers import EnumerateStereoisomers, StereoEnumerationOptions
 from rdkit.Chem.MolStandardize import rdMolStandardize
@@ -14,35 +22,79 @@ from rdkit.Chem.SimpleEnum import Enumerator
 
 RDLogger.DisableLog('rdApp.*')
 
+from .assembly import add_assembly_to_path
+from .construction import parse_pathway_file
+from .tools_mol import safe_standardize_mol
+
 
 def assemble_smarts():
-    smarts = [[''] * 14, [''] * 512, [''] * 14]
+    """
+    Assemble comprehensive SMARTS reaction patterns for organic synthesis planning.
 
-    # carbon sp3
+    This function initializes a collection of SMART reaction patterns used for retrosynthetic analysis and automated synthesis planning.
+    The patterns describe molecular transformations involving carbon, nitrogen, and oxygen
+    atoms with various hybridization states.
+    
+    Returns:
+        tuple: A tuple containing:
+            - smarts (list): 3D list of SMARTS reaction patterns organized as:
+                * smarts[0] (14 patterns): Basic intermolecular reactions
+                    - Carbon sp3 transformations (indices 0-3)
+                    - Carbon sp2 transformations (indices 4-7) 
+                    - Carbon sp transformations (index 8)
+                    - Nitrogen transformations (indices 9-12)
+                    - Oxygen transformations (index 13)
+                * smarts[1] (512 patterns): Complex cross-reactions including:
+                    - Carbon-carbon cross-reactions (various hybridizations)
+                    - Carbon-nitrogen combinations
+                    - Carbon-oxygen combinations
+                    - Nitrogen-nitrogen combinations
+                    - Overlapping and bridged transformations
+                * smarts[2] (14 patterns): Intramolecular versions of basic reactions
+            - rxn (list): 3D list of None placeholders for reaction objects
+    
+    Pattern Format:
+        Each SMARTS pattern follows the format: [reactant1].[reactant2]>>[product1].[product2]
+        Where:
+        - Reactants are molecular fragments that can undergo transformation
+        - Products are the resulting molecular fragments after bond formation/breaking
+        - Atom mapping (e.g., :1, :2) preserves atom identity through the transformation
+    
+    Example Usage:
+        - smarts, rxn = assemble_smarts()
+        - basic_patterns = smarts[0]  # Access basic reaction patterns
+        - complex_patterns = smarts[1]  # Access cross-reaction patterns
+        - intramolecular_patterns = smarts[2]  # Access intramolecular patterns
+    """
+    # Initialize SMARTS patterns and reaction placeholders
+    smarts = [[''] * 14, [''] * 512, [''] * 14]
+    rxn = [[None] * 14, [None] * 512, [None] * 14]
+
+    # Carbon sp3
     smarts[0][0] = '[CH:1]([*:2])([*:3])[*:4].[CH3:5][*:6]>>[C:1]([*:2])([*:3])([*:4])[*:6].[CH4:5]'  # 1
     smarts[0][1] = '[CH2:1]([*:2])[*:3].[CH2:4]([*:5])[*:6]>>[C:1]([*:2])([*:3])([*:5])[*:6].[CH4:4]'  # 2
     smarts[0][2] = '[CH2:1]([*:2])[*:3].[CH3:4][*:5]>>[CH:1]([*:2])([*:3])[*:5].[CH4:4]'  # 3
     smarts[0][3] = '[CH3:1][*:2].[CH3:4][*:5]>>[CH2:1]([*:2])[*:5].[CH4:4]'  # 4
 
-    # carbon sp2
+    # Carbon sp2
     smarts[0][4] = '[CH:1](=[*:2])[*:3].[CH3:4][*:5]>>[C:1](=[*:2])([*:3])[*:5].[CH4:4]'  # 5
     smarts[0][5] = '[CH2:1]=[*:2].[CH2:3]([*:4])[*:5]>>[C:1](=[*:2])([*:4])[*:5].[CH4:3]'  # 6
     smarts[0][6] = '[CH2:1]=[*:2].[CH3:3][*:4]>>[CH:1](=[*:2])[*:4].[CH4:3]'  # 7
     smarts[0][7] = '[CH2:1]=[*:2].[CH2:3]=[*:4]>>[C:1](=[*:2])=[*:4].[CH4:3]'  # 8
 
-    # carbon sp
+    # Carbon sp
     smarts[0][8] = '[CH:1]#[*:2].[CH3:3][*:4]>>[C:1](#[*:2])[*:4].[CH4:3]'  # 9
 
-    # nitrogen
+    # Nitrogen
     smarts[0][9] = '[NH:1]([*:2])[*:3].[NH2:4][*:5]>>[N:1]([*:2])([*:3])[*:5].[NH3:4]'  # 10
     smarts[0][10] = '[NH2:1][*:2].[NH2:3][*:4]>>[NH:1]([*:2])[*:4].[NH3:3]'  # 11
     smarts[0][11] = '[NH:1]=[*:2].[NH2:3][*:4]>>[N:1](=[*:2])[*:4].[NH3:3]'  # 12
     smarts[0][12] = '[N:1]#[*:2].[NH:3]=[*:4]>>[N:1](#[*:2])=[*:4].[NH3:4]'  # 13
 
-    # oxygen
+    # Oxygen
     smarts[0][13] = '[OH:1][*:2].[OH:3][*:4]>>[O:1]([*:2])[*:4].[OH2:3]'  # 14
 
-    # carbon sp3
+    # Carbon sp3
     smarts[1][
         0] = '([CH:1]([*:2])([*:3])[*:4].[CH:5]([*:6])([*:7])[*:8]).([CH3:9][*:10].[CH3:11][*:12])>>([C:1]([*:2])([*:3])([*:4])[*:10].[C:5]([*:6])([*:7])([*:8])[*:12]).[CH3:9][CH3:11]'  # 1-1
     smarts[1][
@@ -56,7 +108,7 @@ def assemble_smarts():
     smarts[1][
         5] = '([CH3:1][*:2].[CH3:3][*:4]).([CH3:5][*:6].[CH3:7][*:8])>>([CH2:1]([*:2])[*:6].[CH2:3]([*:4])[*:8]).[CH3:5][CH3:7]'  # 4-4
 
-    # carbon sp2
+    # Carbon sp2
     smarts[1][
         6] = '([CH:1](=[*:2])[*:3].[CH:4](=[*:5])[*:6]).([CH3:7][*:8].[CH3:9][*:10])>>([C:1](=[*:2])([*:3])[*:8].[C:4](=[*:5])([*:6])[*:10]).[CH3:7][CH3:9]'  # 5-5
     smarts[1][
@@ -72,13 +124,13 @@ def assemble_smarts():
     smarts[1][
         12] = '([CH2:1]=[*:2].[CH2:3]=[*:4]).([CH2:5]=[*:6].[CH2:7]=[*:8])>>([C:1](=[*:2])=[*:6].[C:3](=[*:4])=[*:8]).[CH3:5][CH3:7]'  # 8-8
 
-    # carbon sp
+    # Carbon sp
     smarts[1][
         13] = '([CH:1]#[*:2].[CH:3]#[*:4]).([CH3:5][*:6].[CH3:7][*:8])>>([C:1](#[*:2])[*:6].[C:3](#[*:4])[*:8]).[CH3:5][CH3:7]'  # 9-9
     smarts[1][
         14] = '([CH:1]#[*:2].[CH3:3][*:4]).([CH3:5][*:6].[CH:7]#[*:8])>>([C:1](#[*:2])[*:6].[C:3](#[*:8])[*:4]).[CH3:5][CH3:7]'  # 9-9
 
-    # nitrogen
+    # Nitrogen
     smarts[1][
         15] = '([NH:1]([*:2])[*:3].[NH:4]([*:5])[*:6]).([NH2:7][*:8].[NH2:9][*:10])>>([N:1]([*:2])([*:3])[*:8].[N:4]([*:5])([*:6])[*:10]).[NH2:7][NH2:9]'  # 10-10
     smarts[1][
@@ -94,11 +146,11 @@ def assemble_smarts():
     smarts[1][
         21] = '([N:1]#[*:2].[NH:3]=[*:4]).([NH:5]=[*:6].[N:7]#[*:8])>>([N:1](#[*:2])=[*:6].[N:3](=[*:4])#[*:8]).[NH2:5][NH2:7]'  # 13-13
 
-    # oxygen
+    # Oxygen
     smarts[1][
         22] = '([OH:1][*:2].[OH:3][*:4]).([OH:5][*:6].[OH:7][*:8])>>([O:1]([*:2])[*:6].[O:3]([*:4])[*:8]).[OH:5][OH:7]'  # 14-14
 
-    # carbon crossreactions
+    # Carbon crossreactions
     smarts[1][
         23] = '([CH:1]([*:2])([*:3])[*:4].[CH2:5]([*:6])[*:7]).([CH3:8][*:9].[CH2:10]([*:11])[*:12])>>([C:1]([*:2])([*:3])([*:4])[*:9].[C:5]([*:6])([*:7])([*:11])[*:12]).[CH3:8][CH3:10]'  # 1-2
     smarts[1][
@@ -207,7 +259,7 @@ def assemble_smarts():
     smarts[1][
         73] = '([CH2:1]=[*:2].[CH:3]#[*:4]).([CH3:5][*:6].[CH3:7][*:8])>>([CH:1](=[*:2])[*:6].[C:3](#[*:4])[*:8]).[CH3:5][CH3:7]'  # 8-9
 
-    # nitrogen crossreactions
+    # Nitrogen crossreactions
     smarts[1][
         74] = '([NH:1]([*:2])[*:3].[NH2:4][*:5]).([NH2:6][*:7].[NH2:8][*:9])>>([N:1]([*:2])([*:3])[*:7].[NH:4]([*:5])[*:9]).[NH2:6][NH2:8]'  # 10-11
     smarts[1][
@@ -227,7 +279,7 @@ def assemble_smarts():
     smarts[1][
         82] = '([NH:1]=[*:2].[NH:3]=[*:4]).([NH2:5][*:6].[N:7]#[*:8])>>([N:1](=[*:2])[*:6].[N:3](=[*:4])#[*:8]).[NH2:5][NH2:7]'  # 12-13
 
-    # carbon-nitrogen
+    # Carbon-nitrogen
     smarts[1][
         83] = '([CH:1]([*:2])([*:3])[*:4].[NH:5]([*:6])[*:7]).([CH3:8][*:9].[NH2:10][*:11])>>([C:1]([*:2])([*:3])([*:4])[*:9].[N:5]([*:6])([*:7])[*:11]).[CH3:8][NH2:10]'  # 1-10
     smarts[1][
@@ -345,7 +397,7 @@ def assemble_smarts():
     smarts[1][
         136] = '([CH:1]#[*:2].[NH:3]=[*:4]).([CH3:5][*:6].[N:7]#[*:8])>>([C:1](#[*:2])[*:6].[N:3](=[*:4])#[*:8]).[CH3:5][NH2:7]'  # 9-13
 
-    # carbon-oxygen
+    # Carbon-oxygen
     smarts[1][
         137] = '([OH:1][*:2].[CH:3]([*:4])([*:5])[*:6]).([OH:7][*:8].[CH3:9][*:10])>>([O:1]([*:2])[*:8].[C:3]([*:4])([*:5])([*:6])[*:10]).[OH:7][CH3:9]'  # 1-14
     smarts[1][
@@ -365,7 +417,7 @@ def assemble_smarts():
     smarts[1][
         145] = '([OH:1][*:2].[CH:3]#[*:4]).([OH:5][*:6].[CH3:7][*:8])>>([O:1]([*:2])[*:6].[C:3](#[*:4])[*:8]).[OH:5][CH3:7]'  # 9-14
 
-    # nitrogen-oxygen
+    # Nitrogen-oxygen
     smarts[1][
         146] = '([OH:1][*:2].[NH:3]([*:4])[*:5]).([OH:6][*:7].[NH2:8][*:9])>>([O:1]([*:2])[*:7].[N:3]([*:4])([*:5])[*:9]).[OH:6][NH2:8]'  # 10-14
     smarts[1][
@@ -375,7 +427,7 @@ def assemble_smarts():
     smarts[1][
         149] = '([OH:1][*:2].[N:3]#[*:4]).([OH:5][*:6].[NH:7]=[*:8])>>([O:1]([*:2])[*:6].[N:3](#[*:4])=[*:8]).[OH:5][NH2:7]'  # 13-14
 
-    # overlapping carbon crossreactions
+    # Overlapping carbon crossreactions
     smarts[1][
         150] = '[CH:1]([*:3])([*:4])[CH:2]([*:5])[*:6].([CH3:7][*:8].[CH3:9][*:10])>>[C:1]([*:3])([*:4])([*:8])[C:2]([*:5])([*:6])[*:10].[CH3:7][CH3:9]'
     smarts[1][
@@ -1032,39 +1084,69 @@ def assemble_smarts():
     smarts[1][510] = '[CH2:1]=[*:2][OH:3].([CH3:4][*:5].[OH:6][*:7])>>[CH:1]([*:5])=[*:2][O:3][*:7].[CH3:4][OH:6]'
     smarts[1][511] = '[N:1]=[*:2][OH:3].([NH2:4][*:5].[OH:6][*:7])>>[N:1]([*:5])=[*:2][O:3][*:7].[NH2:4][OH:6]'
 
-    # intramolecular carbon sp3
+    # Intramolecular carbon sp3
     smarts[2][0] = '([CH:1]([*:2])([*:3])[*:4].[CH3:5][*:6])>>[C:1]([*:2])([*:3])([*:4])[*:6].[CH4:5]'  # 1
     smarts[2][1] = '([CH2:1]([*:2])[*:3].[CH2:4]([*:5])[*:6])>>[C:1]([*:2])([*:3])([*:5])[*:6].[CH4:4]'  # 2
     smarts[2][2] = '([CH2:1]([*:2])[*:3].[CH3:4][*:5])>>[CH:1]([*:2])([*:3])[*:5].[CH4:4]'  # 3
     smarts[2][3] = '([CH3:1][*:2].[CH3:4][*:5])>>[CH2:1]([*:2])[*:5].[CH4:4]'  # 4
 
-    # intramolecular carbon sp2
+    # Intramolecular carbon sp2
     smarts[2][4] = '([CH:1](=[*:2])[*:3].[CH3:4][*:5])>>[C:1](=[*:2])([*:3])[*:5].[CH4:4]'  # 5
     smarts[2][5] = '([CH2:1]=[*:2].[CH2:3]([*:4])[*:5])>>[C:1](=[*:2])([*:4])[*:5].[CH4:3]'  # 6
     smarts[2][6] = '([CH2:1]=[*:2].[CH3:3][*:4])>>[CH:1](=[*:2])[*:4].[CH4:3]'  # 7
     smarts[2][7] = '([CH2:1]=[*:2].[CH2:3]=[*:4])>>[C:1](=[*:2])=[*:4].[CH4:3]'  # 8
 
-    # intramolecular carbon sp
+    # Intramolecular carbon sp
     smarts[2][8] = '([CH:1]#[*:2].[CH3:3][*:4])>>[C:1](#[*:2])[*:4].[CH4:3]'  # 9
 
-    # intramolecular nitrogen
+    # Intramolecular nitrogen
     smarts[2][9] = '([NH:1]([*:2])[*:3].[NH2:4][*:5])>>[N:1]([*:2])([*:3])[*:5].[NH3:4]'  # 10
     smarts[2][10] = '([NH2:1][*:2].[NH2:3][*:4])>>[NH:1]([*:2])[*:4].[NH3:3]'  # 11
     smarts[2][11] = '([NH:1]=[*:2].[NH2:3][*:4])>>[N:1](=[*:2])[*:4].[NH3:3]'  # 12
     smarts[2][12] = '([N:1]#[*:2].[NH:3]=[*:4])>>[N:1](#[*:2])=[*:4].[NH3:4]'  # 13
 
-    # intramolecular oxygen
+    # Intramolecular oxygen
     smarts[2][13] = '([OH:1][*:2].[OH:3][*:4])>>[O:1]([*:2])[*:4].[OH2:3]'  # 14
-
-    rxn = [[None] * 14, [None] * 512, [None] * 14]
 
     return smarts, rxn
 
 
 def assemble(molecule1, molecule2, sites):
+    """
+    Assemble two molecular fragments using SMARTS reaction patterns.
+    
+    This function combines two molecular fragments through chemical reactions based on
+    the specified number of reaction sites. It uses predefined SMARTS reaction patterns
+    to enumerate possible products and returns a randomly selected valid product.
+
+    Algorithm:
+        1. Loads SMARTS reaction patterns using assemble_smarts()
+        2. Converts SMARTS patterns to RDKit reaction objects
+        3. For the specified number of sites:
+           - Iterates through all relevant reaction patterns
+           - Tests both permutations of input molecules (mol1+mol2, mol2+mol1)
+           - Enumerates all possible products for each reaction
+           - Collects unique products as SMILES strings
+        4. Returns a randomly selected product from valid results
+    
+    Args:
+        molecule1: First molecular fragment (RDKit Mol object or SMILES string)
+        molecule2: Second molecular fragment (RDKit Mol object or SMILES string)
+        sites (int): Number of reaction sites to consider:
+            - 1: Uses basic intermolecular reactions (rxn[0])
+            - 2: Uses complex cross-reactions (rxn[1])
+            - >2: Not supported, returns None
+    
+    Returns:
+        Chem.Mol or None: 
+            - RDKit Mol object of a randomly selected product if successful
+            - None if no valid products are generated or sites > 2
+    """
+
     mol1 = [molecule1]
     mol2 = [molecule2]
 
+    # Load SMARTS patterns and convert to RDKit reaction objects
     smarts, rxn = assemble_smarts()
 
     for i in range(3):
@@ -1075,10 +1157,6 @@ def assemble(molecule1, molecule2, sites):
         # =============================================
         # For n=1 (i.e. sites==1) Reassembler runs the simplest loop.
         # It cycles through all n=1 reactions listed in rxn[0].
-        # For each reaction it enumerates all possible products of the two input fragments.
-        # Since reactions are non-permutable, the process is repeated for the input fragments given in reverse order (second, then first).
-        # Products are stored in the result list as SMILES strings, duplicates are avoided.
-        # Depending on returnfile value, returns either mol objects or inchies of products
         # =============================================
 
         products = []
@@ -1106,10 +1184,6 @@ def assemble(molecule1, molecule2, sites):
         # =============================================
         # For n=2 (i.e. sites==2) Reassembler runs the simplest loop.
         # It cycles through all n=2 reactions listed in rxn[1].
-        # For each reaction it enumerates all possible products of the two input fragments.
-        # Since reactions are non-permutable, the process is repeated for the input fragments given in reverse order (second, then first).
-        # Products are stored in the result list as SMILES strings, duplicates are avoided.
-        # Depending on returnfile value, returns either mol objects or inchies of products
         # =============================================
 
         products = []
@@ -1136,6 +1210,21 @@ def assemble(molecule1, molecule2, sites):
 
 
 def printer(mols):
+    """
+    Generate and save grid images of molecular structures in batches.
+    
+    This function takes a list of RDKit molecule objects and creates visual grid
+    representations, saving them as PNG files in the current working directory. Large collections are automatically
+    split into manageable batches to prevent overcrowded images. Batch size is 50 molecules per image.
+    
+    Args:
+        mols (list): List of RDKit Mol objects to be visualized. Each element
+                    should be a valid RDKit molecule object that can be rendered.
+    
+    Returns:
+        None: Function saves images to disk but does not return any value.
+    """
+
     pages = []
     labels = []
     indexes = np.arange(len(mols), dtype=int)
@@ -1147,16 +1236,27 @@ def printer(mols):
         labels.append([str(i) for i in indexes[start:end]])
         img = Draw.MolsToGridImage(pages[batch], molsPerRow=10, legends=labels[batch])
         img.save('Mols_' + str(start) + '-' + str(end) + '.png')
+
     return None
 
 
 def filter_mol(mol):
     """
-    It cycles through the list of smarts structures and checks if the input molecule contains any of them as its substructure.
-    As soon as one of the listed smarts structures if found in the input molecule, the molecule is rejected and filter returns None
-    If the filter reaches the end of the smarts list without detecting any of them in the molecule, the input mol is returned unchanged
+    Filter out molecules containing chemically unstable or undesirable substructures.
+    
+    This function screens input molecules against a predefined list of 51 problematic
+    SMARTS patterns representing strained rings, unusual bonding patterns (e.g. cumulative double bonds), and
+    chemically unstable motifs. Any molecule containing these substructures is
+    rejected to ensure chemical validity and synthetic feasibility.
+    
+    Args:
+        mol (Chem.Mol): RDKit molecule object to be filtered
+    
+    Returns:
+        Chem.Mol or None:
+            - Original molecule object if it passes all filters
+            - None if any forbidden substructure is detected
     """
-
     evil_smarts = 51 * ['']
 
     evil_smarts[0] = '[*]1~[*]#[*]~1'
@@ -1219,30 +1319,46 @@ def filter_mol(mol):
 
 
 def origami_smarts():
+    """
+    Generate SMARTS patterns for intramolecular bond formation reactions.
+    
+    This function creates a collection of SMARTS reaction patterns specifically
+    designed for intramolecular cyclization and ring-closing reactions. These
+    patterns describe transformations where two reactive sites within the same
+    molecule form new bonds to create cyclic structures.
+    
+    Returns:
+        list: A list of 14 SMARTS reaction patterns for intramolecular reactions:
+            - Indices 0-3: Carbon sp³ intramolecular transformations
+            - Indices 4-7: Carbon sp² intramolecular transformations  
+            - Index 8: Carbon sp intramolecular transformation
+            - Indices 9-12: Nitrogen intramolecular transformations
+            - Index 13: Oxygen intramolecular transformation
+    """
     smarts = [''] * 14
 
-    # intra-molecular carbon sp3
+    # Intra-molecular carbon sp3
     smarts[0] = '([CH:1]([*:2])([*:3])[*:4].[CH3:5][*:6])>>[C:1]([*:2])([*:3])([*:4])[*:6].[CH4:5]'  # 1
     smarts[1] = '([CH2:1]([*:2])[*:3].[CH2:4]([*:5])[*:6])>>[C:1]([*:2])([*:3])([*:5])[*:6].[CH4:4]'  # 2
     smarts[2] = '([CH2:1]([*:2])[*:3].[CH3:4][*:5])>>[CH:1]([*:2])([*:3])[*:5].[CH4:4]'  # 3
     smarts[3] = '([CH3:1][*:2].[CH3:4][*:5])>>[CH2:1]([*:2])[*:5].[CH4:4]'  # 4
 
-    # intra-molecular carbon sp2
+    # Intra-molecular carbon sp2
     smarts[4] = '([CH:1](=[*:2])[*:3].[CH3:4][*:5])>>[C:1](=[*:2])([*:3])[*:5].[CH4:4]'  # 5
     smarts[5] = '([CH2:1]=[*:2].[CH2:3]([*:4])[*:5])>>[C:1](=[*:2])([*:4])[*:5].[CH4:3]'  # 6
     smarts[6] = '([CH2:1]=[*:2].[CH3:3][*:4])>>[CH:1](=[*:2])[*:4].[CH4:3]'  # 7
     smarts[7] = '([CH2:1]=[*:2].[CH2:3]=[*:4])>>[C:1](=[*:2])=[*:4].[CH4:3]'  # 8
 
-    # intra-molecular carbon sp
+    # Intra-molecular carbon sp
     smarts[8] = '([CH:1]#[*:2].[CH3:3][*:4])>>[C:1](#[*:2])[*:4].[CH4:3]'  # 9
 
-    # intra-molecular nitrogen
+    # Intra-molecular nitrogen
     smarts[9] = '([NH:1]([*:2])[*:3].[NH2:4][*:5])>>[N:1]([*:2])([*:3])[*:5].[NH3:4]'  # 10
     smarts[10] = '([NH2:1][*:2].[NH2:3][*:4])>>[NH:1]([*:2])[*:4].[NH3:3]'  # 11
     smarts[11] = '([NH:1]=[*:2].[NH2:3][*:4])>>[N:1](=[*:2])[*:4].[NH3:3]'  # 12
     smarts[12] = '([N:1]#[*:2].[NH:3]=[*:4])>>[N:1](#[*:2])=[*:4].[NH3:4]'  # 13
 
-    # intra-molecular oxygen
+    # Intra-molecular oxygen
     smarts[13] = '([OH:1][*:2].[OH:3][*:4])>>[O:1]([*:2])[*:4].[OH2:3]'  # 14
 
     return smarts
@@ -1250,15 +1366,31 @@ def origami_smarts():
 
 def origami(mol):
     """
-    This method executes one origami loop.
-    Which means, it created RDKit reaction objects from the list of smarts that describe origami connections.
-    Origami connections are the ones where one molecule undergoes internal connection with itself.
-    It cycles through all origami reactions listed in rxn and feeds them the input mol to enumerate all possible products.
-    Before product is stored it is being checked for validity:
-    - if the number of atoms in the origami product is not as expected (i.e. number of atoms in pre-origami substrate minus one) or
-    - if the product does not contain each of the input fragments as its substructures then
-    it is discarded as the case of bond fusion / other invalid connection.
-    Products are stored in the result list as mol objects, duplicates are avoided.
+    Execute intramolecular cyclization reactions on a molecule using origami SMARTS patterns.
+    
+    This function performs "origami" transformations - intramolecular reactions where a single
+    molecule undergoes internal bond formation to create cyclic structures. The method applies
+    all available origami reaction patterns and returns valid cyclized products that meet
+    strict validation criteria.
+
+    Algorithm:
+        1. Retrieves origami SMARTS patterns from origami_smarts()
+        2. Converts SMARTS patterns to RDKit reaction objects
+        3. For each reaction pattern:
+           - Applies reaction to input molecule
+           - Validates products using strict criteria
+           - Collects unique valid products
+        4. Returns list of cyclized molecules or original molecule if no products
+    
+    Args:
+        mol (rdkit.Chem.Mol): Input molecule to undergo intramolecular cyclization.
+                             Should contain reactive sites capable of internal bond formation.
+    
+    Returns:
+        list[rdkit.Chem.Mol]: List of cyclized product molecules:
+            - If successful: List of unique valid cyclization products
+            - If no products: List containing only the original input molecule
+
     """
 
     # Get the allowed operations
@@ -1291,18 +1423,31 @@ def origami(mol):
 
 def conformation_filter(mol):
     """
-    Generate a 3D conformation for a molecule and filter based on the success of the geometry generation.
+    Generate a 3D conformation for a molecule and filter based on geometry generation success.
 
-    This function sanitises the molecule, adds hydrogen atoms, and attempts to generate a 3D conformation
-    using the ETKDGv3 method. If the geometry generation is successful, the molecule is returned. If it fails,
-    None is returned.
+    This function processes an input molecule through several steps: sanitization, hydrogen
+    addition, and 3D conformation generation using RDKit's ETKDGv3 (Experimental Torsion
+    Knowledge Distance Geometry version 3) method. The function serves as both a conformer
+    generator and a molecular filter, returning only molecules for which valid 3D geometries
+    can be successfully generated.
 
-    Parameters:
-    mol (rdkit.Chem.Mol): The input molecule.
+    Algorithm:
+        1. Sanitize the input molecule (standardize bond orders, aromaticity, etc.)
+        2. Add explicit hydrogen atoms to all heavy atoms
+        3. Configure ETKDGv3 parameters with fixed random seed for reproducibility
+        4. Attempt 3D coordinate embedding using distance geometry
+        5. Return molecule if successful (score=0) or None if failed (score=-1 or other)
+
+    Args:
+        mol (rdkit.Chem.Mol): The input molecule object to process. Should be a valid
+                             RDKit molecule, though basic sanitization will be attempted.
 
     Returns:
-    rdkit.Chem.Mol or None: The molecule with a generated 3D conformation if successful, otherwise None.
+        rdkit.Chem.Mol or None: 
+            - Molecule with generated 3D conformation and explicit hydrogens if successful
+            - None if geometry generation fails or encounters errors
     """
+
     Chem.SanitizeMol(mol)
     mol = Chem.AddHs(mol)
     params = AllChem.ETKDGv3()
@@ -1320,15 +1465,32 @@ def conformation_filter(mol):
 
 def pick_two(to_be_combined):
     """
-    Randomly pick two unique elements from the input list and return them along with the remaining elements.
+    Randomly select two unique elements from a list and return them with remaining elements.
+    
+    This function performs random sampling without replacement to select exactly two distinct
+    elements from the input list. It's designed for scenarios where you need to randomly
+    pair elements while maintaining separation between selected and unselected items.
 
-    Parameters:
-    to_be_combined (list): The list of elements to pick from.
-
+    Algorithm:
+        1. Validates input list length (returns empty lists if <= 1 elements)
+        2. Uses numpy.random.choice() to select 2 unique indices without replacement
+        3. Extracts elements at selected indices to create 'picked' list
+        4. Creates 'remain' list from all non-selected indices (preserves original order)
+        5. Returns both lists as tuple
+    
+    Args:
+        to_be_combined (list): Input list of elements to sample from. Can contain any type
+                              of objects (molecules, strings, numbers, etc.). Must have
+                              length >= 2 for meaningful operation.
+    
     Returns:
-    tuple: A tuple containing two lists:
-        - picked (list): A list of two randomly picked elements.
-        - remain (list): A list of the remaining elements after picking.
+        tuple[list, list]: A tuple containing two lists:
+            - picked (list): List of exactly 2 randomly selected unique elements
+            - remain (list): List of all remaining elements (original order preserved)
+            
+        Special cases:
+            - If input length <= 1: Returns ([], []) - two empty lists
+            - If input length >= 2: Returns normal (picked, remain) tuple
     """
     if len(to_be_combined) <= 1:
         return [], []
@@ -1342,17 +1504,30 @@ def pick_two(to_be_combined):
 
 def get_num_atom(formula, elements):
     """
-    Get the number of atoms of a specific element in a molecular formula.
+    Extract the number of atoms for a specific element from a molecular formula string.
+    
+    This function parses a molecular formula to determine how many atoms of a specified
+    element are present. It handles standard chemical notation where element symbols
+    are followed by optional numeric subscripts indicating atom counts.
 
-    This function searches for the specified element in the molecular formula
-    and returns the number of atoms of that element.
-
-    Parameters:
-    formula (str): The molecular formula as a string.
-    elements (str): The element symbol to search for in the formula.
-
+    Algorithm:
+        1. Searches for first occurrence of element symbol in formula
+        2. If not found, returns 0
+        3. Extracts substring after element symbol
+        4. Parses numeric characters following element until next alphabetic character
+        5. Returns parsed number, or 1 if no number follows element
+    
+    Args:
+        formula (str): Molecular formula string in standard chemical notation.
+                      Examples: 'H2O', 'C6H12O6', 'CaCl2', 'CH3OH'
+        elements (str): Element symbol to search for (case-sensitive).
+                       Should match standard periodic table symbols: 'H', 'C', 'O', 'Ca', etc.
+    
     Returns:
-    int: The number of atoms of the specified element in the formula.
+        int: Number of atoms of the specified element in the formula:
+            - 0 if element is not found in the formula
+            - 1 if element is present without explicit count (e.g., 'O' in 'H2O')
+            - n if element has explicit count (e.g., 2 for 'H' in 'H2O')
     """
     idx1 = formula.find(elements)
     if idx1 == -1:
@@ -1375,11 +1550,11 @@ def degree_unsaturation(mol):
     The degree of unsaturation is a measure of the number of rings and multiple bonds in a molecule.
     It is calculated using the molecular formula of the molecule.
 
-    Parameters:
-    mol (rdkit.Chem.Mol): The molecule for which the degree of unsaturation is to be calculated.
+    Args:
+        mol (rdkit.Chem.Mol): The molecule for which the degree of unsaturation is to be calculated.
 
     Returns:
-    float: The degree of unsaturation of the molecule.
+        float: The degree of unsaturation of the molecule.
     """
     formula = rdMolDescriptors.CalcMolFormula(mol)
     n_carbon = get_num_atom(formula, 'C')
@@ -1435,6 +1610,45 @@ def reassemble_old(mols,
                    one_atom_weight=2,
                    mw_delta=0.1
                    ):
+    """
+    Generate new molecules by reassembling molecular fragments with comprehensive filtering.
+    
+    This function creates novel molecular structures by systematically combining input molecular
+    fragments, applying origami cyclization operations, and filtering results based on multiple
+    physicochemical criteria.
+
+    Algorithm:
+        1. **Fragment Pool Preparation**: Deduplicate input fragments and display pool info
+        2. **Fragment Selection**: Randomly select fragments within MW constraints
+        3. **Assembly Process**: Iteratively combine fragments using assembly reactions
+        4. **Unsaturation Adjustment**: Apply origami cyclization if DoU is too low
+        5. **Multi-Stage Filtering**: Apply structural and conformational filters
+        6. **Output Generation**: Collect valid molecules and create visualizations
+
+    Args:
+        mols (list[rdkit.Chem.Mol]): Input molecular fragments to be reassembled.
+                                    Will be deduplicated automatically.
+        n_mol_needed (int, optional): Target number of new molecules to generate. 
+                                     Default: 1000
+        mw_min (float, optional): Minimum molecular weight for generated molecules.
+                                 Default: 20 Da
+        mw_max (float, optional): Maximum molecular weight for generated molecules.
+                                 Default: 100 Da
+        unsat_min (float, optional): Minimum degree of unsaturation (double bond equivalents).
+                                    Default: 1.0
+        unsat_max (float, optional): Maximum degree of unsaturation (double bond equivalents).
+                                    Default: 12.0
+        one_atom_weight (float, optional): Weight adjustment factor for atom overlap during
+                                          fragment assembly. Default: 2 Da
+        mw_delta (float, optional): Molecular weight tolerance factor for fragment selection.
+                                   Creates MW range: [mw_min*(1-delta), mw_max*(1+delta)]
+                                   Default: 0.1 (10% tolerance)
+    
+    Returns:
+        list[rdkit.Chem.Mol]: List of successfully generated and validated molecules.
+                             Length may be less than n_mol_needed if generation fails.
+    """
+
     # Ensure that the input list of molecules is unique
     mols = get_unique_mols(mols)
 
@@ -1560,7 +1774,7 @@ def reassemble_old(mols,
 
     print('\n', 'nFiltered =', n_filtered, flush=True)
 
-    # visualize, generate figures
+    # Visualize, generate figures
     printer(new_mols)
 
     return new_mols
@@ -1573,11 +1787,11 @@ def enumerate_sterioisomers(mol):
     This function takes an RDKit molecule object as input and generates all possible stereoisomers
     of the molecule. It returns a list of RDKit molecule objects representing these stereoisomers.
 
-    Parameters:
-    mol (rdkit.Chem.Mol): The input molecule for which stereoisomers are to be enumerated.
+    Args:
+        mol (rdkit.Chem.Mol): The input molecule for which stereoisomers are to be enumerated.
 
     Returns:
-    list: A list of RDKit molecule objects representing the stereoisomers of the input molecule.
+        list: A list of RDKit molecule objects representing the stereoisomers of the input molecule.
     """
     # Define options for stereoisomer enumeration
     opts = StereoEnumerationOptions(unique=True, onlyUnassigned=False)
@@ -1599,11 +1813,11 @@ def enumerate_tautomers(mol):
     This function takes an RDKit molecule object as input and generates all possible tautomers
     of the molecule. It returns a list of RDKit molecule objects representing these tautomers.
 
-    Parameters:
-    mol (rdkit.Chem.Mol): The input molecule for which tautomers are to be enumerated.
+    Args:
+        mol (rdkit.Chem.Mol): The input molecule for which tautomers are to be enumerated.
 
     Returns:
-    list: A list of RDKit molecule objects representing the tautomers of the input molecule.
+        list: A list of RDKit molecule objects representing the tautomers of the input molecule.
     """
     # Create a TautomerEnumerator object
     enumerator = rdMolStandardize.TautomerEnumerator()
@@ -1630,12 +1844,12 @@ def enumerate_heterocycles(mol, depth=None):
     This function takes an RDKit molecule object as input and generates all possible heterocycles
     of the molecule. It returns a list of RDKit molecule objects representing these heterocycles.
 
-    Parameters:
-    mol (rdkit.Chem.Mol): The input molecule for which heterocycles are to be enumerated.
-    depth (int, optional): The depth of enumeration. Defaults to None.
+    Args:
+        mol (rdkit.Chem.Mol): The input molecule for which heterocycles are to be enumerated.
+        depth (int, optional): The depth of enumeration. Defaults to None.
 
     Returns:
-    list: A list of RDKit molecule objects representing the heterocycles of the input molecule.
+        list: A list of RDKit molecule objects representing the heterocycles of the input molecule.
     """
     smiles = sorted(Chem.MolToSmiles(m) for m in EnumerateHeterocycles(mol, depth=depth))
     return [Chem.MolFromSmiles(smi) for smi in smiles]
@@ -1643,23 +1857,23 @@ def enumerate_heterocycles(mol, depth=None):
 
 def react_smiles(smiles1, smiles2, random_bond=False, con_filter=True):
     """
-    React two molecules represented by their SMILES strings.
+    React two molecules by random bond formation - a chemically naive alternative to SMARTS-based assembly.
 
-    This function takes two SMILES strings, converts them to RDKit molecule objects,
-    and combines them by adding a bond between two randomly chosen heavy atoms.
-    The bond order can be randomised or fixed as a single bond. Optionally, a conformation
-    filter can be applied to the resulting molecule.
+    This function provides a simple, brute-force approach to molecular combination by randomly
+    connecting heavy atoms from two input molecules. Unlike reassembly methods that use chemical reaction patterns, 
+    this function ignores chemical realism in favor of speed and simplicity. 
+    May create impossible/unstable structures. Ignores valence and hybridization.
 
-    Parameters:
-    smiles1 (str): The SMILES string of the first molecule.
-    smiles2 (str): The SMILES string of the second molecule.
-    random_bond (bool): If True, the bond order is randomised (SINGLE, DOUBLE, or TRIPLE).
-                        If False, a single bond is used. Default is False.
-    con_filter (bool): If True, a conformation filter is applied to the resulting molecule.
-                       If False, the molecule is sanitised without the filter. Default is True.
+    Args:
+        smiles1 (str): SMILES string of the first molecule to combine
+        smiles2 (str): SMILES string of the second molecule to combine
+        random_bond (bool, optional): If True, randomly selects bond order (SINGLE/DOUBLE/TRIPLE).
+                                     If False, uses single bonds only. Default: False
+        con_filter (bool, optional): If True, applies 3D conformation filter for validation.
+                                    If False, only basic sanitization. Default: True
 
     Returns:
-    str: The SMILES string of the new molecule, or None if an error occurs.
+        str or None: SMILES string of combined molecule if successful, None if combination fails
     """
     try:
         # Convert SMILES strings to RDKit molecule objects
@@ -1719,34 +1933,49 @@ def reassemble(mol_pool,
                tautomers=False,
                heterocycles=False):
     """
-    Reassemble molecules from a pool by randomly combining them.
+    Simple iterative molecular reassembly using random bond formation - a streamlined alternative to reassemble_old.
+    
+    This function provides a simplified approach to molecular generation by iteratively combining
+    molecules from a pool using random bond formation. Unlike reassemble_old's sophisticated
+    fragment-based assembly with SMARTS reactions, this method uses the chemically naive
+    react_smiles() function for rapid exploration of molecular space with optional structural
+    diversification through stereoisomers, tautomers, and heterocycles.
 
-    This function takes a pool of molecules and attempts to combine them into new molecules
-    by randomly selecting pairs and reacting them. The process continues until a specified
-    number of unique molecules is obtained or a maximum number of iterations is reached.
-
-    Parameters:
-    mol_pool (set): A set of SMILES strings representing the initial pool of molecules.
-    n_mol_needed (int): The number of unique molecules needed. Default is 20.
-    max_run (int): The maximum number of iterations to attempt. Default is 10,000.
-    random_bond (bool): If True, the bond order is randomised (SINGLE, DOUBLE, or TRIPLE).
-                        If False, a single bond is used. Default is False.
-    con_filter (bool): If True, a conformation filter is applied to the resulting molecule.
-                       If False, the molecule is sanitised without the filter. Default is True.
-    recycle_to_pool (bool): If True, the new molecules are added back to the pool for further reactions.
-                            Default is True.
-    max_heavy_atoms (int): The maximum number of heavy atoms allowed in the combined molecule.
-                           Default is 20.
-    sterioisomers (bool): If True, stereoisomers of the new molecule are enumerated and a random one is selected.
-                          Default is False.
-    tautomers (bool): If True, tautomers of the new molecule are enumerated and a random one is selected.
-                      Default is False.
-    heterocycles (bool): If True, heterocycles of the new molecule are enumerated and a random one is selected.
-                         Default is False.
-
+    Algorithm:
+        1. **Random Selection**: Pick two molecules randomly from current pool
+        2. **Size Check**: Skip if combined molecule would exceed max_heavy_atoms
+        3. **Combination**: Use react_smiles() for random bond formation
+        4. **Diversification**: Optionally enumerate stereoisomers/tautomers/heterocycles
+        5. **Collection**: Add valid products to output set
+        6. **Recycling**: Optionally add new molecules back to pool for further reactions
+        7. **Termination**: Stop when n_mol_needed reached or max_run iterations exceeded
+    
+    Args:
+        mol_pool (set): Initial pool of SMILES strings to combine. Pool grows during execution
+                       if recycle_to_pool=True.
+        n_mol_needed (int, optional): Target number of unique molecules to generate.
+                                     Default: 20 (much smaller than reassemble_old's 1000)
+        max_run (int, optional): Maximum iterations before termination. Default: 10,000
+        random_bond (bool, optional): If True, uses random bond orders (SINGLE/DOUBLE/TRIPLE).
+                                     If False, uses single bonds only. Default: False
+        con_filter (bool, optional): Apply 3D conformation validation filter. Default: True
+        recycle_to_pool (bool, optional): Add generated molecules back to pool for further
+                                         combination. Creates iterative growth. Default: True
+        max_heavy_atoms (int, optional): Maximum heavy atoms in combined molecules.
+                                        Prevents runaway growth. Default: 20
+        sterioisomers (bool, optional): Enumerate and randomly select stereoisomers of
+                                       products. Default: False
+        tautomers (bool, optional): Enumerate and randomly select tautomers of products.
+                                   Default: False
+        heterocycles (bool, optional): Enumerate and randomly select heterocyclic variants
+                                      of products. Default: False
+    
     Returns:
-    set: A set of SMILES strings representing the unique molecules obtained.
+        set: Set of unique SMILES strings representing generated molecules.
+             Size may be less than n_mol_needed if max_run is reached first.
+
     """
+
     out_pool = set()
     mol_pool = set(mol_pool)
 
@@ -1801,3 +2030,1836 @@ def reassemble(mol_pool,
             print(f'Maximum iterations reached: {max_run}.', flush=True)
 
     return out_pool
+
+
+# -------------------------------------------------------------------------
+# REASSEMBLING FUNCTIONS BASED ON 
+# "Mapping Evolution of Molecules Across Biochemistry with Assembly Theory"
+# by Pagel et al.
+# -------------------------------------------------------------------------
+
+bond_types = {
+    "single": Chem.BondType.SINGLE,
+    "double": Chem.BondType.DOUBLE,
+    "triple": Chem.BondType.TRIPLE,
+    "aromatic": Chem.BondType.AROMATIC,
+}
+
+# These weights were used to construct drug-like molecules from the JAS of natural products
+# Each key is the depth, followed by the weight of overlapping fragments at that depth.
+BASE_WEIGHTS = {
+    1: {1: 1.0},
+    2: {1: 0.9832214765100671, 2: 0.016778523489932886},
+    3: {1: 0.9209621993127147, 2: 0.0782741504390989, 3: 0.0007636502481863307},
+    4: {
+        1: 0.8330969782916985,
+        2: 0.16052143558416057,
+        3: 0.0062724991818479325,
+        4: 0.00010908694229300753,
+    },
+    5: {
+        1: 0.7996980976722644,
+        2: 0.1778307631610546,
+        3: 0.02025833233271009,
+        4: 0.0021098855858792047,
+        5: 0.00010292124809166852,
+    },
+    6: {
+        1: 0.7745189613300952,
+        2: 0.18646700817052908,
+        3: 0.0330262420482366,
+        4: 0.005417522884363908,
+        5: 0.0005211047420531526,
+        6: 4.9160824721995534e-05,
+    },
+    7: {
+        1: 0.7420528562969427,
+        2: 0.20179511951880824,
+        3: 0.045524667310748904,
+        4: 0.008952223641973385,
+        5: 0.0014491850282045689,
+        6: 0.00021036556861034063,
+        7: 1.5582634711877086e-05,
+    },
+    8: {
+        1: 0.7102899947432977,
+        2: 0.21908036913731674,
+        3: 0.05607879212662812,
+        4: 0.011688861631914023,
+        5: 0.0025918462706617604,
+        6: 0.00026283511477133344,
+        7: 7.300975410314818e-06,
+    },
+    9: {
+        1: 0.6904138411237588,
+        2: 0.23067025914264955,
+        3: 0.06084251634778397,
+        4: 0.014485953015257931,
+        5: 0.003103051586340518,
+        6: 0.00041626301767982564,
+        7: 6.811576652942601e-05,
+    },
+    10: {
+        1: 0.6733680207112318,
+        2: 0.24377018628302538,
+        3: 0.06238668274541882,
+        4: 0.01637671504347166,
+        5: 0.003347866051626287,
+        6: 0.0006662000455377247,
+        7: 8.432911968831957e-05,
+    },
+    11: {
+        1: 0.6580834710008012,
+        2: 0.25724856314732564,
+        3: 0.06225207490429226,
+        4: 0.01753900028687592,
+        5: 0.004204216086814589,
+        6: 0.0006034286618722116,
+        7: 6.924591201812265e-05,
+
+    },
+    12: {
+
+        1: 0.6444412390465544,
+        2: 0.26739028524034475,
+        3: 0.06679648528121357,
+        4: 0.01637156972341423,
+        5: 0.004098902551897396,
+        6: 0.000781315735698917,
+        7: 0.00012020242087675646,
+    },
+    13: {
+        1: 0.629783049231136,
+        2: 0.2766122303015854,
+        3: 0.07062820359995232,
+        4: 0.018178567171295745,
+        5: 0.003948623197043748,
+        6: 0.0006854213851472166,
+        7: 0.0001639051138395518,
+    },
+    14: {
+        1: 0.6140666254704792,
+        2: 0.2834110443233526,
+        3: 0.07621294683819262,
+        4: 0.020485740501469955,
+        5: 0.004775012639739341,
+        6: 0.0009737280677115517,
+        7: 7.490215905473475e-05,
+    },
+    15: {
+
+        1: 0.5937785251020898,
+        2: 0.2941868844583233,
+        3: 0.08426615421570982,
+        4: 0.021859236127792458,
+        5: 0.005020417967811675,
+        6: 0.000816718712466971,
+        7: 7.20634158059092e-05,
+    },
+    16: {
+        1: 0.5681789540012603,
+        2: 0.30645872715816,
+        3: 0.0924700693131695,
+        4: 0.026307498424700693,
+        5: 0.006080655324511657,
+        6: 0.0005040957781978576,
+    },
+    17: {
+        1: 0.5399424176013063,
+        2: 0.3177774912981823,
+        3: 0.10304671049804477,
+        4: 0.03162734734218555,
+        5: 0.006617678655837738,
+        6: 0.0008594387864724335,
+        7: 8.594387864724336e-05,
+        8: 4.297193932362168e-05,
+    },
+    18: {
+        1: 0.5144782825761358,
+        2: 0.32757114328507236,
+        3: 0.1133924113829256,
+        4: 0.03507239141288068,
+        5: 0.00798801797304044,
+        6: 0.0013729405891163256,
+        7: 0.00012481278082875687,
+    },
+    19: {
+        1: 0.4565837749694252,
+        2: 0.3562984101100693,
+        3: 0.12902568283734203,
+        4: 0.045556461475743985,
+        5: 0.010497350183448838,
+        6: 0.0019364044027721159,
+        7: 0.00010191602119853241,
+    },
+    20: {
+        1: 0.3497027086544814,
+        2: 0.3811935696983043,
+        3: 0.17463113851574544,
+        4: 0.07201057035895177,
+        5: 0.01849812816560229,
+        6: 0.003963884606914776,
+    },
+}
+
+
+def compose_all(graphs, attribute="level", get_atomic_count=True):
+    """
+    Compose multiple NetworkX graphs into a single unified graph with accumulated statistics.
+    
+    This function merges a collection of NetworkX graphs into one composite graph while
+    preserving and accumulating node/edge data across all input graphs. It computes
+    various statistical measures including occurrence counts, usage patterns, and
+    atomic distributions.
+    
+    Args:
+        graphs (list[nx.Graph]): Collection of NetworkX graphs to compose. All graphs
+                               must be of the same type (all graphs or all multigraphs).
+                               Empty list will raise ValueError.
+        attribute (str, optional): Node attribute name to use for data accumulation and
+                                 level-based analysis. Default: "level"
+        get_atomic_count (bool, optional): If True, computes atomic distribution statistics
+                                         for nodes. Useful for molecular graphs. Default: True
+    
+    Returns:
+        nx.MultiDiGraph: Unified graph containing all nodes and edges from input graphs
+                        with additional computed attributes:
+                        - Node attributes:
+                          * {attribute}: Accumulated values from input graphs
+                          * "count": Number of times each node appears across graphs
+                          * "usage": Usage statistics based on specified attribute
+                          * "atomic_count": Atomic distribution (if get_atomic_count=True)
+                        - Edge attributes:
+                          * "count": Number of times each edge appears across graphs
+                        - Graph attributes: Merged from all input graphs (later graphs override)
+    """
+
+    R: nx.MultiDiGraph = None
+    updated_nodes_data, node_counts = accumulate_nodes_data(
+        graphs, attribute=attribute
+    )
+    updated_edges_data = accumulate_edges_data(graphs)
+
+    # add graph attributes, H attributes take precedent over G attributes
+    for i, G in enumerate(graphs):
+        G = nx.DiGraph(G)  # necessary to accumulate edge data properly
+        if i == 0:
+            # create new graph
+            R = G.__class__()
+        elif G.is_multigraph() != R.is_multigraph():
+            raise nx.NetworkXError("All graphs must be graphs or multigraphs.")
+        R.graph.update(G.graph)
+        R.add_nodes_from(G.nodes())
+        R.add_edges_from(
+            G.edges(keys=False, data=False)
+            if G.is_multigraph()
+            else G.edges(data=False)
+        )
+    nx.set_node_attributes(R, values=updated_nodes_data, name=attribute)
+    nx.set_node_attributes(R, values=node_counts, name="count")
+    nx.set_edge_attributes(R, values=updated_edges_data, name="count")
+
+    node_usage = accumulate_node_usage(R, attribute=attribute)
+    nx.set_node_attributes(R, values=node_usage, name="usage")
+
+    if get_atomic_count:
+        atomic_count = get_atomic_distribution(R)
+        nx.set_node_attributes(R, values=atomic_count, name="atomic_count")
+
+    if R is None:
+        raise ValueError("cannot apply compose_all to an empty list")
+    return R
+
+
+def accumulate_edges_data(graphs):
+    """
+    Count edge occurrences across a collection of NetworkX graphs.
+
+    Args:
+        graphs (list[nx.Graph]): Collection of NetworkX graphs to analyze.
+
+    Returns:
+        dict: Dictionary mapping edge tuples to their occurrence counts:
+              - Keys: Edge tuples (node1, node2) for undirected graphs or
+                     (source, target) for directed graphs
+              - Values: Integer counts of how many input graphs contain each edge
+    """
+    edge_counts = {}
+    for graph in graphs:
+        for edge in graph.edges():
+            edge_counts[edge] = edge_counts.get(edge, 0) + 1
+    return edge_counts
+
+
+def accumulate_nodes_data(graphs, attribute="level"):
+    """
+    Accumulate node data across multiple graphs, keeping minimum attribute values and occurrence counts.
+
+    Args:
+        graphs (list[nx.Graph]): Collection of NetworkX graphs to analyze
+        attribute (str, optional): Node attribute to track minimum values for. Default: "level"
+    
+    Returns:
+        tuple[dict, dict]: Two dictionaries:
+            - nodes_data: Maps node IDs to minimum attribute values across all graphs
+            - node_counts: Maps node IDs to occurrence counts across all graphs
+    """
+
+    nodes_data = {}
+    node_counts = {}
+
+    for graph in graphs:
+        for node, attributes in graph.nodes(data=True):
+            if node not in nodes_data or attributes[attribute] < nodes_data[node]:
+                nodes_data[node] = attributes[attribute]
+                node_counts[node] = node_counts.get(node, 0) + 1
+            else:
+                node_counts[node] += 1
+
+    return nodes_data, node_counts
+
+
+def accumulate_node_usage(graph, attribute="usage"):
+    """
+    Collect attribute values from all target nodes that each node connects to.
+    
+    Args:
+        graph (nx.DiGraph): Directed graph to analyze
+        attribute (str, optional): Node attribute to collect from target nodes. Default: "usage"
+    
+    Returns:
+        dict: Maps each node ID to a list of attribute values from its target nodes.
+              Empty list if node has no outgoing edges.
+    """
+    return {
+        node: [graph.nodes[edge[-1]][attribute] for edge in graph.out_edges(node)]
+        for node in graph.nodes()
+    }
+
+
+def get_atomic_distribution(graph) -> dict:
+    """
+    Find atoms with free valence (reactive sites) in molecular graph nodes (assuemd to be 
+    SMILES strings).
+
+    Args:
+        graph (nx.Graph): Graph where node IDs are SMILES strings representing molecules
+    
+    Returns:
+        dict: Maps node IDs to sets of atomic numbers with free valence:
+              - Keys: Node IDs (SMILES strings)
+              - Values: Set of atomic numbers (int) with available bonding sites,
+                       or None if SMILES parsing fails
+    """
+    pt = Chem.rdchem.GetPeriodicTable()
+    atomic_count = defaultdict(set)
+
+    for node in graph.nodes:
+        mol = MolFromSmiles(node)
+        if mol is None:
+            atomic_count[node] = None
+            continue
+
+        for atom in mol.GetAtoms():
+            free_valence = pt.GetDefaultValence(atom.GetSymbol()) - atom.GetExplicitValence()
+            if free_valence > 0:
+                atomic_count[node].add(atom.GetAtomicNum())
+
+    return atomic_count
+
+
+def destringyfy(string):
+    """
+    Safely parse a string representation of a Python literal into its actual data type.
+
+    Args:
+        string (str): String representation of a Python literal
+    
+    Returns:
+        Any: The parsed Python object (list, dict, int, float, bool, etc.)
+    """
+    return ast.literal_eval(string)
+
+
+def combine_fragments(fragment1, fragment2, combinations) -> str:
+    """
+    Combine two molecular fragments by overlapping specified atoms and merging their bonds.
+    The overlapping atoms from fragment2 are removed, and their bonds are transferred to
+    the corresponding atoms in fragment1. The result is sanitized, standardized, and outputted as
+    a canonical SMILES string.
+
+    Args:
+        fragment1 (rdkit.Chem.Mol): First molecular fragment (will receive merged bonds)
+        fragment2 (rdkit.Chem.Mol): Second molecular fragment (overlapping atoms removed)
+        combinations (list[tuple]): List of (atom1_idx, atom2_idx) pairs specifying
+                                   which atoms to overlap between fragments
+    
+    Returns:
+        str or None: SMILES string of the combined molecule if successful,
+                    None if standardization/processing fails
+    """
+
+    max_idx = fragment1.GetNumAtoms()
+
+    f1_atoms = [fragment1.GetAtomWithIdx(atom1) for atom1, _ in combinations]
+    f2_atoms = [fragment2.GetAtomWithIdx(atom2) for _, atom2 in combinations]
+    f1_bond_partners = [atom.GetNeighbors() for atom in f2_atoms]
+    f1_bond_orders = [[bond.GetBondType() for bond in atom.GetBonds()] for atom in f2_atoms]
+
+    combined_mol = Chem.CombineMols(fragment1, fragment2)
+    rw_mol = Chem.RWMol(combined_mol)
+    Chem.RemoveAllHs(rw_mol)
+
+    rw_mol.BeginBatchEdit()
+    for atom_id, (partners, orders) in enumerate(zip(f1_bond_partners, f1_bond_orders)):
+        rw_mol.RemoveAtom(f2_atoms[atom_id].GetIdx() + max_idx)
+        for partner, order in zip(partners, orders):
+            rw_mol.AddBond(f1_atoms[atom_id].GetIdx(), partner.GetIdx() + max_idx, order)
+    rw_mol.CommitBatchEdit()
+
+    try:
+        mol = safe_standardize_mol(rw_mol.GetMol(), add_hydrogens=True)
+        return Chem.MolToSmiles(Chem.RemoveHs(mol))
+    except Exception as e:
+        print(f"Standardization failed: {e}", flush=True)
+        return None
+
+
+def valence_check(atom1, atom2):
+    """
+    Check if two atoms can form a valid bond without violating valence rules
+    by summing available valence electrons fro mboth atoms, and checking
+    if the sum is within atom1's default valence limit. 
+    
+    Args:
+        atom1 (tuple): (element_symbol, current_valence_used) for first atom
+        atom2 (tuple): (element_symbol, current_valence_used) for second atom
+    
+    Returns:
+        bool: True if atoms can bond without violating atom1's valence limit,
+              False if bonding would exceed valence capacity
+    """
+
+    pt = Chem.rdchem.GetPeriodicTable()
+    val1 = pt.GetDefaultValence(atom1[0]) - atom1[1]
+    val2 = pt.GetDefaultValence(atom2[0]) - atom2[1]
+    return val1 + val2 <= pt.GetDefaultValence(atom1[0])
+
+
+def count_non_overlapping_sublists(lst):
+    """
+    Count the maximum number of non-overlapping intervals in a list of interval pairs.
+    
+    Args:
+        lst (list[list]): List of intervals, where each interval is [start, end]
+    
+    Returns:
+        int: Maximum number of non-overlapping intervals that can be selected
+    """
+    # Sort the sublists by their first element
+    lst.sort(key=lambda x: x[0])
+
+    # Initialize the count of non-overlapping sublists
+    count = 1
+
+    # Compare the end of the current sublist with the start of the next
+    for i in range(1, len(lst)):
+        if lst[i - 1][1] <= lst[i][0]:
+            count += 1
+    return count
+
+
+def get_possible_combinations(idx_map1, idx_map2):
+    """
+    Find valid atom pairs for molecular fragment combination based on element matching and valence constraints.
+
+    Validation Criteria:
+        - Atoms must be the same element type
+        - Atoms must have compatible valence for bonding
+        - Uses valence_check() to ensure realistic bonds
+    
+    Args:
+        idx_map1 (dict): Atom index mapping for fragment1 {atom_idx: (element, valence_used)}
+        idx_map2 (dict): Atom index mapping for fragment2 {atom_idx: (element, valence_used)}
+
+    Returns:
+        list or None: Randomly shuffled list of valid [atom1_idx, atom2_idx] pairs,
+                     or None if no valid combinations exist
+    """
+
+    possible_combinations = [
+        [atom1, atom2]
+        for atom1 in idx_map1
+        for atom2 in idx_map2
+        if idx_map1[atom1][0] == idx_map2[atom2][0] and valence_check(idx_map1[atom1], idx_map2[atom2])
+    ]
+
+    if possible_combinations:
+        random.shuffle(possible_combinations)
+        return possible_combinations
+    return None
+
+
+def get_allowed_pairs(combinations, k, max_iterations=1000):
+    """
+    Sample up to k non-conflicting atom pairs for molecular fragment combination. It does so by:
+        1. Randomly selecting a pair from available combinations
+        2. Checking if either atom is already used in previous selections
+        3. If valid (no conflicts), adding to result list
+        4. Repeating until k pairs found or max_iterations reached
+
+    Args:
+        combinations (list): List of [atom1_idx, atom2_idx] pairs representing
+                           valid atom combinations between fragments
+        k (int): Maximum number of pairs to select
+        max_iterations (int, optional): Maximum attempts to find valid pairs
+                                       before giving up. Default: 1000
+    
+    Returns:
+        list: List of selected [atom1_idx, atom2_idx] pairs where no atom
+              appears in multiple pairs. May contain fewer than k pairs
+              if conflicts prevent further selection.
+    """
+
+    sampled_sublists = []
+    counter = 0
+
+    while len(sampled_sublists) < k and counter < max_iterations:
+        sublist = random.choice(combinations)
+
+        if all(sublist[0] != prev[0] and sublist[1] != prev[1] for prev in sampled_sublists):
+            sampled_sublists.append(sublist)
+        counter += 1
+
+    return sampled_sublists
+
+
+def select_max_overlaps(atoms1, atoms2) -> int:
+    """
+    Determine maximum possible atom overlaps between two molecular fragments.
+    Returns the smaller of the two atom counts, representing the theoretical
+    maximum number of atoms that could be overlapped when combining fragments.
+    
+    Args:
+        atoms1 (int): Number of atoms in first fragment
+        atoms2 (int): Number of atoms in second fragment
+    
+    Returns:
+        int: Maximum possible overlaps (limited by smaller fragment)
+    """
+    return min(atoms1, atoms2)
+
+
+def get_atom_type_index_mapping(fragment):
+    """
+    Converts a SMILES string into an RDKit molecule (no sanitization) 
+    and generates a mapping that associates each atom index with its element 
+    symbol and free valence
+    
+    Args:
+        fragment (str): SMILES string representing a molecular fragment
+    
+    Returns:
+        tuple: (mol, atom_mapping) where:
+            - mol (rdkit.Chem.Mol): Parsed RDKit molecule object, or None if parsing fails
+            - atom_mapping (dict): Maps atom indices to [element_symbol, free_valence],
+                                  or None if parsing fails
+    """
+
+    try:
+        mol = Chem.RemoveHs(Chem.MolFromSmiles(fragment, sanitize=False), implicitOnly=False)
+    except (TypeError, Chem.KekulizeException, Chem.AtomValenceException):
+        return None, None
+
+    if mol is None:
+        return None, None
+
+    pt = Chem.rdchem.GetPeriodicTable()
+    atom_type_index_mapping = defaultdict(list)
+
+    for atom in mol.GetAtoms():
+        free_valence = pt.GetDefaultValence(atom.GetSymbol()) - atom.GetExplicitValence()
+        atom_type_index_mapping[atom.GetIdx()] = [atom.GetSymbol(), free_valence]
+
+    return mol, atom_type_index_mapping
+
+
+class ParsePathwayLog:
+    """
+    Parses and visualizes molecular assembly pathway logs as hierarchical directed graphs.
+    Processes structured log files that document molecular assembly pathways,
+    converting them into NetworkX directed graphs that represent the step-by-step
+    construction of complex molecules from basic building blocks. 
+    """
+
+    def __init__(self, pathway_log: str):
+        """
+        Initialize pathway parser and automatically process molecular assembly log.
+        
+        Creates a complete molecular assembly pathway analysis by parsing the structured
+        log, building a directed graph representation, validating the assembly sequence,
+        and computing hierarchical statistics. All processing occurs during initialization.
+        
+        Args:
+            pathway_log (str): Structured log content with required sections:
+                            - "#####Graph#####": Graph structure data
+                            - "#####Atoms#####": Atomic composition information  
+                            - "#####Steps#####": Assembly step definitions
+                            - "#####Digraph#####": Directed graph connectivity        
+        """
+        self.pathway_log = pathway_log
+        self.atom_lines, self.building_block_lines, self.steps_lines, self.digraph_lines = self._parse_log()
+        self.G = self._build_multidigraph()
+        self._validate_graph()
+        self._assign_levels()
+        self.nodes_per_level = self._count_nodes_per_level()
+
+    def _parse_log(self):
+        """
+        Extracts data from each section of the pathway log file, converting string
+        representations back to Python objects and organizing them by content type.
+        Handles the specific format of molecular assembly pathway logs.
+        
+        Returns:
+            tuple: Four parsed data structures:
+                - atom_lines (list): Parsed atomic data from #####Graph##### section
+                - building_block_lines (list): [name, data] pairs from #####Atoms##### section  
+                - steps_lines (dict): Step number to data mapping from #####Steps##### section
+                - digraph_lines (list): Parsed graph connectivity from #####Digraph##### section
+        """
+        atom_lines, building_block_lines, steps_lines, digraph_lines = [], [], {}, []
+        blocks = {"#####Graph#####": "atom", "#####Atoms#####": "building_block",
+                  "#####Steps#####": "steps", "#####Digraph#####": "digraph"}
+        current_block = None
+
+        for line in self.pathway_log.split("\n"):
+            if line in blocks:
+                current_block = blocks[line]
+                continue
+            if not line.strip():
+                continue
+
+            if current_block == "atom":
+                atom_lines.append(destringyfy(line))
+            elif current_block == "building_block":
+                building_block_lines.append([line.split("=")[0], destringyfy(line.split("=")[-1])])
+            elif current_block == "steps":
+                steps_lines[line.split("=")[0].replace("step", "")] = destringyfy(line.split("=")[-1])
+            elif current_block == "digraph":
+                digraph_lines.append(destringyfy(line))
+
+        return atom_lines, building_block_lines, steps_lines, digraph_lines
+
+    def _build_multidigraph(self):
+        """
+        Creates a directed graph where nodes are SMILES strings of molecular fragments
+        and edges represent assembly relationships. Each assembly step combines two
+        reactant fragments into one product fragment, creating a tree-like structure.
+        
+        Returns:
+            nx.MultiDiGraph: Directed graph where:
+                - Nodes: SMILES strings representing molecular fragments
+                - Edges: Assembly relationships
+                - Structure: Tree-like hierarchy showing assembly steps
+        """
+        graph = nx.MultiDiGraph()
+        smiles_graph = self._build_basic_building_blocks()
+        graph.add_nodes_from(smiles_graph.values())
+
+        for i in range(0, len(self.digraph_lines), 2):
+            step = self.digraph_lines[i][-1].replace("step_", "")
+            smiles_graph[self.digraph_lines[i][-1]] = self._build_fragment_for_step(step)
+            graph.add_node(smiles_graph[self.digraph_lines[i][-1]])
+            graph.add_edge(smiles_graph[self.digraph_lines[i][0]], smiles_graph[self.digraph_lines[i][-1]])
+            graph.add_edge(smiles_graph[self.digraph_lines[i + 1][0]], smiles_graph[self.digraph_lines[i][-1]])
+
+        return graph
+
+    def _build_basic_building_blocks(self):
+        """
+        Create SMILES representations of basic molecular building blocks.
+        
+        Converts building block data into RDKit molecules and generates SMILES strings
+        for the fundamental fragments used in molecular assembly. Each building block
+        is a simple two-atom molecule with a specific bond type.
+
+        Returns:
+            dict: Maps virtual object identifiers to SMILES strings:
+                  {"virtual_object_0": "SMILES", "virtual_object_1": "SMILES", ...}
+        """
+        bb = {}
+        for i, line in enumerate(self.building_block_lines):
+            edmol = Chem.EditableMol(Chem.Mol())
+            id1 = edmol.AddAtom(Chem.Atom(line[1][0][0]))
+            id2 = edmol.AddAtom(Chem.Atom(line[1][0][-1]))
+            edmol.AddBond(id1, id2, bond_types[line[1][-1]])
+            bb[f"virtual_object_{i}"] = Chem.MolToSmiles(edmol.GetMol())
+        return bb
+
+    def _build_fragment_for_step(self, step):
+        """
+        Construct molecular fragment for a specific assembly step.
+        
+        Builds an RDKit molecule from atom and bond data associated with an assembly
+        step, creating the product molecule that results from combining fragments
+        in that step. Handles atom indexing and bond type mapping to generate
+        accurate molecular representations.
+        
+        Args:
+            step (str): Step identifier for retrieving assembly data
+        
+        Returns:
+            str: SMILES string representation of the assembled fragment
+        """
+
+        bonds_ids = self.steps_lines[step]
+        atom_ids = list(set(atom for bond in bonds_ids for atom in bond))
+        atoms = [self.atom_lines[-2][atom_id] for atom_id in atom_ids]
+        bonds = {tuple(bond_id): self.atom_lines[-1][self.atom_lines[1].index(bond_id)] for bond_id in bonds_ids}
+
+        edmol = Chem.EditableMol(Chem.Mol())
+        id_mapping = {atom_id: i for i, atom_id in enumerate(atom_ids)}
+        for atom in atoms:
+            edmol.AddAtom(Chem.Atom(atom))
+        for bond_id, bond_type in bonds.items():
+            edmol.AddBond(id_mapping[bond_id[0]], id_mapping[bond_id[1]], bond_types[bond_type])
+        return Chem.MolToSmiles(edmol.GetMol())
+
+    def _validate_graph(self):
+        """
+        Validate molecular assembly pathway graph structure.
+        Checks that no molecule is formed from more than two reactants.
+      
+        Raises:
+            ValueError: If any node has more than 2 incoming edges (predecessors),
+                    indicating an invalid assembly step with >2 reactants
+        """
+        for node in self.G.nodes:
+            if len(list(self.G.in_edges(node))) > 2:
+                raise ValueError("Node has more than 2 predecessors - invalid!")
+
+    def _assign_levels(self):
+        """
+        Assign hierarchical levels to nodes based on assembly depth.
+        Building blocks start at level 0, and each subsequent assembly step increases the level.
+        """
+        for node in self.G.nodes:
+            if not list(self.G.predecessors(node)):
+                self.G.nodes[node].update({"level": 0, "assembly_index": 1})
+            else:
+                self.G.nodes[node]["level"] = self._get_level(node)
+
+    def _get_level(self, node):
+        """
+        Determines the assembly depth of a node based on its predecessors, where
+        level represents how many assembly steps were required to create this
+        molecular fragment from basic building blocks.
+        
+        Args:
+            node: Node identifier in the assembly graph
+        
+        Returns:
+            int: Hierarchical level (assembly depth) of the node
+        """
+
+        predecessors = [edge[0] for edge in self.G.in_edges(node)]
+        if not predecessors:
+            return 0
+        if len(predecessors) == 2:
+            return max(self.G.nodes[pred]["level"] for pred in predecessors) + 1
+        return self._get_level(predecessors[0])
+
+    def _count_nodes_per_level(self):
+        """
+        Count the number of molecular fragments at each assembly depth level.
+      
+        Returns:
+            dict: Maps level numbers to node counts {level: count, ...}
+        """
+        levels = {}
+        for node in self.G.nodes:
+            level = self.G.nodes[node]["level"]
+            levels[level] = levels.get(level, 0) + 1
+        return levels
+
+    def _get_node_positions(self):
+        """
+        Calculate 2D layout positions for hierarchical pathway visualization.
+        
+        Computes (x, y) coordinates for each node to create a layered graph layout
+        where nodes are arranged horizontally by assembly level and distributed
+        evenly within each level to avoid overlap.
+
+        Coordinate System:
+            - **X-axis**: Assembly depth (level * 2 for spacing)
+            - **Y-axis**: Even distribution within level (-N to +N)
+            - **Spacing**: Prevents node overlap in crowded levels
+        
+        Returns:
+            dict: Maps node IDs to [x, y] coordinate pairs for plotting
+        """
+        positions = {}
+        sorted_nodes = sorted(self.G.nodes(data=True), key=lambda x: x[1]["level"])
+        current_level, layer_pos = None, None
+
+        for node, _ in sorted_nodes:
+            level = self.G.nodes[node]["level"]
+            if level != current_level:
+                current_level = level
+                layer_pos = np.linspace(-self.nodes_per_level[level], self.nodes_per_level[level],
+                                        self.nodes_per_level[level])
+            positions[node] = [level * 2, layer_pos[0]]
+            layer_pos = np.delete(layer_pos, 0)
+
+        return positions
+
+    def plot_layered_graph(self, show_molecules=False, save_fig=True):
+        """
+        Generates a layered graph plot showing the assembly pathway structure with
+        optional molecular structure overlays. Nodes represent molecular fragments
+        and edges show assembly relationships, arranged by with assembly depth levels.
+
+        Args:
+            show_molecules (bool, optional): If True, overlays molecular structure
+                                        images on nodes. Default: False
+            save_fig (bool, optional): If True, saves plot as SVG file. If False,
+                                    displays plot interactively. Default: True    
+        """
+        fig, ax = plt.subplots(figsize=(12, 7))
+        cmap = plt.get_cmap("Blues")
+        node_colors = [cmap(0.4) for _ in self.G.nodes]
+        positions = self._get_node_positions()
+
+        nx.draw(self.G, pos=positions, ax=ax, with_labels=False, node_size=100,
+                node_color=node_colors, connectionstyle="arc3,rad=0.05", edge_color="grey", width=1)
+
+        if show_molecules:
+            for mol, pos in zip(sorted(self.G.nodes, key=lambda x: self.G.nodes[x]["level"]), positions.values()):
+                img = Draw.MolToImage(Chem.MolFromSmiles(mol), size=(150, 150))
+                imagebox = OffsetImage(img, zoom=0.3)
+                ab = AnnotationBbox(imagebox, (pos[0], pos[1] + 0.6), frameon=True)
+                ax.add_artist(ab)
+
+        if save_fig:
+            plt.savefig("data/images/pathway.svg", dpi=200)
+        else:
+            plt.show()
+
+
+class Molecule:
+    """
+    This class provides a unified interface for molecular structure analysis and hierarchical assembly visualization.
+    It can either work with existing assembly pathway data or compute new pathways using external tools.
+    """
+
+    def __init__(self,
+                 smiles: str = "",
+                 pathway: Optional[list[str]] = None,
+                 assembly_index: Optional[int] = None,
+                 G: Optional[nx.DiGraph] = None,
+                 timeout: Optional[int] = 60):
+
+        """
+        Initialize Molecule object with flexible input options for pathway analysis.
+        
+        Creates a Molecule object that can work with various types of input:
+        existing molecular structures, known pathways/assembly graphs. The object
+        is designed for lazy evaluation - pathway computation and analysis occur
+        only when needed.
+        
+        Args:
+            smiles (str, optional): SMILES string of target molecule. If empty,
+                                will be extracted from graph or computed from pathway.
+            pathway (list[str], optional): Pre-existing assembly pathway steps.
+                                        Used when pathway is already known.
+            assembly_index (int, optional): Position index in assembly sequence.
+                                        Used for tracking molecular position.
+            G (nx.DiGraph, optional): NetworkX directed graph representing assembly pathway.
+                                    If provided, SMILES extracted from final node.
+            timeout (int, optional): Timeout in seconds for external pathway computation
+                                    tools. Default: 60 seconds.
+        """
+        self.smiles = smiles
+        self.pathway = pathway
+        self.assembly_index = assembly_index
+        self.G = G
+        self.timeout = timeout
+        self.pathway_log_string = None
+        self.pathway_fragments = None
+        self.pathwayLogObj = None
+        self.assembly_output_path = None
+
+        if G:
+            self.smiles = list(G.nodes)[-1]
+
+    def get_smiles(self) -> str:
+        """
+        Returns the molecular SMILES string, automatically triggering pathway
+        computation and graph construction if the SMILES is not already available.
+
+        Returns:
+            str: SMILES string representation of the molecule
+        """
+        if not self.smiles:
+            self.reconstruct_pathway()
+            self.construct_layered_graph()
+        return self.smiles
+
+    def calc_pathway(self) -> None:
+        """
+        Execute external molecular assembly tool to compute assembly pathway.
+        
+        Converts the molecule to MOL file format and runs external assembly software
+        to compute the assembly pathway. Handles process execution, timeout
+        management, and file path tracking for subsequent pathway analysis.
+        
+        Notes:
+            1. Converts SMILES to temporary MOL file format
+            2. Launches external assembly tool as subprocess
+            3. Interrupts process if computation exceeds time limit
+            4. Stores pathway output file location for further analysis
+        """
+        mol = Chem.MolFromSmiles(self.smiles)
+        Chem.MolToMolFile(mol, 'temp.mol')
+        mol_file_path = Path("temp.mol")
+        proc = subprocess.Popen(
+            [add_assembly_to_path(), mol_file_path.parent / mol_file_path.stem],
+            stdout=subprocess.DEVNULL,
+        )
+        try:
+            proc.wait(timeout=self.timeout)
+        except subprocess.TimeoutExpired:
+            proc.send_signal(signal.SIGINT)
+
+        self.assembly_output_path = f"{mol_file_path.parent / mol_file_path.stem}Pathway"
+
+    def reconstruct_pathway(self) -> None:
+        """
+        Compute and parse molecular assembly pathway from external tools.
+        
+        Executes the complete pathway computation pipeline: runs external assembly
+        software, parses output files, and extracts pathway data for analysis.
+        Includes cleanup of all temporary files created during the process.
+        
+        Steps:
+            1. Call calc_pathway() to run external assembly tool
+            2. Extract pathway data from generated output files
+            3. Save fragments and log string to instance attributes
+            4.  Remove all temporary files from file system
+        
+        Attributes Set:
+            - self.pathway_fragments: List of molecular fragments in pathway
+            - self.pathway_log_string: Raw pathway computation log for analysis
+            - self.assembly_output_path: Path to pathway output (via calc_pathway)
+        """
+        self.calc_pathway()
+        _, self.pathway_fragments, self.pathway_log_string = parse_pathway_file(
+            self.assembly_output_path, vo_type="inchi", log=True
+        )
+        # Remove the temp files
+        os.remove('temp.mol')
+        os.remove('tempOut')
+        os.remove('tempPathway')
+
+    def construct_layered_graph(self):
+        """
+        Build hierarchical NetworkX graph from parsed assembly pathway log data.
+        
+        Creates a ParsePathwayLog object from the pathway results and
+        extracts the constructed graph and final molecule SMILES for analysis.
+        This converts raw pathway log into a structured, analyzable graph representation.
+        
+        Steps:
+            1. Create ParsePathwayLog object from pathway_log_string
+            2. Extract NetworkX MultiDiGraph from parsed log
+            3. Get final molecule from last graph node
+        """
+        self.pathwayLogObj = ParsePathwayLog(self.pathway_log_string)
+        self.G = self.pathwayLogObj.G
+        self.smiles = list(self.G.nodes)[-1]
+
+    def plot_layered_graph(self, show_molecule: bool = True):
+        """
+        Create hierarchical visualization of the molecular assembly pathway.
+        
+        Delegates to the ParsePathwayLog object to generate a layered graph plot
+        showing the step-by-step assembly process with optional molecular structure overlays.
+        
+        Args:
+            show_molecule (bool, optional): If True, displays molecular structure
+                                        images on graph nodes. Default: True
+        """
+        self.pathwayLogObj.plot_layered_graph(show_molecule)
+
+
+class MoleculeSpace:
+    """
+    This class provides comprehensive analysis tools for collections of molecular pathways,
+    enabling the study of shared assembly fragments, common building blocks, and hierarchical
+    relationships across multiple target molecules. It constructs unified graphs that reveal
+    the interconnected nature of molecular assembly space and supports fragment pool analysis.
+    """
+
+    def __init__(self, molecules: List['Molecule']):
+        """
+        Creates a MoleculeSpace object for analyzing multiple molecular pathways collectively.
+        Automatically extracts SMILES strings from all molecules, filters out invalid entries,
+        and sets up data structures for subsequent graph construction and analysis.
+        
+        Args:
+            molecules (List[Molecule]): Collection of Molecule objects with computed or
+                                    computable assembly pathways. Invalid molecules
+                                    (those returning None SMILES) are automatically filtered out.    
+        """
+        self.molecules = molecules
+        self.molecule_smiles = [molecule.get_smiles() for molecule in molecules]
+        self._remove_none()
+        self.joined_smiles = ".".join(self.molecule_smiles)
+        self.joined_assembly_graph = None
+        self.joined_assembly_graph_minus_x = None
+        self.max_assembly_index = None
+        self.root_nodes = None
+        self.leaf_nodes = None
+
+    def _remove_none(self):
+        """
+        Filter out molecules that cannot generate valid SMILES strings.
+    
+        Updates:
+            - self.molecules: Filtered to contain only molecules with valid SMILES
+            - self.molecule_smiles: Refreshed list of valid SMILES strings
+        """
+        self.molecules = [mol for mol in self.molecules if mol.get_smiles() is not None]
+        self.molecule_smiles = [mol.get_smiles() for mol in self.molecules]
+
+    def _set_root_nodes(self):
+        """
+        Identify building blocks (root nodes) in the assembly graph.
+        Finds all nodes with no incoming edges.
+        
+        Sets:
+            self.root_nodes: List of molecular fragments that serve as starting
+                            materials (in_degree = 0) in the assembly hierarchy
+        """
+        self.root_nodes = [
+            node for node in self.joined_assembly_graph.nodes
+            if self.joined_assembly_graph.in_degree(node) == 0
+        ]
+
+    def _set_leaf_nodes(self):
+        """
+        Identify observed, endpoint molecules (leaf nodes) present in the assembly graph.
+        These are the final assembled products. 
+        
+        Finds all observed molecule SMILES that exist as nodes in the joined graph,
+        representing the final products of assembly pathways in the collection.
+        
+        Sets:
+            self.leaf_nodes: List of observed molecule SMILES that appear as nodes
+                            in the unified assembly graph
+        """
+        self.leaf_nodes = [
+            node for node in self.molecule_smiles
+            if node in self.joined_assembly_graph.nodes
+        ]
+
+    def construct_joined_graph(self):
+        """
+        Creates an estimated joint assembly graph by merging all individual molecular pathways.
+        
+        Combines pathway graphs from all molecules using compose_all() to create
+        a single graph showing shared fragments and interconnected assembly routes.
+        Automatically identifies root nodes (building blocks) and leaf nodes (targets).
+        
+        Creates:
+            - self.joined_assembly_graph: Unified NetworkX graph with occurrence counts
+            - self.root_nodes: List of building blocks
+            - self.leaf_nodes: List of observed (endpoint) molecules
+        """
+        self.joined_assembly_graph = compose_all([mol.G for mol in self.molecules])
+        self._set_root_nodes()
+        self._set_leaf_nodes()
+
+    def a_minus_x_assembly_pool(
+            self, X: int = 1, get_graph: bool = True, remove_paths: bool = False
+    ) -> Union[nx.MultiDiGraph, List[str]]:
+        """
+        Generates fragment pool by reducing assembly depth by X levels.
+        
+        Creates a simplified molecular fragment pool by removing the X most complex
+        assembly levels, effectively "stepping back" in the assembly space to
+        obtain simpler fragments.
+        
+        Args:
+            X (int, optional): Number of assembly levels to remove (complexity reduction).
+                            Default: 1 (remove final assembly step)
+            get_graph (bool, optional): If True, returns graph object. If False,
+                                    returns node list. Default: True
+            remove_paths (bool, optional): If True, removes entire pathway fragments
+                                        and decrements usage counts. Default: False
+        
+        Returns:
+            Union[nx.MultiDiGraph, List[str]]: Simplified assembly graph or node list,
+                                            plus count of removed target molecules
+        
+        Steps
+            1. Ensure joined graph exists, find maximum complexity
+            2. Check X is within valid range
+            3. Find nodes exceeding threshold
+            4. Remove entire pathway fragments with count updates (Optional)
+            5. Remove all nodes above threshold
+            6. Return simplified graph/nodes plus removal statistics
+        """
+        if self.joined_assembly_graph is None:
+            print("Constructing joined assembly graph.", flush=True)
+            self.construct_joined_graph()
+
+        self.max_assembly_index = max(
+            self.joined_assembly_graph.nodes.data("level"), key=lambda x: x[-1]
+        )[-1]
+
+        if X > self.max_assembly_index:
+            raise ValueError(
+                f"X must be less than or equal to the maximum assembly index {self.max_assembly_index}"
+            )
+
+        temp_graph = self.joined_assembly_graph.copy()
+        to_remove = [
+            node for node in self.leaf_nodes
+            if temp_graph.nodes[node]["level"] > self.max_assembly_index - X
+        ]
+
+        removed_observed = 0
+        if remove_paths:
+            for node in to_remove:
+                if not temp_graph.has_node(node):
+                    print(f"Node {node} not in graph", flush=True)
+                    continue
+                try:
+                    pw_nodes = self.molecules[self.molecule_smiles.index(node)].G.nodes
+                except Exception as e:
+                    print(f"Could not find {node}: {e}", flush=True)
+                    temp_graph.remove_node(node)
+                    continue
+
+                for pw_node in pw_nodes:
+                    if temp_graph.has_node(pw_node):
+                        if temp_graph.nodes[pw_node]["count"] > 1:
+                            temp_graph.nodes[pw_node]["count"] -= 1
+                        else:
+                            temp_graph.remove_node(pw_node)
+                removed_observed += 1
+
+        for node in list(temp_graph.nodes):
+            if temp_graph.nodes[node]["level"] > self.max_assembly_index - X:
+                temp_graph.remove_node(node)
+
+        if not remove_paths:
+            removed_observed += sum(1 for leaf in self.leaf_nodes if not temp_graph.has_node(leaf))
+
+        self.joined_assembly_graph_minus_x = temp_graph
+        return (temp_graph, removed_observed) if get_graph else (list(temp_graph.nodes), removed_observed)
+
+
+class MoleculeGenerationAssemblyPool:
+    """
+    Generate novel molecules from molecular fragment pools.
+    
+    This class implements a molecular generation algorithm that creates new molecules
+    by randomly combining fragments from existing assembly pathways. It uses statistical sampling
+    based on fragment occurrence frequencies and chemical compatibility to generate chemically
+    reasonable novel molecular structures.
+    """
+
+    def __init__(self, assembly_pool) -> None:
+        """
+        Sets up the molecular generation framework by connecting to a MoleculeSpace
+        object and initializing data structures for fragment-based molecule creation.
+        
+        Args:
+            assembly_pool (MoleculeSpace): Source of validated molecular fragments
+                                        and assembly pathway statistics
+        """
+        self.diverged_assembly_graph = None
+        self.original_a_minus_X = None
+        self.bu_level_to_fragment = None
+        self.level_to_fragment = None
+        self.num_removed = None
+        self.assembly_pool = assembly_pool
+        self.assembled_molecules: dict[int, list] = defaultdict(list)
+        self.original_a_minus_X: None
+        self.diverged_assembly_graph: nx.MultiDiGraph
+        self.level_to_fragment: dict[int, list[str]]
+        self.sampling_weights: list[int]
+
+    def set_assembly_pool(self, x=10, remove_pathways=False):
+        """
+        Configure fragment pool for molecule generation by reducing steps in assembly depth.
+        
+        Extracts and organizes molecular fragments from the assembly pool at a specified
+        depth level, creating structured fragment libraries organized by assembly
+        depth. Establishes the foundation for subsequent weighted sampling and generation.
+
+        Steps:
+            1. Extract fragments X levels 'below' in assembly depth
+            2. Group fragments by assembly depth levels
+            3. Include only fragments with valid atomic information
+            4. Store copies for reset operations during generation
+            5. Save snapshot of initial fragment pool state
+        
+        Args:
+            x (int, optional): Assembly depth reduction level. Higher values create
+                            simpler fragment pools. Default: 10
+            remove_pathways (bool, optional): If True, removes entire pathways and updates
+                                            usage counts. If False, simple node removal.
+                                            Default: False
+        """
+        _, self.num_removed = self.assembly_pool.a_minus_x_assembly_pool(
+            X=x, get_graph=False, remove_paths=remove_pathways
+        )
+
+        # Populate self.level_to_fragment
+        graph = self.assembly_pool.joined_assembly_graph_minus_x
+        self.level_to_fragment = defaultdict(list)
+        for node, level in nx.get_node_attributes(graph, "level").items():
+            if graph.nodes[node].get("atomic_count") is not None:
+                self.level_to_fragment[level].append(node)
+
+        self.bu_level_to_fragment = self.level_to_fragment.copy()
+        self.original_a_minus_X = deepcopy(graph)
+
+    def reset_level_to_fragment(self):
+        """
+        Reset fragment pool to original state for independent molecule generation.
+        
+        Restores the level_to_fragment mapping from backup, ensuring each molecule
+        generation process starts with the same initial fragment pool regardless
+        of modifications made during previous generation attempts.
+        """
+        self.level_to_fragment = self.bu_level_to_fragment.copy()
+
+    def get_leaf_nodes(self):
+        """
+        Identify 'observed' molecules in the diverged assembly graph.
+
+        Returns all nodes with no outgoing edges, representing both original 'observed'
+        molecules and newly generated molecules.
+        
+        Returns:
+            list: Node IDs of all terminal molecules (out_degree = 0)
+        """
+        return [
+            node
+            for node in self.diverged_assembly_graph
+            if self.diverged_assembly_graph.out_degree(node) == 0
+        ]
+
+    def get_assembled_molecules(self):
+        """
+        Extract final products from all successful molecule generation attempts.
+        
+        Returns the terminal molecules from each generation process, representing
+        the completed assembled structures after all assembly steps.
+        
+        Returns:
+            list or None: List of final assembled molecule SMILES strings,
+                        or None if no molecules have been generated
+        """
+        if not self.assembled_molecules:
+            return None
+        return [molecules[-1][-1] for molecules in self.assembled_molecules.values() if molecules]
+
+    def get_leaf_counts_per_level(self, min_level=1) -> dict[int, int]:
+        """
+        Count target molecules (leaf nodes) at each assembly depth level.
+        
+        Creates a frequency distribution of final assembled molecules across
+        assembly hierarchy levels, used for statistical weighting in generation
+        algorithms to maintain realistic molecular complexity distributions.
+        
+        Args:
+            min_level (int, optional): Minimum assembly level to include in counts.
+                                    Default: 1 (excludes building blocks)
+        Returns:
+            dict[int, int]: Maps assembly levels to counts of target molecules
+                        at that complexity level
+        """
+        leaf_counts = defaultdict(int)
+        for node in self.assembly_pool.leaf_nodes:
+            node_data = self.assembly_pool.joined_assembly_graph.nodes[node]
+            if self.assembly_pool.joined_assembly_graph.out_degree(node) == 0 and node_data["level"] >= min_level:
+                leaf_counts[node_data["level"]] += 1
+
+        for level in range(min_level, self.assembly_pool.max_assembly_index + 1):
+            leaf_counts.setdefault(level, int(1e-8))
+
+        return leaf_counts
+
+    def add_to_assembly_graph(self, parents, child) -> bool:
+        """
+        Integrate a newly generated molecule into the assembly depth graph.
+        
+        Adds a generated molecule to the extended assembly graph with proper
+        connectivity, hierarchy levels, and chemical metadata. Establishes
+        the molecule's position in the assembly network for future sampling.
+        
+        Args:
+            parents (list): List of two parent fragment SMILES that were combined
+            child (str): SMILES string of the newly generated molecule
+        
+        Returns:
+            bool: True if successfully added to graph, False if molecular
+                processing failed
+        
+        Integration Process:
+            1. Compute atomic composition and free valence
+            2. Add assembly relationships (parents → child)
+            3. Set hierarchical level (max(parent_levels) + 1)
+            4. Add count, level, and atomic information
+            5. Register molecule in level-based fragment lists
+        """
+        pt = Chem.rdchem.GetPeriodicTable()
+        atomic_count = []
+        try:
+            for atom in Chem.MolFromSmiles(child).GetAtoms():
+                free_atom_valence = (
+                        pt.GetDefaultValence(atom.GetSymbol()) - atom.GetExplicitValence()
+                )
+                # Append atoms with free valence
+                if free_atom_valence > 0:
+                    atomic_count.append(atom.GetAtomicNum())
+
+
+        except AttributeError:
+            print(child, flush=True)
+            return False
+
+        for parent in parents:
+            self.assembly_pool.joined_assembly_graph_minus_x.add_edge(parent, child)
+
+        # set level of child
+        child_level = (
+                max(
+                    self.assembly_pool.joined_assembly_graph_minus_x.nodes[parents[0]][
+                        "level"
+                    ],
+                    self.assembly_pool.joined_assembly_graph_minus_x.nodes[parents[1]][
+                        "level"
+                    ],
+                )
+                + 1
+        )
+        self.level_to_fragment[child_level].append(child)
+
+        self.assembly_pool.joined_assembly_graph_minus_x.nodes[child]["level"] = (
+            child_level
+        )
+        self.assembly_pool.joined_assembly_graph_minus_x.nodes[child]["count"] = 1
+
+        self.assembly_pool.joined_assembly_graph_minus_x.nodes[child][
+            "atomic_count"
+        ] = set(atomic_count)
+
+        return True
+
+    def construct_diverged_assembly_graph(self):
+        """
+        Create snapshot of the extended assembly graph including generated molecules.
+        
+        Captures the current state of the assembly pathway graph that has been
+        expanded with newly generated molecules, preserving the complete network
+        for analysis and visualization of both original and generated pathways.
+        
+        Creates:
+            self.diverged_assembly_graph: Deep copy of the expanded assembly graph
+                                        containing original fragments plus generated molecules
+        """
+        self.diverged_assembly_graph = deepcopy(self.assembly_pool.joined_assembly_graph_minus_x)
+
+    def set_sw_layer(self, exponent: float = 2.0):
+        """
+        Calculate sampling weights for assembly depth layers.
+
+        Computes probabilistic weights for each assembly depth level based on fragment
+        occurrence frequencies, enabling biased sampling toward more common or
+        well-represented levels during molecule generation.
+
+        Weighting Strategy:
+            1. Sum fragment counts within each level
+            2. Apply power transformation (count^exponent)
+            3. Create weights for entire complexity layers
+        
+        Args:
+            exponent (float, optional): Power for frequency weighting. Higher values
+                                    increase bias toward frequent fragments.
+                                    Default: 2.0 (quadratic weighting)
+        Creates:
+            self.layer_sampling_weights: Dictionary mapping assembly levels to
+                                        aggregate sampling weights
+        """
+
+        self.layer_sampling_weights: dict = defaultdict(int)
+        for node in self.assembly_pool.joined_assembly_graph:
+            self.layer_sampling_weights[
+                self.assembly_pool.joined_assembly_graph.nodes[node]["level"]
+            ] += (
+                    self.assembly_pool.joined_assembly_graph.nodes[node]["count"]
+                    ** exponent
+            )
+
+    def set_sw_n_steps(self, level: int = 0, exponent: float = 1.0):
+        """
+        Calculate sampling weights for assembly step counts based on target molecule distribution.
+        
+        Computes probabilistic weights for different numbers of assembly steps based on
+        the distribution of target molecules across assembly depth levels, enabling generation
+        of molecules with realistic assembly sequence lengths.
+        
+        Args:
+            level (int, optional): Minimum assembly depth level to consider. Default: 0
+            exponent (float, optional): Power for frequency weighting. Higher values
+                                    bias toward assembly depth levels with more targets.
+                                    Default: 1.0 (linear weighting)
+        
+        Weighting Strategy:
+            1. Use leaf molecule counts per complexity level
+            2. Fill gaps with zeros for missing levels
+            3. Apply power transformation to leaf counts
+            4. Create ordered list for step number sampling
+        
+        Creates:
+            self.n_steps_sampling_weights: List of weights indexed by step count,
+                                        where weights[i] represents probability
+                                        of taking i assembly step
+        """
+        leaf_counts = self.get_leaf_counts_per_level(min_level=level + 1)
+        keys = list(leaf_counts.keys())
+        keys.sort()
+        # make sure no level is skipped (is the case if no leaf node on that level is present)
+        continous_keys = np.arange(0, max(keys) + 1, 1)
+
+        self.n_steps_sampling_weights = list(
+            leaf_counts[key] ** exponent if key in keys else 0 for key in continous_keys
+        )
+
+    def sample_layer(self, exponent=2.0, curr_depth=0, black_listed_layers=None) -> int:
+        """
+        Randomly select assembly depth layer for fragment sampling.
+        This is done to ensure roughly same molecule size distribution as in the assembly pool
+
+        Performs weighted random selection of an assembly depth layer for
+        fragment selection, constrained by current assembly depth and excluding
+        problematic layers to maintain realistic molecular size distributions.
+                
+        Sampling Strategy:
+            1. Only consider layers at or below current assembly depth
+            2. Bias toward layers with higher statistical weights
+            3. Exclude problematic or exhausted layers
+            4. Compute sampling weights only when first needed
+        
+        Args:
+            exponent (float, optional): Power for frequency weighting calculation.
+                                    Default: 2.0 (quadratic bias toward common layers)
+            curr_depth (int, optional): Current assembly depth (maximum layer allowed).
+                                    Default: 0 (only building blocks available)
+            black_listed_layers (list, optional): Assembly levels to exclude from sampling.
+                                                Default: None (no exclusions)
+        Returns:
+            int: Selected assembly depth level for fragment sampling
+        """
+        if black_listed_layers is None:
+            black_listed_layers = []
+        if not hasattr(self, "layer_sampling_weights"):
+            self.set_sw_layer(exponent=exponent)
+
+        layer_ids, layer_weights = [], []
+        for item in self.layer_sampling_weights.items():
+            if item[0] <= curr_depth and item[0] not in black_listed_layers:
+                layer_ids.append(item[0])
+                layer_weights.append(item[1])
+
+        return random.choices(
+            layer_ids,
+            weights=layer_weights,
+            k=1,
+        )[0]
+
+    def wrs_from_layer(self,
+                       base_mol,
+                       inverse: bool = False,
+                       layer: int = 0,
+                       exponent: float = 1.0,
+                       blacklist=None,
+                       ) -> tuple[str, int]:
+        """
+        Weighted random sampling (WRS) of chemically compatible fragments from an assembly depth layer.
+        
+        Selects a random fragment from the specified assembly layer that is theoretically
+        compatible with the base molecule, using weighted sampling based on fragment
+        usage frequencies and atomic bonding compatibility.
+
+        Compatibility:
+        - Fragments must share at least one atom type with free valence
+        - Uses atomic_count sets to check bonding compatibility
+        - Ensures selected fragments can actually bond to base molecule
+    
+        Args:
+            base_mol (str): SMILES string of base molecule to find compatible fragment for
+            inverse (bool, optional): If True, inverts exponent to bias toward rare fragments.
+                                    Default: False (bias toward common fragments)
+            layer (int, optional): Assembly depth layer to sample from. Default: 0
+            exponent (float, optional): Power for frequency weighting. Default: 1.0
+            blacklist (list, optional): Fragment SMILES to exclude from sampling. Default: None
+        
+        Returns:
+            tuple[str, int]: (selected_fragment_SMILES, number_of_compatible_fragments)
+                            Returns (None, 0) if no compatible fragments found
+        """
+
+        # sample node from layer
+        if blacklist is None:
+            blacklist = []
+        if inverse:
+            exponent = -exponent
+        relevant_fragments = self.level_to_fragment[layer]
+
+        # check if available fragments can be combined with base_mol based on available atoms
+        layer_fragments = []
+        fragment_weights = []
+        for node in relevant_fragments:
+            if (
+                    self.assembly_pool.joined_assembly_graph_minus_x.nodes[node][
+                        "atomic_count"
+                    ]
+                    & self.assembly_pool.joined_assembly_graph_minus_x.nodes[base_mol][
+                "atomic_count"
+            ]
+            ):
+                layer_fragments.append(node)
+                # Why does this happen when we have set_sw_layer?
+                fragment_weights.append(
+                    self.assembly_pool.joined_assembly_graph_minus_x.nodes[node][
+                        "count"
+                    ]
+                    ** exponent
+                )
+
+        if len(layer_fragments) == 0:
+            return None, 0
+        fragment = random.choices(layer_fragments, weights=fragment_weights, k=1)[0]
+
+        return fragment, len(layer_fragments)
+
+    def weighted_n_steps_sampler(self, n, min_level=1):
+        """
+        Sample number of assembly steps using target molecule distribution.
+        
+        Randomly selects how many assembly steps to perform based on the statistical
+        distribution of target molecule complexities, ensuring generated molecules
+        follow realistic assembly sequence lengths.
+        
+        Args:
+            n (int): Maximum number of assembly steps allowed
+            min_level (int, optional): Minimum complexity level to start weighting from.
+                                    Default: 1 (exclude building blocks)
+        
+        Returns:
+            int: Number of assembly steps to perform (1 to n)
+        """
+        return random.choices(
+            list(range(1, n + 1)),
+            weights=self.n_steps_sampling_weights[min_level + 1:],
+            k=1,
+        )[0]
+
+    def get_random_fragment_with_level(self, node_level: int) -> str:
+        """
+        Randomly selects a fragment from a specific assembly depth level.
+        
+        Performs uniform random selection from all available fragments at the
+        specified assembly depth level, without weighting or compatibility constraints.
+
+        Args:
+            node_level (int): Assembly depth level to sample from
+        
+        Returns:
+            str: SMILES string of randomly selected fragment
+        """
+        return random.choice(self.level_to_fragment[node_level])
+
+    def combine_fragments_layer(self,
+                                fragment1,
+                                fragment2,
+                                assemble_object,
+                                layer=1):
+
+        """
+        Combine two molecular fragments into a new molecule.
+        
+        Performs molecular fragment combination by parsing SMILES strings, extracting
+        atomic information, and delegating to the assembly object for bond formation.
+        Handles molecular preprocessing and error cases for robust generation.
+        
+        Args:
+            fragment1 (str): SMILES string of first fragment
+            fragment2 (str): SMILES string of second fragment
+            assemble_object: Assembly engine object with create_bond method
+            layer (int, optional): Assembly layer/complexity level. Default: 1
+        
+        Returns:
+            str or None: SMILES string of combined molecule if successful,
+                        None if parsing fails or combination is invalid
+        Steps:
+            1. Convert SMILES to RDKit molecules
+            2. Extract atom type and valence information
+            3. Check both molecules parsed successfully
+            4. Delegate to assembly object for bond formation 
+        """
+        mol1, atomtype_index_mapping1 = get_atom_type_index_mapping(fragment1)
+        mol2, atomtype_index_mapping2 = get_atom_type_index_mapping(fragment2)
+
+        if mol1 is None or mol2 is None:
+            return None
+
+        return assemble_object.create_bond(
+            mol1,
+            mol2,
+            atomtype_index_mapping1,
+            atomtype_index_mapping2,
+            layer=layer,
+        )
+
+    def random_construct_n_molecules(self,
+                                     n,
+                                     steps,
+                                     x=10,
+                                     inverse: bool = False,
+                                     exponent: float = 1.0,
+                                     layer_exponent: float = 2.0,
+                                     step_exponent: float = 1.0,
+                                     remove_pathways: bool = False
+                                     ):
+
+        """
+        Generate N novel molecules through probabilistic fragment assembly.
+        
+        Creates new molecules by iteratively combining fragments from existing assembly pathways. Uses statistical
+        sampling to balance chemical realism and novelty. 
+
+        Steps
+            1. Extract fragment pool at complexity level A-X
+            2. Compute sampling weights for layers and steps
+            3. For each target molecule:
+                - Select starting fragment from highest complexity level
+                - Determine assembly sequence length using weighted sampling
+                - Iteratively combine fragments through multi-step assembly
+                - Apply chemical validation and error recovery
+                - Track construction history and update assembly graph
+            4. Create extended assembly network with generated molecules
+
+        Args:
+            n (int): Target number of molecules to generate
+            steps (int): Maximum number of assembly steps per molecule
+            x (int, optional): Assembly complexity reduction level for fragment pool.
+                            Higher values use simpler fragments. Default: 10
+            inverse (bool, optional): If True, bias toward rare fragments for novelty.
+                                    If False, bias toward common fragments. Default: False
+            exponent (float, optional): Fragment frequency weighting power. Default: 1.0
+            layer_exponent (float, optional): Layer sampling bias strength. Default: 2.0
+            step_exponent (float, optional): Step count sampling bias strength. Default: 1.0
+            remove_pathways (bool, optional): If True, exclude entire pathways from pool.
+                                            Default: False
+        Returns:
+            None: Results stored in self.assembled_molecules and self.diverged_assembly_graph
+        """
+
+        def _combine_fragments(fragment1, layer, curr_depth=None):
+            """
+            Inner function to attempt fragment combination with compatibility checking.
+            
+            Encapsulates the fragment selection and combination logic for a single assembly
+            step, handling weighted sampling of compatible fragments and molecular assembly
+            with comprehensive error reporting for adaptive retry mechanisms.
+            
+            Args:
+                fragment1 (str): SMILES string of base fragment to extend
+                layer (int): Assembly complexity layer to sample second fragment from
+                curr_depth (int, optional): Current assembly depth for layer assignment
+            
+            Returns:
+                tuple: (combined_molecule, selected_fragment, num_compatible_fragments)
+                    - combined_molecule (str or None): SMILES of successful combination or None
+                    - selected_fragment (str or None): SMILES of fragment that was selected
+                    - num_compatible_fragments (int): Count of chemically compatible options
+            """
+            fragment2, num_fragments = self.wrs_from_layer(
+                base_mol=fragment1,
+                inverse=inverse,
+                exponent=exponent,
+                blacklist=black_list,
+                layer=layer,
+            )
+            if fragment2 is None:
+                return None, None, 0
+            return (
+                self.combine_fragments_layer(fragment1, fragment2, assemble_object, layer=curr_depth),
+                fragment2,
+                num_fragments,
+            )
+
+        assemble_object = Assemble()
+        self.set_assembly_pool(x=x, remove_pathways=remove_pathways)
+
+        # Starting level
+        level = max(nx.get_node_attributes(self.original_a_minus_X, "level").values())
+        self.set_sw_n_steps(level=level, exponent=step_exponent)
+
+        # only relevant, if cont. loss assembly space has depths without observed nodes
+        if self.assembly_pool.max_assembly_index - level != steps:
+            steps = self.assembly_pool.max_assembly_index - level
+        if n is None:
+            n = self.num_removed
+
+        # start generation
+        # starting_level = list(range(0, level + 1))
+        assembled_molecules = 0
+        i = 0
+
+        # n * 2 > i is used to make sure that the loop does not run forever. This cutoff is arbitrary
+        while assembled_molecules < n:  # and n * 2 > i:
+            # Sample level to start from (0 - level) fragment and number of steps
+            start_level = level  # random.sample(starting_level, 1)[0]
+            fragment1 = self.get_random_fragment_with_level(node_level=start_level)
+            n_steps = self.weighted_n_steps_sampler(
+                steps + (level - start_level), min_level=start_level
+            )
+            construction_continues = True
+
+            for j in range(n_steps):
+                max_tries = 5_000
+                num_fragments = 99  # just has to be larger 1
+                black_list = []
+                black_listed_layer = []
+
+                while num_fragments >= 1 and construction_continues:
+                    max_tries -= 1
+                    if max_tries <= 0:
+                        try:
+                            del self.assembled_molecules[i]
+                            self.assembled_molecules[i] = []
+                        except KeyError:
+                            pass
+                        break
+
+                    layer = self.sample_layer(
+                        exponent=layer_exponent, curr_depth=start_level + j,  # black_listed_layers=black_listed_layer
+                    )
+
+                    molecule, fragment2, num_fragments = _combine_fragments(
+                        fragment1, layer, curr_depth=start_level + j
+                    )
+                    if molecule is not None:
+                        if Chem.MolFromSmiles(molecule) is None:
+                            continue
+
+                        # update fragment1 and graph
+                        self.assembled_molecules[i].append(
+                            [fragment1, fragment2, molecule]
+                        )
+                        self.add_to_assembly_graph([fragment1, fragment2], molecule)
+                        fragment1 = molecule
+                        break
+                    elif num_fragments == 0:
+                        black_listed_layer.append(layer)
+                    else:
+                        black_list.append(fragment2)
+                        continue
+            if self.assembled_molecules[i]:
+                assembled_molecules += 1
+            i += 1
+
+            # because regenerating a molecule
+            # is done independently of the other molecules
+            self.reset_level_to_fragment()
+        self.construct_diverged_assembly_graph()
+
+
+class Assemble:
+    """
+    This class implements molecular assembly algorithms that combine two molecular
+    fragments by overlapping atoms and forming new bonds. It uses probabilistic selection of
+    overlap sites, chemical validation, and retry mechanisms to generate chemically reasonable
+    molecular products from fragment precursors.
+    """
+
+    # Empircal propabilities of number of atom overlaps, starting at 1
+    # e.g., there is a 90.8% of fragments connecting at 1 atom. 
+    BASE_WEIGHTS = [0.908, 0.075, 0.0137, 0.003]
+
+    def __init__(self) -> None:
+        pass
+
+    def select_n_overlaps(self, f1_atoms, f2_atoms, p_combinations_copy, layer=None) -> list:
+        """
+        Select atom overlap pairs for molecular assembly using empirical probability weights.
+        
+        Determines how many and which atom pairs to overlap when combining two molecular
+        fragments, using statistical weights derived from chemical reaction patterns established
+        in Pagel et al. Balances chemical realism with structural constraints to select feasible overlaps.
+        
+        Args:
+            f1_atoms (int): Number of atoms in first fragment
+            f2_atoms (int): Number of atoms in second fragment  
+            p_combinations_copy (list): Available atom pair combinations for overlapping
+            layer (optional): Assembly complexity layer for layer-specific weights
+        
+        Returns:
+            list: Selected atom pairs for overlapping [[atom1_idx, atom2_idx], ...]
+        """
+        max_overlap = select_max_overlaps(f1_atoms, f2_atoms)
+        allowed_combinations = min(count_non_overlapping_sublists(p_combinations_copy), max_overlap)
+
+        weights = (
+            [v for k, v in sorted(self.BASE_WEIGHTS.get(layer, self.BASE_WEIGHTS[20]).items()) if
+             k <= allowed_combinations]
+            if isinstance(self.BASE_WEIGHTS, dict)
+            else self.BASE_WEIGHTS[:allowed_combinations]
+        )
+
+        num_combinations = random.choices(range(1, len(weights) + 1), weights=weights, k=1)[0]
+        return get_allowed_pairs(p_combinations_copy, k=num_combinations)
+
+    def create_bond(self, fragment1, fragment2, atomtype_index_mapping1, atomtype_index_mapping2, layer=None):
+        """
+        Combine two molecular fragments through probabilistic atom overlap assembly.
+        
+        The main assembly engine that attempts to create a new molecule by combining
+        two fragments through atom overlap. Uses iterative sampling with
+        empirical probability weights and extensive retry mechanisms to find successful
+        chemical combinations.
+        
+        Args:
+            fragment1 (rdkit.Chem.Mol): First molecular fragment to combine
+            fragment2 (rdkit.Chem.Mol): Second molecular fragment to combine
+            atomtype_index_mapping1 (dict): Atom index to [element, valence] mapping for fragment1
+            atomtype_index_mapping2 (dict): Atom index to [element, valence] mapping for fragment2
+            layer (optional): Assembly complexity layer for layer-specific overlap probabilities
+        
+        Returns:
+            str or None: SMILES string of successfully assembled molecule, or None if all attempts fail
+        """
+        possible_combinations = get_possible_combinations(atomtype_index_mapping1, atomtype_index_mapping2)
+        if not possible_combinations:
+            return None
+
+        for _ in range(5000):
+            f1, f2 = deepcopy(fragment1), deepcopy(fragment2)
+            combinations = self.select_n_overlaps(f1.GetNumAtoms(), f2.GetNumAtoms(), possible_combinations,
+                                                  layer=layer)
+            for c in combinations:
+                possible_combinations.remove(c)
+
+            smiles = combine_fragments(f1, f2, combinations)
+            if smiles:
+                return smiles
+        return None

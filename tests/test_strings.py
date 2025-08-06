@@ -3,7 +3,7 @@ import assemblytheorytools as att
 
 def test_undirected_str_ass():
     """
-    Test the string assembly index calculation in mol mode for an undirected string.
+    Test the string assembly index calculation of an undirected string.
 
     This function performs the following steps:
     1. Defines an input string.
@@ -23,7 +23,7 @@ def test_undirected_str_ass():
 
 def test_directed_str_ass():
     """
-    Test the string assembly index calculation in mol mode for a directed string.
+    Test the string assembly index calculation of a directed string.
 
     This function performs the following steps:
     1. Defines an input string.
@@ -127,3 +127,13 @@ def test_string_large_pool():
     pool = att.generate_random_strings(1000, 3)
     ai = att.calculate_string_assembly_index(pool, directed=True, mode="cfg")[0]
     assert ai >= 0
+
+
+def test_small_strs():
+    """
+    Test the calculation of the assembly index for small strings.
+    """
+    a1, _, _ = att.calculate_string_assembly_index("abba", directed=True, debug=True)
+    a2, _, _ = att.calculate_string_assembly_index("abba", directed=False, debug=True)
+    assert a1 == 3
+    assert a2 == 2
