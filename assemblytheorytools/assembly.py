@@ -18,7 +18,8 @@ from rdkit.Chem import AllChem as Chem
 
 import CFG
 from .construction import parse_pathway_file
-from .construction_string import parse_string_pathway_file
+from .construction_string import (parse_string_pathway_file,
+                                  mol_mode_path_parse)
 from .pathway import (get_pathway_to_graph,
                       get_pathway_to_mol,
                       get_pathway_to_inchi)
@@ -568,6 +569,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
     if mode == "mol":  # Use the molecular assembly cpp calculator
         if directed:
             graph = get_dir_str_molecule(string)
+            edge_color_dict = None
         else:
             graph, edge_color_dict = get_undir_str_molecule(string, debug=debug)
 
@@ -602,6 +604,10 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         ai = graph_ai - 2 * len(delimiters)
         if directed:
             ai = ai - len(set(string))
+
+        # Parse the virtual object and path
+        virt_obj, path = mol_mode_path_parse(graph_virtual_obj, graph_path, edge_color_dict=edge_color_dict)
+
 
         if debug:
             print(f"Assembly Index: {ai}", flush=True)

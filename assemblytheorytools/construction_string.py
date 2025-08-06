@@ -105,3 +105,22 @@ def parse_string_pathway_file(file_path_pathway):
     path = build_str([0, len(VOs["file_string"])], data, path) # Build the string from the pathway data
     
     return VOs, path 
+
+
+def mol_mode_path_parse(graph_virtual_obj, graph_path, edge_color_dict=None):
+    """
+    Parses a pathway file in mol mode and returns the pathway as a list of virtual objects.
+    
+    Args:
+        file_path_pathway (str): Path to the pathway file.
+        graph_virtual_obj (dict): Dictionary of virtual objects in the calculated pathway.
+        graph_path (networkx.DiGraph): NetworkX directed graph representing the pathway.
+        edge_color_dict (dict, optional): Dictionary mapping edges to colors. Defaults to None. Implicitly this sets the directed flag.
+    
+    Returns:
+        virt_objs: dict of virtual objects in calculated pathway.
+        path: networkx.DiGraph representing the pathway.
+    """
+
+
+    
