@@ -1,9 +1,11 @@
 
 <img width="2096" height="934" alt="Frame - 1 (2)" src="https://github.com/user-attachments/assets/4cc72e01-3ea4-4c0e-abd8-ba1af100b79b" />
 
-# AssemblyTheoryTools
+# 🚀 `AssemblyTheoryTools` <!-- [![Stars](https://img.shields.io/github/stars/ELIFE-ASU/assemblytheorytools.svg?style=social&maxAge=3600&label=Star)](https://github.com/ELIFE-ASU/assemblytheorytools/stargazers)-->
 A centralised set of tools for doing assembly theory calculations written in Python.
-The aim is that this package provides a platform to do calculations that work out of the box. 
+
+## 🗺️ Overview
+The aim is that this package provides a platform to do assembly theory calculations that work out of the box. 
 We currently interface with [C++](https://github.com/croningp/assemblycpp-v5) and [Rust](https://github.com/DaymudeLab/assembly-theory) assembly calculators, and this package comes with precompiled versions of both.
 This version works best on Unix-based systems, and to use this package, it is strongly suggested that you use the Linux subsystem if you are using Windows.
 
@@ -28,7 +30,7 @@ Currently, ATT supports and connects to:
 If you find this package useful, please cite the following papers: 
 Sharma _et al._ 2023 and Seet _et al._ 2024, found in the paper.bib.
 
-# Getting started
+## 🔧 Installing
 Check out the requirements and installation instructions below.
 
 The simplest way to install ATT is to use pip, which is the recommended package manager for Python. Installation is as simple as,
@@ -42,13 +44,13 @@ This is because the package is private and requires authentication to access.
 Further instructions can be found on this [GitHub page](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository).
 
 The code needs a compiled assemblyCPP, which is included in this package by default. 
-However, if you want to use your own version, you can set the `ASS_PATH` environmental 
+However, if you want to use your version, you can set the `ASS_PATH` environmental 
 variable to the path of your AssemblyCPP installation.
 For example, put `export ASS_PATH=/home/user/asscpp` in your submission 
 script or your `.bashrc`. 
-For compilation instructions to make your own version from source, checkout AssemblyCPP for instructions.
+For compilation instructions to make your version from source, check out AssemblyCPP for instructions.
 
-## Simple example
+## 💡 Example
 
 For most use cases, the general calculation can be 
 exposed via the `calculate_assembly_index` function.
@@ -67,11 +69,11 @@ going to use a SMILES string which corresponds to Caffeine.
 ```
 smi = 'CN1C=NC2=C1C(=O)N(C(=O)N2C)C'
 ```
-Next, we must convert our SMILES string into a molecular graph
+Next, we must convert our SMILES string into a molecular graph.
 ```
 graph = att.smi_to_nx(smi)
 ```
-We are now ready to calculate the assembly index. To do this, we will use the `calculate_assembly_index` function. 
+We are now ready to calculate the assembly index using the `calculate_assembly_index` function. 
 We will also get the virtual objects and the assembly path.
 ```
 ai, virt_obj, pathway = att.calculate_assembly_index(graph, strip_hydrogen=True)
@@ -103,10 +105,20 @@ virt_obj:
  'duplicates': ['CN(C)C=O', 'CN(C)C'], 
  'removed_edges': ['C=N', 'C=CC']}
 ```
+## 💭 Feedback
+### ⚠️ Issue Tracker
+Found a bug? Have an enhancement request? Head over to the [GitHub issue
+tracker](https://github.com/ELIFE-ASU/assemblytheorytools/issues) if you need to report
+or ask something. If you are filing in on a bug, please include as much
+information as possible about the issue, and try to recreate the same bug
+in a simple, easily reproducible situation.
 
-# Contributions
+### 🏗️ Contributing
 
-Contributions of all kinds—bug reports, feature suggestions, code improvements, and documentation updates - are welcome!
+Contributions of all kinds—bug reports, feature suggestions, code improvements, and documentation updates - are welcome! See
+[`CONTRIBUTING.md`](https://github.com/ELIFE-ASU/assemblytheorytools/blob/main/CONTRIBUTING.md)
+for more details.
+
 Please follow standard Python practices, write clear commit messages, and ensure all code is well-documented and tested.
 To contribute, branch the repo, make changes, and submit a pull request.
 
@@ -117,7 +129,7 @@ Contribution checklist:
 - Code must have documentation.
 - Code must have at least one passing test.
 
-# Contributors
+## 👥 Contributors
 
 Louie Slocombe, orchestration, development and conceptualisation.
 
@@ -137,13 +149,20 @@ Veronica Mierzejewski, integration of reassembly calculations.
 
 Marina Fernandez-Ruz, visualisation and circle plots.
 
-# Full installation instructions
+## ⚖️ License
+MIT License. We just ask that you cite the relevant papers please! [\[1\]](#ref1)
+
+## 📚 References
+- <a id="ref1">\[1\]</a> hello
+
+
+## 🔧 Full installation instructions
 
 <details>
 <summary>Local</summary>
 <br>
 
-## Fresh environment
+### Fresh environment
 
 It is recommended that you start from a fresh environment to prevent issues.
 
@@ -181,7 +200,7 @@ Make sure to upgrade the conda env to force the channel priority.
 conda update conda --all -y
 ```
 
-## Install the requirements
+#### Install the requirements
 
 ```
 conda install numpy scipy matplotlib networkx rdkit pyvis ase -y
