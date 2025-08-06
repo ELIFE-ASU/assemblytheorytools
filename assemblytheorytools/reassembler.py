@@ -1,26 +1,20 @@
-import math
-import random
 import ast
+import math
 import os
 import random
 import signal
 import subprocess
-import numpy as np
-import matplotlib.pyplot as plt
-import networkx as nx
-
 from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
 from typing import List, Union, Optional
 
+import matplotlib.pyplot as plt
+import networkx as nx
+import numpy as np
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
-from rdkit import Chem
-from rdkit.Chem import MolFromSmiles
-from rdkit import RDLogger
-from rdkit.Chem import AllChem
-from rdkit.Chem import Draw
-from rdkit.Chem import rdMolDescriptors
+from rdkit import Chem, RDLogger
+from rdkit.Chem import AllChem, Draw, MolFromSmiles, rdMolDescriptors
 from rdkit.Chem.EnumerateHeterocycles import EnumerateHeterocycles
 from rdkit.Chem.EnumerateStereoisomers import EnumerateStereoisomers, StereoEnumerationOptions
 from rdkit.Chem.MolStandardize import rdMolStandardize
