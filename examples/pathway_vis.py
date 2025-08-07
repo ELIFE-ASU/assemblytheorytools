@@ -15,8 +15,5 @@ if __name__ == "__main__":
     # Display the calculated assembly index
     print(f"Assembly Index: {ai}")
 
-    # Unpack pathway information
-    pathway, vo_list = pathway
-
     # Generate and save a metro-style plot of the assembly graph
     att.plot_digraph_metro(pathway, filename="example")

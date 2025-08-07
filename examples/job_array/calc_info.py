@@ -21,10 +21,8 @@ if __name__ == "__main__":
     # Running AT in parallel
     i = int(sys.argv[1])
     # Convert the molecule to a mol object
-    mol = att.safe_standardize_mol(Chem.MolFromSmiles(smiles[i]))
+    mol = att.smi_to_mol(smiles[i])
     # Calculate the assembly index
     at, virt_obj, _ = att.calculate_assembly_index(mol, timeout=timeout)
-    # Convert the virt_obj into absolute smiles strings
-    virt_obj = att.get_mol_pathway_to_smi(virt_obj)
     # Write the data to the shared file
     att.write_to_shared_file(f"{i}, {mol_id[i]}, {at}, {virt_obj}\n", at_out_file)

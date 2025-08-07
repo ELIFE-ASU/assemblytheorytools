@@ -1164,52 +1164,10 @@ def get_virtual_objects_energy(mol_list,
                                orca_path=None,
                                xc='wB97X',
                                basis_set='def2-SVP',
-                               calc_extra='TIGHTOPT FREQ',
                                f_solv=False,
                                f_disp=False,
                                n_procs=10,
-                               ccsd_energy=False,
-                               atom_list=None,
-                               blocks_extra=None,
-                               scf_option=None):
-    """
-    Calculate the free energy of a list of molecules.
-
-    This function processes a list of RDKit molecule objects, converts them to ASE Atoms objects,
-    and calculates their free energy using the ORCA quantum chemistry package.
-
-    Parameters:
-    -----------
-    mol_list : list
-        A list of RDKit molecule objects to process.
-    orca_path : str, optional
-        Path to the ORCA executable. If None, the function attempts to read it from the environment variable 'ORCA_PATH'.
-    xc : str, optional
-        Exchange-correlation functional to use. Default is 'wB97X'.
-    basis_set : str, optional
-        Basis set to use for the calculation. Default is 'def2-SVP'.
-    calc_extra : str, optional
-        Additional calculation options for ORCA. Default is 'TIGHTOPT FREQ'.
-    f_solv : bool or str, optional
-        Solvent model to use. If True, defaults to 'WATER'. Default is False (no solvent).
-    f_disp : bool or str, optional
-        Dispersion correction to use. If True, defaults to 'D4'. Default is False (no dispersion correction).
-    n_procs : int, optional
-        Number of processors to use. Default is 10.
-    ccsd_energy : bool, optional
-        Whether to include CCSD energy correction. Default is False.
-    atom_list : list, optional
-        List of atoms for QM/MM calculations. Default is None.
-    blocks_extra : dict, optional
-        Additional ORCA input blocks. Default is None.
-    scf_option : str, optional
-        Additional SCF options for ORCA. Default is None.
-
-    Returns:
-    --------
-    list
-        A list of free energy values (in eV) for the input molecules.
-    """
+                               ccsd_energy=False):
     energy_list = []
     for mol in mol_list:
         # Sanitise the molecule
@@ -1226,20 +1184,16 @@ def get_virtual_objects_energy(mol_list,
         atoms = mol_to_atoms(mol)
 
         # Perform the calculation
-        energy = calculate_free_energy(atoms,
-                                       charge=charge,
-                                       multiplicity=multiplicity,
-                                       orca_path=orca_path,
-                                       xc=xc,
-                                       basis_set=basis_set,
-                                       calc_extra=calc_extra,
-                                       f_solv=f_solv,
-                                       f_disp=f_disp,
-                                       n_procs=n_procs,
-                                       ccsd_energy=ccsd_energy,
-                                       atom_list=atom_list,
-                                       blocks_extra=blocks_extra,
-                                       scf_option=scf_option)
+        energy, _, _ = calculate_free_energy(atoms,
+                                             charge=charge,
+                                             multiplicity=multiplicity,
+                                             orca_path=orca_path,
+                                             xc=xc,
+                                             basis_set=basis_set,
+                                             f_solv=f_solv,
+                                             f_disp=f_disp,
+                                             n_procs=n_procs,
+                                             ccsd_energy=ccsd_energy)
         # Append the energy to the list
         energy_list.append(energy)
     return energy_list

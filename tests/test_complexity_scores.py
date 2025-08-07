@@ -60,8 +60,8 @@ def test_get_mol_descriptors():
     desc = att.get_mol_descriptors(doravirine)
 
     # Check expected descriptor values (approximate)
-    assert round(desc['MolWt'], 3) == 425.754
-    assert round(desc['BertzCT'], 6) == 1236.821427
+    assert np.allclose(desc['BertzCT'], 1236.821427)
+    assert np.allclose(desc['MolWt'], 425.754)
 
 
 def test_tanimoto_similarity():

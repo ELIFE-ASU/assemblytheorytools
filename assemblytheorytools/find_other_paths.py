@@ -7,7 +7,6 @@ from rdkit.Chem import Draw
 from rdkit.Chem.rdchem import Mol
 
 from .assembly import calculate_assembly_index
-from .pathway import get_mol_pathway_to_inchi, convert_pathway_dict_to_list
 
 
 def get_atom_order(mol: Mol) -> List[int]:
@@ -234,10 +233,10 @@ def all_shortest_paths(mol: Mol, f_graph_care: bool = False, max_attempts: int =
     Args:
         mol (rdkit.Chem.Mol): The input RDKit molecule object.
         f_graph_care (bool, optional): Whether to kekulize the molecule. Default is False.
-        max_attempts (int, optional): Maximum number of consecutive attempts without finding new InChI strings.
+        max_attempts (int, optional): Maximum number of consecutive attempts without finding new VOs.
 
     Returns:
-        List[str]: A list of unique InChI strings representing the shortest paths.
+        List[str]: A list of unique VOs SMILES strings representing the shortest paths.
     """
     if not isinstance(mol, Chem.Mol):
         raise ValueError("Input must be an RDKit molecule object.")
@@ -245,10 +244,10 @@ def all_shortest_paths(mol: Mol, f_graph_care: bool = False, max_attempts: int =
     m_order = get_atom_order(mol)
     out_list = []
     n_attempts = int(mol.GetNumBonds() * 4)
-    no_new_inchi_count = 0
+    no_new_vo_count = 0
 
     for ii in range(n_attempts):
-        if no_new_inchi_count >= max_attempts:
+        if no_new_vo_count >= max_attempts:
             break
 
         mol_renum = Chem.RenumberAtoms(mol, scramble_list(m_order))
@@ -256,18 +255,16 @@ def all_shortest_paths(mol: Mol, f_graph_care: bool = False, max_attempts: int =
             Chem.Kekulize(mol_renum)
 
         ai, virt_obj, _ = calculate_assembly_index(mol_renum)
-        virt_obj = get_mol_pathway_to_inchi(virt_obj)
-        virt_obj = convert_pathway_dict_to_list(virt_obj)
 
         new_inchi_found = False
-        for inchi in virt_obj:
-            if inchi not in out_list:
-                out_list.append(inchi)
+        for vo in virt_obj:
+            if vo not in out_list:
+                out_list.append(vo)
                 new_inchi_found = True
 
         if new_inchi_found:
-            no_new_inchi_count = 0
+            no_new_vo_count = 0
         else:
-            no_new_inchi_count += 1
+            no_new_vo_count += 1
 
     return list(set(out_list))

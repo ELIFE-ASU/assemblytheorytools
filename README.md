@@ -79,31 +79,21 @@ We will also get the virtual objects and the assembly path.
 ai, virt_obj, pathway = att.calculate_assembly_index(graph, strip_hydrogen=True)
 ```
 Here, the `ai` integer represents the assembly index, 
-`virt_obj` contains the virtual objects along the assembly path, 
-which is stored as a dictionary where the keys are the types of virtual objects
-and the values are the corresponding molecular graphs.
+`virt_obj` contains the virtual objects along the assembly path.
 and `pathway` contains the assembly pathway used to calculate the assembly index.
 The `pathway` is a directional graph where each node represents a virtual object,
 and each edge represents a joining operation that combines input virtual objects 
 into one output virtual object.
 
-Let's convert the virtual objects along the assembly path into SMILES strings.
-```
-smi_out = att.get_mol_pathway_to_smi(virt_obj)
-```
 We should be able to print the results:
 ```
 print(f"Assembly index: {ai}", flush=True)
-print(f"virt_obj: {smi_out}", flush=True)
+print(f"virt_obj: {virt_obj}", flush=True)
 ```
 We should see the output:
 ```
 Assembly index: 9
-virt_obj: 
-{'file_graph': ['Cn1c(=O)c2c(ncn2C)n(C)c1=O'], 
- 'remnant': ['CN(C=O)CN'], 
- 'duplicates': ['CN(C)C=O', 'CN(C)C'], 
- 'removed_edges': ['C=N', 'C=CC']}
+virt_obj: ['C=N', 'C=CC', 'CN(C)C=O', 'CN(C)C', 'CN(C=O)CN','Cn1c(=O)c2c(ncn2C)n(C)c1=O']
 ```
 ## 💭 Feedback
 ### ⚠️ Issue Tracker
