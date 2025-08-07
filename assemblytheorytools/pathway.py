@@ -155,26 +155,6 @@ def get_pathway_to_graph(file_path: str) -> dict[str, list[nx.Graph]]:
     return graphs
 
 
-def get_pathway_to_mol(file_path: str) -> dict[str, list[Chem.Mol]]:
-    """
-    Convert graph data from a JSON file to RDKit molecule objects.
-
-    Args:
-        file_path (str): The path to the JSON file containing the graph data.
-
-    Returns:
-        dict[str, list[Chem.Mol]]: A dictionary containing RDKit molecule objects for different sections such as
-        'file_graph', 'remnant', 'duplicates', and 'removed_edges'.
-    """
-    graphs = get_pathway_to_graph(file_path)
-    out_dict: dict[str, list[Chem.Mol]] = {}
-    # Convert each section to RDKit molecule objects and store in out_dict
-    for key in ['file_graph', 'remnant', 'duplicates', 'removed_edges']:
-        if key in graphs:
-            out_dict[key] = [nx_to_mol(g, add_hydrogens=False) for g in graphs[key]]
-    return out_dict
-
-
 def convert_pathway_dict_to_list(in_dict):
     """
     Convert a dictionary of pathways to a list.
