@@ -53,13 +53,6 @@ from .find_other_paths import (all_shortest_paths)
 from .neighborhood_enumeration import (enumerate_neighborhood,
                                        enumerate_up,
                                        enumerate_down)
-from .pathway import (get_pathway_to_graph,
-                      get_pathway_to_mol,
-                      get_pathway_to_inchi,
-                      get_pathway_to_smi,
-                      get_mol_pathway_to_inchi,
-                      get_mol_pathway_to_smi,
-                      convert_pathway_dict_to_list)
 from .plotting import (n_plot,
                        ax_plot,
                        plot_mol_graph,
