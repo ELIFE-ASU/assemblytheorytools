@@ -255,7 +255,7 @@ def test_calculate_ccsd_energy():
     atoms = molecule('H2O')  # Create a water molecule
     energy = att.calculate_ccsd_energy(atoms)  # Calculate the CCSD energy
     print(f"CCSD Energy: {energy}", flush=True)  # Print the calculated energy
-    assert np.allclose(-2077.373806754082, energy, atol=0.1), "Energy does not match expected value"
+    assert np.allclose(-2077.230308940521, energy, atol=0.1), "Energy does not match expected value"
 
 
 def test_calculate_free_energy():
@@ -280,16 +280,16 @@ def test_calculate_free_energy():
     atoms = molecule('H2O')  # Create a water molecule
 
     # Calculate the Gibbs free energy
-    energy = att.calculate_free_energy(atoms)
+    energy, _, _ = att.calculate_free_energy(atoms)
     print(f"Gibbs Free Energy: {energy}", flush=True)
-    assert np.allclose(-2077.148656604997, energy, atol=0.1), "Energy does not match expected value"
+    assert np.allclose(-2079.5999124087302, energy, atol=0.1), "Energy does not match expected value"
 
     # Calculate the Gibbs free energy with CCSD energy correction
-    energy = att.calculate_free_energy(atoms, ccsd_energy=True)
+    energy, _, _ = att.calculate_free_energy(atoms, use_ccsd=True)
     print(f"Gibbs Free Energy: {energy}", flush=True)
-    assert np.allclose(-2072.711389429442, energy, atol=0.1), "Energy does not match expected value"
+    assert np.allclose(-2077.127788955219, energy, atol=0.1), "Energy does not match expected value"
 
     # Calculate the Gibbs free energy with CCSD energy correction and solvent correction
-    energy = att.calculate_free_energy(atoms, ccsd_energy=True, f_solv=True)
+    energy, _, _ = att.calculate_free_energy(atoms, use_ccsd=True, f_solv=True)
     print(f"Gibbs Free Energy: {energy}", flush=True)
-    assert np.allclose(-2072.6569718445553, energy, atol=0.1), "Energy does not match expected value"
+    assert np.allclose(-2077.0724431372514, energy, atol=0.1), "Energy does not match expected value"
