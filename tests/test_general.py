@@ -639,3 +639,30 @@ def test_get_total_free_valence():
     fv = att.get_total_free_valence(mol)
     print("Total free valence:", fv, flush=True)
     assert fv == 2
+
+
+def test_standardise_smiles():
+    """
+    Test the `standardise_smiles` function for standardizing SMILES strings.
+
+    This function performs the following steps:
+    1. Defines an input SMILES string.
+    2. Standardizes the SMILES string with hydrogen addition enabled.
+    3. Asserts that the output is a string and matches the expected standardized SMILES.
+    4. Standardizes the SMILES string with hydrogen addition disabled.
+    5. Asserts that the output matches the expected SMILES without added hydrogens.
+
+    Asserts:
+        - The output is a string.
+        - The standardized SMILES matches the expected value with hydrogens added.
+        - The standardized SMILES matches the expected value without hydrogens added.
+    """
+    smi_in = 'O'  # Input SMILES string
+    out = att.standardise_smiles(smi_in)  # Standardize the SMILES string
+    # Check that the output is a string
+    assert isinstance(out, str)
+    # Check that the output matches the expected standardized SMILES
+    assert out == '[H]O[H]'
+
+    out = att.standardise_smiles(smi_in, add_hydrogens=False)
+    assert out == 'O'
