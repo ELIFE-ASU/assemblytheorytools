@@ -241,9 +241,6 @@ def get_mol_pathway_to_inchi(pathway: dict[str, list[nx.Graph | Chem.Mol]]) -> d
     return out_dict
 
 
-
-
-
 def convert_pathway_dict_to_list(in_dict):
     """
     Convert a dictionary of pathways to a list.

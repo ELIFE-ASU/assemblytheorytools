@@ -7,7 +7,6 @@ from rdkit.Chem import Draw
 from rdkit.Chem.rdchem import Mol
 
 from .assembly import calculate_assembly_index
-from .pathway import get_mol_pathway_to_inchi, convert_pathway_dict_to_list
 
 
 def get_atom_order(mol: Mol) -> List[int]:
@@ -256,8 +255,6 @@ def all_shortest_paths(mol: Mol, f_graph_care: bool = False, max_attempts: int =
             Chem.Kekulize(mol_renum)
 
         ai, virt_obj, _ = calculate_assembly_index(mol_renum)
-        virt_obj = get_mol_pathway_to_inchi(virt_obj)
-        virt_obj = convert_pathway_dict_to_list(virt_obj)
 
         new_inchi_found = False
         for inchi in virt_obj:
