@@ -430,15 +430,7 @@ def add_to_bashrc(export_line, file=".bashrc"):
         f.write(f"\nexport {export_line}\n")
 
 
-def compile_assembly_code(assembly_tar_path="assemblycpp-main", boost_version="1_86_0", exe_name="asscpp_v5"):
-    """
-    Compile the assembly code, adapting for Linux or macOS (UNIX-based systems).
-
-    Args:
-        assembly_tar_path (str): Path to the assembly .tar.gz file. Default is "assemblycpp-main".
-        boost_version (str): Boost library version. Default is "1_86_0".
-        exe_name (str): Name of the compiled executable. Default is "asscpp_v5".
-    """
+def compile_assembly_cpp_script(assembly_tar_path="assemblycpp-main", boost_version="1_86_0", exe_name="asscpp_v5"):
     print("compile_assembly_code", flush=True)
 
     # Detect operating system
@@ -514,6 +506,39 @@ def compile_assembly_code(assembly_tar_path="assemblycpp-main", boost_version="1
         # Unsupported operating system
         raise OSError(f"Unsupported operating system: {system}")
 
+def compile_assembly_cpp():
+    print(flush=True)
+    system = platform.system().lower()
+    print(f"Compiling assCPP. Detected operating system: {system}", flush=True)
+    subprocess.run(
+        f"git clone https://github.com/croningp/assemblycpp-v5.git",
+        shell=True, check=True)
+    start_dir = os.getcwd()
+    # Change to the assemblycpp directory
+    assemblycpp_dir = os.path.join(start_dir, "assemblycpp-v5")
+    os.chdir(assemblycpp_dir)
+    run_command_simple('cmake -S . -B build')
+
+    if system == "linux" or system == "darwin":
+        # Compile the assembly code
+        run_command_simple('cmake --build build --parallel')
+    elif system == "windows":
+        # For Windows, we need to specify the generator
+        run_command_simple('cmake --build build --config Release')
+    else:
+        raise OSError(f"Unsupported operating system: {system}")
+    # Move the compiled executable to the parent directory
+    exe_name = "assembly"
+    exe_path = os.path.join(assemblycpp_dir, "build", "bin", exe_name)
+    end_path = os.path.join(start_dir, "assemblytheorytools", "precompiled", exe_name)
+    # move the executable to the current working directory
+    shutil.move(exe_path, end_path)
+    # Remove the assemblycpp directory
+    shutil.rmtree(assemblycpp_dir)
+    # make the executable executable
+    os.chmod(end_path, 0o755)
+    print("YESSIRR! Assembly code compiled successfully!", flush=True)
+    return None
 
 def calculate_string_assembly_index(input_data: Union[str, List[str]],
                                     dir_code=None,

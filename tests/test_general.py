@@ -465,8 +465,11 @@ def test_create_ionic_molecule():
 # def test_auto_compile():
 #     print(flush=True)
 #     # Attempt to compile the C++ backend in the specified source directory
-#     att.compile_assembly_code(os.path.join(os.getcwd(), "assemblycpp-main"))
+#     att.compile_assembly_cpp_script(os.path.join(os.getcwd(), "assemblycpp-main"))
 #     pass
+
+def test_compile_assembly_cpp():
+    att.compile_assembly_cpp()
 
 
 def test_join_graphs():
