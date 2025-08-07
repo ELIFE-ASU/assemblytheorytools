@@ -81,9 +81,6 @@ if __name__ == "__main__":
                                                        timeout=timeout,
                                                        )
 
-        # Flatten the dictionary of virtual objects into a list
-        virt_obj = att.convert_pathway_dict_to_list(virt_obj)
-
         # Convert the virtual objects into SMILES strings
         smiles_output = [Chem.MolToSmiles(att.nx_to_mol(graph)) for graph in virt_obj]
 

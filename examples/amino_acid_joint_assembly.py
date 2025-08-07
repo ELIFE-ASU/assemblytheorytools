@@ -3,8 +3,6 @@ from rdkit import Chem as Chem
 
 import assemblytheorytools as att
 
-# dir_code = os.path.expanduser(r"../oneapi_2025_Ofast_ipo")
-
 if __name__ == "__main__":
     # Set the timeout duration for the assembly index calculation
     timeout = 600.0
@@ -31,13 +29,7 @@ if __name__ == "__main__":
         print(f"Running joint: {i + 1}", flush=True)
 
         # Calculate the assembly index and virtual objects for the current graph
-        ai, virt_obj, _ = att.calculate_assembly_index(graph,
-                                                       # dir_code=dir_code,  # Optional directory for external code
-                                                       timeout=timeout,
-                                                       )
-
-        # Flatten the dictionary of virtual objects into a list
-        virt_obj = att.convert_pathway_dict_to_list(virt_obj)
+        ai, virt_obj, _ = att.calculate_assembly_index(graph, timeout=timeout)
 
         # Convert the virtual objects into SMILES strings
         smiles_output = [Chem.MolToSmiles(att.nx_to_mol(graph)) for graph in virt_obj]

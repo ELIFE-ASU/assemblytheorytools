@@ -419,12 +419,8 @@ def test_hand_graph():
     att.print_graph_details(G)
 
     ai, virt_obj, _ = att.calculate_assembly_index(G)
-    # Convert the dict to a list
-    virt_obj = att.convert_pathway_dict_to_list(virt_obj)
     print("output", flush=True)
     print(f"Ass index = {ai}", flush=True)
-    # Remove the first pathway
-    virt_obj.pop(0)
     for i, p in enumerate(virt_obj):
         print(f"Pathway object = {i}", flush=True)
         att.print_graph_details(p)

@@ -35,8 +35,6 @@ def test_ai_graph():
     graph = att.mol_to_nx(mol)
     # Calculate the assembly index of the graph
     ai, virt_obj, pathway = att.calculate_assembly_index(graph)
-    virt_obj = att.convert_pathway_dict_to_list(virt_obj)
-
     # Convert the graph to a SMILES string
     virt_obj = [att.nx_to_smi(graph, add_hydrogens=False) for graph in virt_obj]
     print(virt_obj, flush=True)
@@ -72,8 +70,6 @@ def test_ai_mol_file():
     att.write_v2k_mol_file(mol, mol_file)
     # Calculate the assembly index of the molecule from the mol file
     ai, virt_obj, _ = att.calculate_assembly_index(mol_file)
-
-    virt_obj = att.convert_pathway_dict_to_list(virt_obj)
     print(virt_obj, flush=True)
     ref_out = ['InChI=1S/C2H2/c1-2/h1-2H',
                'InChI=1S/CH4/h1H4',
@@ -104,8 +100,6 @@ def test_ai_mol():
     mol = att.smi_to_mol(smi_in)
     # Calculate the assembly index of the molecule
     ai, virt_obj, _ = att.calculate_assembly_index(mol)
-    virt_obj = att.convert_pathway_dict_to_list(virt_obj)
-
     # Convert the graph to a mol and then to a SMILES string
     virt_obj = [Chem.MolToSmiles(mol, kekuleSmiles=True, allHsExplicit=True) for mol in virt_obj]
     print(virt_obj, flush=True)
@@ -288,8 +282,6 @@ def test_joint_ass():
 
     # Calculate the assembly index
     ai, virt_obj, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
-
-    virt_obj = att.convert_pathway_dict_to_list(virt_obj)
 
     # Convert the graph to a mol and then to a SMILES string
     virt_obj = [Chem.MolToSmiles(mol) for mol in virt_obj]
@@ -845,7 +837,6 @@ def test_vo_problem():
         print(f'\ngraph {i} smi: {att.nx_to_smi(graphs[i])}', flush=True)
         ai, virt_obj, path = att.calculate_assembly_index(graphs[i])
         print(f'ai: {ai}', flush=True)
-        virt_obj = att.convert_pathway_dict_to_list(virt_obj)
         # convert to smi
         virt_obj = [Chem.MolToSmiles(att.nx_to_mol(graph, add_hydrogens=False)) for graph in virt_obj]
         print('from vo', virt_obj)
