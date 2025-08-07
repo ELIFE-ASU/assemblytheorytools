@@ -148,10 +148,33 @@ def reset_mol_charge(mol: Chem.Mol,
 def get_total_free_valence(mol: Chem.Mol | nx.Graph,
                            pt: Chem.rdchem.PeriodicTable = None,
                            method: str = '1') -> int:
+    """
+    Calculate the total free valence of a molecule or graph.
+
+    This function computes the total free valence for either an RDKit molecule object
+    or a NetworkX graph representation of a molecular structure. The calculation method
+    can be specified to determine how free valence is computed.
+
+    Args:
+        mol (Chem.Mol | nx.Graph): The input molecule, either as an RDKit molecule object or a NetworkX graph.
+        pt (Chem.rdchem.PeriodicTable, optional): The RDKit periodic table object. Defaults to the global periodic table.
+        method (str, optional): The method used to calculate free valence for RDKit molecules. Options are:
+            - '1': Uses the minimum valence from the periodic table's valence list minus the atom's degree.
+            - '2': Uses the default valence minus the atom's explicit valence.
+            - '3': Uses the number of outer electrons of the atom. Defaults to '1'.
+
+    Returns:
+        int: The total free valence of the molecule or graph.
+
+    Notes:
+        - For NetworkX graphs, the function iterates over nodes and edges to calculate free valence.
+        - For RDKit molecules, the `get_free_valence` function is used for individual atoms.
+        - The periodic table is used to retrieve atomic properties such as valence and outer electrons.
+    """
     if isinstance(mol, nx.Graph):
         pt = pt or GetPeriodicTable()
 
-        # loop through all nodes in the graph
+        # Loop through all nodes in the graph
         free = 0
         for node in mol.nodes:
             symbol = mol.nodes[node].get('color')

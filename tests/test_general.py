@@ -600,6 +600,27 @@ def test_assign_levels_empty_graph():
 
 
 def test_get_total_free_valence():
+    """
+    Test the calculation of the total free valence for a molecule and its graph representation.
+
+    This function performs the following steps:
+    1. Converts a SMILES string to a molecule object.
+    2. Calculates the total free valence of the molecule.
+    3. Converts the SMILES string to a NetworkX graph.
+    4. Calculates the total free valence of the graph.
+    5. Removes all hydrogen atoms from the graph.
+    6. Calculates the total free valence of the modified molecule.
+
+    Asserts:
+        - The total free valence of the molecule is 0.
+        - The total free valence of the graph is 0.
+        - The total free valence of the modified molecule is 2.
+
+    Notes:
+        - The function uses `att.smi_to_mol` to convert SMILES strings to RDKit molecule objects.
+        - The function uses `att.smi_to_nx` to convert SMILES strings to NetworkX graphs.
+        - Hydrogen atoms are removed using `att.remove_hydrogen_from_graph`.
+    """
     print(flush=True)
     smi_in = "[H]C#C[H]"
     # Convert the SMILES string to a molecule object
