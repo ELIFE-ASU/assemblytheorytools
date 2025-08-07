@@ -597,3 +597,24 @@ def test_assign_levels_empty_graph():
     att.assign_levels(graph)
     # Verify that the graph has no nodes
     assert len(graph.nodes) == 0, "Empty graph should have no nodes."
+
+
+def test_get_total_free_valence():
+    print(flush=True)
+    smi_in = "[H]C#C[H]"
+    # Convert the SMILES string to a molecule object
+    mol = att.smi_to_mol(smi_in)
+    fv = att.get_total_free_valence(mol)
+    print("Total free valence:", fv, flush=True)
+    assert fv == 0
+
+    graph = att.smi_to_nx(smi_in)
+    fv = att.get_total_free_valence(graph)
+    print("Total free valence from graph:", fv, flush=True)
+    assert fv == 0
+
+    # delete all the hydrogens
+    mol = att.remove_hydrogen_from_graph(graph)
+    fv = att.get_total_free_valence(mol)
+    print("Total free valence:", fv, flush=True)
+    assert fv == 2
