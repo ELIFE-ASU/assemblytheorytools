@@ -67,7 +67,6 @@ def test_plot_digraph_metro():
 
     # Load the assembly pathway graph
     digraph = att.parse_pathway_file(pathway_str)
-    digraph, _ = digraph  # Unpack the graph and VO list (we only need the graph)
 
     # Plot the pathway as a metro-style graph and save to files
     att.plot_digraph_metro(digraph)
@@ -89,9 +88,6 @@ def test_plot_digraph_metro_calc():
     # Compute the assembly index and associated data
     _, _, pathway = att.calculate_assembly_index(mol, strip_hydrogen=True)
 
-    # Unpack pathway information
-    pathway, _ = pathway
-
     att.plot_digraph_metro(pathway)
     assert os.path.isfile('metro.png'), "Failed to generate the file."
     assert os.path.isfile('metro.svg'), "Failed to generate the file."
@@ -111,8 +107,6 @@ def test_plot_digraph_topological():
     # Compute the assembly index and associated data
     _, _, pathway = att.calculate_assembly_index(mol, strip_hydrogen=True)
 
-    # Unpack pathway information
-    pathway, _ = pathway
     fig, ax = att.plot_graph(pathway, layout='topological')
     plt.show()
 
@@ -131,8 +125,6 @@ def test_plot_pathway_mol():
     # Compute the assembly index and associated data
     _, _, pathway = att.calculate_assembly_index(mol, strip_hydrogen=True)
 
-    # Unpack pathway information
-    pathway, _ = pathway
     fig, ax = att.plot_pathway_mol(pathway)
     plt.show()
     assert fig is not None, "Failed to create the figure."
@@ -150,8 +142,6 @@ def test_plot_pathway_graph():
     # Compute the assembly index and associated data
     _, _, pathway = att.calculate_assembly_index(graph, strip_hydrogen=True)
 
-    # Unpack pathway information
-    pathway, _ = pathway
     fig, ax = att.plot_pathway_graph(pathway)
     plt.show()
     assert fig is not None, "Failed to create the figure."
@@ -169,8 +159,6 @@ def test_plot_pathway_atoms():
     # Compute the assembly index and associated data
     _, _, pathway = att.calculate_assembly_index(mol, strip_hydrogen=False)
 
-    # Unpack pathway information
-    pathway, _ = pathway
     fig, ax = att.plot_pathway_atoms(pathway)
     plt.show()
     assert fig is not None, "Failed to create the figure."
