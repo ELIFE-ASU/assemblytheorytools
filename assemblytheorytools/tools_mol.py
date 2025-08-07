@@ -2,6 +2,7 @@ import re
 import warnings
 from typing import List, Union
 
+import networkx as nx
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 from rdkit.Chem.MolStandardize import rdMolStandardize
@@ -142,6 +143,31 @@ def reset_mol_charge(mol: Chem.Mol,
         atom.SetFormalCharge(get_free_valence(atom, pt=pt))
 
     return rw.GetMol()
+
+
+def get_total_free_valence(mol: Chem.Mol | nx.Graph,
+                           pt: Chem.rdchem.PeriodicTable = None,
+                           method: str = '1') -> int:
+    if isinstance(mol, nx.Graph):
+        pt = pt or GetPeriodicTable()
+
+        # loop through all nodes in the graph
+        free = 0
+        for node in mol.nodes:
+            symbol = mol.nodes[node].get('color')
+            atomic_number = pt.GetAtomicNumber(symbol)
+
+            edge_total = 0
+            for edge in mol.edges(node):
+                edge_total += int(mol.edges[edge].get('color'))
+
+            free += min(pt.GetValenceList(atomic_number)) - edge_total
+    else:
+        free = 0
+        pt = pt or GetPeriodicTable()
+        for atom in mol.GetAtoms():
+            free += get_free_valence(atom, pt=pt, method=method)
+    return free
 
 
 def smi_to_mol(smi: str, add_hydrogens: bool = True, sanitize: bool = True) -> Chem.Mol:
