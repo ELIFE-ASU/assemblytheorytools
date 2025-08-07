@@ -184,7 +184,9 @@ def calculate_assembly_index(mol,
 
     # Check if input is a string and not a .mol file
     if isinstance(mol, str) and not mol.endswith(".mol"):
-        print("Warning: You input a string to a function that expects a molecule- returning upper bound on string assembly index.", flush=True)
+        print(
+            "Warning: You input a string to a function that expects a molecule- returning upper bound on string assembly index.",
+            flush=True)
         # Calculate assembly index directly for string input
         ai, virt_obj, path = CFG.ai_with_pathways(mol, f_print=False)
         return (ai, virt_obj, path) if not return_log_file else (ai, virt_obj, path, None)
@@ -506,6 +508,7 @@ def compile_assembly_cpp_script(assembly_tar_path="assemblycpp-main", boost_vers
         # Unsupported operating system
         raise OSError(f"Unsupported operating system: {system}")
 
+
 def compile_assembly_cpp():
     print(flush=True)
     system = platform.system().lower()
@@ -539,6 +542,7 @@ def compile_assembly_cpp():
     os.chmod(end_path, 0o755)
     print("YESSIRR! Assembly code compiled successfully!", flush=True)
     return None
+
 
 def calculate_string_assembly_index(input_data: Union[str, List[str]],
                                     dir_code=None,
@@ -582,7 +586,8 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
     if directed == False:
         if mode in ["str", "cfg"]:
             mode = "mol"  # Use the molecular assembly calculator for undirected strings
-            print("Warning: only mode 'mol' is currently supported for undirected strings. Switching to 'mol'.", flush=True)
+            print("Warning: only mode 'mol' is currently supported for undirected strings. Switching to 'mol'.",
+                  flush=True)
 
     if mode == "mol":  # Use the molecular assembly cpp calculator
         if directed:
@@ -1360,6 +1365,11 @@ def calculate_rust_ai(mol: Chem.Mol,
     Returns:
         int: The calculated assembly index. Returns -1 if the input is invalid or an error occurs.
     """
+
+    system = platform.system().lower()
+    if system != "linux":
+        raise NotImplementedError("Rust assembly index calculator is currently only supported on Linux.")
+
     # Set default executable path if not provided
     if exec_path is None:
         exec_path = os.path.abspath(
