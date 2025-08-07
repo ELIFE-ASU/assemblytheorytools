@@ -19,9 +19,6 @@ from rdkit.Chem import AllChem as Chem
 import CFG
 from .construction import parse_pathway_file
 from .construction_string import parse_string_pathway_file
-from .pathway import (get_pathway_to_graph,
-                      get_pathway_to_mol,
-                      get_pathway_to_inchi)
 from .tools_graph import (write_ass_graph_file,
                           remove_hydrogen_from_graph,
                           nx_to_mol,
@@ -302,14 +299,11 @@ def calculate_assembly_index(mol,
             try:
                 if isinstance(mol, nx.Graph):
                     mol = canonicalize_node_labels(mol)
-                    virt_obj = get_pathway_to_graph(file_path_pathway)
-                    path = parse_pathway_file(file_path_pathway, vo_type='graph')
+                    path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='graph')
                 elif isinstance(mol, Chem.Mol):
-                    virt_obj = get_pathway_to_mol(file_path_pathway)
-                    path = parse_pathway_file(file_path_pathway, vo_type='smiles')
+                    path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='smiles')
                 elif ".mol" in mol:
-                    virt_obj = get_pathway_to_inchi(file_path_pathway)
-                    path = parse_pathway_file(file_path_pathway, vo_type='inchi')
+                    path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='inchi')
                 else:
                     virt_obj = None
                     path = (None, None)
