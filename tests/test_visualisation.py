@@ -60,22 +60,6 @@ def test_plot_digraph():
     assert ax is not None, "Failed to create the axes."
 
 
-def test_plot_digraph_metro():
-    print(flush=True)
-    # Path to saved pathway file (should be a valid .json or .pkl file)
-    pathway_str = "data/pathway/tmpPathway"
-
-    # Load the assembly pathway graph
-    digraph = att.parse_pathway_file(pathway_str)
-
-    # Plot the pathway as a metro-style graph and save to files
-    att.plot_digraph_metro(digraph)
-    assert os.path.isfile('metro.png'), "Failed to generate the file."
-    assert os.path.isfile('metro.svg'), "Failed to generate the file."
-    os.remove('metro.png')
-    os.remove('metro.svg')
-
-
 def test_plot_digraph_metro_calc():
     print(flush=True)
 

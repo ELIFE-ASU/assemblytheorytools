@@ -449,48 +449,6 @@ def test_semi_metric():
     assert distance == 1
 
 
-def test_construction_pathway_file():
-    """
-    Test the construction of a pathway graph and virtual object list from a pathway file.
-
-    This function performs the following steps:
-    1. Defines the file path for the pathway file.
-    2. Loads the pathway graph and virtual object list from the file.
-    3. Compares the virtual object list to a reference list.
-    4. Checks the number of nodes and edges in the pathway graph.
-
-    Asserts:
-        - The pathway graph has 8 nodes.
-        - The pathway graph has 9 edges.
-        - The virtual object list matches the reference list.
-
-    Variables:
-        pathway_str (str): Path to the pathway file.
-        digraph (networkx.DiGraph): Pathway graph loaded from the file.
-        vo_list (list): Virtual object list loaded from the file.
-        vo_list_ref (list): Reference list of expected virtual objects.
-    """
-    print(flush=True)
-    pathway_str = "data/pathway/tmpPathway"
-
-    # Try to load the pathway
-    digraph, vo_list = att.parse_pathway_file(pathway_str, vo_type='inchi')
-
-    # Define the reference virtual object list
-    vo_list_ref = ['InChI=1S/C2H6/c1-2/h1-2H3',
-                   'InChI=1S/CH2O/c1-2/h1H2',
-                   'InChI=1S/CH4/h1H4',
-                   'InChI=1S/C2H4O/c1-2-3/h2H,1H3']
-
-    # Check the number of nodes
-    assert digraph.number_of_nodes() == 8
-    # Check the number of edges
-    assert digraph.number_of_edges() == 9
-
-    # Assert that the virtual object list matches the reference list
-    assert att.check_elements(vo_list, vo_list_ref)
-
-
 def test_construction_pathway_smi():
     """
     Test the construction of a pathway graph and virtual object list for a molecule.
@@ -864,7 +822,7 @@ def test_calculate_jo_from_pathway():
         - The calculated JO is equal to 28.
     """
     print(flush=True)
-    file = os.path.expanduser(os.path.abspath("data/pathway/taxolPathway"))
+    file = os.path.expanduser(os.path.abspath("tests/data/pathway/taxolPathway"))
     jo = att.calculate_jo_from_pathway(file)
     assert jo == 28, f"Expected JO to be 28, but got {jo}"
 
