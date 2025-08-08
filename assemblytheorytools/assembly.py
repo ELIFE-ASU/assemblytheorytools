@@ -865,34 +865,52 @@ def assembly_dry_run(mol, temp_dir=None, strip_hydrogen=False):
 
 def add_assembly_to_path(str_mode=False):
     """
-    Adds the path to a precompiled assemblyCpp executable to the environment variable `ASS_PATH` or `ASS_STR_PATH` depending upon application.
+    Add the path to the assembly executable to the environment variable.
+
+    This function checks if the assembly executable path is already set in the environment variable.
+    If not, it attempts to locate the precompiled assembly executable or compile it if necessary.
+    The path is then added to the environment variable.
 
     Args:
-        str_mode (bool): If True, sets the path for the string mode executable. Defaults to False.
-
-    Raises:
-        NotImplementedError: If the operating system is MacOS or Windows.
+        str_mode (bool): If True, use the string assembly executable path (`ASS_STR_PATH`).
+                         If False, use the molecular assembly executable path (`ASS_PATH`).
 
     Returns:
-        str: The path to the precompiled assemblyCpp executable.
+        str: The path to the assembly executable.
+
+    Raises:
+        FileNotFoundError: If the assembly executable cannot be found or compiled.
     """
-    if str_mode:
-        key = "ASS_STR_PATH"
-        exec_name = "asscpp_combined_static_strings"
-    else:
-        key = "ASS_PATH"
-        exec_name = "asscpp_combined_static_linux"
+    # Determine the environment variable key based on the mode
+    key = "ASS_STR_PATH" if str_mode else "ASS_PATH"
 
+    # Check if the environment variable is already set
     if not os.environ.get(key):
-        full_att_path = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "precompiled", exec_name)
-        )
-        if platform.system() == "Linux":
-            os.environ[key] = full_att_path
-        else:
-            raise NotImplementedError("Pre-compiled Assembly not implemented for MacOS or Windows.")
+        # Default executable name for Linux systems
+        exec_name = "asscpp_combined_static_linux"
+        full_att_path = os.path.join(os.path.dirname(__file__), "precompiled", exec_name)
 
-    return os.environ.get(key)
+        # Check if the precompiled executable exists
+        if not os.path.isfile(full_att_path):
+            # Fallback to the generic assembly executable name
+            exec_name = "assembly"
+            full_att_path = os.path.join(os.path.dirname(__file__), "precompiled", exec_name)
+
+            # If the executable still doesn't exist, attempt to compile it
+            if not os.path.isfile(full_att_path):
+                print("Assembly code not found.", flush=True)
+                compile_assembly_cpp()  # Compile the assembly executable
+                full_att_path = os.path.join(os.path.dirname(__file__), "precompiled", "assembly")
+
+                # Raise an error if the compiled executable cannot be found
+                if not os.path.isfile(full_att_path):
+                    raise FileNotFoundError(f"Failed to compile assembly code: {full_att_path}")
+
+        # Set the environment variable to the executable path
+        os.environ[key] = full_att_path
+
+    # Return the path stored in the environment variable
+    return os.environ[key]
 
 
 def get_most_recent_calc():
