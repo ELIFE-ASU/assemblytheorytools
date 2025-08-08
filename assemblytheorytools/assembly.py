@@ -616,8 +616,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
     if directed == False:
         if mode in ["str", "cfg"]:
             mode = "mol"  # Use the molecular assembly calculator for undirected strings
-            print("Warning: only mode 'mol' is currently supported for undirected strings. Switching to 'mol'.",
-                  flush=True)
+            print("Warning: only mode 'mol' is currently supported for undirected strings. Switching to 'mol'.", flush=True)
     elif mode == "mol":
         mode = "str"  # Use the string assembly calculator for directed strings
         print("Warning: mode 'mol' is not currently supported for directed strings. Switching to 'str'.", flush=True)
@@ -707,8 +706,10 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
             f.write(string)
 
         # Define output and log file paths
-        file_path_out = os.path.join(file_path_in + "Out")
-        file_path_pathway = os.path.join(file_path_in + "Pathway")
+        # file_path_out = os.path.join(file_path_in + "Out")
+        # file_path_pathway = os.path.join(file_path_in + "Pathway")
+        file_path_out = file_path_in + "Out"
+        file_path_pathway = file_path_in + "Pathway"
         log_file = os.path.join(temp_dir, "assembly_output.log")
 
         if debug:
@@ -725,7 +726,8 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
                 process = subprocess.Popen(
                     [dir_code, file_path_in, str(int(directed == 0)), "1"],
                     stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT
+                    stderr=subprocess.STDOUT,
+                    cwd=temp_dir
                 )
 
                 try:
@@ -810,9 +812,11 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         if return_log_file:
             print(f"Log file printed to: {log_file}", flush=True)
 
-        # Remove temporary file
+        # Remove temporary files
         if os.path.exists(file_path_in):
             os.remove(file_path_in)
+        shutil.rmtree(temp_dir)  # Clean up the temporary directory
+
 
         # Return based on flag
         return (ai, virt_obj, path) if not return_log_file else (ai, virt_obj, path, log_file)

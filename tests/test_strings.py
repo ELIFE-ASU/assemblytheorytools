@@ -80,7 +80,6 @@ def test_directed_joint_str_ass():
     assert ai2 == ai_ref
 
 
-# @pytest.mark.skip  # broken
 def test_joint_cfg_str_ass():
     """
     Test the calculation of the assembly index for a set of strings in CFG mode.
@@ -96,7 +95,7 @@ def test_joint_cfg_str_ass():
     """
     strs = ["aaaa", "bbbb", "aa"]
     ai_ref = 4
-    ai, v_obj, path = att.calculate_string_assembly_index(strs, directed=True, mode="cfg", debug=True)
+    ai, v_obj, path = att.calculate_string_assembly_index(strs, directed=True, mode="cfg", debug=False)
     assert ai >= ai_ref
 
 
@@ -133,7 +132,7 @@ def test_small_strs():
     """
     Test the calculation of the assembly index for small strings.
     """
-    a1, _, _ = att.calculate_string_assembly_index("abba", directed=True, debug=True)
-    a2, _, _ = att.calculate_string_assembly_index("abba", directed=False, debug=True)
+    a1, _, _ = att.calculate_string_assembly_index("abba", directed=True, debug=False)
+    a2, _, _ = att.calculate_string_assembly_index("abba", directed=False, debug=False)
     assert a1 == 3
     assert a2 == 2
