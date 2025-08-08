@@ -842,36 +842,25 @@ def assembly_dry_run(mol, temp_dir=None, strip_hydrogen=False):
         raise ValueError("Input not supported")
 
 
+
 def add_assembly_to_path(str_mode=False):
-    """
-    Adds the path to a precompiled assemblyCpp executable to the environment variable `ASS_PATH` or `ASS_STR_PATH` depending upon application.
-
-    Args:
-        str_mode (bool): If True, sets the path for the string mode executable. Defaults to False.
-
-    Raises:
-        NotImplementedError: If the operating system is MacOS or Windows.
-
-    Returns:
-        str: The path to the precompiled assemblyCpp executable.
-    """
-    if str_mode:
-        key = "ASS_STR_PATH"
-        exec_name = "asscpp_combined_static_strings"
-    else:
-        key = "ASS_PATH"
-        exec_name = "asscpp_combined_static_linux"
+    key = "ASS_STR_PATH" if str_mode else "ASS_PATH"
+    system = platform.system().lower()
 
     if not os.environ.get(key):
-        full_att_path = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "precompiled", exec_name)
-        )
-        if platform.system() == "Linux":
-            os.environ[key] = full_att_path
-        else:
-            raise NotImplementedError("Pre-compiled Assembly not implemented for MacOS or Windows.")
+        exec_name = "asscpp_combined_static_linux" if system == "linux" else "assembly"
+        full_att_path = os.path.join(os.path.dirname(__file__), "precompiled", exec_name)
+        if not os.path.isfile(full_att_path):
+            print("Assembly code not found.", flush=True)
+            compile_assembly_cpp()
+            full_att_path = os.path.join(os.path.dirname(__file__), "precompiled", "assembly")
+            if not os.path.isfile(full_att_path):
+                raise FileNotFoundError(f"Failed to compile assembly code: {full_att_path}")
 
-    return os.environ.get(key)
+        os.environ[key] = full_att_path
+
+    print(f"Assembly code path set to: {os.environ[key]}", flush=True)
+    return os.environ[key]
 
 
 def get_most_recent_calc():
