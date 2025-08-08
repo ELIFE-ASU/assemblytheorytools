@@ -8,7 +8,6 @@ from rdkit.Chem.rdchem import RWMol
 
 from .tools_graph import bond_order_assout_to_int, bond_order_int_to_rdkit, canonicalize_node_labels
 from .tools_mol import smi_remove_implicit_hydrogen
-from .pathway import fill_json_gaps
 
 
 def transform_array(target_array, comp_array, source_val, target_val, new_val, pairs_list):
@@ -739,10 +738,6 @@ def parse_pathway_file(file, vo_type="smiles", debug=False, log=False):
     # # Load the pathway file
     with open(file) as f:
         data = json.load(f)
-
-    # # For debugging
-    # data = fill_json_gaps(file)
-    # data = json.loads(data)
 
     # Make the construction object
     construction_object = AssemblyConstruction(data, vo_type=vo_type)

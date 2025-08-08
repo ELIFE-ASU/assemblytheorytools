@@ -130,25 +130,21 @@ def get_pathway_to_graph(file_path: str) -> dict[str, list[nx.Graph]]:
         dict[str, list[nx.Graph]]: A dictionary containing NetworkX graphs for different sections such as
         'file_graph', 'remnant', 'duplicates', and 'removed_edges'.
     """
-    print("cp0")
-    print("Loading data from:", os.path.abspath(file_path))
+
     # Load data from the JSON file
     with open(os.path.abspath(file_path), 'r') as file:
         data = json.load(file)
-    # print("Filling gaps...")
-    # fixed_json = fill_json_gaps(os.path.abspath(file_path)) # For debugging
-    # data = json.loads(fixed_json)
-    print("cp1")
+
     # Get vertex and edge color mappings
     vert_col_dict, edge_col_dict = get_conversion_dict(data)
     graphs: dict[str, list[nx.Graph]] = {}
-    print("cp2")    
+
     # List of keys that use the add_graph function directly
     direct_graph_keys = ['file_graph', 'remnant']
     for key in direct_graph_keys:
         if key in data:
             graphs[key] = add_graph(data[key][0])
-    print("cp3")
+
     # Process 'duplicates' if present
     if 'duplicates' in data:
         duplicate_graphs: list[nx.Graph] = []
@@ -161,7 +157,7 @@ def get_pathway_to_graph(file_path: str) -> dict[str, list[nx.Graph]]:
             )
             duplicate_graphs.append(graph)
         graphs['duplicates'] = duplicate_graphs
-    print("cp4")
+
     # Process 'removed_edges' if present
     if 'removed_edges' in data:
         removed_graph = nx.Graph()
@@ -170,7 +166,7 @@ def get_pathway_to_graph(file_path: str) -> dict[str, list[nx.Graph]]:
             *extract_duplicates(data['removed_edges'], vert_col_dict, edge_col_dict)
         )
         graphs['removed_edges'] = get_disconnected_subgraphs(removed_graph)
-    print("We made it to the end of get_pathway_to_graph")
+
     return graphs
 
 

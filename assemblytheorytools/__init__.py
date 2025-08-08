@@ -45,10 +45,10 @@ from .complexity_scores import (count_unique_bonds,
                                 proudfoot,
                                 mc1,
                                 mc2)
-from .construction import parse_pathway_file, assign_levels
-from .construction_string import (parse_string_pathway_file,
-                                  generate_string_pathway_ian,
-                                  get_graph_string_explicit)
+from .construction import (parse_pathway_file, 
+                           assign_levels, 
+                           parse_string_pathway_file, 
+                           molstr_to_str)
 from .find_other_paths import (all_shortest_paths)
 from .neighborhood_enumeration import (enumerate_neighborhood,
                                        enumerate_up,
