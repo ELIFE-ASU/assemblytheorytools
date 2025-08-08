@@ -842,24 +842,53 @@ def assembly_dry_run(mol, temp_dir=None, strip_hydrogen=False):
         raise ValueError("Input not supported")
 
 
-
 def add_assembly_to_path(str_mode=False):
+    """
+    Add the path to the assembly executable to the environment variable.
+
+    This function checks if the assembly executable path is already set in the environment variable.
+    If not, it attempts to locate the precompiled assembly executable or compile it if necessary.
+    The path is then added to the environment variable.
+
+    Args:
+        str_mode (bool): If True, use the string assembly executable path (`ASS_STR_PATH`).
+                         If False, use the molecular assembly executable path (`ASS_PATH`).
+
+    Returns:
+        str: The path to the assembly executable.
+
+    Raises:
+        FileNotFoundError: If the assembly executable cannot be found or compiled.
+    """
+    # Determine the environment variable key based on the mode
     key = "ASS_STR_PATH" if str_mode else "ASS_PATH"
-    system = platform.system().lower()
 
+    # Check if the environment variable is already set
     if not os.environ.get(key):
-        exec_name = "asscpp_combined_static_linux" if system == "linux" else "assembly"
+        # Default executable name for Linux systems
+        exec_name = "asscpp_combined_static_linux"
         full_att_path = os.path.join(os.path.dirname(__file__), "precompiled", exec_name)
-        if not os.path.isfile(full_att_path):
-            print("Assembly code not found.", flush=True)
-            compile_assembly_cpp()
-            full_att_path = os.path.join(os.path.dirname(__file__), "precompiled", "assembly")
-            if not os.path.isfile(full_att_path):
-                raise FileNotFoundError(f"Failed to compile assembly code: {full_att_path}")
 
+        # Check if the precompiled executable exists
+        if not os.path.isfile(full_att_path):
+            # Fallback to the generic assembly executable name
+            exec_name = "assembly"
+            full_att_path = os.path.join(os.path.dirname(__file__), "precompiled", exec_name)
+
+            # If the executable still doesn't exist, attempt to compile it
+            if not os.path.isfile(full_att_path):
+                print("Assembly code not found.", flush=True)
+                compile_assembly_cpp()  # Compile the assembly executable
+                full_att_path = os.path.join(os.path.dirname(__file__), "precompiled", "assembly")
+
+                # Raise an error if the compiled executable cannot be found
+                if not os.path.isfile(full_att_path):
+                    raise FileNotFoundError(f"Failed to compile assembly code: {full_att_path}")
+
+        # Set the environment variable to the executable path
         os.environ[key] = full_att_path
 
-    print(f"Assembly code path set to: {os.environ[key]}", flush=True)
+    # Return the path stored in the environment variable
     return os.environ[key]
 
 
