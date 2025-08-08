@@ -7,8 +7,6 @@ from typing import List, Tuple
 import matplotlib.pyplot as plt
 import networkx as nx
 
-from .construction_string import generate_string_pathway_ian, get_graph_string_explicit
-
 
 def load_fasta(file_path: str) -> str:
     """
@@ -165,41 +163,6 @@ def get_dir_str_molecule(dir_str: str) -> nx.Graph:
         graph.add_edge(2 * i, 2 * i + 1, color=1)
         graph.add_node(2 * i + 2, color=blank)
         graph.add_edge(2 * i + 1, 2 * i + 2, color=2)
-
-    return graph
-
-
-def generate_and_visualize_string_pathway(file_path: str) -> nx.DiGraph:
-    """
-    Generate and visualise a pathway graph using string pathway data from v5.
-
-    Args:
-        file_path (str): Path to the pathway file.
-
-    Returns:
-        networkx.DiGraph: The constructed directed graph.
-    """
-
-    # Generate the pathway object
-    construction_object: Any = generate_string_pathway_ian(file_path)
-
-    # Create a directed graph
-    graph: nx.DiGraph = nx.DiGraph()
-    for edge in get_graph_string_explicit(construction_object[0])[1]:
-        graph.add_edge(f"{edge[0]}", f"{edge[1]}")
-
-    # Visualise the graph
-    pos: dict[Any, Any] = nx.spring_layout(graph, k=0.9)
-    nx.draw(graph,
-            pos,
-            with_labels=True,
-            node_size=2000,
-            node_color="skyblue",
-            font_size=10,
-            font_color="black",
-            edge_color="gray",
-            width=1.5)
-    plt.show()
 
     return graph
 
