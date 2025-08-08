@@ -17,8 +17,9 @@ from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 
 import CFG
-from .construction import parse_pathway_file
-from .construction_string import parse_string_pathway_file
+from .construction import (parse_pathway_file,
+                            parse_string_pathway_file,
+                            molstr_to_str)
 from .tools_graph import (write_ass_graph_file,
                           remove_hydrogen_from_graph,
                           nx_to_mol,
@@ -300,6 +301,7 @@ def calculate_assembly_index(mol,
         if os.path.isfile(file_path_pathway):
             try:
                 if isinstance(mol, nx.Graph):
+                    print("Checkpoint 0")
                     mol = canonicalize_node_labels(mol)
                     path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='graph')
                 elif isinstance(mol, Chem.Mol):
@@ -311,6 +313,7 @@ def calculate_assembly_index(mol,
                     path = (None, None)
                     raise ValueError("Input not supported")
             except Exception as e:
+                print("This happened")
                 print(f"Failed to load pathway data: {e}", flush=True)
 
         # Apply joint correction if necessary
@@ -548,7 +551,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
                                     dir_code=None,
                                     timeout=100.0,
                                     debug=False,
-                                    directed=False,
+                                    directed=True,
                                     mode="str",
                                     return_log_file=False):
     """
@@ -561,7 +564,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         dir_code (str, optional): The directory code for the assembly tool. Defaults to None.
         timeout (float, optional): The maximum time in seconds to allow the command to run. Defaults to 100.0 seconds.
         debug (bool, optional): If True, create a directory with a timestamp for debugging. Defaults to False.
-        directed (bool, optional): If True, treat strings as directed. Defaults to False, treating strings as
+        directed (bool, optional): If True, treat strings as directed. Defaults to True, treating strings as
         undirected.
         mode ("mol"/"str"/"cfg", optional): "mol" uses the molecular assembly calculator, "str" uses the string assembly
         calculator, "cfg" uses the RePair upper bound.
@@ -586,12 +589,15 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
     if directed == False:
         if mode in ["str", "cfg"]:
             mode = "mol"  # Use the molecular assembly calculator for undirected strings
-            print("Warning: only mode 'mol' is currently supported for undirected strings. Switching to 'mol'.",
-                  flush=True)
+            print("Warning: only mode 'mol' is currently supported for undirected strings. Switching to 'mol'.", flush=True)
+    elif mode == "mol":
+        mode = "str" # Use the string assembly calculator for directed strings
+        print("Warning: mode 'mol' is not currently supported for directed strings. Switching to 'str'.", flush=True)
 
     if mode == "mol":  # Use the molecular assembly cpp calculator
         if directed:
             graph = get_dir_str_molecule(string)
+            edge_color_dict = None
         else:
             graph, edge_color_dict = get_undir_str_molecule(string, debug=debug)
 
@@ -606,6 +612,8 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
             for u, v, data in graph.edges(data=True):
                 print(f"Edge {u}-{v}: {data.get('color', 'No color')}", flush=True)
 
+            print("Return log file:", return_log_file, flush=True)
+
         if return_log_file:
             graph_ai, graph_virtual_obj, graph_path, log_file = calculate_assembly_index(graph,
                                                                                          dir_code=dir_code,
@@ -614,6 +622,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
                                                                                          joint_corr=False,
                                                                                          strip_hydrogen=False,
                                                                                          return_log_file=return_log_file)
+
         else:
             graph_ai, graph_virtual_obj, graph_path = calculate_assembly_index(graph,
                                                                                dir_code=dir_code,
@@ -629,12 +638,24 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
 
         if debug:
             print(f"Assembly Index: {ai}", flush=True)
+            print(f"\n\nGraph Virtual Objects:\n", flush=True)
+            for key in graph_virtual_obj.keys():
+                print(f"{key}:\n")
+                for item in graph_virtual_obj[key]:
+                    print(molstr_to_str(item, edge_color_dict=edge_color_dict), flush=True)
+            print(f"\n\nGraph Path list:\n{[molstr_to_str(item, edge_color_dict=edge_color_dict) for item in graph_path[1]]}", flush=True)
+            print("\nPath digraph:",flush=True)
+            print(graph_path[0].edges(data=True), flush=True)
 
-        # Convert to (joint) assembly index of directed strings. Note: Virt obj and Path parsing still needs to be added
+        # Parse the virtual object and path
+        virt_obj = {k: [molstr_to_str(item, edge_color_dict=edge_color_dict) for item in v] for k, v in graph_virtual_obj.items()}
+        path = (graph_path[0], [molstr_to_str(item, edge_color_dict=edge_color_dict) for item in graph_path[1]])
+
+        # Convert to (joint) assembly index of directed strings.
         if return_log_file:
-            return ai, None, None, log_file
+            return ai, virt_obj, path, log_file
         else:
-            return ai, None, None
+            return ai, virt_obj, path
 
     elif mode == "str":  # Use the string assembly cpp calculator
         # raise NotImplementedError("String assembly cpp calculator not yet supported.")

@@ -116,7 +116,7 @@ def get_undir_str_molecule(undir_str: str, debug: bool = False) -> tuple[nx.Grap
 
     # Create a dictionary to map each unique character in the undirected string to a unique edge colour
     edge_color_dict: dict[str, str] = {}
-    for i, char in enumerate(set(undir_str)):
+    for i, char in enumerate(sorted(set(undir_str))):
         edge_color_dict[char] = str(i + 1)
 
     # If debug is enabled, print the edge colour dictionary
@@ -144,8 +144,8 @@ def get_undir_str_molecule(undir_str: str, debug: bool = False) -> tuple[nx.Grap
 
 def get_dir_str_molecule(dir_str: str) -> nx.Graph:
     """
-    Make a molecule that corresponds to a directed string. The string will have the same assembly index
-    as the molecular graph, and the paths will correspond as well.
+    Make a molecule that corresponds to a directed string. The string will have an assembly index
+    determined by that of the molecular graph, and the shortest paths will correspond.
 
     Args:
         dir_str (str): The directed string.
