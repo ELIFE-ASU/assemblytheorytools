@@ -18,8 +18,8 @@ from rdkit.Chem import AllChem as Chem
 
 import CFG
 from .construction import (parse_pathway_file,
-                            parse_string_pathway_file,
-                            molstr_to_str)
+                           parse_string_pathway_file,
+                           molstr_to_str)
 from .tools_graph import (write_ass_graph_file,
                           remove_hydrogen_from_graph,
                           nx_to_mol,
@@ -514,6 +514,35 @@ def compile_assembly_cpp():
     print(flush=True)
     system = platform.system().lower()
     print(f"Compiling assCPP. Detected operating system: {system}", flush=True)
+
+    if system == "darwin":
+        # check if brew is installed
+        if shutil.which("brew") is None:
+            print('Homebrew is not installed. Installing Homebrew...', flush=True)
+            run_command_simple(
+                '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"')
+
+        # check if git is installed
+        if shutil.which("git") is None:
+            print('Git is not installed. Installing Git...', flush=True)
+            run_command_simple('brew install git')
+
+        # Check if cmake is installed
+        if shutil.which("cmake") is None:
+            print('CMake is not installed. Installing CMake...', flush=True)
+            run_command_simple('brew install cmake')
+
+    if system == "linux":
+        # check if git is installed
+        if shutil.which("git") is None:
+            raise OSError(
+                "Git is not installed. Please install Git to compile assemblycpp on Linux.\n sudo apt update \n sudo apt install git")
+
+        # Check if cmake is installed
+        if shutil.which("cmake") is None:
+            raise OSError(
+                "CMake is not installed. Please install CMake to compile assemblycpp on Linux.\n sudo apt update \n sudo apt install cmake")
+
     subprocess.run(
         f"git clone https://github.com/croningp/assemblycpp-v5.git",
         shell=True, check=True)
@@ -587,9 +616,10 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
     if directed == False:
         if mode in ["str", "cfg"]:
             mode = "mol"  # Use the molecular assembly calculator for undirected strings
-            print("Warning: only mode 'mol' is currently supported for undirected strings. Switching to 'mol'.", flush=True)
+            print("Warning: only mode 'mol' is currently supported for undirected strings. Switching to 'mol'.",
+                  flush=True)
     elif mode == "mol":
-        mode = "str" # Use the string assembly calculator for directed strings
+        mode = "str"  # Use the string assembly calculator for directed strings
         print("Warning: mode 'mol' is not currently supported for directed strings. Switching to 'str'.", flush=True)
 
     if mode == "mol":  # Use the molecular assembly cpp calculator
@@ -645,7 +675,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
 
         # Parse the virtual object and path
         virt_obj = [molstr_to_str(item, edge_color_dict=edge_color_dict) for item in graph_virtual_obj]
-        path = graph_path 
+        path = graph_path
 
         # Convert to (joint) assembly index of directed strings.
         if return_log_file:
