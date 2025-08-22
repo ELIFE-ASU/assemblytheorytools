@@ -10,7 +10,7 @@ import time
 from datetime import datetime
 from functools import partial
 from typing import Union, List
-
+import traceback
 import networkx as nx
 import numpy as np
 from rdkit import Chem
@@ -260,6 +260,8 @@ def calculate_assembly_index(mol,
 
         except Exception as e:
             print(f"Error: {e}", flush=True)
+            if debug:
+                traceback.print_exc()
 
         if timed_out == 0:  # If the calculation finished properly, we can read the output file
 
@@ -313,6 +315,8 @@ def calculate_assembly_index(mol,
                     raise ValueError("Input not supported")
             except Exception as e:
                 print(f"Failed to load pathway data: {e}", flush=True)
+                if debug:
+                    traceback.print_exc()
 
         # Apply joint correction if necessary
         if joint_corr:
@@ -748,6 +752,8 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
                         print("Process did not terminate, killing it.")
                         process.kill()
                         stdout_data, _ = process.communicate()
+                        if debug:
+                            traceback.print_exc()
 
                     timed_out = True
 
@@ -758,6 +764,8 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
 
         except Exception as e:
             print(f"Error: {e}")
+            if debug:
+                traceback.print_exc()
 
         if timed_out == 0:  # If the calculation finished properly, we can read the output file
 
@@ -807,6 +815,8 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
                 virt_obj, path = parse_string_pathway_file(file_path_pathway)
             except Exception as e:
                 print(f"Failed to load pathway data: {e}", flush=True)
+                if debug:
+                    traceback.print_exc()
 
         # Print log file path if required
         if return_log_file:
