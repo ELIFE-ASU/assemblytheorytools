@@ -306,7 +306,7 @@ def plot_pathway_mol(graph: nx.DiGraph,
     if show_icons:
         for i, node in enumerate(graph.nodes):
             smi = graph.nodes[node]["vo"]
-            # smi = smi.replace('[', '').replace(']', '')
+            smi = smi.replace('[', '').replace(']', '')
             mol = smi_to_mol(smi, add_hydrogens=False)
             img = Draw.MolToImage(mol,
                                   size=(200, 200),
@@ -376,17 +376,35 @@ def plot_pathway_graph(graph: nx.DiGraph,
                      width=2.0)
 
     if arrow_style == '1':
-        nx.draw_networkx_edges(
-            graph,
-            pos=pos,
-            ax=ax,
-            arrows=True,
-            arrowstyle="->",
-            width=2.0,
-            edge_color="grey",
-            connectionstyle="arc3,rad=0.1",
-            min_target_margin=50,
-        )
+        if show_icons:
+            arrow_margin = 50
+        else:
+            arrow_margin = 20
+
+        for edge in graph.edges():
+            src, dst = edge
+            # If the source node is above the destination node, curve the arrow downward (negative rad)
+            if pos[src][1] > pos[dst][1]:
+                rad = -0.15
+            # If the source node is below the destination node, curve the arrow upward (positive rad)
+            elif pos[src][1] < pos[dst][1]:
+                rad = 0.15
+            # If the source and destination nodes are horizontally aligned
+            else:
+                rad = 0.0
+
+            nx.draw_networkx_edges(
+                graph,
+                pos=pos,
+                edgelist=[edge],
+                ax=ax,
+                arrows=True,
+                arrowstyle="->",
+                width=2.5,
+                edge_color="grey",
+                connectionstyle=f"arc3,rad={rad}",
+                min_target_margin=arrow_margin,
+            )
 
     if show_icons:
         for i, node in enumerate(graph.nodes):
@@ -466,17 +484,35 @@ def plot_pathway_atoms(graph: nx.DiGraph,
                      width=2.0)
 
     if arrow_style == '1':
-        nx.draw_networkx_edges(
-            graph,
-            pos=pos,
-            ax=ax,
-            arrows=True,
-            arrowstyle="->",
-            width=2.0,
-            edge_color="grey",
-            connectionstyle="arc3,rad=0.1",
-            min_target_margin=50,
-        )
+        if show_icons:
+            arrow_margin = 50
+        else:
+            arrow_margin = 20
+
+        for edge in graph.edges():
+            src, dst = edge
+            # If the source node is above the destination node, curve the arrow downward (negative rad)
+            if pos[src][1] > pos[dst][1]:
+                rad = -0.15
+            # If the source node is below the destination node, curve the arrow upward (positive rad)
+            elif pos[src][1] < pos[dst][1]:
+                rad = 0.15
+            # If the source and destination nodes are horizontally aligned
+            else:
+                rad = 0.0
+
+            nx.draw_networkx_edges(
+                graph,
+                pos=pos,
+                edgelist=[edge],
+                ax=ax,
+                arrows=True,
+                arrowstyle="->",
+                width=2.5,
+                edge_color="grey",
+                connectionstyle=f"arc3,rad={rad}",
+                min_target_margin=arrow_margin,
+            )
 
     if show_icons:
         for i, node in enumerate(graph.nodes):
