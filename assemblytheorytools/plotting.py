@@ -669,7 +669,7 @@ def _plot_directed_network(nodes: List[str],
         pos=positions,
         with_labels=labels,
         node_color=node_color,
-        edge_color=edge_color,
+        edge_color='white',
         node_size=node_size,
         font_size=node_size / 200,
         font_color="black",
@@ -677,11 +677,36 @@ def _plot_directed_network(nodes: List[str],
         arrowsize=arrow_size,
         connectionstyle="arc3,rad=0.2"  # For curved edges
     )
+    for edge in graph.edges():
+        src, dst = edge
+        # If the source node is above the destination node, curve the arrow downward (negative rad)
+        if positions[src][0] > positions[dst][0]:
+            rad = 0.25
+        # If the source node is below the destination node, curve the arrow upward (positive rad)
+        elif positions[src][0] < positions[dst][0]:
+            rad = -0.25
+        # If the source and destination nodes are horizontally aligned
+        else:
+            rad = 0.0
+
+        nx.draw_networkx_edges(
+            graph,
+            pos=positions,
+            edgelist=[edge],
+            ax=ax,
+            arrows=True,
+            arrowstyle="->",
+            width=2.5,
+            edge_color=edge_color,
+            connectionstyle=f"arc3,rad={rad}",
+            min_target_margin=10,
+        )
 
     # Set limits for the plot to accommodate the circles
     ax.set_xlim(-max_ai - 1.5, max_ai + 1.5)
     ax.set_ylim(-max_ai - 1.5, max_ai + 1.5)
     ax.set_aspect("equal", adjustable="datalim")
+    fig.tight_layout()
     plt.savefig(f"{filename}", dpi=600)
     return fig, ax
 
@@ -792,7 +817,7 @@ def plot_assembly_circle(nodes,
                                      x_positions,
                                      y_positions,
                                      max_ai,
-                                     True,  # always show labels if custom provided
+                                     labels,  # always show labels if custom provided
                                      node_size,
                                      arrow_size,
                                      node_color,
