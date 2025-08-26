@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 from IPython.display import HTML
+from ase.visualize.plot import plot_atoms
 from matplotlib import colormaps, colors
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
@@ -15,12 +16,12 @@ from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from matplotlib.patches import Circle
 from pyvis.network import Network
 from rdkit.Chem import Draw
-from ase.io import write
-from ase.visualize.plot import plot_atoms
+
 import CFG
+from .tools_atoms import mol_to_atoms
 from .tools_graph import relabel_digraph
 from .tools_mol import smi_to_mol
-from .tools_atoms import mol_to_atoms
+
 
 def n_plot(xlab: str, ylab: str, xs: int = 14, ys: int = 14) -> None:
     plt.minorticks_on()
@@ -272,25 +273,49 @@ def plot_pathway_mol(graph: nx.DiGraph,
                      width=2.0)
 
     if arrow_style == '1':
-        nx.draw_networkx_edges(
-            graph,
-            pos=pos,
-            ax=ax,
-            arrows=True,
-            arrowstyle="->",
-            width=2.0,
-            edge_color="grey",
-            connectionstyle="arc3,rad=0.1",
-            min_target_margin=50,
-        )
+        if show_icons:
+            arrow_margin = 50
+        else:
+            arrow_margin = 20
+
+        for edge in graph.edges():
+            src, dst = edge
+            # If the source node is above the destination node, curve the arrow downward (negative rad)
+            if pos[src][1] > pos[dst][1]:
+                rad = -0.15
+            # If the source node is below the destination node, curve the arrow upward (positive rad)
+            elif pos[src][1] < pos[dst][1]:
+                rad = 0.15
+            # If the source and destination nodes are horizontally aligned
+            else:
+                rad = 0.0
+
+            nx.draw_networkx_edges(
+                graph,
+                pos=pos,
+                edgelist=[edge],
+                ax=ax,
+                arrows=True,
+                arrowstyle="->",
+                width=2.5,
+                edge_color="grey",
+                connectionstyle=f"arc3,rad={rad}",
+                min_target_margin=arrow_margin,
+            )
 
     if show_icons:
         for i, node in enumerate(graph.nodes):
             smi = graph.nodes[node]["vo"]
+            # smi = smi.replace('[', '').replace(']', '')
             mol = smi_to_mol(smi, add_hydrogens=False)
-            img = Draw.MolToImage(mol, size=(150, 150), kekulize=False)
+            img = Draw.MolToImage(mol,
+                                  size=(200, 200),
+                                  kekulize=False,
+                                  fitImage=True)
             imagebox = OffsetImage(img, zoom=0.4)
-            ab = AnnotationBbox(imagebox, (pos[node][0], pos[node][1]), frameon=frame_on)
+            ab = AnnotationBbox(imagebox,
+                                xy=(pos[node][0], pos[node][1]),
+                                frameon=frame_on)
             ax.add_artist(ab)
     fig.tight_layout()
     ax.axis('off')
@@ -386,6 +411,7 @@ def plot_pathway_graph(graph: nx.DiGraph,
     ax.axis('off')
     return fig, ax
 
+
 def plot_pathway_atoms(graph: nx.DiGraph,
                        fig_size: tuple = (12, 7),
                        show_icons: bool = True,
@@ -474,6 +500,7 @@ def plot_pathway_atoms(graph: nx.DiGraph,
     fig.tight_layout()
     ax.axis('off')
     return fig, ax
+
 
 def _average_angles(angles: np.ndarray) -> float:
     """
