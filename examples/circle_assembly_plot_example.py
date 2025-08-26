@@ -22,23 +22,23 @@ if __name__ == "__main__":
     nodes = ['b', 'a', 'd', 'c', 'ba', 'dc', 'baa', 'bad', 'badc', 'baab', 'baba', 'ddbcd', 'bcdda']
 
     adj_matrix = np.array([
-        [0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0],  # Nodo 0
-        [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],  # Nodo 1
-        [0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0],  # Nodo 2
-        [0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0],  # Nodo 3
-        [0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 1],  # Nodo 4
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],  # Nodo 5
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # Nodo 6
-        [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0],  # Nodo 7
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],  # Nodo 8
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],  # Nodo 9
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # Nodo 10
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # Nodo 11
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]  # Nodo 12
+        [0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 1],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     ])
 
     # Specifying adjacency matrix:
-    att.plot_assembly_circle(nodes, adj_matrix)
+    att.plot_assembly_circle(nodes, adj_matrix, filename='circle_plot.svg', node_size=800)
 
     # Without specifying adjacency matrix with given parameters:
     labels = True
@@ -47,7 +47,7 @@ if __name__ == "__main__":
     node_color = 'Skyblue'
     edge_color = 'Grey'
     fig_size = 10
-    filename = 'circle_plot.png'
+    filename = 'circle_plot.pdf'
     att.plot_assembly_circle(nodes,
                              labels=True,
                              node_size=node_size,
