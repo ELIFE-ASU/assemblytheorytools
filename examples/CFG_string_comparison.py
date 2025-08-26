@@ -47,7 +47,7 @@ if __name__ == "__main__":
         end_time = time.time()
         time_cfg_list.append(end_time - start_time)
 
-        print(f"{i}, String: {s_inpt}, AI: {ai}, AI_CFG: {ai_cfg}")
+        print(f"{i}, String: {s_inpt}, AI: {ai}, AI_CFG: {ai_cfg}", flush=True)
         ai_list.append(ai)
         ai_cfg_list.append(ai_cfg)
     # force the x ticks to be integers

@@ -10,10 +10,10 @@ if __name__ == "__main__":
     mol = att.smi_to_mol(smi)
 
     # Compute the assembly index and associated data
-    ai, virt_obj, pathway = att.calculate_assembly_index(mol, debug=False)
+    ai, virt_obj, pathway = att.calculate_assembly_index(mol, strip_hydrogen=True)
 
     # Display the calculated assembly index
-    print(f"Assembly Index: {ai}")
+    print(f"Assembly Index: {ai}", flush=True)
 
     # Generate and save a metro-style plot of the assembly graph
     att.plot_digraph_metro(pathway, filename="example")

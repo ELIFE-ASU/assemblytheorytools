@@ -12,22 +12,14 @@ if __name__ == "__main__":
         '[H]OC(=O)C([H])([H])N([H])[H]'  # Glycine (again)
     ]
 
-    # Convert SMILES to RDKit Mol objects and ensure explicit hydrogens
-    mols = [Chem.AddHs(Chem.MolFromSmiles(smi, sanitize=True)) for smi in smiles]
-
-    # Set the computation timeout to 3 minutes
-    timeout = 3.0 * 60.0
-
+    graphs = [att.smi_to_nx(smi) for smi in smiles]
     # Compute assembly index in parallel for all molecules
-    ai, vo, pathway = att.calculate_assembly_index_parallel(
-        mols,
-        dict(timeout=timeout, strip_hydrogen=True)
-    )
+    ai, vo, pathway = att.calculate_assembly_parallel(graphs, dict(strip_hydrogen=True))
 
     # Display the results for each molecule
     for i, (ai_i, vo_i, pathway_i) in enumerate(zip(ai, vo, pathway)):
-        print(f"SMILES: {smiles[i]}")
-        print(f"Assembly Index: {ai_i}")
-        print(f"VOs: {vo_i}")
-        print(f"Pathway: {pathway_i}")
-        print()
+        print(f"SMILES: {smiles[i]}", flush=True)
+        print(f"Assembly Index: {ai_i}", flush=True)
+        print(f"VOs: {vo_i}", flush=True)
+        print(f"Pathway: {pathway_i}", flush=True)
+        print(flush=True)
