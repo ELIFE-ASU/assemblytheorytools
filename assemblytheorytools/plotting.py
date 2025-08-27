@@ -3,8 +3,6 @@ import tempfile
 from html import escape
 from typing import List
 
-import cairosvg
-import dagviz
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
@@ -202,6 +200,15 @@ def plot_interactive_graph(graph: nx.Graph,
 
 
 def plot_digraph_metro(digraph: nx.DiGraph, filename: str = 'metro', steps: bool = False) -> None:
+    try:
+        import cairosvg
+        import dagviz
+    except ImportError as e:
+        raise ImportError("The 'dagviz' and 'cairosvg' packages are required for this function.\n"
+                          "Please install them via pip:\n"
+                          "pip install git+https://github.com/ELIFE-ASU/dagviz.git \n"
+                          "pip install cairosvg \n") from e
+
     if steps:
         # Relabel the graph nodes with their topological step if requested
         digraph = relabel_digraph(digraph)
