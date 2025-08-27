@@ -1,3 +1,4 @@
+import random
 import tempfile
 from html import escape
 from typing import List
@@ -288,7 +289,15 @@ def plot_pathway_mol(graph: nx.DiGraph,
                 rad = 0.15
             # If the source and destination nodes are horizontally aligned
             else:
-                rad = 0.0
+                layer_diff = graph.nodes[dst]["layer"] - graph.nodes[src]["layer"]
+                if layer_diff > 1:
+                    # flip a coin to decide the direction of the curve
+                    if random.random() > 0.5:
+                        rad = -0.10 * layer_diff
+                    else:
+                        rad = 0.10 * layer_diff
+                else:
+                    rad = 0.0
 
             nx.draw_networkx_edges(
                 graph,
@@ -391,7 +400,15 @@ def plot_pathway_graph(graph: nx.DiGraph,
                 rad = 0.15
             # If the source and destination nodes are horizontally aligned
             else:
-                rad = 0.0
+                layer_diff = graph.nodes[dst]["layer"] - graph.nodes[src]["layer"]
+                if layer_diff > 1:
+                    # flip a coin to decide the direction of the curve
+                    if random.random() > 0.5:
+                        rad = -0.10 * layer_diff
+                    else:
+                        rad = 0.10 * layer_diff
+                else:
+                    rad = 0.0
 
             nx.draw_networkx_edges(
                 graph,
@@ -499,7 +516,15 @@ def plot_pathway_atoms(graph: nx.DiGraph,
                 rad = 0.15
             # If the source and destination nodes are horizontally aligned
             else:
-                rad = 0.0
+                layer_diff = graph.nodes[dst]["layer"] - graph.nodes[src]["layer"]
+                if layer_diff > 1:
+                    # flip a coin to decide the direction of the curve
+                    if random.random() > 0.5:
+                        rad = -0.10 * layer_diff
+                    else:
+                        rad = 0.10 * layer_diff
+                else:
+                    rad = 0.0
 
             nx.draw_networkx_edges(
                 graph,
