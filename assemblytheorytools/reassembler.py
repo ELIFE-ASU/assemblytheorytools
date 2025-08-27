@@ -1257,6 +1257,11 @@ def filter_mol(mol):
             - Original molecule object if it passes all filters
             - None if any forbidden substructure is detected
     """
+
+    if type(mol) is list:
+        #randomly select one molecule from the list
+        mol = mol[random.randint(0, len(mol) - 1)]
+
     evil_smarts = 51 * ['']
 
     evil_smarts[0] = '[*]1~[*]#[*]~1'
@@ -1775,7 +1780,7 @@ def reassemble_old(mols,
     print('\n', 'nFiltered =', n_filtered, flush=True)
 
     # Visualize, generate figures
-    printer(new_mols)
+    # printer(new_mols)
 
     return new_mols
 
