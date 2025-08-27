@@ -1,3 +1,5 @@
+import platform
+
 import matplotlib.pyplot as plt
 
 import assemblytheorytools as att
@@ -19,7 +21,6 @@ if __name__ == "__main__":
     sim = att.tanimoto_similarity(mols[0], mols[1])
     print(f'Tanimoto similarity: {sim}', flush=True)
 
-
     # Convert the SMILES string to an RDKit Mol object
     mol = att.smi_to_mol('.'.join(smi))
     ai, virt_obj, pathway = att.calculate_assembly_index(mol, strip_hydrogen=True)
@@ -27,7 +28,8 @@ if __name__ == "__main__":
     print(f"Assembly Index: {ai}", flush=True)
 
     # Generate and save a metro-style plot of the assembly graph
-    att.plot_digraph_metro(pathway, filename="metro_pathway_example")
+    if platform.system().lower() == "linux":
+        att.plot_digraph_metro(pathway, filename="metro_pathway_example")
     att.plot_pathway_mol(pathway, show_icons=True, frame_on=True)
     plt.savefig("mol_pathway_example.svg")
     plt.show()

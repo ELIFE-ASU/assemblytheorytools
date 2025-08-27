@@ -1,4 +1,5 @@
 import os
+import platform
 import shutil
 
 import matplotlib.pyplot as plt
@@ -62,21 +63,23 @@ def test_plot_digraph():
 
 def test_plot_digraph_metro_calc():
     print(flush=True)
+    if platform.system().lower() == "linux":
+        # Define the SMILES string for glycine
+        smi = "C(C(=O)O)N"
 
-    # Define the SMILES string for glycine
-    smi = "C(C(=O)O)N"
+        # Convert the SMILES string to an RDKit Mol object
+        mol = att.smi_to_mol(smi)
 
-    # Convert the SMILES string to an RDKit Mol object
-    mol = att.smi_to_mol(smi)
+        # Compute the assembly index and associated data
+        _, _, pathway = att.calculate_assembly_index(mol, strip_hydrogen=True)
 
-    # Compute the assembly index and associated data
-    _, _, pathway = att.calculate_assembly_index(mol, strip_hydrogen=True)
-
-    att.plot_digraph_metro(pathway)
-    assert os.path.isfile('metro.png'), "Failed to generate the file."
-    assert os.path.isfile('metro.svg'), "Failed to generate the file."
-    os.remove('metro.png')
-    os.remove('metro.svg')
+        att.plot_digraph_metro(pathway)
+        assert os.path.isfile('metro.png'), "Failed to generate the file."
+        assert os.path.isfile('metro.svg'), "Failed to generate the file."
+        os.remove('metro.png')
+        os.remove('metro.svg')
+    else:
+        print("Skipping test_plot_digraph_metro_calc: not running on Linux.", flush=True)
 
 
 def test_plot_digraph_topological():

@@ -1,3 +1,5 @@
+import platform
+
 import matplotlib.pyplot as plt
 
 import assemblytheorytools as att
@@ -21,7 +23,8 @@ if __name__ == "__main__":
     print(f"Assembly Index: {ai}", flush=True)
 
     # Generate and save a metro-style plot of the assembly graph
-    att.plot_digraph_metro(pathway, filename="metro_pathway_example")
+    if platform.system().lower() == "linux":
+        att.plot_digraph_metro(pathway, filename="metro_pathway_example")
 
     # Convert the SMILES string to an RDKit Mol object
     mol = att.smi_to_mol(smi)
