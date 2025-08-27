@@ -528,11 +528,6 @@ def test_construction_pathway_joint():
                    '[H][C]([H])[C]',
                    '[H][C]']
 
-    # Plot the pathway graph and save it as temporary files
-    att.plot_digraph_metro(pathway, filename="test")
-    os.remove("test.png")  # Remove the temporary PNG file
-    os.remove("test.svg")  # Remove the temporary SVG file
-
     # Assert the correctness of the assembly index, pathway graph, and virtual object list
     assert ai == 8
     assert pathway.number_of_nodes() == 13
