@@ -24,6 +24,7 @@ setup(
         'ase>=3.23.0',
         'numpy>=2.1.3',
         'scipy>=1.15.1',
+        'pandas>=2.2.3',
         'matplotlib>=3.9.2',
         'networkx>=3.4.2',
         'rdkit>=2024.03.5',
