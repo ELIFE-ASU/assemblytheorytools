@@ -230,6 +230,7 @@ def plot_pathway_mol(graph: nx.DiGraph,
     fig, ax = plt.subplots(figsize=fig_size)
     cmap = plt.get_cmap("Blues")
     node_colors = [cmap(0.4) for _ in graph.nodes]
+    node_colors = ['#264f70' for _ in graph.nodes]
 
     # Get the position of the nodes based on the specified layout
     if layout == 'kawai':
@@ -742,7 +743,7 @@ def plot_assembly_circle(nodes,
                          labels=None,
                          node_size=1000,
                          arrow_size=80,
-                         node_color='Skyblue',
+                         node_color='#264f70',
                          edge_color='Grey',
                          fig_size=10,
                          filename='assembly_circles.png'):
