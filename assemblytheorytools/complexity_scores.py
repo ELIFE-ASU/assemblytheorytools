@@ -966,7 +966,7 @@ def bottcher(mol: Mol) -> float:
         v = _get_num_valence_electrons(atom, pt)  # Number of valence electrons
         b = _get_bottcher_bond_index(atom)  # Bond index
         # Update complexity using the calculated factors
-        complexity += d * e * s * math.log(v * b, 2)
+        complexity += d * e * s * np.log2(v * b)
 
     return complexity
 
