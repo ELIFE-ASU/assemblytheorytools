@@ -2,7 +2,6 @@ from rdkit.Chem import AllChem as Chem
 
 import assemblytheorytools as att
 from rdkit.Chem import Draw
-import matplotlib.pyplot as plt
 from rdkit.Chem import Descriptors
 
 if __name__ == "__main__":
@@ -10,7 +9,7 @@ if __name__ == "__main__":
 
     # Define the SMILES string for glycine, alanine, serine, and proline
 
-    smi = ['C(C(=O)O)N', 'C[C@@H](C(=O)O)N','C([C@@H](C(=O)O)N)O','C1C[C@H](NC1)C(=O)O']
+    smi = ['C(C(=O)O)N', 'C[C@@H](C(=O)O)N', 'C([C@@H](C(=O)O)N)O', 'C1C[C@H](NC1)C(=O)O']
 
     # Convert SMILES strings to RDKit Mol objects using att's helper
     mols = [att.smi_to_mol(s, add_hydrogens=True) for s in smi]
@@ -45,10 +44,6 @@ if __name__ == "__main__":
     graphs = list(set(graphs))
 
     moles_out = [att.nx_to_mol(g) for g in graphs]
-    # add the hydrogens back
-    #moles_out = [Chem.AddHs(mol) for mol in moles_out]
-
-    from rdkit import Chem
 
     # α-amino-acid backbone:
     #  N — Cα — C(=O)O(H or -)
@@ -66,11 +61,6 @@ if __name__ == "__main__":
 
 
     def keep_alpha_amino_acid_like(mols, include_esters=False):
-        """
-        Keep only molecules containing an α-amino-acid-like backbone.
-        include_esters=False -> requires free COOH/COO-
-        include_esters=True  -> also accepts C(=O)OR (protected acids)
-        """
         pat = AA_BACKBONE_OR_ESTER if include_esters else AA_BACKBONE
         return [m for m in mols if m is not None and m.HasSubstructMatch(pat)]
 
@@ -81,9 +71,8 @@ if __name__ == "__main__":
     # Get a list of unique smiles
     smiles = list(set(smiles))
     moles_out = [att.smi_to_mol(smile, add_hydrogens=True) for smile in smiles]
-    #remove molecules with lower mw than 75 or higher than 200
+    # remove molecules with lower mw than 75 or higher than 200
     moles_out = [mol for mol in moles_out if Descriptors.MolWt(mol) >= 75 and Descriptors.MolWt(mol) <= 200]
-
 
     img = Draw.MolsToGridImage(moles_out, molsPerRow=10)
     img.save('Mols.png')
