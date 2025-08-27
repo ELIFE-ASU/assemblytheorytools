@@ -161,7 +161,7 @@ def get_bottcher_complexity(smi):
 
 
 if __name__ == "__main__":
-    max_heavy = 40
+    max_heavy = 30
     data_file_in = "CBRdb_C.csv"
     kegg_data_in_path = os.path.expanduser(os.path.abspath(f"..//..//{data_file_in}"))
     target_url = f'https://raw.githubusercontent.com/ELIFE-ASU/CBRdb/refs/heads/main/{data_file_in}'
@@ -203,6 +203,9 @@ if __name__ == "__main__":
     # Drop rows with nan or inf values in the assembly_index column
     df = df.replace([np.inf, -np.inf], np.nan).dropna(subset=['bertz_complexity', 'bottcher_complexity'])
 
+    # Remove rows with assembly index greater than 20
+    df = df[df['assembly_index'] <= 30]
+
     plot_heatmap(df['n_heavy_atoms'], df['assembly_index'],
                  "Heavy atom count",
                  "Assembly index",
@@ -216,7 +219,7 @@ if __name__ == "__main__":
     scatter_plot(df['n_chiral_centers'], df['assembly_index'], xlab="Number of Chiral centers", ylab="Assembly index")
     plt.show()
 
-    scatter_plot_with_colorbar(df['bottcher_complexity'], df['assembly_index'], xlab="Bottcher Complexity",
+    scatter_plot_with_colorbar(df['bottcher_complexity'], df['bertz_complexity'], xlab="Bottcher Complexity",
                                ylab="Assembly Index")
     plt.savefig("bottcher_ai_colorbar.svg")
     plt.show()
