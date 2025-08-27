@@ -22,9 +22,7 @@ def scatter_plot(x,
                  ):
     # Create a figure and axis
     fig, ax = plt.subplots(figsize=figsize)
-
     ax.scatter(x, y, color='black', alpha=alpha, s=50)
-
     att.ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
     return fig, ax
 
@@ -60,18 +58,23 @@ def scatter_plot_with_colorbar(x,
                          s=50,
                          alpha=0.8)
 
-    # Add colour bar
-    cbar = plt.colorbar(scatter, ax=ax)
-    cbar.set_label('Point Density', fontsize=fontsize)
+    # # Add colour bar
+    # cbar = plt.colorbar(scatter, ax=ax)
+    # cbar.set_label('Point Density', fontsize=fontsize)
 
     # Configure the plot
     att.ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
     return fig, ax
 
 
-def plot_contourf_full(x, y, xlab, ylab, c_map="Purples", name="name"):
-    fig = plt.figure(figsize=(7, 7))
-    ax = fig.add_subplot(111)
+def plot_contourf_full(x,
+                       y,
+                       xlab,
+                       ylab,
+                       c_map="Purples",
+                       figsize=(8, 5),
+                       fontsize=16):
+    fig, ax = plt.subplots(figsize=figsize)
     lims = [min(x), max(x)]
 
     k = gaussian_kde(np.vstack([x, y]))
@@ -83,68 +86,95 @@ def plot_contourf_full(x, y, xlab, ylab, c_map="Purples", name="name"):
     ax.set_xlim(lims)
     ax.set_ylim(lims)
 
-    # # draw the y=x line
-    # ax.plot(lims, lims, color="black", linestyle="--")
-    ax.set_title(name, fontsize=24)
     # add axis labels
-    att.ax_plot(fig, ax, xlab, ylab, 22, 22)
-    # save the plot
-    plt.savefig(name + "_contourf.png", dpi=600)
-    plt.savefig(name + "_contourf.pdf", dpi=600)
-    plt.show()
-    return None
+    att.ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
+    return fig, ax
 
 
-def plot_heatmap(x, y, xlab, ylab, name, c_map='viridis', nbins=50):
+def plot_heatmap(x,
+                 y,
+                 xlab,
+                 ylab,
+                 c_map='viridis',
+                 nbins=50,
+                 figsize=(8, 5),
+                 fontsize=16):
+    fig, ax = plt.subplots(figsize=figsize)
     # Create a 2D histogram of the data
     heatmap_data, xedges, yedges = np.histogram2d(x, y, bins=(nbins, nbins))
-
-    # Plot the heatmap
-    plt.figure(figsize=(8, 6))
-    plt.imshow(heatmap_data.T,
-               origin='lower',
-               cmap=c_map,
-               aspect='auto',
-               extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]])
-    plt.colorbar(label='Counts')
-    att.n_plot(xlab, ylab)
-    plt.savefig(f"{name}_heatmap.png", dpi=600)
-    plt.show()
+    im = ax.imshow(heatmap_data.T,
+                   origin='lower',
+                   cmap=c_map,
+                   aspect='auto',
+                   extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]])
+    # Add colour bar
+    cbar = plt.colorbar(im, ax=ax)
+    cbar.set_label('Point Density', fontsize=fontsize)
+    att.ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
+    return fig, ax
 
 
-def plot_heatmap_line(x, y, xlab, ylab, name, c_map='viridis', nbins=50):
-    # For each n_heavy_atoms value calculate the average assembly index
-    ave_y = []
-    std_y = []
-    x_range = np.arange(min(x), max(x))
-    for i in x_range:
-        ave_y.append(np.mean(y[x == i]))
-        std_y.append(np.std(y[x == i]))
+def scatter_plot_3d_with_colorbar(x,
+                                  y,
+                                  z,
+                                  c=None,
+                                  xlab='x',
+                                  ylab='y',
+                                  zlab='z',
+                                  clab='Point Density',
+                                  cmap='viridis',
+                                  figsize=(10, 8),
+                                  fontsize=20,
+                                  alpha=0.8,
+                                  s=50,
+                                  labelpad=20):
+    """
+    Create a 3D scatter plot with a color bar.
+    """
+    # Create a figure and 3D axis
+    fig = plt.figure(figsize=figsize)
+    ax = fig.add_subplot(111, projection='3d')
 
-    # Create a 2D histogram of the data
-    heatmap_data, xedges, yedges = np.histogram2d(x, y, bins=(nbins, nbins))
+    # Convert to numpy arrays
+    x = np.asarray(x)
+    y = np.asarray(y)
+    z = np.asarray(z)
 
-    # Plot the heatmap
-    plt.figure(figsize=(8, 6))
-    plt.imshow(heatmap_data.T,
-               origin='lower',
-               cmap=c_map,
-               aspect='auto',
-               extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]])
-    plt.colorbar(label='Counts')
+    # If no color values provided, calculate point density
+    if c is None:
+        # Stack the data and calculate the point density
+        xyz = np.vstack([x, y, z])
+        c = gaussian_kde(xyz)(xyz)
 
-    # Plot the assembly index
-    plt.plot(x_range, ave_y, c="black", alpha=0.5)
-    # add the error bars
-    plt.errorbar(x_range, ave_y, yerr=std_y, fmt='o', c="black", alpha=0.5)
-    att.n_plot("Heavy atom count", "Assembly index")
-    # set the x-axis limits
-    plt.xlim(xedges[0], xedges[-1])
-    plt.ylim(yedges[0], yedges[-1])
+        # Sort the points by density so that high-density points are plotted last
+        idx = c.argsort()
+        x, y, z, c = x[idx], y[idx], z[idx], c[idx]
 
-    att.n_plot(xlab, ylab)
-    plt.savefig(f"{name}_heatmap_line.png", dpi=600)
-    plt.show()
+    # Create the 3D scatter plot
+    scatter = ax.scatter(x, y, z, c=c, cmap=cmap, s=s, alpha=alpha)
+
+    # # Add color bar
+    # cbar = plt.colorbar(scatter, ax=ax)
+    # cbar.set_label(clab, fontsize=fontsize-4)
+
+    # Set labels
+    ax.set_xlabel(xlab, fontsize=fontsize, labelpad=labelpad)
+    ax.set_ylabel(ylab, fontsize=fontsize, labelpad=labelpad)
+    ax.set_zlabel(zlab, fontsize=fontsize, labelpad=labelpad)
+
+    # Set tick font sizes
+    ax.tick_params(axis='x', labelsize=fontsize - 4)
+    ax.tick_params(axis='y', labelsize=fontsize - 4)
+    ax.tick_params(axis='z', labelsize=fontsize - 4)
+
+    # Set line width for axes
+    for axis in [ax.xaxis, ax.yaxis, ax.zaxis]:
+        try:
+            axis.line.set_linewidth(2.0)
+        except:
+            pass
+    fig.tight_layout()
+    return fig, ax
 
 
 def get_ai(smi):
@@ -206,22 +236,44 @@ if __name__ == "__main__":
     # Remove rows with assembly index greater than 20
     df = df[df['assembly_index'] <= 30]
 
-    plot_heatmap(df['n_heavy_atoms'], df['assembly_index'],
-                 "Heavy atom count",
-                 "Assembly index",
-                 "heavy_ai",
-                 c_map='Blues',
-                 nbins=100)
-
-    scatter_plot(df['n_heavy_atoms'], df['assembly_index'], xlab="Heavy atom count", ylab="Assembly index")
+    scatter_plot_3d_with_colorbar(df['bottcher_complexity'],
+                                  df['bertz_complexity'],
+                                  df['assembly_index'],
+                                  xlab="Böttcher",
+                                  ylab="Bertz",
+                                  zlab="Assembly Index")
+    plt.savefig("3dplot.svg")
     plt.show()
 
-    scatter_plot(df['n_chiral_centers'], df['assembly_index'], xlab="Number of Chiral centers", ylab="Assembly index")
-    plt.show()
-
-    scatter_plot_with_colorbar(df['bottcher_complexity'], df['bertz_complexity'], xlab="Bottcher Complexity",
+    # plot_heatmap(df['n_heavy_atoms'], df['assembly_index'],
+    #              "Heavy atom count",
+    #              "Assembly index",
+    #              c_map='Blues',
+    #              nbins=100)
+    # plt.show()
+    #
+    # scatter_plot(df['n_heavy_atoms'],
+    #              df['assembly_index'],
+    #              xlab="Heavy atom count",
+    #              ylab="Assembly index")
+    # plt.show()
+    #
+    scatter_plot_with_colorbar(df['n_chiral_centers'],
+                               df['assembly_index'],
+                               xlab="Number of Chiral Centers",
                                ylab="Assembly Index")
-    plt.savefig("bottcher_ai_colorbar.svg")
+    plt.savefig("chiral.svg")
     plt.show()
-
-    # plot_contourf_full(df['n_heavy_atoms'], df['assembly_index'], "Heavy atom count", "Assembly index", name="heavy_atom")
+    #
+    # scatter_plot_with_colorbar(df['bottcher_complexity'],
+    #                            df['bertz_complexity'],
+    #                            xlab="Bottcher Complexity",
+    #                            ylab="Assembly Index")
+    # plt.savefig("bottcher_ai_colorbar.svg")
+    # plt.show()
+    #
+    # plot_contourf_full(df['n_heavy_atoms'],
+    #                    df['assembly_index'],
+    #                    "Heavy atom count",
+    #                    "Assembly index")
+    # plt.show()
