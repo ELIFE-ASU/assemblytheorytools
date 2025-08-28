@@ -230,35 +230,15 @@ def plot_digraph_metro(digraph: nx.DiGraph, filename: str = 'metro', steps: bool
 def plot_pathway_mol(graph: nx.DiGraph,
                      fig_size: tuple = (12, 7),
                      show_icons: bool = True,
-                     layout: str = 'topological',
-                     node_color: str='#264f70',
-                     seed: int = 42,
+                     node_color: str = '#264f70',
                      arrow_style: str = '1',
                      frame_on: bool = True) -> tuple[Figure, Axes]:
     fig, ax = plt.subplots(figsize=fig_size)
 
-    # Get the position of the nodes based on the specified layout
-    if layout == 'kawai':
-        pos = nx.kamada_kawai_layout(graph)
-    elif layout == 'spring':
-        pos = nx.spring_layout(graph, seed=seed)
-    elif layout == 'circular':
-        pos = nx.circular_layout(graph)
-    elif layout == 'shell':
-        pos = nx.shell_layout(graph)
-    elif layout == 'spectral':
-        pos = nx.spectral_layout(graph)
-    elif layout == 'spiral':
-        pos = nx.spiral_layout(graph)
-    elif layout == 'arf':
-        pos = nx.arf_layout(graph)
-    elif layout == 'topological':
-        for layer, nodes in enumerate(nx.topological_generations(graph)):
-            for node in nodes:
-                graph.nodes[node]["layer"] = layer
-        pos = nx.multipartite_layout(graph, subset_key="layer")
-    else:
-        pos = nx.kamada_kawai_layout(graph)
+    for layer, nodes in enumerate(nx.topological_generations(graph)):
+        for node in nodes:
+            graph.nodes[node]["layer"] = layer
+    pos = nx.multipartite_layout(graph, subset_key="layer")
 
     if arrow_style == '1':
         edge_color = 'white'
