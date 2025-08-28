@@ -231,6 +231,7 @@ def plot_pathway_mol(graph: nx.DiGraph,
                      fig_size: tuple = (12, 7),
                      show_icons: bool = True,
                      node_color: str = '#264f70',
+                     plot_type: str = 'mol',
                      arrow_style: str = '1',
                      frame_on: bool = True) -> tuple[Figure, Axes]:
     fig, ax = plt.subplots(figsize=fig_size)
@@ -299,19 +300,58 @@ def plot_pathway_mol(graph: nx.DiGraph,
             )
 
     if show_icons:
-        for i, node in enumerate(graph.nodes):
-            smi = graph.nodes[node]["vo"]
-            smi = smi.replace('[', '').replace(']', '')
-            mol = smi_to_mol(smi, add_hydrogens=False)
-            img = Draw.MolToImage(mol,
-                                  size=(200, 200),
-                                  kekulize=False,
-                                  fitImage=True)
-            imagebox = OffsetImage(img, zoom=0.4)
-            ab = AnnotationBbox(imagebox,
-                                xy=(pos[node][0], pos[node][1]),
-                                frameon=frame_on)
-            ax.add_artist(ab)
+        if plot_type == 'mol':
+            for i, node in enumerate(graph.nodes):
+                smi = graph.nodes[node]["vo"]
+                smi = smi.replace('[', '').replace(']', '')
+                mol = smi_to_mol(smi, add_hydrogens=False)
+                img = Draw.MolToImage(mol,
+                                      size=(200, 200),
+                                      kekulize=False,
+                                      fitImage=True)
+                imagebox = OffsetImage(img, zoom=0.4)
+                ab = AnnotationBbox(imagebox,
+                                    xy=(pos[node][0], pos[node][1]),
+                                    frameon=frame_on)
+                ax.add_artist(ab)
+        elif plot_type == 'graph':
+            for i, node in enumerate(graph.nodes):
+                atom_graph = graph.nodes[node]["vo"]
+                with tempfile.NamedTemporaryFile(suffix=".png", delete=True) as tmpfile:
+                    _fig, _ax = plot_mol_graph(atom_graph,
+                                               f_labs=False,
+                                               fig_size=(4, 4),
+                                               node_size=1000,
+                                               width=10)
+                    # save the figure to a temporary file
+                    _fig.savefig(tmpfile.name, dpi=400, bbox_inches='tight')
+                    # close the figure
+                    plt.close(_fig)
+
+                    img = plt.imread(tmpfile.name)
+
+                imagebox = OffsetImage(img, zoom=0.05)
+                ab = AnnotationBbox(imagebox, (pos[node][0], pos[node][1]), frameon=frame_on)
+                ax.add_artist(ab)
+        elif plot_type == 'atoms':
+            for i, node in enumerate(graph.nodes):
+                smi = graph.nodes[node]["vo"]
+                mol = smi_to_mol(smi, add_hydrogens=False)
+                atoms = mol_to_atoms(mol, sanitize=False, add_hydrogen=False)
+                with tempfile.NamedTemporaryFile(suffix=".png", delete=True) as tmpfile:
+                    _fig, _ax = plt.subplots()
+                    plot_atoms(atoms, _ax, show_unit_cell=0, scale=2.0)
+                    _fig.tight_layout()
+                    _ax.axis('off')
+                    _fig.savefig(tmpfile.name, dpi=500, bbox_inches='tight')
+
+                    # close the figure
+                    plt.close(_fig)
+                    img = plt.imread(tmpfile.name)
+
+                imagebox = OffsetImage(img, zoom=0.02)
+                ab = AnnotationBbox(imagebox, (pos[node][0], pos[node][1]), frameon=frame_on)
+                ax.add_artist(ab)
     fig.tight_layout()
     ax.axis('off')
     return fig, ax
