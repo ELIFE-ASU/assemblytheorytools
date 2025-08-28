@@ -7,10 +7,11 @@ import signal
 import subprocess
 import tempfile
 import time
+import traceback
 from datetime import datetime
 from functools import partial
 from typing import Union, List
-import traceback
+
 import networkx as nx
 import numpy as np
 from rdkit import Chem
@@ -620,7 +621,8 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
     if directed == False:
         if mode in ["str", "cfg"]:
             mode = "mol"  # Use the molecular assembly calculator for undirected strings
-            print("Warning: only mode 'mol' is currently supported for undirected strings. Switching to 'mol'.", flush=True)
+            print("Warning: only mode 'mol' is currently supported for undirected strings. Switching to 'mol'.",
+                  flush=True)
     elif mode == "mol":
         mode = "str"  # Use the string assembly calculator for directed strings
         print("Warning: mode 'mol' is not currently supported for directed strings. Switching to 'str'.", flush=True)
@@ -826,7 +828,6 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         if os.path.exists(file_path_in):
             os.remove(file_path_in)
         shutil.rmtree(temp_dir)  # Clean up the temporary directory
-
 
         # Return based on flag
         return (ai, virt_obj, path) if not return_log_file else (ai, virt_obj, path, log_file)
@@ -1126,18 +1127,29 @@ def calculate_sum_assembly(graphs, settings, parallel=True) -> int:
     return sum(ai_list)
 
 
-def calculate_assembly_similarity(graphs, settings, parallel=True) -> float:
+def calculate_assembly_similarity(graphs, settings=None, parallel=True) -> float:
     """
-    Calculate the assembly similarity index for a set of graphs.
+    Calculate the assembly similarity index for a list of molecular graphs.
 
-    Args:
-        graphs (list): List of molecular graphs.
-        settings (dict): Settings for the assembly index calculation.
-        parallel (bool): If True, calculate assembly indices in parallel. Defaults to True.
+    The assembly similarity index is defined as:
+        (Sum of individual assembly indices / Joint assembly index) - 1.0
+
+    Parameters:
+    -----------
+    graphs : list
+        A list of molecular graphs to compare. Each graph can be a NetworkX graph or another supported type.
+    settings : dict, optional
+        A dictionary of settings to be passed to the `calculate_assembly_index` function. Defaults to an empty dictionary.
+    parallel : bool, optional
+        If True, calculates the assembly indices in parallel. Defaults to True.
 
     Returns:
-        float: The assembly similarity index.
+    --------
+    float
+        The assembly similarity index. If the joint assembly index is 0, returns 0.0.
     """
+    if settings is None:
+        settings = {}
     # Calculate assembly index sum
     ai_sum = calculate_sum_assembly(graphs, settings, parallel=parallel)
 

@@ -615,10 +615,10 @@ def test_calculate_assembly_similarity():
     print(flush=True)
     graphs = [att.smi_to_nx("C1=CC=CC=C1"), att.smi_to_nx("C1=CC=CC=C1O")]
     settings = {'strip_hydrogen': True}
-    similarity = att.calculate_assembly_similarity(graphs, settings, parallel=True)
+    similarity = att.calculate_assembly_similarity(graphs, settings=settings, parallel=True)
     print(similarity, flush=True)
     assert similarity == 0.75
-    similarity = att.calculate_assembly_similarity(graphs, settings, parallel=False)
+    similarity = att.calculate_assembly_similarity(graphs, settings=settings, parallel=False)
     print(similarity, flush=True)
     assert similarity == 0.75
 

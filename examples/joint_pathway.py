@@ -11,7 +11,7 @@ if __name__ == "__main__":
     smi = ['C(C(=O)O)N', 'C[C@@H](C(=O)O)N']
     graphs = [att.smi_to_nx(s) for s in smi]
     mols = [att.smi_to_mol(s) for s in smi]
-    sim = att.calculate_assembly_similarity(graphs, {'strip_hydrogen': True})
+    sim = att.calculate_assembly_similarity(graphs, settings={'strip_hydrogen': True})
     print(f'Assembly similarity: {sim}', flush=True)
 
     for mol in mols:
