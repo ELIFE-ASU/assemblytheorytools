@@ -46,9 +46,9 @@ from .complexity_scores import (count_unique_bonds,
                                 proudfoot,
                                 mc1,
                                 mc2)
-from .construction import (parse_pathway_file, 
-                           assign_levels, 
-                           parse_string_pathway_file, 
+from .construction import (parse_pathway_file,
+                           assign_levels,
+                           parse_string_pathway_file,
                            molstr_to_str)
 from .find_other_paths import (all_shortest_paths)
 from .neighborhood_enumeration import (enumerate_neighborhood,
@@ -61,7 +61,12 @@ from .plotting import (n_plot,
                        plot_graph,
                        plot_pathway,
                        plot_digraph_metro,
-                       plot_assembly_circle)
+                       plot_assembly_circle,
+                       scatter_plot,
+                       scatter_plot_with_colorbar,
+                       plot_contourf_full,
+                       plot_heatmap,
+                       scatter_plot_3d_with_colorbar)
 from .reassembler import (assemble,
                           origami,
                           get_num_atom,

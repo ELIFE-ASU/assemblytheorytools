@@ -15,11 +15,15 @@ from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from matplotlib.patches import Circle
 from pyvis.network import Network
 from rdkit.Chem import Draw
+from scipy.stats import gaussian_kde
 
 import CFG
 from .tools_atoms import mol_to_atoms
 from .tools_graph import relabel_digraph
 from .tools_mol import smi_to_mol
+
+# set the plot axis
+plt.rcParams['axes.linewidth'] = 2.0
 
 
 def n_plot(xlab: str, ylab: str, xs: int = 14, ys: int = 14) -> None:
@@ -643,4 +647,165 @@ def plot_assembly_circle(nodes,
                                      edge_color,
                                      fig_size,
                                      filename)
+    return fig, ax
+
+
+def scatter_plot(x,
+                 y,
+                 xlab='x',
+                 ylab='y',
+                 figsize=(8, 5),
+                 fontsize=16,
+                 alpha=0.5,
+                 ):
+    # Create a figure and axis
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.scatter(x, y, color='black', alpha=alpha, s=50)
+    ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
+    return fig, ax
+
+
+def scatter_plot_with_colorbar(x,
+                               y,
+                               xlab='x',
+                               ylab='y',
+                               cmap='viridis',
+                               figsize=(8, 5),
+                               fontsize=16,
+                               ):
+    # Create a figure and axis
+    fig, ax = plt.subplots(figsize=figsize)
+
+    # Convert to numpy arrays if they aren't already
+    x = np.asarray(x)
+    y = np.asarray(y)
+
+    # Stack the data and calculate the point density
+    xy = np.vstack([x, y])
+    z = gaussian_kde(xy)(xy)
+
+    # Sort the points by density so that high-density points are plotted last
+    idx = z.argsort()
+    x_sorted, y_sorted, z_sorted = x[idx], y[idx], z[idx]
+
+    # Create the scatter plot with colour determined by point density
+    scatter = ax.scatter(x_sorted,
+                         y_sorted,
+                         c=z_sorted,
+                         cmap=cmap,
+                         s=50,
+                         alpha=0.8)
+
+    # # Add colour bar
+    # cbar = plt.colorbar(scatter, ax=ax)
+    # cbar.set_label('Point Density', fontsize=fontsize)
+
+    # Configure the plot
+    ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
+    return fig, ax
+
+
+def plot_contourf_full(x,
+                       y,
+                       xlab,
+                       ylab,
+                       c_map="Purples",
+                       figsize=(8, 5),
+                       fontsize=16):
+    fig, ax = plt.subplots(figsize=figsize)
+    lims = [min(x), max(x)]
+
+    k = gaussian_kde(np.vstack([x, y]))
+    xi, yi = np.mgrid[lims[0]:lims[1]:x.size ** 0.6 * 1j, lims[0]:lims[1]:y.size ** 0.6 * 1j]
+    zi = k(np.vstack([xi.flatten(), yi.flatten()]))
+    ax.contourf(xi, yi, zi.reshape(xi.shape), alpha=0.9, cmap=c_map)  # , levels=20)
+
+    # set the axis limits
+    ax.set_xlim(lims)
+    ax.set_ylim(lims)
+
+    # add axis labels
+    ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
+    return fig, ax
+
+
+def plot_heatmap(x,
+                 y,
+                 xlab,
+                 ylab,
+                 c_map='viridis',
+                 nbins=50,
+                 figsize=(8, 5),
+                 fontsize=16):
+    fig, ax = plt.subplots(figsize=figsize)
+    # Create a 2D histogram of the data
+    heatmap_data, xedges, yedges = np.histogram2d(x, y, bins=(nbins, nbins))
+    im = ax.imshow(heatmap_data.T,
+                   origin='lower',
+                   cmap=c_map,
+                   aspect='auto',
+                   extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]])
+    # Add colour bar
+    cbar = plt.colorbar(im, ax=ax)
+    cbar.set_label('Point Density', fontsize=fontsize)
+    ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
+    return fig, ax
+
+
+def scatter_plot_3d_with_colorbar(x,
+                                  y,
+                                  z,
+                                  c=None,
+                                  xlab='x',
+                                  ylab='y',
+                                  zlab='z',
+                                  cmap='viridis',
+                                  figsize=(10, 8),
+                                  fontsize=20,
+                                  alpha=0.8,
+                                  s=50,
+                                  labelpad=20):
+    # Create a figure and 3D axis
+    fig = plt.figure(figsize=figsize)
+    ax = fig.add_subplot(111, projection='3d')
+
+    # Convert to numpy arrays
+    x = np.asarray(x)
+    y = np.asarray(y)
+    z = np.asarray(z)
+
+    # If no color values provided, calculate point density
+    if c is None:
+        # Stack the data and calculate the point density
+        xyz = np.vstack([x, y, z])
+        c = gaussian_kde(xyz)(xyz)
+
+        # Sort the points by density so that high-density points are plotted last
+        idx = c.argsort()
+        x, y, z, c = x[idx], y[idx], z[idx], c[idx]
+
+    # Create the 3D scatter plot
+    scatter = ax.scatter(x, y, z, c=c, cmap=cmap, s=s, alpha=alpha)
+
+    # Add color bar
+    cbar = plt.colorbar(scatter, ax=ax)
+    cbar.set_label('Point Density', fontsize=fontsize - 4)
+
+    # Set labels
+    ax.set_xlabel(xlab, fontsize=fontsize, labelpad=labelpad)
+    ax.set_ylabel(ylab, fontsize=fontsize, labelpad=labelpad)
+    ax.set_zlabel(zlab, fontsize=fontsize, labelpad=labelpad)
+
+    # Set tick font sizes
+    ax.tick_params(axis='x', labelsize=fontsize - 4)
+    ax.tick_params(axis='y', labelsize=fontsize - 4)
+    ax.tick_params(axis='z', labelsize=fontsize - 4)
+
+    # Set line width for axes
+    for axis in [ax.xaxis, ax.yaxis, ax.zaxis]:
+        try:
+            axis.line.set_linewidth(2.0)
+        except:
+            pass
+    fig.tight_layout()
     return fig, ax
