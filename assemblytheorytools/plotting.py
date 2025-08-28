@@ -231,13 +231,11 @@ def plot_pathway_mol(graph: nx.DiGraph,
                      fig_size: tuple = (12, 7),
                      show_icons: bool = True,
                      layout: str = 'topological',
+                     node_color: str='#264f70',
                      seed: int = 42,
                      arrow_style: str = '1',
                      frame_on: bool = True) -> tuple[Figure, Axes]:
     fig, ax = plt.subplots(figsize=fig_size)
-    cmap = plt.get_cmap("Blues")
-    node_colors = [cmap(0.4) for _ in graph.nodes]
-    node_colors = ['#264f70' for _ in graph.nodes]
 
     # Get the position of the nodes based on the specified layout
     if layout == 'kawai':
@@ -274,7 +272,7 @@ def plot_pathway_mol(graph: nx.DiGraph,
                      ax=ax,
                      with_labels=False,
                      node_size=1000,
-                     node_color=node_colors,
+                     node_color=node_color,
                      connectionstyle="arc3,rad=0.1",
                      edge_color=edge_color,
                      arrows=True,
