@@ -227,13 +227,13 @@ def plot_digraph_metro(digraph: nx.DiGraph, filename: str = 'metro', steps: bool
     return None
 
 
-def plot_pathway_mol(graph: nx.DiGraph,
-                     fig_size: tuple = (12, 7),
-                     show_icons: bool = True,
-                     node_color: str = '#264f70',
-                     plot_type: str = 'mol',
-                     arrow_style: str = '1',
-                     frame_on: bool = True) -> tuple[Figure, Axes]:
+def plot_pathway(graph: nx.DiGraph,
+                 fig_size: tuple = (12, 7),
+                 show_icons: bool = True,
+                 node_color: str = '#264f70',
+                 plot_type: str = 'mol',
+                 arrow_style: str = '1',
+                 frame_on: bool = True) -> tuple[Figure, Axes]:
     fig, ax = plt.subplots(figsize=fig_size)
 
     for layer, nodes in enumerate(nx.topological_generations(graph)):

@@ -17,7 +17,7 @@ if __name__ == "__main__":
     # Calculate the assembly index without removing hydrogens
     ai, virt_obj, pathway = att.calculate_assembly_index(graph, strip_hydrogen=True)
 
-    att.plot_pathway_mol(pathway, show_icons=False, frame_on=True)
+    att.plot_pathway(pathway, show_icons=False, frame_on=True)
     plt.savefig("mol_pathway_example.svg")
     plt.show()
     n_before = len(pathway)
@@ -33,5 +33,5 @@ if __name__ == "__main__":
     for g in new_graphs:
         G.add_edge(virt_obj[-1], g)
         G.add_edge(virt_obj[-2], g)
-    att.plot_pathway_mol(G, show_icons=False, frame_on=True)
+    att.plot_pathway(G, show_icons=False, frame_on=True)
     plt.show()

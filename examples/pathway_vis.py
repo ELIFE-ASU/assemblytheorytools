@@ -29,12 +29,12 @@ if __name__ == "__main__":
     # Convert the SMILES string to an RDKit Mol object
     mol = att.smi_to_mol(smi)
     ai, virt_obj, pathway = att.calculate_assembly_index(mol, strip_hydrogen=True)
-    att.plot_pathway_mol(pathway, show_icons=True, frame_on=True)
+    att.plot_pathway(pathway, show_icons=True, frame_on=True)
     plt.savefig("mol_pathway_example.svg")
     plt.show()
 
     graph = att.smi_to_nx(smi)
     ai, virt_obj, pathway = att.calculate_assembly_index(graph, strip_hydrogen=True)
-    att.plot_pathway_mol(pathway, show_icons=True, frame_on=True, plot_type='graph')
+    att.plot_pathway(pathway, show_icons=True, plot_type='graph', frame_on=True)
     plt.savefig("graph_pathway_example.svg")
     plt.show()

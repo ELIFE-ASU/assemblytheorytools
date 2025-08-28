@@ -30,12 +30,12 @@ if __name__ == "__main__":
     # Generate and save a metro-style plot of the assembly graph
     if platform.system().lower() == "linux":
         att.plot_digraph_metro(pathway, filename="metro_pathway_example")
-    att.plot_pathway_mol(pathway, show_icons=True, frame_on=True)
+    att.plot_pathway(pathway, show_icons=True, frame_on=True)
     plt.savefig("mol_pathway_example.svg")
     plt.show()
 
     graph = att.join_graphs(graphs)
     ai, virt_obj, pathway = att.calculate_assembly_index(graph, strip_hydrogen=True)
-    att.plot_pathway_mol(pathway, show_icons=True, frame_on=True, plot_type='graph')
+    att.plot_pathway(pathway, show_icons=True, plot_type='graph', frame_on=True)
     plt.savefig("graph_pathway_example.svg")
     plt.show()

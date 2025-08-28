@@ -112,7 +112,7 @@ def test_plot_pathway_mol():
     # Compute the assembly index and associated data
     _, _, pathway = att.calculate_assembly_index(mol, strip_hydrogen=True)
 
-    fig, ax = att.plot_pathway_mol(pathway, plot_type='mol')
+    fig, ax = att.plot_pathway(pathway, plot_type='mol')
     plt.show()
     assert fig is not None, "Failed to create the figure."
     assert ax is not None, "Failed to create the axes."
@@ -122,7 +122,7 @@ def test_plot_pathway_mol():
     # Compute the assembly index and associated data
     _, _, pathway = att.calculate_assembly_index(graph, strip_hydrogen=True)
 
-    fig, ax = att.plot_pathway_mol(pathway, plot_type='graph')
+    fig, ax = att.plot_pathway(pathway, plot_type='graph')
     plt.show()
     assert fig is not None, "Failed to create the figure."
     assert ax is not None, "Failed to create the axes."
@@ -130,7 +130,7 @@ def test_plot_pathway_mol():
     # Compute the assembly index and associated data
     _, _, pathway = att.calculate_assembly_index(mol, strip_hydrogen=False)
 
-    fig, ax = att.plot_pathway_mol(pathway, plot_type='atoms')
+    fig, ax = att.plot_pathway(pathway, plot_type='atoms')
     plt.show()
     assert fig is not None, "Failed to create the figure."
     assert ax is not None, "Failed to create the axes."

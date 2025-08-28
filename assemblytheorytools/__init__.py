@@ -59,7 +59,7 @@ from .plotting import (n_plot,
                        plot_mol_graph,
                        plot_interactive_graph,
                        plot_graph,
-                       plot_pathway_mol,
+                       plot_pathway,
                        plot_digraph_metro,
                        plot_assembly_circle)
 from .reassembler import (assemble,
