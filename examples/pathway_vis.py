@@ -35,6 +35,6 @@ if __name__ == "__main__":
 
     graph = att.smi_to_nx(smi)
     ai, virt_obj, pathway = att.calculate_assembly_index(graph, strip_hydrogen=True)
-    att.plot_pathway_graph(pathway, show_icons=True, frame_on=True)
+    att.plot_pathway_mol(pathway, show_icons=True, frame_on=True, plot_type='graph')
     plt.savefig("graph_pathway_example.svg")
     plt.show()
