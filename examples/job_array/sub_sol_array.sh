@@ -5,7 +5,7 @@
 #SBATCH --array=60000-70000            # Array of 10 jobs (adjust to your range) 4886963
 #SBATCH --time=1-00:00:00            # Time limit
 #SBATCH --ntasks=1                   # Number of tasks (1 per array task)
-#SBATCH --cpus-per-task=1            # Number of CPU cores per task
+#SBATCH --cpus-per-task=1            # Number of CPU cores per taskó
 #SBATCH --mem=16G                    # Memory per task 4 or 16
 #SBATCH --partition=general          # general lightwork highmem
 #SBATCH --qos=public                 # private public

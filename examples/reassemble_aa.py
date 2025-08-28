@@ -1,8 +1,8 @@
 from rdkit.Chem import AllChem as Chem
+from rdkit.Chem import Descriptors
+from rdkit.Chem import Draw
 
 import assemblytheorytools as att
-from rdkit.Chem import Draw
-from rdkit.Chem import Descriptors
 
 if __name__ == "__main__":
     print(flush=True)

@@ -1,6 +1,7 @@
 import copy
 import json
 import os
+
 import networkx as nx
 import numpy as np
 from rdkit import Chem
@@ -838,14 +839,15 @@ def immediate_predecessors(data, interval):
     while c_idx < sum(interval):
         parent = ""
         for dup in data["duplicates"]:
-            if dup["Left"][1] < interval[1]: # Make sure the duplicate can fit in the interval
-                if c_idx in range(dup["Left"][0], sum(dup["Left"])): # If duplicate contains c_idx
-                    if dup["Left"][1] > len(parent): # If this duplicate is larger than the current parent
-                        if dup["Left"][0] >= interval[0] and sum(dup["Left"]) <= sum(interval): # If this duplicate is within the interval
+            if dup["Left"][1] < interval[1]:  # Make sure the duplicate can fit in the interval
+                if c_idx in range(dup["Left"][0], sum(dup["Left"])):  # If duplicate contains c_idx
+                    if dup["Left"][1] > len(parent):  # If this duplicate is larger than the current parent
+                        if dup["Left"][0] >= interval[0] and sum(dup["Left"]) <= sum(
+                                interval):  # If this duplicate is within the interval
                             parent = data["file_graph"][0]["Fragments"][0][dup["Left"][0]:sum(dup["Left"])]
-                elif c_idx in range(dup["Right"][0], sum(dup["Right"])): # now check the right copy
+                elif c_idx in range(dup["Right"][0], sum(dup["Right"])):  # now check the right copy
                     if dup["Right"][1] > len(parent):
-                        if dup["Right"][0] >= interval[0] and sum(dup["Right"]) <= sum(interval): 
+                        if dup["Right"][0] >= interval[0] and sum(dup["Right"]) <= sum(interval):
                             parent = data["file_graph"][0]["Fragments"][0][dup["Right"][0]:sum(dup["Right"])]
         if parent == "":
             output.append(data["file_graph"][0]["Fragments"][0][c_idx])
@@ -853,7 +855,7 @@ def immediate_predecessors(data, interval):
         else:
             output.append(parent)
             c_idx += len(parent)
-    
+
     return output
 
 
@@ -874,17 +876,18 @@ def build_str(interval, data, path):
     c_idx = interval[0]
     for sub_str in ledger:
         if sub_str not in path.nodes:
-            path = build_str([c_idx, c_idx+len(sub_str)], data, path) # Recursively build the duplicate strings if not already in the path
+            path = build_str([c_idx, c_idx + len(sub_str)], data,
+                             path)  # Recursively build the duplicate strings if not already in the path
         c_idx += len(sub_str)
-    
+
     str_in_progress = ledger[0]
-    for idx in range(1, len(ledger)): # Builds string from left to right
+    for idx in range(1, len(ledger)):  # Builds string from left to right
         str_in_progress_new = str_in_progress + ledger[idx]
-        if str_in_progress_new not in path.nodes: # Only relevant if the path is not minimum
+        if str_in_progress_new not in path.nodes:  # Only relevant if the path is not minimum
             path.add_node(str_in_progress_new)
-        if (str_in_progress, str_in_progress_new) not in path.edges: # Only relevant if the path is not minimum
+        if (str_in_progress, str_in_progress_new) not in path.edges:  # Only relevant if the path is not minimum
             path.add_edge(str_in_progress, str_in_progress_new)
-        if (ledger[idx], str_in_progress_new) not in path.edges: # Only relevant if the path is not minimum
+        if (ledger[idx], str_in_progress_new) not in path.edges:  # Only relevant if the path is not minimum
             path.add_edge(ledger[idx], str_in_progress_new)
         str_in_progress = str_in_progress_new
     return path
@@ -907,22 +910,22 @@ def parse_string_pathway_file(file_path_pathway):
         # Load the pathway file
         with open(file_path_pathway) as f:
             data = json.load(f)
-   
+
     VOs = dict()
     VOs["file_string"] = data["file_graph"][0]["Fragments"][0]
     VOs["remnant"] = data["remnant"][0]["Fragments"]
     dups = [data["duplicates"][i]["Left"] for i in range(len(data["duplicates"]))]
     VOs["duplicates"] = [VOs["file_string"][dup[0]:sum(dup)] for dup in dups]
-    
+
     path = nx.DiGraph()
 
     # We will build the string from left to right, constructing duplicates as needed
     for char in list(set(VOs["file_string"])):
-        path.add_node(char) # Add units
+        path.add_node(char)  # Add units
 
-    path = build_str([0, len(VOs["file_string"])], data, path) # Build the string from the pathway data
-    
-    return VOs, path 
+    path = build_str([0, len(VOs["file_string"])], data, path)  # Build the string from the pathway data
+
+    return VOs, path
 
 
 def molstr_to_str(molstr, edge_color_dict=None):
@@ -938,25 +941,25 @@ def molstr_to_str(molstr, edge_color_dict=None):
     """
 
     out_str = ""
-    if edge_color_dict is None: # Directed
-        for n_idx, node in enumerate(molstr.nodes(data=True)): # Loop over nodes in molstr with odd indices
-            #print(f"Node {n_idx}: {node}")
+    if edge_color_dict is None:  # Directed
+        for n_idx, node in enumerate(molstr.nodes(data=True)):  # Loop over nodes in molstr with odd indices
+            # print(f"Node {n_idx}: {node}")
             if n_idx % 2 == 1:
                 out_str += node[1]['color']
-    else: # Undirected
+    else:  # Undirected
         # Prep the edge_color_dict
         edge_color_dict = {v: k for k, v in edge_color_dict.items()}
         if "1" in edge_color_dict.keys():
-            edge_color_dict["single"]=edge_color_dict["1"]
+            edge_color_dict["single"] = edge_color_dict["1"]
         if "2" in edge_color_dict.keys():
-            edge_color_dict["double"]=edge_color_dict["2"]
+            edge_color_dict["double"] = edge_color_dict["2"]
         if "3" in edge_color_dict.keys():
-            edge_color_dict["triple"]=edge_color_dict["3"]
+            edge_color_dict["triple"] = edge_color_dict["3"]
         if "4" in edge_color_dict.keys():
-            edge_color_dict["quadruple"]=edge_color_dict["4"]
+            edge_color_dict["quadruple"] = edge_color_dict["4"]
         edge_color_dict["0"] = "!"
 
         for u, v, data in molstr.edges(data=True):
             out_str += edge_color_dict[str(data.get('color'))]
-    
+
     return out_str

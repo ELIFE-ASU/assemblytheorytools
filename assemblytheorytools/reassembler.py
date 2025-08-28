@@ -1259,7 +1259,7 @@ def filter_mol(mol):
     """
 
     if type(mol) is list:
-        #randomly select one molecule from the list
+        # randomly select one molecule from the list
         mol = mol[random.randint(0, len(mol) - 1)]
 
     evil_smarts = 51 * ['']

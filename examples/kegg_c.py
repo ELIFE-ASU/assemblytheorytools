@@ -71,43 +71,43 @@ if __name__ == "__main__":
     df = df[df['assembly_index'] <= 30]
 
     att.scatter_plot_3d_with_colorbar(df['bottcher_complexity'],
-                                  df['bertz_complexity'],
-                                  df['assembly_index'],
-                                  xlab="Böttcher",
-                                  ylab="Bertz",
-                                  zlab="Assembly Index")
+                                      df['bertz_complexity'],
+                                      df['assembly_index'],
+                                      xlab="Böttcher",
+                                      ylab="Bertz",
+                                      zlab="Assembly Index")
     plt.savefig("3dplot.svg")
     plt.show()
 
     att.plot_heatmap(df['n_heavy_atoms'], df['assembly_index'],
-                 "Heavy atom count",
-                 "Assembly index",
-                 c_map='Blues',
-                 nbins=100)
+                     "Heavy atom count",
+                     "Assembly index",
+                     c_map='Blues',
+                     nbins=100)
     plt.show()
 
     att.scatter_plot(df['n_heavy_atoms'],
-                 df['assembly_index'],
-                 xlab="Heavy atom count",
-                 ylab="Assembly index")
+                     df['assembly_index'],
+                     xlab="Heavy atom count",
+                     ylab="Assembly index")
     plt.show()
 
     att.scatter_plot_with_colorbar(df['n_chiral_centers'],
-                               df['assembly_index'],
-                               xlab="Number of Chiral Centers",
-                               ylab="Assembly Index")
+                                   df['assembly_index'],
+                                   xlab="Number of Chiral Centers",
+                                   ylab="Assembly Index")
     plt.savefig("chiral.svg")
     plt.show()
 
     att.scatter_plot_with_colorbar(df['bottcher_complexity'],
-                               df['bertz_complexity'],
-                               xlab="Bottcher Complexity",
-                               ylab="Assembly Index")
+                                   df['bertz_complexity'],
+                                   xlab="Bottcher Complexity",
+                                   ylab="Assembly Index")
     plt.savefig("bottcher_ai_colorbar.svg")
     plt.show()
 
     att.plot_contourf_full(df['n_heavy_atoms'],
-                       df['assembly_index'],
-                       "Heavy atom count",
-                       "Assembly index")
+                           df['assembly_index'],
+                           "Heavy atom count",
+                           "Assembly index")
     plt.show()

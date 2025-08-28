@@ -2,7 +2,6 @@ import os
 import sys
 
 import pandas as pd
-from rdkit.Chem import AllChem as Chem
 
 import assemblytheorytools as att
 
