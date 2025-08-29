@@ -1,8 +1,10 @@
 import random
-from typing import Sequence, Union, Optional
 from functools import partial
-import assemblytheorytools as att
+from typing import Sequence, Union, Optional
+
 import matplotlib.pyplot as plt
+
+import assemblytheorytools as att
 
 
 def random_string(
@@ -37,21 +39,22 @@ def random_string_parallel(n_reps, n, pool):
 if __name__ == "__main__":
     print(flush=True)
     pool_ss = 'guac'
-    seq = 'uuagcucgccaguuagcgaggucugucucgacacgacagauaaucgggugcaacucccgccccucuuccgagggucaucggaacca'
-
     seq = 'guuggcuacuaugccagcugguggauugcucggcucaggcgcugaugaaggacgugccaagcugcgauaagcuguggggagccgcacggaggcgaagaaccacagauuuccgaaugagaaucucucuaacaauugcuucgcgcaaugaggaaccccgagaacugaaacaucucaguaucgggaggaacagaaaacgcaacgugaugucguuaguaaccgcgagugaacgcgauacagcccaaaccgaagcccucacgggcaauguggugucagggcuaccucucaucagccgaccgucuucacgaagucucuuggaauagagcgugauacagggugacaaccccguacugaagaccaguacgcugugcgguagugccagaguagcggggguuggauaucccucgcgaauaacgcaggcaucgacugcgaaggcuaaacacaaccugagaccgauagugaacaaguagugugaacgaacgcugcaaaguacccucagaagggaggcgaaauagagcaugaaaucaguuggcgaucgagcgacagggcauacaaggucccuugacgaaugaccgagacgcgagucuccaguaagacucacgggaagccgauguucugucguacguuuugaaaaacgagccagggagugugucuguauggcaagucuaaccggaguauccggggaggcacagggaaaccgacauggccgcagggcuuugcccgagggccgccgucuucaagggcggggagccauguggacacgacccgaauccggacgaucuacgcauggacaagaugaagcgugccgaaaggcacguggaagucuguuagaguugguguccuacaauacccucucgugaucuauguguaggggugaaaggcccaucgaguccggcaacagcugguuccaaucgaaacaugucgaagcaugaccuccgccgagguagucugugagguagagcgaccgauugguguguccgccuccgagaggagucggcacaccugucaaacuccaaacuuacagacgcuguuugacgcggggauuccggugcgcgggguaagccuguguaccaggaggggaacaacccagagauagguuaagguccccaaguguggauuaaguguaauccucugaagguggucucgagcccuagacagccgggaggugagcuuagaagcagcuacccucuaagaaaagcguaacagcuuaccggccgagguuugaggcgcccaaaaugaucgggacucaaauccaccaccgagaccuguccguaccacucauacugguaaucgaguagauuggcgcucuaauuggauggaagcaggggcgagagcuccuguggaccgauuagugacgaaaauccuggccauaguagcagcgauagucgggugagaaccccgacggccuaauggauaaggguuccucagcacugcugaucagcugaggguuagccgguccuaagucucaccgcaacucgacugagacgaaaugggaaacagguuaauauuccugugccaucaugcagugaaaguugacgcccuggggucgaucacgccgggcauucgcccggucgaaccguccaacuccguggaagccguaauggcaggaagcggacgaacggcggcauagggaaacgugauucaaccuggggcccaugaaaagacgagcaugauguccguaccgagaaccgacacagguguccauggcggcgaaagccaaggccugucgggagcaaccaacguuagggaauucggcaaguuagucccguaccuucggaagaagggaugccugcuccggaacggagcaggucgcagugacucggaagcucggacugucuaguaacaacauaggugaccgcaaauccgcaaggacucguacggucacugaauccugcccagugcagguaucugaacaccucguacaagaggacgaaggaccugucaacggcggggguaacuaugacccucuuaagguagcguaguaccuugccgcaucaguagcggcuugcaugaauggauuaaccagagcuucacugucccaacguugggcccggugaacuguacauuccagugcggagucuggagacacccagggggaagcgaagacccuauggagcuuuacugcaggcugucgcugagacguggucgccgaugugcagcauagguaggagucguuacagagguacccgcgcuagcgggccacccagacaacagugaaauacuacccgucggugacugcgacucucacuccgggaggaggacaccgauagccgggcaguuugacuggggcgguacgcgcucgaaaagauaucgagcgcgcccuauggucaucucagccgggacagagacccggcgaagagugcaagagcaaaagaugacuugacaguguucuucccaacgaggaacgcugacgcgaaagcguggucuagcgaaccaauuagccugcuugaugcgggcaauugaugacagaaaagcuacccuagggauaacagagucgucacucgcaagagcacauaucgaccgaguggcuugcuaccucgaugucgguucccuccauccugcccgugcagaagcgggcaagggugagguuguucgccuauuaaaggaggucgugagcuggguuuagaccgucgugagacaggucggcugcuaucuacuggguguguaauggugucugacaagaacgaccguauaguacgagaggaacuacgguugguggccacugguguaccgguuguucgagagagcacgugccggguagccacgccacacgggguaagagcugaacgcaucuaagcucgaaacccacuuggaaaagagacaccgccgaggucccgcguacaagacgcggucgauagacucggggugugcgcgucgagguaacgagacguuaagcccacgagcacuaacagaccaaagccaucau'
 
-    n_reps = 50_000
+    print(f"Length of the sequence: {len(seq)}", flush=True)
+
+    n_reps = 10_000
     ai_list = random_string_parallel(n_reps, len(seq), pool_ss)
 
     ai, _, _ = att.calculate_string_assembly_index(seq, mode='cfg')
+    print(f"Assembly Index: {ai}", flush=True)
 
     fontsize = 16
     fig, ax = plt.subplots(figsize=(7, 3))
     ax.hist(ai_list,
             bins=50,
             alpha=0.5,
-            label='Random Strings')
+            label='Randomised RNA',)
     ax.axvline(ai,
                color='red',
                linestyle='dashed',
