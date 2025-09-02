@@ -129,6 +129,8 @@ Veronica Mierzejewski, integration of reassembly calculations.
 
 Marina Fernandez-Ruz, visualisation and circle plots.
 
+Mohammadreza Shahjahan, branding, development.
+
 ## ⚖️ License
 MIT License. We just ask that you cite the relevant papers, please!
 
