@@ -136,3 +136,9 @@ def test_small_strs():
     a2, _, _ = att.calculate_string_assembly_index("abba", directed=False, debug=False)
     assert a1 == 3
     assert a2 == 2
+
+
+def test_bug_08222025():
+    ai, vo, path = att.calculate_string_assembly_index('yydpetgtwy', mode='mol', directed=False)
+
+    assert path
