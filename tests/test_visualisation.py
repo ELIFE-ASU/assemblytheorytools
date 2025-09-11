@@ -67,12 +67,20 @@ def test_plot_digraph_metro_calc():
         # Define the SMILES string for glycine
         smi = "C(C(=O)O)N"
 
-        # Convert the SMILES string to an RDKit Mol object
+        # Convert to Mol object
         mol = att.smi_to_mol(smi)
-
         # Compute the assembly index and associated data
         _, _, pathway = att.calculate_assembly_index(mol, strip_hydrogen=True)
+        att.plot_digraph_metro(pathway)
+        assert os.path.isfile('metro.png'), "Failed to generate the file."
+        assert os.path.isfile('metro.svg'), "Failed to generate the file."
+        os.remove('metro.png')
+        os.remove('metro.svg')
 
+        # Convert to Graph
+        graph = att.smi_to_nx(smi)
+        # Compute the assembly index and associated data
+        _, _, pathway = att.calculate_assembly_index(graph, strip_hydrogen=True)
         att.plot_digraph_metro(pathway)
         assert os.path.isfile('metro.png'), "Failed to generate the file."
         assert os.path.isfile('metro.svg'), "Failed to generate the file."
