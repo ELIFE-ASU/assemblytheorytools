@@ -162,7 +162,7 @@ def test_smi_to_nx_conversion():
         - The converted SMILES string is equal to the original SMILES string.
     """
     print(flush=True)
-    smi = "[H][O][H]"
+    smi = "[H]O[H]"
     graph = att.smi_to_nx(smi)
     smi_out = att.nx_to_smi(graph)
     assert smi_out == smi, f"Expected {smi}, but got {smi_out}"

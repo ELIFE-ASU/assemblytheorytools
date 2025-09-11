@@ -36,7 +36,7 @@ def test_ai_graph():
     virt_obj = [att.nx_to_smi(graph, add_hydrogens=False) for graph in virt_obj]
     print(virt_obj, flush=True)
 
-    ref_out = ['[CH]#[CH]', '[H][CH3]', '[H][C]#[C][H]', '[H][C]#[CH]']
+    ref_out = ['[H]C#C', '[H]C', 'C#C', '[H]C#C[H]']
 
     assert ai == 2
     assert att.check_elements(virt_obj, ref_out)

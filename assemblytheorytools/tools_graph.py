@@ -511,7 +511,7 @@ def nx_to_smi(graph: nx.Graph, add_hydrogens: bool = True, sanitize: bool = True
       and bond orders, respectively.
     """
     mol = nx_to_mol(graph, add_hydrogens=add_hydrogens, sanitize=sanitize)
-    return Chem.MolToSmiles(mol, allHsExplicit=True, kekuleSmiles=True)
+    return Chem.MolToSmiles(mol, allHsExplicit=False, kekuleSmiles=True)
 
 
 def smi_to_nx(smiles: str, add_hydrogens: bool = True, sanitize: bool = True) -> nx.Graph:
