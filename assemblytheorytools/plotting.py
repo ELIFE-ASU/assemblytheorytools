@@ -19,7 +19,7 @@ from scipy.stats import gaussian_kde
 
 import CFG
 from .tools_atoms import mol_to_atoms
-from .tools_graph import relabel_digraph
+from .tools_graph import relabel_digraph, nx_to_smi
 from .tools_mol import smi_to_mol
 
 # set the plot axis
@@ -203,7 +203,10 @@ def plot_interactive_graph(graph: nx.Graph,
     return net
 
 
-def plot_digraph_metro(digraph: nx.DiGraph, filename: str = 'metro', steps: bool = False) -> None:
+def plot_digraph_metro(digraph: nx.DiGraph,
+                       filename: str = 'metro',
+                       steps: bool = False,
+                       vo_smiles: bool = True) -> None:
     try:
         import cairosvg
         import dagviz
@@ -216,6 +219,16 @@ def plot_digraph_metro(digraph: nx.DiGraph, filename: str = 'metro', steps: bool
     if steps:
         # Relabel the graph nodes with their topological step if requested
         digraph = relabel_digraph(digraph)
+
+    if vo_smiles:
+        try:
+            for node in digraph.nodes:
+                # set the node label to the smiles
+                digraph.nodes[node]['label'] = nx_to_smi(digraph.nodes[node]['vo'],
+                                                         add_hydrogens=False,
+                                                         sanitize=False)
+        except:
+            pass
 
     # Configure the metro-style rendering backend
     backend = dagviz.style.metro.svg_renderer(dagviz.style.metro.StyleConfig(node_stroke="black"))
