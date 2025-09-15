@@ -549,7 +549,7 @@ def compile_assembly_cpp():
                 "CMake is not installed. Please install CMake to compile assemblycpp on Linux.\n sudo apt update \n sudo apt install cmake")
 
     subprocess.run(
-        f"git clone https://github.com/croningp/assemblycpp-v5.git",
+        f"git clone https://github.com/LouieSlocombe/assemblycpp-v5.git",
         shell=True, check=True)
     start_dir = os.getcwd()
     # Change to the assemblycpp directory
@@ -575,7 +575,7 @@ def compile_assembly_cpp():
     shutil.rmtree(assemblycpp_dir)
     # make the executable executable
     os.chmod(end_path, 0o755)
-    print("YESSIRR! Assembly code compiled successfully!", flush=True)
+    print("Assembly code compiled successfully.", flush=True)
     return None
 
 
