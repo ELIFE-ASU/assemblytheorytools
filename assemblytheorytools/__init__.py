@@ -66,7 +66,10 @@ from .plotting import (n_plot,
                        scatter_plot_with_colorbar,
                        plot_contourf_full,
                        plot_heatmap,
-                       scatter_plot_3d_with_colorbar)
+                       scatter_plot_3d_with_colorbar,
+                       multipartite_layout_crossmin,
+                       multipartite_layout_crossmin_long,
+                       multipartite_layout_sa)
 from .reassembler import (assemble,
                           origami,
                           get_num_atom,
@@ -97,7 +100,9 @@ from .tools_cell import (read_cif_file,
                          atoms_to_mol_file,
                          atoms_to_nx,
                          find_clusters)
-from .tools_data import (sample_boostrapping, sample_kde_resampling, sample_importance_sampling)
+from .tools_data import (sample_boostrapping,
+                         sample_kde_resampling,
+                         sample_importance_sampling)
 from .tools_file import (file_list,
                          file_list_all,
                          filter_files,

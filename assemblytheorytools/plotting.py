@@ -1,5 +1,7 @@
+import math
 import random
 import tempfile
+from collections import defaultdict
 from html import escape
 from typing import List
 
@@ -822,3 +824,934 @@ def scatter_plot_3d_with_colorbar(x,
             pass
     fig.tight_layout()
     return fig, ax
+
+
+def multipartite_layout_crossmin(
+        G,
+        subset_key="subset",
+        align="vertical",
+        method="barycenter",
+        iterations=100,
+        layer_spacing=1.0,
+        node_spacing=1.0,
+        scale=1.0,
+        seed=None,
+        weight=None,
+        return_order=False,
+):
+    """
+    Computes a multipartite layout for a graph, minimizing edge crossings between layers.
+
+    Parameters:
+    G (networkx.Graph): The input graph.
+    subset_key (str, optional): Node attribute used to determine layer assignment. Defaults to "subset".
+    align (str, optional): Alignment of layers. "vertical" for columns, "horizontal" for rows. Defaults to "vertical".
+    method (str, optional): Method for ordering nodes within layers. "barycenter" or "median". Defaults to "barycenter".
+    iterations (int, optional): Number of top-down and bottom-up sweeps to refine node order. Defaults to 100.
+    layer_spacing (float, optional): Spacing between layers. Defaults to 1.0.
+    node_spacing (float, optional): Spacing between nodes within a layer. Defaults to 1.0.
+    scale (float, optional): Scaling factor for the layout. Defaults to 1.0.
+    seed (int, optional): Random seed for reproducibility. Defaults to None.
+    weight (str, optional): Edge attribute used as weight for ordering. Defaults to None.
+    return_order (bool, optional): If True, returns the final node order per layer. Defaults to False.
+
+    Returns:
+    dict: A dictionary mapping nodes to their (x, y) positions.
+    tuple (optional): If return_order is True, also returns a dictionary of node orders per layer.
+    """
+    if seed is not None:
+        random.seed(seed)
+
+    # Build layers based on the subset_key attribute
+    layers = defaultdict(list)
+    for n in G.nodes():
+        layer = G.nodes[n].get(subset_key, 0)
+        layers[layer].append(n)
+
+    layer_keys = sorted(layers.keys())
+
+    # Initial order within each layer (sorted by degree and name for stability)
+    for k in layer_keys:
+        nodes = layers[k]
+        nodes.sort(key=lambda n: (G.degree(n), str(n)))
+
+    # Helper function to create a mapping of node indices within a layer
+    def index_map(nodes):
+        return {u: i for i, u in enumerate(nodes)}
+
+    # Helper function to calculate edge weights
+    def edge_w(u, v):
+        if weight is None:
+            return 1.0
+        return G[u][v].get(weight, 1.0)
+
+    # Order nodes in a layer based on the barycenter heuristic
+    def ordered_by_barycenter(target_nodes, neighbor_nodes):
+        neigh_idx = index_map(neighbor_nodes)
+        current_idx = index_map(target_nodes)
+
+        scores = []
+        for u in target_nodes:
+            s = 0.0
+            wsum = 0.0
+            for v in G[u]:
+                if v in neigh_idx:
+                    w = edge_w(u, v)
+                    s += w * neigh_idx[v]
+                    wsum += w
+            if wsum > 0:
+                score = s / wsum
+            else:
+                score = current_idx[u]  # Keep original position if no neighbors
+            scores.append((score, current_idx[u], u))  # Tie-break by old index
+
+        scores.sort()
+        return [u for _, __, u in scores]
+
+    # Order nodes in a layer based on the median heuristic
+    def ordered_by_median(target_nodes, neighbor_nodes):
+        neigh_idx = index_map(neighbor_nodes)
+        current_idx = index_map(target_nodes)
+
+        scores = []
+        for u in target_nodes:
+            seq = [neigh_idx[v] for v in G[u] if v in neigh_idx]
+            if seq:
+                seq.sort()
+                m = seq[len(seq) // 2] if len(seq) % 2 == 1 else 0.5 * (seq[len(seq) // 2 - 1] + seq[len(seq) // 2])
+                score = m
+            else:
+                score = current_idx[u]
+            scores.append((score, current_idx[u], u))
+
+        scores.sort()
+        return [u for _, __, u in scores]
+
+    # Select the ordering method
+    orderer = ordered_by_barycenter if method == "barycenter" else ordered_by_median
+
+    # Perform top-down and bottom-up sweeps to refine node order
+    for _ in range(max(1, int(iterations))):
+        # Top-down sweep
+        for i in range(1, len(layer_keys)):
+            k_prev, k_cur = layer_keys[i - 1], layer_keys[i]
+            layers[k_cur] = orderer(layers[k_cur], layers[k_prev])
+
+        # Bottom-up sweep
+        for i in range(len(layer_keys) - 2, -1, -1):
+            k_next, k_cur = layer_keys[i + 1], layer_keys[i]
+            layers[k_cur] = orderer(layers[k_cur], layers[k_next])
+
+    # Assign coordinates to nodes
+    coords_by_layer = {}
+    for idx, k in enumerate(layer_keys):
+        nodes = layers[k]
+        n = len(nodes)
+        if n == 0:
+            coords_by_layer[k] = {}
+            continue
+        # Calculate positions along the free axis
+        start = -0.5 * (n - 1) * node_spacing
+        free_axis_positions = {nodes[i]: start + i * node_spacing for i in range(n)}
+
+        fixed = idx * layer_spacing  # Fixed axis value for the layer
+        if align == "vertical":
+            coords_by_layer[k] = {u: (fixed, free_axis_positions[u]) for u in nodes}
+        else:
+            coords_by_layer[k] = {u: (free_axis_positions[u], fixed) for u in nodes}
+
+    # Combine coordinates from all layers
+    pos = {}
+    for k in layer_keys:
+        pos.update(coords_by_layer[k])
+
+    # Scale the layout if a scaling factor is provided
+    if scale != 1.0:
+        pos = {u: (scale * x, scale * y) for u, (x, y) in pos.items()}
+
+    if return_order:
+        # Return positions and the final node order per layer
+        return pos, {k: list(layers[k]) for k in layer_keys}
+    return pos
+
+
+def multipartite_layout_crossmin_long(
+        G,
+        subset_key="subset",
+        align="vertical",
+        method="barycenter",
+        iterations=100,
+        layer_spacing=1.0,
+        node_spacing=1.0,
+        scale=1.0,
+        seed=None,
+        weight=None,
+        insert_dummies=True,
+        dummy_prefix="__dummy__",
+        return_order=False,
+        return_dummies=False,
+        return_routes=False,
+):
+    """
+    Computes a multipartite layout for a graph, minimizing edge crossings between layers.
+    This version supports dummy node insertion for edges spanning multiple layers.
+
+    Parameters:
+    G (networkx.Graph): The input graph.
+    subset_key (str, optional): Node attribute used to determine layer assignment. Defaults to "subset".
+    align (str, optional): Alignment of layers. "vertical" for columns, "horizontal" for rows. Defaults to "vertical".
+    method (str, optional): Method for ordering nodes within layers. "barycenter" or "median". Defaults to "barycenter".
+    iterations (int, optional): Number of top-down and bottom-up sweeps to refine node order. Defaults to 100.
+    layer_spacing (float, optional): Spacing between layers. Defaults to 1.0.
+    node_spacing (float, optional): Spacing between nodes within a layer. Defaults to 1.0.
+    scale (float, optional): Scaling factor for the layout. Defaults to 1.0.
+    seed (int, optional): Random seed for reproducibility. Defaults to None.
+    weight (str, optional): Edge attribute used as weight for ordering. Defaults to None.
+    insert_dummies (bool, optional): If True, inserts dummy nodes for edges spanning multiple layers. Defaults to True.
+    dummy_prefix (str, optional): Prefix for dummy node names. Defaults to "__dummy__".
+    return_order (bool, optional): If True, returns the final node order per layer. Defaults to False.
+    return_dummies (bool, optional): If True, includes dummy nodes in the returned layout. Defaults to False.
+    return_routes (bool, optional): If True, returns routing information for edges. Defaults to False.
+
+    Returns:
+    dict: A dictionary mapping nodes to their (x, y) positions.
+    dict (optional): If return_order is True, also returns a dictionary of node orders per layer.
+    list (optional): If return_routes is True, also returns a list of edge routing information.
+    """
+    if seed is not None:
+        random.seed(seed)
+
+    # Collect layers and normalize to contiguous indices
+    # Accept mixed types by sorting with str if necessary.
+    unique_layers = set()
+    node_layer_val = {}
+    for n in G.nodes():
+        layer_val = G.nodes[n].get(subset_key, 0)
+        node_layer_val[n] = layer_val
+        unique_layers.add(layer_val)
+    try:
+        layer_keys = sorted(unique_layers)
+    except TypeError:
+        layer_keys = sorted(unique_layers, key=str)
+
+    L = len(layer_keys)
+    layer_to_idx = {lv: i for i, lv in enumerate(layer_keys)}
+    node_layer_idx = {n: layer_to_idx[node_layer_val[n]] for n in G.nodes()}
+
+    # Prepare per-layer buckets (will also hold dummies if we insert them)
+    layers_list = [[] for _ in range(L)]
+    for n in G.nodes():
+        layers_list[node_layer_idx[n]].append(n)
+
+    # Stable initial order: degree then name (helps determinism)
+    for i in range(L):
+        layers_list[i].sort(key=lambda n: (G.degree(n), str(n)))
+
+    # Build an augmented (adjacent-only) structure
+    # We'll keep a light-weight adjacency dict + a list of edges for routing.
+    neighbors = defaultdict(lambda: defaultdict(float))  # neighbors[u][v] = weight_sum
+    # For routing back to original edges
+    routes = []
+    dummy_id_counter = 0
+
+    def edge_w(u, v, data=None):
+        """
+        Calculates the weight of an edge.
+
+        Parameters:
+        u (node): Source node.
+        v (node): Target node.
+        data (dict, optional): Edge data dictionary. Defaults to None.
+
+        Returns:
+        float: Weight of the edge.
+        """
+        if weight is None:
+            return 1.0
+        if data is not None and weight in data:
+            return data[weight]
+        # For simple Graphs without data passed in:
+        try:
+            return G[u][v].get(weight, 1.0)
+        except Exception:
+            return 1.0
+
+    # Helper to add an (undirected) edge into neighbors with weight accumulation
+    def add_edge(u, v, w):
+        """
+        Adds an undirected edge to the neighbors dictionary, accumulating weights.
+
+        Parameters:
+        u (node): Source node.
+        v (node): Target node.
+        w (float): Weight of the edge.
+        """
+        neighbors[u][v] += w
+        neighbors[v][u] += w
+
+    # Ensure all nodes exist in neighbors (even isolates)
+    for n in G.nodes():
+        _ = neighbors[n]  # touch
+
+    if insert_dummies:
+        # Split every edge that spans more than one layer
+        for (u, v, *rest) in G.edges(data=True):
+            data = rest[0] if rest else {}
+            w = edge_w(u, v, data)
+            lu, lv = node_layer_idx[u], node_layer_idx[v]
+            if lu == lv:
+                # Same-layer edge: keep it as-is (won't affect sweeps)
+                add_edge(u, v, w)
+                routes.append({"endpoints": (u, v), "nodes": [u, v]})
+                continue
+            # Orient so lu < lv
+            rev = False
+            if lu > lv:
+                u, v = v, u
+                lu, lv = lv, lu
+                rev = True
+
+            if lv - lu == 1:
+                add_edge(u, v, w)
+                routes.append({"endpoints": (u, v) if not rev else (v, u), "nodes": [u, v]})
+                continue
+
+            # Need to insert dummies across intermediate layers lu+1 .. lv-1
+            chain = [u]
+            prev = u
+            for k in range(lu + 1, lv):
+                dummy_id_counter += 1
+                d = f"{dummy_prefix}{dummy_id_counter}"
+                # remember its layer
+                node_layer_idx[d] = k
+                # mark it's a dummy (attribute for reference)
+                # (we don't modify the original G; this is layout-only)
+                layers_list[k].append(d)
+                # touch neighbors so it exists
+                _ = neighbors[d]
+                # connect prev -> d
+                add_edge(prev, d, w)
+                chain.append(d)
+                prev = d
+            # connect last dummy -> v
+            add_edge(prev, v, w)
+            chain.append(v)
+            if rev:
+                chain = list(reversed(chain))
+                endpoints = (chain[0], chain[-1])  # original orientation (u,v) as in G
+            else:
+                endpoints = (chain[0], chain[-1])
+            routes.append({"endpoints": endpoints, "nodes": chain})
+    else:
+        # No dummies: just accumulate all edges
+        for (u, v, *rest) in G.edges(data=True, keys=False):
+            data = rest[0] if rest else {}
+            w = edge_w(u, v, data)
+            add_edge(u, v, w)
+            routes.append({"endpoints": (u, v), "nodes": [u, v]})
+
+    # Ordering heuristics on adjacent layers only
+    def index_map(nodes):
+        """
+        Creates a mapping of node indices within a layer.
+
+        Parameters:
+        nodes (list): List of nodes in the layer.
+
+        Returns:
+        dict: Mapping of nodes to their indices.
+        """
+        return {u: i for i, u in enumerate(nodes)}
+
+    def ordered_by_barycenter(target_nodes, neighbor_nodes):
+        """
+        Orders nodes in a layer based on the barycenter heuristic.
+
+        Parameters:
+        target_nodes (list): Nodes in the target layer.
+        neighbor_nodes (list): Nodes in the neighboring layer.
+
+        Returns:
+        list: Ordered list of nodes in the target layer.
+        """
+        neigh_idx = index_map(neighbor_nodes)
+        cur_idx = index_map(target_nodes)
+        scores = []
+        for u in target_nodes:
+            s = 0.0
+            wsum = 0.0
+            for v, w in neighbors[u].items():
+                if v in neigh_idx:
+                    s += w * neigh_idx[v]
+                    wsum += w
+            score = (s / wsum) if wsum > 0 else cur_idx[u]
+            scores.append((score, cur_idx[u], u))
+        scores.sort()
+        return [u for _, __, u in scores]
+
+    def ordered_by_median(target_nodes, neighbor_nodes):
+        """
+        Orders nodes in a layer based on the median heuristic.
+
+        Parameters:
+        target_nodes (list): Nodes in the target layer.
+        neighbor_nodes (list): Nodes in the neighboring layer.
+
+        Returns:
+        list: Ordered list of nodes in the target layer.
+        """
+        neigh_idx = index_map(neighbor_nodes)
+        cur_idx = index_map(target_nodes)
+        scores = []
+        for u in target_nodes:
+            seq = []
+            for v, w in neighbors[u].items():
+                if v in neigh_idx:
+                    # push neighbor index 'w' times (weighted median)
+                    repeats = int(round(w)) if w != 1.0 else 1
+                    if repeats <= 1:
+                        seq.append(neigh_idx[v])
+                    else:
+                        seq.extend([neigh_idx[v]] * repeats)
+            if seq:
+                seq.sort()
+                m = seq[len(seq) // 2] if len(seq) % 2 else 0.5 * (seq[len(seq) // 2 - 1] + seq[len(seq) // 2])
+                score = m
+            else:
+                score = cur_idx[u]
+            scores.append((score, cur_idx[u], u))
+        scores.sort()
+        return [u for _, __, u in scores]
+
+    orderer = ordered_by_barycenter if method == "barycenter" else ordered_by_median
+
+    iterations = max(1, int(iterations))
+    for _ in range(iterations):
+        # top-down (left->right): order each layer by the previous layer
+        for i in range(1, L):
+            layers_list[i] = orderer(layers_list[i], layers_list[i - 1])
+        # bottom-up (right->left): order by the next layer
+        for i in range(L - 2, -1, -1):
+            layers_list[i] = orderer(layers_list[i], layers_list[i + 1])
+
+    # Coordinates
+    # Place nodes in each layer centered around 0 on the free axis
+    pos_all = {}
+    for i in range(L):
+        nodes = layers_list[i]
+        n = len(nodes)
+        if n == 0:
+            continue
+        start = -0.5 * (n - 1) * node_spacing
+        for j, u in enumerate(nodes):
+            free = start + j * node_spacing
+            fixed = i * layer_spacing
+            if align == "vertical":
+                pos_all[u] = (fixed, free)  # columns
+            else:
+                pos_all[u] = (free, fixed)  # rows
+
+    if scale != 1.0:
+        pos_all = {u: (scale * x, scale * y) for u, (x, y) in pos_all.items()}
+
+    # Filter dummy nodes unless requested
+    is_dummy = lambda n: isinstance(n, str) and n.startswith(dummy_prefix)
+    if return_dummies:
+        pos = dict(pos_all)
+    else:
+        pos = {u: xy for u, xy in pos_all.items() if not is_dummy(u)}
+
+    # Build per-layer orders keyed by original layer values (for reference)
+    if return_order:
+        order_by_layer = {layer_keys[i]: list(layers_list[i]) for i in range(L)}
+
+    # If routes requested, translate chain nodes to polylines of points
+    if return_routes:
+        routed = []
+        for item in routes:
+            chain = item["nodes"]
+            pts = [pos_all[n] for n in chain if n in pos_all]
+            routed.append({
+                "endpoints": item["endpoints"],
+                "nodes": list(chain),
+                "points": pts,
+            })
+
+    # Final return(s)
+    if return_order and return_routes:
+        return pos, order_by_layer, routed
+    if return_order:
+        return pos, order_by_layer
+    if return_routes:
+        return pos, routed
+    return pos
+
+
+class _BIT:
+    # Fenwick tree for prefix sums of floats (weights).
+
+    def __init__(self, n):
+        """
+        Initializes the Fenwick tree.
+
+        Parameters:
+        n (int): The size of the tree (number of elements).
+        """
+        self.n = n
+        self.t = [0.0] * (n + 1)
+
+    def add(self, i, delta):
+        """
+        Adds a value to the element at index `i`.
+
+        Parameters:
+        i (int): The index (0-based) to which the value will be added.
+        delta (float): The value to add.
+        """
+        i += 1
+        while i <= self.n:
+            self.t[i] += delta
+            i += i & -i
+
+    def sum_prefix(self, i):
+        """
+        Computes the prefix sum from index 0 to `i` (inclusive).
+
+        Parameters:
+        i (int): The index (0-based) up to which the prefix sum is calculated.
+
+        Returns:
+        float: The sum of elements from index 0 to `i`. Returns 0.0 if `i` is negative.
+        """
+        if i < 0:
+            return 0.0
+        s = 0.0
+        i += 1
+        while i > 0:
+            s += self.t[i]
+            i -= i & -i
+        return s
+
+
+def _pair_crossings_weighted(order_left, order_right, edges):
+    """
+    Counts the weighted crossings between two adjacent layers given their current order.
+
+    Parameters:
+    order_left (list): A list of nodes representing the order of nodes in the left layer.
+    order_right (list): A list of nodes representing the order of nodes in the right layer.
+    edges (list of tuples): A list of edges connecting nodes in the left layer to nodes in the right layer.
+                            Each edge is represented as a tuple (u, v, w), where:
+                            - u: Node in the left layer.
+                            - v: Node in the right layer.
+                            - w: Weight of the edge.
+
+    Returns:
+    float: The total weighted crossing value. The crossing weight is the product of edge weights (w1 * w2).
+    """
+    # Map nodes in the left layer to their positions
+    posL = {u: i for i, u in enumerate(order_left)}
+    # Map nodes in the right layer to their positions
+    posR = {v: i for i, v in enumerate(order_right)}
+
+    # Create a list of triples (position in left, position in right, weight) for valid edges
+    triples = [(posL[u], posR[v], float(w)) for (u, v, w) in edges
+               if u in posL and v in posR]
+
+    # If there are no valid triples, return 0.0 as there are no crossings
+    if not triples:
+        return 0.0
+
+    # Sort triples by the left position, then by the right position
+    triples.sort(key=lambda t: (t[0], t[1]))
+
+    # Initialize a Fenwick tree for the right layer
+    bit = _BIT(len(order_right))
+    inv = 0.0  # Total weighted crossings
+    total = 0.0  # Total weight processed so far
+
+    # Iterate through the sorted triples
+    for _, j, w in triples:
+        # Calculate the weighted crossings for edges with positions greater than j
+        inv += w * (total - bit.sum_prefix(j))
+        # Add the current weight to the Fenwick tree
+        bit.add(j, w)
+        # Update the total weight
+        total += w
+
+    return inv
+
+
+def multipartite_layout_sa(
+        G,
+        subset_key="subset",
+        align="vertical",
+        insert_dummies=True,
+        dummy_prefix="__dummy__",
+        node_spacing=1.0,
+        layer_spacing=1.5,
+        scale=1.0,
+        weight=None,
+        max_proposals=8000,
+        cooling_rate=0.95,
+        cooling_interval=200,
+        adjacent_swap_prob=0.7,
+        stop_after_no_improve=2000,
+        T0=None,
+        seed=None,
+        return_order=False,
+        return_dummies=False,
+        return_routes=False,
+):
+    """
+    Computes a multipartite layout for a graph using simulated annealing to minimize edge crossings.
+
+    Parameters:
+    G (networkx.Graph): The input graph.
+    subset_key (str, optional): Node attribute used to determine layer assignment. Defaults to "subset".
+    align (str, optional): Alignment of layers. "vertical" for columns, "horizontal" for rows. Defaults to "vertical".
+    insert_dummies (bool, optional): If True, inserts dummy nodes for edges spanning multiple layers. Defaults to True.
+    dummy_prefix (str, optional): Prefix for dummy node names. Defaults to "__dummy__".
+    node_spacing (float, optional): Spacing between nodes within a layer. Defaults to 1.0.
+    layer_spacing (float, optional): Spacing between layers. Defaults to 1.5.
+    scale (float, optional): Scaling factor for the layout. Defaults to 1.0.
+    weight (str, optional): Edge attribute used as weight for ordering. Defaults to None.
+    max_proposals (int, optional): Maximum number of proposals for simulated annealing. Defaults to 8000.
+    cooling_rate (float, optional): Cooling rate for simulated annealing. Defaults to 0.95.
+    cooling_interval (int, optional): Number of steps between temperature reductions. Defaults to 200.
+    adjacent_swap_prob (float, optional): Probability of swapping adjacent nodes during proposals. Defaults to 0.7.
+    stop_after_no_improve (int, optional): Number of steps without improvement before stopping. Defaults to 2000.
+    T0 (float, optional): Initial temperature for simulated annealing. If None, it is estimated. Defaults to None.
+    seed (int, optional): Random seed for reproducibility. Defaults to None.
+    return_order (bool, optional): If True, returns the final node order per layer. Defaults to False.
+    return_dummies (bool, optional): If True, includes dummy nodes in the returned layout. Defaults to False.
+    return_routes (bool, optional): If True, returns routing information for edges. Defaults to False.
+
+    Returns:
+    dict: A dictionary mapping nodes to their (x, y) positions.
+    dict (optional): If return_order is True, also returns a dictionary of node orders per layer.
+    list (optional): If return_routes is True, also returns a list of edge routing information.
+    """
+    if seed is not None:
+        random.seed(seed)
+
+    # Layers from subset_key (keep original values but index them 0..L-1)
+    node_layer_val = {}
+    unique_layers = set()
+    for n in G.nodes():
+        lv = G.nodes[n].get(subset_key, 0)
+        node_layer_val[n] = lv
+        unique_layers.add(lv)
+    try:
+        layer_keys = sorted(unique_layers)
+    except TypeError:
+        layer_keys = sorted(unique_layers, key=str)
+
+    layer_to_idx = {lv: i for i, lv in enumerate(layer_keys)}
+    L = len(layer_keys)
+    # per-layer node lists (will later include dummies)
+    layers = [[] for _ in range(L)]
+    for n in G.nodes():
+        layers[layer_to_idx[node_layer_val[n]]].append(n)
+
+    # stable initial order: degree then name
+    for i in range(L):
+        layers[i].sort(key=lambda n: (G.degree(n), str(n)))
+
+    # Build adjacent-only edges (insert dummies if requested)
+    def _edge_w(u, v, data=None):
+        """
+        Calculates the weight of an edge.
+
+        Parameters:
+        u (node): Source node.
+        v (node): Target node.
+        data (dict, optional): Edge data dictionary. Defaults to None.
+
+        Returns:
+        float: Weight of the edge.
+        """
+        if weight is None:
+            return 1.0
+        if data is not None and weight in data:
+            return float(data[weight])
+        try:
+            return float(G[u][v].get(weight, 1.0))
+        except Exception:
+            return 1.0
+
+    # Mapping node -> layer index (will grow with dummies)
+    node_layer_idx = {n: layer_to_idx[node_layer_val[n]] for n in G.nodes()}
+    # edges_by_pair[i] holds edges between layer i and i+1 as list of (u, v, w)
+    edges_by_pair = [[] for _ in range(max(0, L - 1))]
+    routes = []  # for returning polylines
+
+    dummy_counter = 0
+
+    def _add_edge_pair(i_left, u, v, w):
+        """
+        Adds an edge between two nodes in adjacent layers.
+
+        Parameters:
+        i_left (int): Index of the left layer.
+        u (node): Source node in the left layer.
+        v (node): Target node in the right layer.
+        w (float): Weight of the edge.
+        """
+        if i_left < 0 or i_left >= L - 1:
+            return
+        edges_by_pair[i_left].append((u, v, w))
+
+    if insert_dummies:
+        # accumulate edges; handle MultiGraph by iterating .edges(data=True, keys=False)
+        for (uu, vv, *rest) in G.edges(data=True):
+            data = rest[0] if rest else {}
+            w = _edge_w(uu, vv, data)
+            lu, lv = node_layer_idx[uu], node_layer_idx[vv]
+            if lu == lv:
+                # keep same-layer as a "route" but it won't affect crossings
+                routes.append({"endpoints": (uu, vv), "nodes": [uu, vv]})
+                continue
+            # orient lu < lv
+            rev = False
+            if lu > lv:
+                uu, vv = vv, uu
+                lu, lv = lv, lu
+                rev = True
+
+            chain = [uu]
+            prev = uu
+            for k in range(lu + 1, lv):
+                dummy_counter += 1
+                d = f"{dummy_prefix}{dummy_counter}"
+                node_layer_idx[d] = k
+                layers[k].append(d)
+                prev, cur = prev, d
+                _add_edge_pair(k - 1, prev, cur, w)
+                chain.append(cur)
+                prev = cur
+            # last hop
+            _add_edge_pair(lv - 1, prev, vv, w)
+            chain.append(vv)
+            if rev:
+                chain.reverse()
+            routes.append({"endpoints": (chain[0], chain[-1]), "nodes": chain})
+    else:
+        for (uu, vv, *rest) in G.edges(data=True, keys=False):
+            data = rest[0] if rest else {}
+            w = _edge_w(uu, vv, data)
+            lu, lv = node_layer_idx[uu], node_layer_idx[vv]
+            if abs(lu - lv) == 1:
+                i_left = min(lu, lv)
+                # direct adjacent edge; orient left->right
+                if lu <= lv:
+                    _add_edge_pair(i_left, uu, vv, w)
+                    routes.append({"endpoints": (uu, vv), "nodes": [uu, vv]})
+                else:
+                    _add_edge_pair(i_left, vv, uu, w)
+                    routes.append({"endpoints": (vv, uu), "nodes": [vv, uu]})
+            else:
+                # non-adjacent edges are ignored for crossing count if dummies off
+                routes.append({"endpoints": (uu, vv), "nodes": [uu, vv]})
+
+    # Crossing objective: sum over adjacent layer pairs
+    def pair_cross(i):
+        """
+        Calculates the weighted crossings between two adjacent layers.
+
+        Parameters:
+        i (int): Index of the layer pair.
+
+        Returns:
+        float: Total weighted crossings for the layer pair.
+        """
+        if i < 0 or i >= L - 1:
+            return 0.0
+        left = layers[i]
+        right = layers[i + 1]
+        if not left or not right or not edges_by_pair[i]:
+            return 0.0
+        return _pair_crossings_weighted(left, right, edges_by_pair[i])
+
+    def total_cross():
+        """
+        Calculates the total weighted crossings for all layer pairs.
+
+        Returns:
+        float: Total weighted crossings.
+        """
+        return sum(pair_cross(i) for i in range(L - 1))
+
+    # Initial temperature (optional estimation)
+    def estimate_T0(samples=64):
+        """
+        Estimates the initial temperature for simulated annealing.
+
+        Parameters:
+        samples (int, optional): Number of random swaps to sample. Defaults to 64.
+
+        Returns:
+        float: Estimated initial temperature.
+        """
+        if L == 0:
+            return 1.0
+        deltas = []
+        for _ in range(samples):
+            # pick a layer with >=2 nodes and that participates in crossings
+            candidates = [i for i in range(L) if len(layers[i]) >= 2]
+            if not candidates:
+                break
+            i = random.choice(candidates)
+            before = pair_cross(i - 1) + pair_cross(i)  # pairs touching layer i
+            n = len(layers[i])
+            a, b = random.randrange(n), random.randrange(n)
+            if a == b:
+                continue
+            layers[i][a], layers[i][b] = layers[i][b], layers[i][a]
+            after = pair_cross(i - 1) + pair_cross(i)
+            d = after - before
+            # revert
+            layers[i][a], layers[i][b] = layers[i][b], layers[i][a]
+            if d > 0:
+                deltas.append(d)
+        if not deltas:
+            return 1.0
+        return max(1e-6, sum(deltas) / len(deltas))
+
+    if T0 is None:
+        T = estimate_T0()
+    else:
+        T = float(T0)
+
+    # SA loop over within-layer swaps
+    current_total = total_cross()
+    best_layers = [list(lst) for lst in layers]
+    best_total = current_total
+    last_improve_at = 0
+
+    def propose_swap(i):
+        """
+        Proposes a swap of two nodes in a layer.
+
+        Parameters:
+        i (int): Index of the layer.
+
+        Returns:
+        tuple: A tuple (i, a, b) representing the layer index and the indices of the nodes to swap.
+        """
+        n = len(layers[i])
+        if n < 2:
+            return None
+        if random.random() < adjacent_swap_prob:
+            a = random.randrange(n - 1)
+            b = a + 1
+        else:
+            a, b = random.randrange(n), random.randrange(n)
+            while b == a:
+                b = random.randrange(n)
+        return i, a, b
+
+    for step in range(int(max_proposals)):
+        # pick a layer that has at least 2 nodes
+        cand_layers = [i for i in range(L) if len(layers[i]) >= 2]
+        if not cand_layers:
+            break
+        i = random.choice(cand_layers)
+        swap = propose_swap(i)
+        if swap is None:
+            continue
+        _, a, b = swap
+
+        before = pair_cross(i - 1) + pair_cross(i)
+        # apply
+        layers[i][a], layers[i][b] = layers[i][b], layers[i][a]
+        after = pair_cross(i - 1) + pair_cross(i)
+        delta = after - before
+
+        accept = False
+        if delta <= 0:
+            accept = True
+        else:
+            # accept uphill with Boltzmann probability
+            p = math.exp(-delta / max(T, 1e-12))
+            if random.random() < p:
+                accept = True
+
+        if accept:
+            current_total += delta
+            if current_total + 1e-12 < best_total:
+                best_total = current_total
+                best_layers = [list(lst) for lst in layers]
+                last_improve_at = step
+        else:
+            # revert
+            layers[i][a], layers[i][b] = layers[i][b], layers[i][a]
+
+        # Cooling
+        if (step + 1) % int(max(1, cooling_interval)) == 0:
+            T *= float(cooling_rate)
+
+        # Early stop if stuck
+        if step - last_improve_at >= int(stop_after_no_improve):
+            break
+
+    # Use best found ordering
+    layers = best_layers
+
+    # Coordinates
+    pos_all = {}
+    for i in range(L):
+        n = len(layers[i])
+        if n == 0:
+            continue
+        start = -0.5 * (n - 1) * node_spacing
+        for j, u in enumerate(layers[i]):
+            free = start + j * node_spacing
+            fixed = i * layer_spacing
+            if align == "vertical":  # columns
+                pos_all[u] = (fixed, free)
+            else:  # rows
+                pos_all[u] = (free, fixed)
+
+    if scale != 1.0:
+        pos_all = {u: (scale * x, scale * y) for u, (x, y) in pos_all.items()}
+
+    # Only original nodes unless requested
+    def _is_dummy(n):
+        """
+        Checks if a node is a dummy node.
+
+        Parameters:
+        n (node): The node to check.
+
+        Returns:
+        bool: True if the node is a dummy node, False otherwise.
+        """
+        return isinstance(n, str) and n.startswith(dummy_prefix)
+
+    if return_dummies:
+        pos = dict(pos_all)
+    else:
+        pos = {u: xy for u, xy in pos_all.items() if not _is_dummy(u)}
+
+    # Optional: return final order per original layer key (includes dummies)
+    order_by_layer = None
+    if return_order:
+        order_by_layer = {layer_keys[i]: list(layers[i]) for i in range(L)}
+
+    # Optional: routes with points
+    routed = None
+    if return_routes:
+        routed = []
+        for r in routes:
+            chain = r["nodes"]
+            pts = [pos_all[n] for n in chain if n in pos_all]
+            routed.append({"endpoints": r["endpoints"], "nodes": list(chain), "points": pts})
+
+    if return_order and return_routes:
+        return pos, order_by_layer, routed
+    if return_order:
+        return pos, order_by_layer
+    if return_routes:
+        return pos, routed
+    return pos
