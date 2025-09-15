@@ -18,6 +18,7 @@ from rdkit import Chem as Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem import rdDetermineBonds
 from rdkit.Chem.rdchem import Mol
+from rdkit.Geometry import Point3D
 
 from .tools_mol import standardize_mol
 
@@ -63,7 +64,7 @@ def smiles_to_atoms(smiles: str,
 
 def mol_to_atoms(mol: Mol,
                  sanitize: bool = True,
-                 add_hydrogen: bool = True,
+                 add_hydrogen: bool = False,
                  optimise: bool = True) -> Atoms:
     """
     Convert an RDKit Mol object to an ASE Atoms object.
@@ -79,7 +80,7 @@ def mol_to_atoms(mol: Mol,
     sanitize : bool, optional
         Whether to sanitize the molecule (e.g., standardize its structure). Default is True.
     add_hydrogen : bool, optional
-        Whether to add explicit hydrogens to the molecule. Default is True.
+        Whether to add explicit hydrogens to the molecule. Default is False.
     optimise : bool, optional
         Whether to optimize the molecule's geometry using RDKit's MMFF force field. Default is True.
 
@@ -156,14 +157,19 @@ def atoms_to_mol(atoms,
     ValueError
         If the RDKit Mol object cannot be created from the XYZ file.
     """
-    # Open a temporary file to write the Atoms object in XYZ format
-    write('tmp.xyz', atoms, format='xyz')
-    raw_mol = Chem.MolFromXYZFile('tmp.xyz')  # Read the XYZ file as an RDKit Mol object
-    mol = Chem.Mol(raw_mol)  # Create a new RDKit Mol object
-    rdDetermineBonds.DetermineBonds(mol, charge=charge)  # Determine bonds based on the charge
+    rw = Chem.RWMol()
+    for z in atoms.get_atomic_numbers():
+        rw.AddAtom(Chem.Atom(int(z)))
 
-    # Remove the temporary file
-    os.remove('tmp.xyz')
+    conf = Chem.Conformer(len(atoms))
+    for i, (x, y, z) in enumerate(np.asarray(atoms.get_positions())):
+        conf.SetAtomPosition(i, Point3D(float(x), float(y), float(z)))
+    rw.AddConformer(conf)
+
+    # This is the key step: RDKit infers which atoms are bonded and the bond order.
+    rdDetermineBonds.DetermineBonds(rw, charge=charge)  # modifies in place
+
+    mol = rw.GetMol()
 
     if sanitize:
         mol = standardize_mol(mol)  # Standardize the molecule structure
