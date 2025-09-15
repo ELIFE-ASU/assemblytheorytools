@@ -252,13 +252,22 @@ def plot_pathway(graph: nx.DiGraph,
                  node_color: str = '#264f70',
                  plot_type: str = 'mol',
                  arrow_style: str = '1',
+                 layout_style: str = 'crossmin_long',
                  frame_on: bool = True) -> tuple[Figure, Axes]:
     fig, ax = plt.subplots(figsize=fig_size)
 
     for layer, nodes in enumerate(nx.topological_generations(graph)):
         for node in nodes:
             graph.nodes[node]["layer"] = layer
-    pos = nx.multipartite_layout(graph, subset_key="layer")
+
+    if layout_style == 'crossmin':
+        pos = multipartite_layout_crossmin(graph, subset_key="layer")
+    elif layout_style == 'crossmin_long':
+        pos = multipartite_layout_crossmin_long(graph, subset_key="layer")
+    elif layout_style == 'sa':
+        pos = multipartite_layout_sa(graph, subset_key="layer")
+    else:
+        pos = nx.multipartite_layout(graph, subset_key="layer")
 
     if arrow_style == '1':
         edge_color = 'white'
