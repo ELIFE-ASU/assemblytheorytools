@@ -835,6 +835,223 @@ def scatter_plot_3d_with_colorbar(x,
     return fig, ax
 
 
+def plot_hexbin_scatter(x,
+                        y,
+                        xlab='x',
+                        ylab='y',
+                        guide_line=True,
+                        cmap='viridis',
+                        figsize=(8, 5),
+                        fontsize=16,
+                        bins_scale=None):
+    """
+    Creates a hexbin scatter plot using Matplotlib.
+
+    Parameters:
+    x (array-like): Data for the x-axis.
+    y (array-like): Data for the y-axis.
+    xlab (str, optional): Label for the x-axis. Defaults to 'x'.
+    ylab (str, optional): Label for the y-axis. Defaults to 'y'.
+    guide_line (bool, optional): If True, adds a y=x guide line to the plot. Defaults to True.
+    cmap (str, optional): Colormap for the hexbin plot. Defaults to 'viridis'.
+    figsize (tuple, optional): Size of the figure in inches (width, height). Defaults to (8, 5).
+    fontsize (int, optional): Font size for axis labels and colorbar label. Defaults to 16.
+    bins_scale (str or None, optional): Scaling for the hexbin bins (e.g., 'log'). Defaults to None.
+
+    Returns:
+    tuple: A tuple containing the Matplotlib figure and axis objects.
+    """
+    # Convert to numpy arrays if they aren't already
+    x = np.asarray(x)
+    y = np.asarray(y)
+
+    # Create a figure and axis
+    fig, ax = plt.subplots(figsize=figsize)
+
+    # Determine x and y axis limits
+    xlim = x.min(), x.max()
+    ylim = y.min(), y.max()
+
+    # Create the hexbin plot
+    hb = ax.hexbin(x, y, gridsize=30, cmap=cmap, bins=bins_scale)
+    ax.set(xlim=xlim, ylim=ylim)
+
+    # Add a colorbar to the plot
+    cbar = fig.colorbar(hb, ax=ax)
+    cbar.set_label('counts', fontsize=fontsize)
+
+    if guide_line:
+        # Plot the y = x guide line
+        x_line = np.linspace(min(x), max(x), 2)
+        ax.plot(x_line, x_line, color='red', linestyle='--', linewidth=2)
+
+    # Configure the plot with custom labels and layout
+    ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
+
+    return fig, ax
+
+
+def plot_histogram(data,
+                   bins=30,
+                   xlab='Values',
+                   ylab='Frequency',
+                   figsize=(8, 5),
+                   fontsize=16,
+                   ):
+    """
+    Plots a histogram for the given data.
+
+    Parameters:
+    data (list or array-like): The data to be plotted in the histogram.
+    bins (int, optional): Number of bins for the histogram. Default is 30.
+    xlab (str, optional): Label for the x-axis. Default is 'Values'.
+    ylab (str, optional): Label for the y-axis. Default is 'Frequency'.
+    figsize (tuple, optional): Size of the figure in inches (width, height). Default is (8, 6).
+    fontsize (int, optional): Font size for axis labels. Default is 16.
+
+    Returns:
+    tuple: A tuple containing the Matplotlib figure and axis objects (fig, ax).
+    """
+    fig, ax = plt.subplots(figsize=figsize)
+    plt.hist(data, bins=bins, color='blue', edgecolor='black', alpha=0.8)
+    ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
+    return fig, ax
+
+
+def plot_histogram_all_x(data,
+                         xlab='Number of Bonds',
+                         ylab='Frequency',
+                         figsize=(8, 5),
+                         fontsize=16):
+    """
+    Plots a histogram for the given data with bins automatically determined
+    based on the range of the data.
+
+    Parameters:
+    data (array-like): The data to be plotted in the histogram.
+    xlab (str, optional): Label for the x-axis. Default is 'Number of Bonds'.
+    ylab (str, optional): Label for the y-axis. Default is 'Frequency'.
+    figsize (tuple, optional): Size of the figure in inches (width, height). Default is (8, 6).
+    fontsize (int, optional): Font size for axis labels. Default is 16.
+
+    Returns:
+    tuple: A tuple containing the figure and axis objects (fig, ax).
+    """
+    bins = range(int(data.min()), int(data.max()) + 2)
+    fig, ax = plot_histogram(data,
+                             bins=bins,
+                             xlab=xlab,
+                             ylab=ylab,
+                             figsize=figsize,
+                             fontsize=fontsize)
+    return fig, ax
+
+
+def plot_histogram_compare(data1,
+                           data2,
+                           labels,
+                           bins=30,
+                           xlab='Values',
+                           ylab='Frequency',
+                           y_scale='log',
+                           figsize=(8, 5),
+                           fontsize=16,
+                           ):
+    """
+    Plots a comparative histogram for two datasets.
+
+    Parameters:
+    data1 (list or array-like): The first dataset to be plotted.
+    data2 (list or array-like): The second dataset to be plotted.
+    labels (list of str): Labels for the two datasets, used in the legend.
+    bins (int, optional): Number of bins for the histograms. Default is 30.
+    xlab (str, optional): Label for the x-axis. Default is 'Values'.
+    ylab (str, optional): Label for the y-axis. Default is 'Frequency'.
+    y_scale (str, optional): Scale for the y-axis (e.g., 'log'). Default is 'log'.
+    figsize (tuple, optional): Size of the figure in inches (width, height). Default is (8, 5).
+    fontsize (int, optional): Font size for axis labels. Default is 16.
+
+    Returns:
+    tuple: A tuple containing the Matplotlib figure and axis objects (fig, ax).
+    """
+    fig, ax = plt.subplots(figsize=figsize)
+    plt.hist(data1, bins=bins, alpha=0.8, label=labels[0])
+    plt.hist(data2, bins=bins, alpha=0.8, label=labels[1])
+    plt.legend()
+
+    if y_scale is not None:
+        # Find the nearest order of magnitude to the maximum count
+        order_of_magnitude = 10 ** np.floor(np.log10(max(max(data1), max(data2))))
+        # Set the y-axis limit to the next order of magnitude
+        ax.set_ylim(1, order_of_magnitude * 10)
+        ax.set_yscale('log')
+
+    ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
+    return fig, ax
+
+
+def plot_kde(
+        data,
+        bandwidth=None,
+        grid_size=1000,
+        y_scale='log',
+        xlab="Value",
+        ylab="Frequency",
+        fig=None,
+        ax=None,
+        fig_size=(8, 5),
+        fontsize=16,
+):
+    """
+    Plots a Kernel Density Estimate (KDE) for the given data using Matplotlib.
+
+    Parameters:
+    data (array-like): The data for which the KDE is to be plotted.
+    bandwidth (float or None, optional): The bandwidth of the KDE. If None, it is automatically determined. Defaults to None.
+    grid_size (int, optional): The number of points in the grid for evaluating the KDE. Defaults to 1000.
+    y_scale (str or None, optional): The scale for the y-axis (e.g., 'log'). If None, no scaling is applied. Defaults to 'log'.
+    xlab (str, optional): Label for the x-axis. Defaults to "Value".
+    ylab (str, optional): Label for the y-axis. Defaults to "Frequency".
+    fig (matplotlib.figure.Figure or None, optional): The Matplotlib figure object. If None, a new figure is created. Defaults to None.
+    ax (matplotlib.axes.Axes or None, optional): The Matplotlib Axes object. If None, a new Axes is created. Defaults to None.
+    fig_size (tuple, optional): The size of the figure in inches (width, height). Defaults to (8, 5).
+    fontsize (int, optional): Font size for axis labels. Defaults to 16.
+
+    Returns:
+    tuple: A tuple containing the Matplotlib figure and axis objects (fig, ax).
+    """
+    if fig is None or ax is None:
+        fig, ax = plt.subplots(figsize=fig_size)
+    data = np.asarray(data)
+    n = len(data)
+
+    # Fit KDE
+    kde = gaussian_kde(data, bw_method=bandwidth)
+
+    # Evaluate KDE on a grid
+    x_min, x_max = data.min(), data.max()
+    xs = np.linspace(x_min, x_max, grid_size)
+    ys = kde(xs)
+
+    # Convert density to expected counts
+    dx = xs[1] - xs[0]
+    counts = ys * n * dx
+
+    ax.set_xlim(x_min, x_max)
+    if y_scale is not None:
+        # Find the nearest order of magnitude to the maximum count
+        order_of_magnitude = 10 ** np.floor(np.log10(max(counts)))
+        # Set the y-axis limit to the next order of magnitude
+        ax.set_ylim(1, order_of_magnitude * 10)
+        ax.set_yscale('log')
+
+    # Overlay KDE scaled to counts
+    ax.plot(xs, counts, color='red', lw=2)
+    ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
+
+    return fig, ax
+
+
 def multipartite_layout_crossmin(
         G,
         subset_key="subset",
