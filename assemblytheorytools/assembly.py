@@ -516,66 +516,74 @@ def compile_assembly_cpp_script(assembly_tar_path="assemblycpp-main", boost_vers
 
 
 def compile_assembly_cpp():
-    print(flush=True)
-    system = platform.system().lower()
-    print(f"Compiling assCPP. Detected operating system: {system}", flush=True)
-
-    if system == "darwin":
-        # check if brew is installed
-        if shutil.which("brew") is None:
-            print('Homebrew is not installed. Installing Homebrew...', flush=True)
-            run_command_simple(
-                '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"')
-
-        # check if git is installed
-        if shutil.which("git") is None:
-            print('Git is not installed. Installing Git...', flush=True)
-            run_command_simple('brew install git')
-
-        # Check if cmake is installed
-        if shutil.which("cmake") is None:
-            print('CMake is not installed. Installing CMake...', flush=True)
-            run_command_simple('brew install cmake')
-
-    if system == "linux":
-        # check if git is installed
-        if shutil.which("git") is None:
-            raise OSError(
-                "Git is not installed. Please install Git to compile assemblycpp on Linux.\n sudo apt update \n sudo apt install git")
-
-        # Check if cmake is installed
-        if shutil.which("cmake") is None:
-            raise OSError(
-                "CMake is not installed. Please install CMake to compile assemblycpp on Linux.\n sudo apt update \n sudo apt install cmake")
-
-    subprocess.run(
-        f"git clone https://github.com/LouieSlocombe/assemblycpp-v5.git",
-        shell=True, check=True)
     start_dir = os.getcwd()
-    # Change to the assemblycpp directory
-    assemblycpp_dir = os.path.join(start_dir, "assemblycpp-v5")
-    os.chdir(assemblycpp_dir)
-    run_command_simple('cmake -S . -B build')
+    try:
+        print(flush=True)
+        system = platform.system().lower()
+        print(f"Compiling assCPP. Detected operating system: {system}", flush=True)
 
-    if system == "linux" or system == "darwin":
-        # Compile the assembly code
-        run_command_simple('cmake --build build --parallel')
-    elif system == "windows":
-        # For Windows, we need to specify the generator
-        run_command_simple('cmake --build build --config Release')
-    else:
-        raise OSError(f"Unsupported operating system: {system}")
-    # Move the compiled executable to the parent directory
-    exe_name = "assembly"
-    exe_path = os.path.join(assemblycpp_dir, "build", "bin", exe_name)
-    end_path = os.path.join(start_dir, "assemblytheorytools", "precompiled", exe_name)
-    # move the executable to the current working directory
-    shutil.move(exe_path, end_path)
-    # Remove the assemblycpp directory
-    shutil.rmtree(assemblycpp_dir)
-    # make the executable executable
-    os.chmod(end_path, 0o755)
-    print("Assembly code compiled successfully.", flush=True)
+        if system == "darwin":
+            # check if brew is installed
+            if shutil.which("brew") is None:
+                print('Homebrew is not installed. Installing Homebrew...', flush=True)
+                run_command_simple(
+                    '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"')
+
+            # check if git is installed
+            if shutil.which("git") is None:
+                print('Git is not installed. Installing Git...', flush=True)
+                run_command_simple('brew install git')
+
+            # Check if cmake is installed
+            if shutil.which("cmake") is None:
+                print('CMake is not installed. Installing CMake...', flush=True)
+                run_command_simple('brew install cmake')
+
+        if system == "linux":
+            # check if git is installed
+            if shutil.which("git") is None:
+                raise OSError(
+                    "Git is not installed. Please install Git to compile assemblycpp on Linux.\n sudo apt update \n sudo apt install git")
+
+            # Check if cmake is installed
+            if shutil.which("cmake") is None:
+                raise OSError(
+                    "CMake is not installed. Please install CMake to compile assemblycpp on Linux.\n sudo apt update \n sudo apt install cmake")
+
+        subprocess.run(
+            f"git clone https://github.com/LouieSlocombe/assemblycpp-v5.git",
+            shell=True, check=True)
+
+        # Change to the assemblycpp directory
+        assemblycpp_dir = os.path.join(start_dir, "assemblycpp-v5")
+        os.chdir(assemblycpp_dir)
+        run_command_simple('cmake -S . -B build')
+
+        if system == "linux" or system == "darwin":
+            # Compile the assembly code
+            run_command_simple('cmake --build build')
+        elif system == "windows":
+            # For Windows, we need to specify the generator
+            run_command_simple('cmake --build build --config Release')
+        else:
+            raise OSError(f"Unsupported operating system: {system}")
+        # Move the compiled executable to the parent directory
+        exe_name = "assembly"
+        exe_path = os.path.join(assemblycpp_dir, "build", "bin", exe_name)
+        end_path = os.path.join(start_dir, "assemblytheorytools", "precompiled", exe_name)
+        # move the executable to the current working directory
+        shutil.move(exe_path, end_path)
+        # Remove the assemblycpp directory
+        shutil.rmtree(assemblycpp_dir)
+        # make the executable executable
+        os.chmod(end_path, 0o755)
+        os.chdir(start_dir)
+        print("Assembly code compiled successfully.", flush=True)
+    except Exception as e:
+        print(f"Failed to automatically compile the assembly code: {e}", flush=True)
+        print("Please refer to the manual compilation instructions on the ATT GitHub page.", flush=True)
+        os.chdir(start_dir)
+        exit()
     return None
 
 
