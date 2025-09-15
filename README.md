@@ -150,7 +150,7 @@ https://doi.org/10.48550/arXiv.2410.09100).
 It is recommended that you start from a fresh environment to prevent issues.
 
 ```
-conda create -n ass_env python=3.12
+conda create -n ass_env python=3.13
 ```
 
 Activate the new env.
@@ -214,7 +214,7 @@ See `https://stackoverflow.com/questions/2505096/clone-a-private-repository-gith
 It is recommended that you start from a fresh environment to prevent issues.
 
 ```
-conda create -n ass_env python=3.12
+conda create -n ass_env python=3.13
 ```
 
 Activate the new environment.
@@ -233,6 +233,11 @@ Best to make them strict
 
 ```
 conda config --set channel_priority true
+```
+Make sure to upgrade the conda env to force the channel priority.
+
+```
+conda update conda --all -y
 ```
 
 Install the requirements.
@@ -270,7 +275,7 @@ module load mamba/latest
 It is recommended that you start from a fresh environment to prevent issues.
 
 ```
-mamba create -n ass_env -c conda-forge python=3.12 
+mamba create -n ass_env -c conda-forge python=3.13 
 ```
 
 Activate the new env.
@@ -296,4 +301,58 @@ Once again, you will need your username AND 'personal access token' entered as y
 When running on an HPC, you should run Python using the absolute path to the directory, for example:
 `srun $HOME/.conda/envs/myEnv/bin/python3`
 
+</details>
+
+<details>
+<summary>Manual assemblycpp instructions</summary>
+<br>
+  
+Installing Intel oneAPI, look for an offline [installer](https://www.intel.com/content/www/us/en/developer/tools/oneapi/dpc-compiler-download.html?operatingsystem=linux&distribution-linux=offline)
+  
+```
+bash ./intel-dpcpp-cpp-compiler-2025.0.4.20_offline.sh
+```
+  
+Source the env
+```
+source /home/louie/intel/oneapi/setvars.sh
+```
+
+Get the boost code
+```
+wget https://archives.boost.io/release/1.89.0/source/boost_1_89_0.tar.gz
+```
+
+Uncompress
+```
+tar -xvzf boost_1_89_0.tar.gz
+```
+
+Remove the tar file
+```
+rm -rf boost_1_89_0.tar.gz
+```
+
+Get the assemblycpp code
+```
+git clone --branch script https://github.com/LouieSlocombe/assemblycpp-v5.git
+```
+
+Change into the code directory.
+```
+cd assemblycpp-v5/v5/
+```
+
+Compile
+```
+icpx main.cpp -o asscpp -I $HOME/boost_1_89_0/ -O3 -ipo -xHost -ffast-math -qopt-zmm-usage=high -fno-alias
+```
+
+Add the file to your .bashrc
+```
+export ass=$HOME/assemblycpp-v5/v5/asscpp
+```
+
+
+  
 </details>
