@@ -43,7 +43,7 @@ if __name__ == "__main__":
 
     print(f"Length of the sequence: {len(seq)}", flush=True)
 
-    n_reps = 10_000
+    n_reps = 50_000
     ai_list = random_string_parallel(n_reps, len(seq), pool_ss)
 
     ai, _, _ = att.calculate_string_assembly_index(seq, mode='cfg')
@@ -53,8 +53,9 @@ if __name__ == "__main__":
     fig, ax = plt.subplots(figsize=(7, 3))
     ax.hist(ai_list,
             bins=50,
-            alpha=0.5,
-            label='Randomised RNA',)
+            alpha=1.0,
+            label='Randomised RNA',
+            color='#264f70')
     ax.axvline(ai,
                color='red',
                linestyle='dashed',
