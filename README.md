@@ -9,7 +9,7 @@ The aim is that this package provides a platform to do assembly theory calculati
 We currently interface with [C++](https://github.com/croningp/assemblycpp-v5) [\[2\]](#ref2) and [Rust](https://github.com/DaymudeLab/assembly-theory) [\[3\]](#ref3) assembly calculators, and this package comes with precompiled versions of both.
 This version works best on Unix-based systems, and to use this package, it is strongly suggested that you use the Linux subsystem if you are using Windows.
 
-AssemblyTheoryTools (ATT) is a Python package designed to facilitate assembly theory calculations 
+AssemblyTheoryTools (ATT) is a Python package that facilitates assembly theory calculations 
 across various domains. It provides a unified interface to perform complex assembly theory computations, 
 leveraging the power of the underlying assembly calculators.
 
@@ -80,7 +80,7 @@ ai, virt_obj, pathway = att.calculate_assembly_index(graph, strip_hydrogen=True)
 ```
 Here, the `ai` integer represents the assembly index, 
 `virt_obj` contains the virtual objects along the assembly path.
-and `pathway` contains the assembly pathway used to calculate the assembly index.
+The `pathway` contains the assembly pathway used to calculate the assembly index.
 The `pathway` is a directional graph where each node represents a virtual object,
 and each edge represents a joining operation that combines input virtual objects 
 into one output virtual object.
@@ -111,7 +111,7 @@ for more details.
 
 ## 👥 Contributors
 
-Louie Slocombe, orchestration, development and conceptualisation.
+Louie Slocombe, orchestration, development, and conceptualisation.
 
 Joey Fedrow, development, maintenance, and documentation.
 
@@ -132,7 +132,7 @@ Marina Fernandez-Ruz, visualisation and circle plots.
 Mohammadreza Shahjahan, branding, development.
 
 ## ⚖️ License
-MIT License. We just ask that you cite the relevant papers, please!
+MIT License. We ask that you cite the relevant papers, please!
 
 ## 📚 References
 - <a id="ref1">\[1\]</a> Sharma, A., Czégel, D., Lachmann, M., Kempes, C. P., Walker, S. I., & Cronin, L. (2023). Assembly theory explains and quantifies selection and evolution. Nature, 622(7982), 321-328. [doi:10.1038/s41586-023-06600-9](https://doi.org/10.1038/s41586-023-06600-9).
@@ -165,13 +165,13 @@ Add channels in this order.
 conda config --env --add channels conda-forge
 ```
 
-Best to make the channels strict to prevent conflicts
+Best to make the channels strict to prevent conflicts.
 
 ```
 conda config --set channel_priority true
 ```
 
-To check your updated channel list, run:
+To check your updated channel list.
 
 ```
 conda config --show channels
@@ -183,19 +183,19 @@ Make sure to upgrade the conda env to force the channel priority.
 conda update conda --all -y
 ```
 
-#### Install the requirements
+#### Install the requirements.
 
 ```
 conda install numpy scipy matplotlib networkx rdkit pyvis ase -y
 ```
 
-Then, install the ELIFE packages
+Then, install the ELIFE packages.
 
 ```
 pip install git+https://github.com/ELIFE-ASU/dagviz.git git+https://github.com/ELIFE-ASU/CFG.git
 ```
 
-Then, install AssemblyTheoryTools:
+Then, install AssemblyTheoryTools.
 
 ```
 pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git
@@ -229,7 +229,7 @@ Add channels in this order.
 conda config --env --add channels conda-forge
 ```
 
-Best to make them strict
+Best to make them strict.
 
 ```
 conda config --set channel_priority true
@@ -246,13 +246,13 @@ Install the requirements.
 conda install numpy scipy matplotlib networkx rdkit pyvis ase pytest -y
 ```
 
-Then, install the ELIFE packages
+Then, install the ELIFE packages.
 
 ```
 pip install git+https://github.com/ELIFE-ASU/dagviz.git git+https://github.com/ELIFE-ASU/CFG.git
 ```
 
-Clone the repo using Git or GitKraken. Then, open your favourite IDE (Pycharm/VS Code) and the cloned repo.
+Clone the repo using Git or GitKraken. Then, open your favourite IDE (PyCharm/VS Code) and the cloned repo.
 
 </details>
 
@@ -304,36 +304,36 @@ When running on an HPC, you should run Python using the absolute path to the dir
 </details>
 
 <details>
-<summary>Manual assemblycpp instructions</summary>
+<summary>Manual assemblycpp instructions using Intel oneAPI</summary>
 <br>
   
-Installing Intel oneAPI, look for an offline [installer](https://www.intel.com/content/www/us/en/developer/tools/oneapi/dpc-compiler-download.html?operatingsystem=linux&distribution-linux=offline)
+Manually compiling assemblycpp using the oneAPI, if you have an Intel chipset, can result in significantly faster code. Installing Intel oneAPI, look for an offline [installer](https://www.intel.com/content/www/us/en/developer/tools/oneapi/dpc-compiler-download.html?operatingsystem=linux&distribution-linux=offline)
   
 ```
 bash ./intel-dpcpp-cpp-compiler-2025.0.4.20_offline.sh
 ```
   
-Source the env
+Source the env.
 ```
 source /home/louie/intel/oneapi/setvars.sh
 ```
 
-Get the boost code
+Get the boost code.
 ```
 wget https://archives.boost.io/release/1.89.0/source/boost_1_89_0.tar.gz
 ```
 
-Uncompress
+Uncompress.
 ```
 tar -xvzf boost_1_89_0.tar.gz
 ```
 
-Remove the tar file
+Remove the tar file.
 ```
 rm -rf boost_1_89_0.tar.gz
 ```
 
-Get the assemblycpp code
+Get the assemblycpp code.
 ```
 git clone --branch script https://github.com/LouieSlocombe/assemblycpp-v5.git
 ```
@@ -343,14 +343,14 @@ Change into the code directory.
 cd assemblycpp-v5/v5/
 ```
 
-Compile
+Compile.
 ```
 icpx main.cpp -o asscpp -I $HOME/boost_1_89_0/ -O3 -ipo -xHost -ffast-math -qopt-zmm-usage=high -fno-alias
 ```
 
-Add the file to your .bashrc
+Add the file to your .bashrc.
 ```
-export ass=$HOME/assemblycpp-v5/v5/asscpp
+export ASS_PATH=$HOME/assemblycpp-v5/v5/asscpp
 ```
 
 
