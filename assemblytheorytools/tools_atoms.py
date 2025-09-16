@@ -6,6 +6,7 @@ from typing import Union
 
 import numpy as np
 import pandas as pd
+import networkx as nx
 from ase import Atoms
 from ase.calculators.cp2k import CP2K
 from ase.calculators.orca import ORCA
@@ -20,6 +21,7 @@ from rdkit.Chem.rdchem import Mol
 from rdkit.Geometry import Point3D
 
 from .tools_mol import standardize_mol
+from .tools_graph import mol_to_nx, nx_to_mol
 
 
 def smiles_to_atoms(smiles: str,
@@ -214,6 +216,72 @@ def atoms_to_smiles(atoms: Atoms,
                             isomericSmiles=True,
                             kekuleSmiles=True,
                             canonical=True)
+
+
+def atoms_to_nx(atoms,
+                sanitize: bool = True,
+                add_hydrogen: bool = False,
+                charge: int = 0) -> nx.Graph:
+    """
+    Convert an ASE Atoms object to a NetworkX graph.
+
+    This function converts an ASE Atoms object into an RDKit Mol object,
+    and then transforms the RDKit Mol object into a NetworkX graph.
+
+    Parameters:
+    -----------
+    atoms : ase.Atoms
+        The ASE Atoms object representing the molecule.
+    sanitize : bool, optional
+        Whether to sanitize the RDKit Mol object (e.g., standardize its structure). Default is True.
+    add_hydrogen : bool, optional
+        Whether to add explicit hydrogens to the molecule. Default is False.
+    charge : int, optional
+        The formal charge of the molecule. Default is 0.
+
+    Returns:
+    --------
+    nx.Graph
+        A NetworkX graph representation of the molecule.
+    """
+    mol = atoms_to_mol(atoms,
+                       sanitize=sanitize,
+                       add_hydrogens=add_hydrogen,
+                       charge=charge)
+    return mol_to_nx(mol,
+                     sanitize=sanitize,
+                     add_hydrogens=add_hydrogen)
+
+
+def nx_to_atoms(graph: nx.Graph,
+                sanitize: bool = True,
+                add_hydrogens: bool = False) -> Atoms:
+    """
+    Convert a NetworkX graph to an ASE Atoms object.
+
+    This function converts a NetworkX graph into an RDKit Mol object,
+    and then transforms the RDKit Mol object into an ASE Atoms object.
+
+    Parameters:
+    -----------
+    graph : nx.Graph
+        The NetworkX graph representing the molecule.
+    sanitize : bool, optional
+        Whether to sanitize the RDKit Mol object (e.g., standardize its structure). Default is True.
+    add_hydrogens : bool, optional
+        Whether to add explicit hydrogens to the molecule. Default is False.
+
+    Returns:
+    --------
+    ase.Atoms
+        The ASE Atoms object representing the molecule.
+    """
+    mol = nx_to_mol(graph,
+                    sanitize=sanitize,
+                    add_hydrogens=add_hydrogens)
+    return mol_to_atoms(mol,
+                        sanitize=sanitize,
+                        add_hydrogens=add_hydrogens)
 
 
 def get_charge(mol: Mol) -> int:
