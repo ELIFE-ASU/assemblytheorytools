@@ -365,7 +365,7 @@ def plot_pathway(graph: nx.DiGraph,
             for i, node in enumerate(graph.nodes):
                 smi = graph.nodes[node]["vo"]
                 mol = smi_to_mol(smi, add_hydrogens=False)
-                atoms = mol_to_atoms(mol, sanitize=False, add_hydrogen=False)
+                atoms = mol_to_atoms(mol, sanitize=False, add_hydrogens=False)
                 with tempfile.NamedTemporaryFile(suffix=".png", delete=True) as tmpfile:
                     _fig, _ax = plt.subplots()
                     plot_atoms(atoms, _ax, show_unit_cell=0, scale=2.0)

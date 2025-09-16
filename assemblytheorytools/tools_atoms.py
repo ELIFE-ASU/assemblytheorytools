@@ -11,7 +11,6 @@ from ase.calculators.cp2k import CP2K
 from ase.calculators.orca import ORCA
 from ase.calculators.orca import OrcaProfile
 from ase.io import read
-from ase.io import write
 from ase.units import Hartree
 from ase.units import Rydberg
 from rdkit import Chem as Chem
@@ -25,7 +24,7 @@ from .tools_mol import standardize_mol
 
 def smiles_to_atoms(smiles: str,
                     sanitize: bool = True,
-                    add_hydrogen: bool = True) -> Atoms:
+                    add_hydrogens: bool = True) -> Atoms:
     """
     Convert a SMILES string to an ASE Atoms object.
 
@@ -54,7 +53,7 @@ def smiles_to_atoms(smiles: str,
     mol = Chem.MolFromSmiles(smiles, sanitize=sanitize)
     if sanitize:
         mol = standardize_mol(mol)
-    if add_hydrogen:
+    if add_hydrogens:
         mol = Chem.AddHs(mol)
     if mol is None:
         raise ValueError(f"Failed to parse SMILES string: {smiles}")
@@ -64,7 +63,7 @@ def smiles_to_atoms(smiles: str,
 
 def mol_to_atoms(mol: Mol,
                  sanitize: bool = True,
-                 add_hydrogen: bool = False,
+                 add_hydrogens: bool = False,
                  optimise: bool = True) -> Atoms:
     """
     Convert an RDKit Mol object to an ASE Atoms object.
@@ -97,7 +96,7 @@ def mol_to_atoms(mol: Mol,
     if sanitize:
         # Standardize the molecule structure
         mol = standardize_mol(mol)
-    if add_hydrogen:
+    if add_hydrogens:
         # Add explicit hydrogens to the molecule
         mol = Chem.AddHs(mol)
     # If optimisation is enabled, embed and optimise the molecule using RDKit
@@ -128,7 +127,7 @@ def mol_to_atoms(mol: Mol,
 
 def atoms_to_mol(atoms,
                  sanitize: bool = True,
-                 add_hydrogen: bool = False,
+                 add_hydrogens: bool = False,
                  charge: int = 0) -> Chem.Mol:
     """
     Convert an ASE Atoms object to an RDKit Mol object.
@@ -174,30 +173,47 @@ def atoms_to_mol(atoms,
     if sanitize:
         mol = standardize_mol(mol)  # Standardize the molecule structure
         Chem.Kekulize(mol)  # Ensure correct aromaticity
-    if add_hydrogen:
+    if add_hydrogens:
         mol = Chem.AddHs(mol)  # Add explicit hydrogens to the molecule
     return mol
 
 
-def atoms_to_smiles(atoms: Atoms) -> str:
+def atoms_to_smiles(atoms: Atoms,
+                    sanitize: bool = True,
+                    add_hydrogens: bool = True,
+                    charge: int = 0) -> str:
     """
     Convert an ASE Atoms object to a SMILES string.
 
-    This function takes an ASE Atoms object, converts it to an RDKit Mol object,
-    and generates its SMILES representation.
+    This function converts an ASE Atoms object into an RDKit Mol object,
+    and then generates a SMILES string representation of the molecule.
 
     Parameters:
     -----------
     atoms : ase.Atoms
-        An ASE Atoms object representing the molecule.
+        The ASE Atoms object representing the molecule.
+    sanitize : bool, optional
+        Whether to sanitize the RDKit Mol object (e.g., standardize its structure). Default is True.
+    add_hydrogens : bool, optional
+        Whether to add explicit hydrogens to the molecule. Default is True.
+    charge : int, optional
+        The formal charge of the molecule. Default is 0.
 
     Returns:
     --------
     str
-        The SMILES representation of the molecule, including isomeric, kekule, and canonical forms.
+        The SMILES string representation of the molecule.
     """
-    mol = atoms_to_mol(atoms)  # Convert the ASE Atoms object to an RDKit Mol object
-    return Chem.MolToSmiles(mol, isomericSmiles=True, kekuleSmiles=True, canonical=True)  # Generate the SMILES string
+    # Convert the ASE Atoms object to an RDKit Mol object
+    mol = atoms_to_mol(atoms,
+                       sanitize=sanitize,
+                       add_hydrogens=add_hydrogens,
+                       charge=charge)
+    # Generate the SMILES string
+    return Chem.MolToSmiles(mol,
+                            isomericSmiles=True,
+                            kekuleSmiles=True,
+                            canonical=True)
 
 
 def get_charge(mol: Mol) -> int:
