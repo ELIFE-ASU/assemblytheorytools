@@ -7,7 +7,8 @@ import ase.build
 from ase.visualize import view
 from ase.io import read
 from rdkit.Chem import AllChem as Chem
-
+import numpy as np
+from ase.neighborlist import neighbor_list, natural_cutoffs
 import assemblytheorytools as att
 
 
@@ -61,3 +62,53 @@ def test_cif_ai():
     ai_graph, _, _ = att.calculate_assembly_index(graph, joint_corr=False)
 
     assert ai_mol == ai_graph == 4
+
+
+def keep_central_cell_and_bonded(atoms, reps=(3, 3, 3), cutoff_mult=1.1):
+    # 1) Build supercell. (Central image is already centered for odd reps.)
+    sup = atoms.repeat(reps)
+
+    # 2) Identify atoms that lie in the *central* image of the supercell.
+    #    For odd reps r, the central slab in fractional coords is:
+    #    [ (r-1)/(2r), (r+1)/(2r) )
+    f = sup.get_scaled_positions(wrap=False)
+    reps = np.array(reps, dtype=float)
+    low = np.where(reps > 1, (reps - 1) / (2 * reps), 0.0)
+    high = np.where(reps > 1, (reps + 1) / (2 * reps), 1.0)
+    eps = 1e-9
+    in_central = np.all((f >= (low - eps)) & (f < (high + eps)), axis=1)
+    central_idx = np.where(in_central)[0]
+
+    # 3) Neighbor list (periodic), using ASE’s element-based "natural" cutoffs.
+    #    Tune cutoff_mult if you need looser/tighter bonding (e.g. 1.0–1.3).
+    cutoffs = natural_cutoffs(sup, mult=cutoff_mult)
+    i, j = neighbor_list('ij', sup, cutoffs)
+
+    # 4) Find all neighbors bonded to *central* atoms.
+    mask_i_central = np.isin(i, central_idx)
+    bonded_to_central = set(j[mask_i_central])
+
+    # 5) Keep central atoms + their bonded neighbors; delete everything else.
+    keep = np.array(sorted(set(central_idx) | bonded_to_central), dtype=int)
+    mask = np.zeros(len(sup), dtype=bool)
+    mask[keep] = True
+
+    pruned = sup.copy()
+    del pruned[~mask]  # remove unneeded atoms
+    pruned.set_cell(sup.cell)  # keep the supercell cell
+    pruned.set_pbc(sup.pbc)
+    pruned.wrap()
+
+    return pruned
+
+def test_keep_central_cell_and_bonded():
+    print(flush=True)
+    target_dir = "tests/data/cif_files/"
+    dirs = att.file_list_all(os.path.expanduser(os.path.abspath(target_dir)))
+    file = dirs[0]
+
+    # input mol file
+    atoms = att.read_cif_file(file)
+    view(atoms)
+    pruned = keep_central_cell_and_bonded(atoms, reps=(3, 3, 3), cutoff_mult=1.1)
+    view(pruned)
