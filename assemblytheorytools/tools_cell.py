@@ -93,33 +93,6 @@ def get_bonding_config(atoms: Atoms) -> List[List[int]]:
     return bond_pairs
 
 
-def atoms_to_nx(atoms: Atoms) -> nx.Graph:
-    """
-    Convert an ASE atoms object to a NetworkX graph.
-
-    Args:
-        atoms (ase.Atoms): The input set of atoms.
-
-    Returns:
-        networkx.Graph: A graph where nodes are atoms and edges are bonds.
-    """
-    # Get the bonding configuration
-    bond_pairs: list[list[int]] = get_bonding_config(atoms)
-
-    # Create a graph
-    graph: nx.Graph = nx.Graph()
-
-    # Add nodes with atom indices and elements as attributes
-    for i, atom in enumerate(atoms):
-        graph.add_node(i, color=atom.symbol)
-
-    # Add edges based on bond pairs
-    for bond in bond_pairs:
-        graph.add_edge(bond[0], bond[1], color='1')
-
-    return graph
-
-
 def find_clusters(atoms, cutoff_smear=1.5):
     """
     Identify disconnected atom clusters in an atomic structure using a neighbor-based graph.

@@ -105,7 +105,6 @@ from .tools_atoms import (smiles_to_atoms,
                           get_virtual_objects_energy)
 from .tools_cell import (read_cif_file,
                          atoms_to_mol_file,
-                         atoms_to_nx,
                          find_clusters)
 from .tools_data import (sample_boostrapping,
                          sample_kde_resampling,
