@@ -44,20 +44,50 @@ def test_atoms_interconvert():
     3. Asserts that the output SMILES string matches the input SMILES string.
 
     The test is repeated for two different SMILES strings:
-    - Benzene ('[H]C1=C([H])C([H])=C([H])C([H])=C1[H]')
-    - Water ('[H]O[H]')
+    - Benzene
+    - Water
 
     Asserts:
         - The output SMILES string matches the input SMILES string for each test case.
     """
     print(flush=True)
-    smi = '[H]C1=C([H])C([H])=C([H])C([H])=C1[H]'  # SMILES string for benzene
+    smi = '[H]C1([H])C([H])([H])C([H])([H])C([H])([H])C([H])([H])C1([H])[H]'  # SMILES string for benzene
     atoms = att.smiles_to_atoms(smi)  # Convert the SMILES string to an ASE Atoms object
     smi_out = att.atoms_to_smiles(atoms)  # Convert the Atoms object back to a SMILES string
     assert smi_out == smi  # Assert that the output matches the input
 
     smi = '[H]O[H]'  # SMILES string for water
     atoms = att.smiles_to_atoms(smi)  # Convert the SMILES string to an ASE Atoms object
+    smi_out = att.atoms_to_smiles(atoms)  # Convert the Atoms object back to a SMILES string
+    assert smi_out == smi  # Assert that the output matches the input
+
+
+def test_atoms_graph_interconvert():
+    """
+    Test the interconversion between ASE Atoms objects, NetworkX graphs, and SMILES strings.
+
+    This function performs the following steps for two test cases (benzene and water):
+    1. Converts a SMILES string to an ASE Atoms object using the `smiles_to_atoms` function.
+    2. Converts the Atoms object to a NetworkX graph using the `atoms_to_nx` function.
+    3. Converts the NetworkX graph back to an ASE Atoms object using the `nx_to_atoms` function.
+    4. Converts the resulting Atoms object back to a SMILES string using the `atoms_to_smiles` function.
+    5. Asserts that the final SMILES string matches the original input SMILES string.
+
+    Asserts:
+        - The output SMILES string matches the input SMILES string for each test case.
+    """
+    print(flush=True)
+    smi = '[H]C1([H])C([H])([H])C([H])([H])C([H])([H])C([H])([H])C1([H])[H]'  # SMILES string for benzene
+    atoms = att.smiles_to_atoms(smi)  # Convert the SMILES string to an ASE Atoms object
+    graph = att.atoms_to_nx(atoms)  # Convert the Atoms object to a NetworkX graph
+    atoms = att.nx_to_atoms(graph)  # Convert the NetworkX graph back to an ASE Atoms object
+    smi_out = att.atoms_to_smiles(atoms)  # Convert the Atoms object back to a SMILES string
+    assert smi_out == smi  # Assert that the output matches the input
+
+    smi = '[H]O[H]'  # SMILES string for water
+    atoms = att.smiles_to_atoms(smi)  # Convert the SMILES string to an ASE Atoms object
+    graph = att.atoms_to_nx(atoms)  # Convert the Atoms object to a NetworkX graph
+    atoms = att.nx_to_atoms(graph)  # Convert the NetworkX graph back to an ASE Atoms object
     smi_out = att.atoms_to_smiles(atoms)  # Convert the Atoms object back to a SMILES string
     assert smi_out == smi  # Assert that the output matches the input
 
