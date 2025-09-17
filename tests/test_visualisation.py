@@ -4,6 +4,8 @@ import shutil
 
 import matplotlib.pyplot as plt
 import networkx as nx
+import numpy as np
+from networkx.linalg.graphmatrix import adjacency_matrix
 
 import assemblytheorytools as att
 
@@ -146,22 +148,34 @@ def test_plot_pathway_mol():
 
 def test_plot_assembly_circle():
     nodes = ['b', 'a', 'd', 'c', 'ba', 'dc', 'baa', 'bad', 'badc', 'baab', 'baba', 'ddbcd', 'bcdda']
+    os.environ["ASS_PATH"] = "/Users/ejanin/Desktop/assemblycpp/assemblyCpp_linux_v5_combined"
+    n = len(nodes)
+    adj_matrix = np.zeros((n, n), dtype=int)
+    for i in range(n - 1):
+        adj_matrix[i, i + 1] = 1  # Chain
+    adj_matrix[0, 4] = 1  # b -> ba (branch)
+    adj_matrix[1, 6] = 1  # a -> baa (branch)
+    adj_matrix[3, 5] = 1  # c -> dc (branch)
 
-    labels = True
+    labels = nodes
     node_size = 1000
     arrow_size = 50
     node_color = 'Skyblue'
     edge_color = 'Grey'
     fig_size = 10
     filename = 'circle_plot.png'
-    att.plot_assembly_circle(nodes,
-                             labels=labels,
-                             node_size=node_size,
-                             arrow_size=arrow_size,
-                             node_color=node_color,
-                             edge_color=edge_color,
-                             fig_size=fig_size,
-                             filename=filename)
+
+    fig, ax = att.plot_assembly_circle(
+        nodes=nodes,
+        adj_matrix=adj_matrix,
+        labels=labels,
+        node_size=node_size,
+        arrow_size=arrow_size,
+        node_color=node_color,
+        edge_color=edge_color,
+        fig_size=fig_size,
+        filename=filename
+    )
 
     assert os.path.isfile('circle_plot.png'), "Failed to generate the file."
     os.remove('circle_plot.png')

@@ -41,7 +41,7 @@ if __name__ == "__main__":
     att.plot_assembly_circle(nodes, adj_matrix, filename='circle_plot.svg', node_size=800)
 
     # Without specifying adjacency matrix with given parameters:
-    labels = True
+    labels = nodes
     node_size = 1000
     arrow_size = 50
     node_color = 'Skyblue'
@@ -49,7 +49,8 @@ if __name__ == "__main__":
     fig_size = 10
     filename = 'circle_plot.pdf'
     att.plot_assembly_circle(nodes,
-                             labels=True,
+                             labels=labels,
+                             adj_matrix=adj_matrix,
                              node_size=node_size,
                              arrow_size=arrow_size,
                              node_color=node_color,

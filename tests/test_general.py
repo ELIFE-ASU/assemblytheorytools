@@ -390,13 +390,20 @@ def test_create_ionic_molecule():
     assert combined.number_of_nodes() == sum(mol.GetNumAtoms() for mol in mols)
     assert combined.number_of_edges() == sum(mol.GetNumBonds() for mol in mols) + len(mols) - 1
 
-    # Check that the combined graph contains the ionic bond
+    # Check that the graph contains the ionic bond, between the relevant charged atoms (here N+ and S-)
     ionic_bond_found = False
+    h_s_bond_found = False
     for u, v, data in combined.edges(data=True):
-        if data.get('bond_type') == 'ionic':
+        if data.get('color') == 6:
             ionic_bond_found = True
+            # Check node labels
+            label_u = combined.nodes[u].get('color')
+            label_v = combined.nodes[v].get('color')
+            if (label_u == 'N' and label_v == 'S') or (label_u == 'S' and label_v == 'N'):
+                h_s_bond_found = True
             break
     assert ionic_bond_found
+    assert h_s_bond_found
 
     # Check that the assembly index is 3
     ai, _, _ = att.calculate_assembly_index(combined)

@@ -638,30 +638,35 @@ def create_ionic_molecule(smiles: str) -> Tuple[nx.Graph, List[Chem.Mol]]:
     Returns:
         Tuple[nx.Graph, List[Chem.Mol]]: A tuple containing the combined NetworkX graph and a list of RDKit molecule objects.
     """
-    # Split the SMILES at the dot
-    parts = smiles.split('.')
-
-    # Convert each part to a molecule and graph
-    mols = [smi_to_mol(part) for part in parts]
+    # Split the SMILES into components
+    smi_list = smiles.split('.')
+    mols = [smi_to_mol(smi) for smi in smi_list]
     graphs = [mol_to_nx(mol) for mol in mols]
 
-    # Start with the first graph
-    combined = graphs[0]
-    offset = combined.number_of_nodes()  # Starting node index offset for the next molecule
+    # Find the positively and negatively charged atoms
+    pos_idx, neg_idx = None, None
+    for i, mol in enumerate(mols):
+        for atom in mol.GetAtoms():
+            charge = atom.GetFormalCharge()
+            if charge > 0:
+                pos_idx = (i, atom.GetIdx())
+            elif charge < 0:
+                neg_idx = (i, atom.GetIdx())
 
-    # Combine graphs, linking last node of previous graph to first of current
-    for i, graph in enumerate(graphs[1:], start=1):
-        # Add the graph to the combined graph
-        combined = nx.disjoint_union(combined, graph)
+    # Combine the graphs
+    combined = nx.disjoint_union_all(graphs)
 
-        # Add an ionic bond between the last node of the previous graph and the first node of the current graph
-        last_node_prev_graph = offset - 1  # Last node index of the previous graph
-        first_node_current_graph = offset  # First node index of the current graph
+    # Map atom indices to combined graph node indices
+    node_offset = [0]
+    for g in graphs[:-1]:
+        node_offset.append(node_offset[-1] + g.number_of_nodes())
 
-        combined.add_edge(last_node_prev_graph, first_node_current_graph, color=6)
-
-        # Update offset for the next graph
-        offset += graph.number_of_nodes()
+    if pos_idx and neg_idx:
+        # Calculate the correct node indices in the combined graph
+        pos_node = node_offset[pos_idx[0]] + pos_idx[1]
+        neg_node = node_offset[neg_idx[0]] + neg_idx[1]
+        # Add the ionic bond (color=6 as in your test)
+        combined.add_edge(pos_node, neg_node, color=6)
 
     return combined, mols  # Return the combined graph and both molecules
 
