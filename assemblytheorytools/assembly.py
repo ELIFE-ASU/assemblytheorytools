@@ -1498,3 +1498,29 @@ def calculate_rust_ai(mol: Chem.Mol,
             # Handle exceptions during execution
             print(f"Exception occurred: {e}", flush=True)
             return -1
+
+
+def integer_chain(n: int) -> int:
+    """
+    Read shortest integer chain length l(n) from precomputed data file.
+
+    Args:
+        n (int): Input integer.
+
+    Returns:
+        l (int): l(n), the smallest length of an integer chain for n.
+    """
+
+    if n < 1:
+        raise ValueError("n must be a positive integer.")
+    elif n > 9999:
+        raise ValueError("n must be less than or equal to 9999. See https://wwwhomes.uni-bielefeld.de/achim/addition_chain.html for larger n.")
+    elif n == 1:
+        return 0
+    
+    base_path = os.path.dirname(__file__)
+    data_path = os.path.join(base_path, 'data')
+    with open(os.path.join(data_path,'ln_9999.txt'), 'r') as file:
+        for i, line in enumerate(file): # Slightly more efficient than readlines()
+            if i == n + 1:
+                return int(line.split()[3])

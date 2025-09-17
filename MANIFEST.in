@@ -1,1 +1,2 @@
 include assemblytheorytools/precompiled/*
+include assemblytheorytools/data/*
