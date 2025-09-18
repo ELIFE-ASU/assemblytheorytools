@@ -1076,7 +1076,10 @@ def calculate_assembly_lower_bound(mol, strip_hydrogen=False) -> int:
     else:
         raise ValueError("Input not supported")
     n_bonds = mol.GetNumBonds() if isinstance(mol, Chem.Mol) else mol.number_of_edges()
-    return int(np.log2(n_bonds))
+    if n_bonds < 1000:
+        return integer_chain(n_bonds)
+    else:
+        return int(np.log2(n_bonds))
 
 
 def regularise_ai(ai: int) -> int:
