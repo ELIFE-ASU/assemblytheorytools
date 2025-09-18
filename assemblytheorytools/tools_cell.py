@@ -1,5 +1,6 @@
 from typing import List
 
+import networkx as nx
 import ase
 import numpy as np
 from ase.atoms import Atoms
@@ -7,6 +8,8 @@ from ase.io import cif
 from ase.neighborlist import NeighborList
 from ase.neighborlist import neighbor_list, natural_cutoffs
 from scipy import sparse
+
+from .tools_atoms import atoms_to_nx
 
 
 def read_cif_file(cif_file: str) -> Atoms:
@@ -190,3 +193,15 @@ def keep_central_cell_and_bonded(atoms, reps=(3, 3, 3), cutoff_mult=1.2, eps=1e-
     pruned.wrap()
 
     return pruned
+
+
+def cif_to_nx(file,
+              sanitize: bool = True,
+              add_hydrogen: bool = False,
+              charge: int = 0) -> nx.Graph:
+    atoms = read_cif_file(file)
+    expanded = keep_central_cell_and_bonded(atoms)
+    return atoms_to_nx(expanded,
+                       sanitize=sanitize,
+                       add_hydrogen=add_hydrogen,
+                       charge=charge)

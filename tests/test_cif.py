@@ -62,9 +62,8 @@ def test_cif_ai():
 
 def test_keep_central_cell_and_bonded():
     print(flush=True)
-    target_dir = "tests/data/cif_files/"
-    dirs = att.file_list_all(os.path.expanduser(os.path.abspath(target_dir)))
-    file = dirs[0]
+    dir = os.path.expanduser(os.path.abspath("tests/data/cif_files/"))
+    file = os.path.join(dir, "Capgaronnite_0.cif")
 
     # input mol file
     atoms = att.read_cif_file(file)
@@ -72,9 +71,18 @@ def test_keep_central_cell_and_bonded():
     n_atoms = len(atoms)
     print(f"Original number of atoms: {n_atoms}", flush=True)
 
-    pruned = att.keep_central_cell_and_bonded(atoms, reps=(3, 3, 3), cutoff_mult=1.2)
-    n_pruned = len(pruned)
-    print(f"Pruned number of atoms: {n_pruned}", flush=True)
+    expanded = att.keep_central_cell_and_bonded(atoms)
+    n_expanded = len(expanded)
+    print(f"Expanded number of atoms: {n_expanded}", flush=True)
 
     assert n_atoms == 16
-    assert n_pruned == 34
+    assert n_expanded == 34
+
+
+def test_cif_to_nx():
+    print(flush=True)
+    dir = os.path.expanduser(os.path.abspath("tests/data/cif_files/"))
+    file = os.path.join(dir, "Capgaronnite_0.cif")
+    graph = att.cif_to_nx(file)
+    n_nodes = graph.number_of_nodes()
+    assert n_nodes == 34
