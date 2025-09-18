@@ -1,11 +1,11 @@
 from typing import List
 
 import ase
-import networkx as nx
 import numpy as np
 from ase.atoms import Atoms
 from ase.io import cif
-from ase.neighborlist import NeighborList, natural_cutoffs
+from ase.neighborlist import NeighborList
+from ase.neighborlist import neighbor_list, natural_cutoffs
 from scipy import sparse
 
 
@@ -138,3 +138,55 @@ def find_clusters(atoms, cutoff_smear=1.5):
         print("Number of clusters:", n_components)
         print("Atoms to remove:", atoms_to_remove)
         return atoms_to_remove
+
+
+def keep_central_cell_and_bonded(atoms, reps=(3, 3, 3), cutoff_mult=1.2, eps=1e-9):
+    """
+    Create a supercell, keep atoms in the central region and those bonded to them.
+
+    Parameters
+    ----------
+    atoms : ase.Atoms
+        The atomic structure to process.
+    reps : tuple of int, optional
+        Number of repetitions along each axis for the supercell (default is (3, 3, 3)).
+    cutoff_mult : float, optional
+        Multiplier for the natural cutoff distances to determine bonding (default is 1.2).
+    eps : float, optional
+        Small tolerance to handle numerical precision (default is 1e-9).
+
+    Returns
+    -------
+    pruned : ase.Atoms
+        Pruned atomic structure containing only central atoms and their bonded neighbors.
+    """
+    # Create a supercell and get scaled positions
+    sup = atoms.repeat(reps)
+    scaled_positions = sup.get_scaled_positions(wrap=False)
+    reps = np.array(reps, dtype=float)
+
+    # Define central region bounds
+    low, high = (reps - 1) / (2 * reps), (reps + 1) / (2 * reps)
+    low[reps == 1], high[reps == 1] = 0.0, 1.0
+
+    # Identify atoms in the central region
+    in_central = np.all((scaled_positions >= (low - eps)) & (scaled_positions < (high + eps)), axis=1)
+    central_idx = np.where(in_central)[0]
+
+    # Find bonded atoms
+    cutoffs = natural_cutoffs(sup, mult=cutoff_mult)
+    i, j = neighbor_list('ij', sup, cutoffs)
+    bonded_to_central = set(j[np.isin(i, central_idx)])
+
+    # Keep central atoms and bonded atoms
+    keep_indices = np.array(sorted(set(central_idx) | bonded_to_central), dtype=int)
+    mask = np.zeros(len(sup), dtype=bool)
+    mask[keep_indices] = True
+
+    # Prune atoms and retain supercell properties
+    pruned = sup[mask]
+    pruned.set_cell(sup.cell)
+    pruned.set_pbc(sup.pbc)
+    pruned.wrap()
+
+    return pruned
