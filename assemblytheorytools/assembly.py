@@ -615,6 +615,8 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         string = input_data
         delimiters = []
     elif isinstance(input_data, list):
+        if len(input_data) > 95:
+            raise ValueError("Input list contains more than 95 objects. Joint assembly index calculations are only supported for up to 95 objects.")
         # Handle joint assembly case
         string, delimiters = prep_joint_string_ai(input_data)
     else:
