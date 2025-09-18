@@ -107,7 +107,7 @@ from .tools_atoms import (smiles_to_atoms,
 from .tools_cell import (read_cif_file,
                          atoms_to_mol_file,
                          find_clusters,
-                         keep_central_cell_and_bonded,
+                         tile_cell,
                          cif_to_nx)
 from .tools_data import (sample_boostrapping,
                          sample_kde_resampling,

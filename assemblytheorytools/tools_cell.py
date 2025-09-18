@@ -1,15 +1,13 @@
 from typing import List
 
-import networkx as nx
 import ase
+import networkx as nx
 import numpy as np
 from ase.atoms import Atoms
 from ase.io import cif
 from ase.neighborlist import NeighborList
 from ase.neighborlist import neighbor_list, natural_cutoffs
 from scipy import sparse
-
-from .tools_atoms import atoms_to_nx
 
 
 def read_cif_file(cif_file: str) -> Atoms:
@@ -143,26 +141,11 @@ def find_clusters(atoms, cutoff_smear=1.5):
         return atoms_to_remove
 
 
-def keep_central_cell_and_bonded(atoms, reps=(3, 3, 3), cutoff_mult=1.2, eps=1e-9):
-    """
-    Create a supercell, keep atoms in the central region and those bonded to them.
-
-    Parameters
-    ----------
-    atoms : ase.Atoms
-        The atomic structure to process.
-    reps : tuple of int, optional
-        Number of repetitions along each axis for the supercell (default is (3, 3, 3)).
-    cutoff_mult : float, optional
-        Multiplier for the natural cutoff distances to determine bonding (default is 1.2).
-    eps : float, optional
-        Small tolerance to handle numerical precision (default is 1e-9).
-
-    Returns
-    -------
-    pruned : ase.Atoms
-        Pruned atomic structure containing only central atoms and their bonded neighbors.
-    """
+def tile_cell(atoms: Atoms,
+              reps: tuple[int, int, int] = (3, 3, 3),
+              multi: float = 1.2,
+              eps: float = 1e-9
+              ) -> Atoms:
     # Create a supercell and get scaled positions
     sup = atoms.repeat(reps)
     scaled_positions = sup.get_scaled_positions(wrap=False)
@@ -177,7 +160,7 @@ def keep_central_cell_and_bonded(atoms, reps=(3, 3, 3), cutoff_mult=1.2, eps=1e-
     central_idx = np.where(in_central)[0]
 
     # Find bonded atoms
-    cutoffs = natural_cutoffs(sup, mult=cutoff_mult)
+    cutoffs = natural_cutoffs(sup, mult=multi)
     i, j = neighbor_list('ij', sup, cutoffs)
     bonded_to_central = set(j[np.isin(i, central_idx)])
 
@@ -196,12 +179,21 @@ def keep_central_cell_and_bonded(atoms, reps=(3, 3, 3), cutoff_mult=1.2, eps=1e-
 
 
 def cif_to_nx(file,
-              sanitize: bool = True,
-              add_hydrogen: bool = False,
-              charge: int = 0) -> nx.Graph:
+              reps: tuple[int, int, int] = (3, 3, 3),
+              cutoff_mult: float = 1.2,
+              eps: float = 1e-9) -> nx.Graph:
     atoms = read_cif_file(file)
-    expanded = keep_central_cell_and_bonded(atoms)
-    return atoms_to_nx(expanded,
-                       sanitize=sanitize,
-                       add_hydrogen=add_hydrogen,
-                       charge=charge)
+    expanded = tile_cell(atoms,
+                         reps=reps,
+                         multi=cutoff_mult,
+                         eps=eps)
+    # make a graph
+    graph = nx.Graph()
+    # add nodes
+    for i, atom in enumerate(expanded):
+        graph.add_node(i, color=atom.symbol)
+    # add edges
+    bonding = get_bonding_config(expanded)
+    for bond in bonding:
+        graph.add_edge(bond[0], bond[1], color=1)
+    return graph
