@@ -1,7 +1,8 @@
 import fcntl
 import os
 from typing import List, Optional
-
+import json
+import re
 
 def file_list(mypath=None):
     """
@@ -123,3 +124,29 @@ def list_subdirs(directory, target="ai_calc"):
         list: A list of subdirectory names that start with the target string.
     """
     return [d for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d)) and d.startswith(target)]
+
+
+def prep_json(json_path):
+    """
+    Take JSON file with missing edge colors entries and fill them with "ERROR" placeholder.
+    """
+    # Read the raw file content
+    with open(json_path, 'r') as f:
+        raw = f.read()
+
+    # Fix malformed EdgeColours lists: replace empty entries with "ERROR"
+    # Replace multiple consecutive commas with ,"ERROR",
+    raw = re.sub(r',(,)+', ',"ERROR",', raw)
+    # Replace [, with ["ERROR",
+    raw = re.sub(r'\[,', '["ERROR",', raw)
+    # Replace ,] with ,"ERROR"]
+    raw = re.sub(r',\]', ',"ERROR"]', raw)
+
+    # Now parse the fixed JSON
+    data = json.loads(raw)
+
+    # Write the updated data back to the JSON file
+    with open(json_path, 'w') as f:
+        json.dump(data, f, indent=4)
+    return None
+
