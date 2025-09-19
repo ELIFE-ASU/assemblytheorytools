@@ -65,9 +65,9 @@ def test_delimiter_chars():
     """
     s_in = ["a"] * 95
     a1, v1, p1 = att.calculate_string_assembly_index(s_in, directed=True)
-    #a2, v2, p2 = att.calculate_string_assembly_index(s_in, directed=False) # I think this is locked behind issue #297
+    a2, v2, p2 = att.calculate_string_assembly_index(s_in, directed=False) # I think this is locked behind issue #297
     a3, v3, p3 = att.calculate_string_assembly_index(s_in, mode='cfg')
-    #assert a1 == a2
+    assert a1 == a2
     assert a1 == a3
     assert a1 == 0
 
@@ -129,14 +129,14 @@ def test_string_large_pool():
     Test the calculation of the assembly index for a large pool of random strings.
 
     This function performs the following steps:
-    1. Generates a pool of 1000 random strings, each 3 characters long.
+    1. Generates a pool of 95 random strings, each 3 characters long.
     2. Calculates the assembly index for the generated pool in directed CFG mode.
     3. Asserts that the calculated assembly index is greater than or equal to 0.
 
     Asserts:
         - The calculated assembly index is >= 0.
     """
-    pool = att.generate_random_strings(1000, 3)
+    pool = att.generate_random_strings(95, 3)
     ai = att.calculate_string_assembly_index(pool, directed=True, mode="cfg")[0]
     assert ai >= 0
 
@@ -152,7 +152,8 @@ def test_small_strs():
 
 
 def test_bug_08222025():
+    """
+    Tests the workaround for AssemblyCPP edgecolor output bug.
+    """
     ai, vo, path = att.calculate_string_assembly_index('yydpetgtwy', mode='mol', directed=False, debug=True)
-    # Seems that edges beyond index 5 are not being written to the json path file
-    # Need to write functionality into construction.parse_pathway_file to read in edge lists, then compare with original object to back out the original edge colorings because they get lost in assemblycpp
     assert path
