@@ -303,8 +303,7 @@ def calculate_assembly_index(mol,
         if os.path.isfile(file_path_pathway):
             try:
                 if isinstance(mol, nx.Graph):
-                    mol = canonicalize_node_labels(mol)
-                    path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='graph', debug=debug)
+                    path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='graph', debug=debug, input_graph=mol)
                 elif isinstance(mol, Chem.Mol):
                     path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='smiles', debug=debug)
                 elif ".mol" in mol:
