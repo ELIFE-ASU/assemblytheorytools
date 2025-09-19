@@ -2,7 +2,8 @@ import networkx as nx
 import assemblytheorytools as att
 import matplotlib.pyplot as plt
 
-# This script will make the circuit diagram figure for the ATT paper.
+# This script will make the assembly theoretic calculations
+# regarding adder circuits- results shown in figure 5 of the ATT paper.
 
 def make_n_bit_adder(full_adder, n):
     """
@@ -87,9 +88,33 @@ full_adder.add_node(12, color='w', tag='C_out')
 full_adder.add_edge(9, 12, color=2)
 
 plt.figure()
-pos = nx.spring_layout(full_adder, seed=42)
+#pos = nx.spring_layout(full_adder, seed=42)
+pos = {
+    0: (-1.25, -1),
+    1: (-0.25, -1),
+    2: (0, -0.5),
+    3: (2, -1.25),
+    4: (1, -0.5),
+    5: (3, -1.25),
+    6: (2, -0.75),
+    7: (1, -1),
+    8: (2, -1.75),
+    9: (3.5, -1.5),
+    10: (3, -0.75),
+    11: (3, -1.75),
+    12: (4.5, -1.5)
+}
 labels = {n: full_adder.nodes[n].get('color', n) for n in full_adder.nodes}
-nx.draw(full_adder, pos, with_labels=True, labels=labels, node_color='lightblue', edge_color='gray', node_size=500)
+nx.draw(
+    full_adder,
+    pos,
+    with_labels=True,
+    labels=labels,
+    node_color='#264F70',
+    edge_color='gray',
+    node_size=500,
+    font_color='white'
+)
 edge_labels = {(u, v): full_adder.edges[u, v].get('color', '') for u, v in full_adder.edges}
 nx.draw_networkx_edge_labels(full_adder, pos, edge_labels=edge_labels)
 plt.title(f"Full Adder Circuit")

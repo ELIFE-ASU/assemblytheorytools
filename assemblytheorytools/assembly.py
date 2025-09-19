@@ -33,6 +33,7 @@ from .tools_mp import mp_calc
 from .tools_string import (prep_joint_string_ai,
                            get_dir_str_molecule,
                            get_undir_str_molecule)
+from .tools_file import prep_json
 
 
 def load_assembly_output(file_path):
@@ -304,12 +305,12 @@ def calculate_assembly_index(mol,
         if os.path.isfile(file_path_pathway):
             try:
                 if isinstance(mol, nx.Graph):
-                    mol = canonicalize_node_labels(mol)
-                    path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='graph')
+                    prep_json(file_path_pathway)
+                    path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='graph', debug=debug, input_graph=mol)
                 elif isinstance(mol, Chem.Mol):
-                    path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='smiles')
+                    path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='smiles', debug=debug)
                 elif ".mol" in mol:
-                    path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='inchi')
+                    path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='inchi', debug=debug)
                 else:
                     virt_obj = None
                     path = (None, None)

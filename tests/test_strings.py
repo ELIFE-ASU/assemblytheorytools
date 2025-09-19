@@ -149,3 +149,10 @@ def test_small_strs():
     a2, _, _ = att.calculate_string_assembly_index("abba", directed=False, debug=False)
     assert a1 == 3
     assert a2 == 2
+
+
+def test_bug_08222025():
+    ai, vo, path = att.calculate_string_assembly_index('yydpetgtwy', mode='mol', directed=False, debug=True)
+    # Seems that edges beyond index 5 are not being written to the json path file
+    # Need to write functionality into construction.parse_pathway_file to read in edge lists, then compare with original object to back out the original edge colorings because they get lost in assemblycpp
+    assert path

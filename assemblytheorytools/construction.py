@@ -252,11 +252,14 @@ def tables_to_nx(tables):
 
 
 class AssemblyConstruction:
-    def __init__(self, data, if_string=False, vo_type="graph"):
+    def __init__(self, data, if_string=False, vo_type="graph", input_graph=None):
         self.v = data["file_graph"][0]['Vertices']
         self.e = data["file_graph"][0]['Edges']
         self.v_l = data["file_graph"][0]['VertexColours']
-        self.e_l = data["file_graph"][0]['EdgeColours']
+        if input_graph is None:
+            self.e_l = data["file_graph"][0]['EdgeColours']
+        else: # AssemblyCpp fails to print edge colors beyond index 5 to pathway json. This is a workaround to read the colors from the original input graph.
+            self.e_l = [input_graph[u][v]['color'] for u, v in self.e] # CAUTION: This assumes assemblycpp does not permute vertex labels.
         self.remnant_e = data["remnant"][0]["Edges"] + data["removed_edges"]
         self.duplicates = [[dup["Right"], dup['Left']] for dup in data["duplicates"]]
         self.equivalences = [[1, 1]]
@@ -703,7 +706,7 @@ class AssemblyConstruction:
         return "".join(pathway_file)
 
 
-def parse_pathway_file(file, vo_type="smiles", debug=False, log=False):
+def parse_pathway_file(file, vo_type="smiles", debug=False, log=False, input_graph=None):
     """
     Parse a pathway JSON file and construct an assembly graph.
 
@@ -741,7 +744,10 @@ def parse_pathway_file(file, vo_type="smiles", debug=False, log=False):
         data = json.load(f)
 
     # Make the construction object
-    construction_object = AssemblyConstruction(data, vo_type=vo_type)
+    if input_graph == None:
+        construction_object = AssemblyConstruction(data, vo_type=vo_type)
+    else: # If the input is a general graph, we need to pass the input graph to read the edge colors (AssemblyCpp drops color output after 5; bug is only in output.)
+        construction_object = AssemblyConstruction(data, vo_type=vo_type, input_graph=input_graph)
     graph, vo_list = construction_object.get_assembly_digraph()
 
     if debug:
