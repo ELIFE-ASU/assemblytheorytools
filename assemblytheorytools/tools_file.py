@@ -130,23 +130,35 @@ def prep_json(json_path):
     """
     Take JSON file with missing edge colors entries and fill them with "ERROR" placeholder.
     """
-    # Read the raw file content
+
+    # Read the file as raw text
     with open(json_path, 'r') as f:
-        raw = f.read()
+        raw = f.read()    
 
-    # Fix malformed EdgeColours lists: replace empty entries with "ERROR"
-    # Replace multiple consecutive commas with ,"ERROR",
-    raw = re.sub(r',(,)+', ',"ERROR",', raw)
-    # Replace [, with ["ERROR",
-    raw = re.sub(r'\[,', '["ERROR",', raw)
-    # Replace ,] with ,"ERROR"]
-    raw = re.sub(r',\]', ',"ERROR"]', raw)
+    # This regex matches "EdgeColours": [ ... ]
+    pattern = r'"EdgeColours"\s*:\s*\[(.*?)\]'
+    fixed_raw = re.sub(pattern, edge_colours_replacer, raw, flags=re.DOTALL)
 
-    # Now parse the fixed JSON
-    data = json.loads(raw)
+    # Now parse the fixed text as JSON
+    data = json.loads(fixed_raw)
 
     # Write the updated data back to the JSON file
     with open(json_path, 'w') as f:
         json.dump(data, f, indent=4)
     return None
 
+def edge_colours_replacer(match):
+    # Get the list content
+    items = match.group(1)
+    # Replace empty entries (,, or leading/trailing commas) with "ERROR"
+    # Split by comma, strip whitespace, replace empty with "ERROR"
+    fixed_items = []
+    for item in items.split(','):
+        val = item.strip()
+        if val == '':
+            fixed_items.append('"ERROR"')
+        elif '"' not in val:  # If the value is not already quoted, quote it
+            fixed_items.append(f'"{val}"')
+        else:
+            fixed_items.append(val)
+    return '"EdgeColours": [' + ', '.join(fixed_items) + ']'
