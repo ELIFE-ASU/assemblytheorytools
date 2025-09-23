@@ -21,6 +21,7 @@ import CFG
 from .construction import (parse_pathway_file,
                            parse_string_pathway_file,
                            molstr_to_str)
+from .tools_file import prep_json
 from .tools_graph import (write_ass_graph_file,
                           remove_hydrogen_from_graph,
                           nx_to_mol,
@@ -33,7 +34,6 @@ from .tools_mp import mp_calc
 from .tools_string import (prep_joint_string_ai,
                            get_dir_str_molecule,
                            get_undir_str_molecule)
-from .tools_file import prep_json
 
 
 def load_assembly_output(file_path):
@@ -306,7 +306,8 @@ def calculate_assembly_index(mol,
             try:
                 if isinstance(mol, nx.Graph):
                     prep_json(file_path_pathway)
-                    path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='graph', debug=debug, input_graph=mol)
+                    path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='graph', debug=debug,
+                                                        input_graph=mol)
                 elif isinstance(mol, Chem.Mol):
                     path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='smiles', debug=debug)
                 elif ".mol" in mol:
@@ -617,7 +618,8 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         delimiters = []
     elif isinstance(input_data, list):
         if len(input_data) > 95:
-            raise ValueError("Input list contains more than 95 objects. Joint assembly index calculations are only supported for up to 95 objects.")
+            raise ValueError(
+                "Input list contains more than 95 objects. Joint assembly index calculations are only supported for up to 95 objects.")
         # Handle joint assembly case
         string, delimiters = prep_joint_string_ai(input_data)
     else:
@@ -1520,13 +1522,14 @@ def integer_chain(n: int) -> int:
     if n < 1:
         raise ValueError("n must be a positive integer.")
     elif n > 9999:
-        raise ValueError("n must be less than or equal to 9999. See https://wwwhomes.uni-bielefeld.de/achim/addition_chain.html for larger n.")
+        raise ValueError(
+            "n must be less than or equal to 9999. See https://wwwhomes.uni-bielefeld.de/achim/addition_chain.html for larger n.")
     elif n == 1:
         return 0
-    
+
     base_path = os.path.dirname(__file__)
     data_path = os.path.join(base_path, 'data')
-    with open(os.path.join(data_path,'ln_9999.txt'), 'r') as file:
-        for i, line in enumerate(file): # Slightly more efficient than readlines()
+    with open(os.path.join(data_path, 'ln_9999.txt'), 'r') as file:
+        for i, line in enumerate(file):  # Slightly more efficient than readlines()
             if i == n + 1:
                 return int(line.split()[3])

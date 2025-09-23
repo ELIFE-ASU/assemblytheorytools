@@ -258,8 +258,9 @@ class AssemblyConstruction:
         self.v_l = data["file_graph"][0]['VertexColours']
         if input_graph is None:
             self.e_l = data["file_graph"][0]['EdgeColours']
-        else: # AssemblyCpp fails to print edge colors beyond index 5 to pathway json. This is a workaround to read the colors from the original input graph.
-            self.e_l = [input_graph[u][v]['color'] for u, v in self.e] # CAUTION: This assumes assemblycpp does not permute vertex labels.
+        else:  # AssemblyCpp fails to print edge colors beyond index 5 to pathway json. This is a workaround to read the colors from the original input graph.
+            self.e_l = [input_graph[u][v]['color'] for u, v in
+                        self.e]  # CAUTION: This assumes assemblycpp does not permute vertex labels.
         self.remnant_e = data["remnant"][0]["Edges"] + data["removed_edges"]
         self.duplicates = [[dup["Right"], dup['Left']] for dup in data["duplicates"]]
         self.equivalences = [[1, 1]]
@@ -746,7 +747,7 @@ def parse_pathway_file(file, vo_type="smiles", debug=False, log=False, input_gra
     # Make the construction object
     if input_graph == None:
         construction_object = AssemblyConstruction(data, vo_type=vo_type)
-    else: # If the input is a general graph, we need to pass the input graph to read the edge colors (AssemblyCpp drops color output after 5; bug is only in output.)
+    else:  # If the input is a general graph, we need to pass the input graph to read the edge colors (AssemblyCpp drops color output after 5; bug is only in output.)
         construction_object = AssemblyConstruction(data, vo_type=vo_type, input_graph=input_graph)
     graph, vo_list = construction_object.get_assembly_digraph()
 

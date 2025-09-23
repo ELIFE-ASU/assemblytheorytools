@@ -4,9 +4,9 @@ import tempfile
 from pathlib import Path
 from typing import Union
 
+import networkx as nx
 import numpy as np
 import pandas as pd
-import networkx as nx
 from ase import Atoms
 from ase.calculators.cp2k import CP2K
 from ase.calculators.orca import ORCA
@@ -20,8 +20,8 @@ from rdkit.Chem import rdDetermineBonds
 from rdkit.Chem.rdchem import Mol
 from rdkit.Geometry import Point3D
 
-from .tools_mol import standardize_mol
 from .tools_graph import mol_to_nx, nx_to_mol
+from .tools_mol import standardize_mol
 
 
 def smiles_to_atoms(smiles: str,

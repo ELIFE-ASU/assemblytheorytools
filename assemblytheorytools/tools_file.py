@@ -1,8 +1,9 @@
 import fcntl
-import os
-from typing import List, Optional
 import json
+import os
 import re
+from typing import List, Optional
+
 
 def file_list(mypath=None):
     """
@@ -133,9 +134,9 @@ def prep_json(json_path):
 
     # Read the file as raw text
     with open(json_path, 'r') as f:
-        raw = f.read()    
+        raw = f.read()
 
-    # This regex matches "EdgeColours": [ ... ]
+        # This regex matches "EdgeColours": [ ... ]
     pattern = r'"EdgeColours"\s*:\s*\[(.*?)\]'
     fixed_raw = re.sub(pattern, edge_colours_replacer, raw, flags=re.DOTALL)
 
@@ -146,6 +147,7 @@ def prep_json(json_path):
     with open(json_path, 'w') as f:
         json.dump(data, f, indent=4)
     return None
+
 
 def edge_colours_replacer(match):
     # Get the list content
