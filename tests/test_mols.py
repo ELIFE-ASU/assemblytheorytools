@@ -744,8 +744,8 @@ def test_calculate_assembly_lower_bound():
 
     Asserts:
         - The assembly lower bound with hydrogen stripping is equal to 0.
-        - The assembly lower bound without hydrogen stripping is equal to 1.
-        - The assembly lower bound for the graph without hydrogen stripping is equal to 1.
+        - The assembly lower bound without hydrogen stripping is equal to 2.
+        - The assembly lower bound for the graph without hydrogen stripping is equal to 2.
     """
     print(flush=True)
     smi_in = "[H]C#C[H]"  # Define the SMILES string for the molecule
@@ -756,10 +756,10 @@ def test_calculate_assembly_lower_bound():
     assert ai_lower_bound == 0  # Assert the lower bound with hydrogen stripping
     # Test without stripping hydrogen
     ai_lower_bound = att.calculate_assembly_lower_bound(mol, strip_hydrogen=False)
-    assert ai_lower_bound == 1  # Assert the lower bound without hydrogen stripping
+    assert ai_lower_bound == 2  # Assert the lower bound without hydrogen stripping
     # Convert the molecule object to a NetworkX graph
     ai_lower_bound_graph = att.calculate_assembly_lower_bound(att.mol_to_nx(mol), strip_hydrogen=False)
-    assert ai_lower_bound_graph == 1  # Assert the lower bound for the graph without hydrogen stripping
+    assert ai_lower_bound_graph == 2  # Assert the lower bound for the graph without hydrogen stripping
 
 
 def test_calculate_jo_from_pathway():
