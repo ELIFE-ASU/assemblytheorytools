@@ -1,9 +1,9 @@
 import multiprocessing as mp
 from concurrent.futures import ThreadPoolExecutor
-from typing import Callable, Iterable, Any, List, Tuple
+from typing import Callable, Iterable, Any, Tuple
 
 
-def mp_calc(func: Callable[[Any], Any], arg: Iterable[Any], n: int = mp.cpu_count()) -> List[Any]:
+def mp_calc(func: Callable[[Any], Any], arg: Iterable[Any], n: int = mp.cpu_count()) -> list[Any]:
     """
     Executes a function in parallel using a process pool.
 
@@ -13,14 +13,14 @@ def mp_calc(func: Callable[[Any], Any], arg: Iterable[Any], n: int = mp.cpu_coun
     n (int, optional): The number of worker processes to use. Default is the number of CPU cores.
 
     Returns:
-    List[Any]: A list of results from the function executions.
+    list[Any]: A list of results from the function executions.
     """
     with mp.Pool(n) as pool:
         results = pool.map(func, arg)
     return results
 
 
-def mp_calc_star(func: Callable[..., Any], args: Iterable[Tuple[Any, ...]], n: int = mp.cpu_count()) -> List[Any]:
+def mp_calc_star(func: Callable[..., Any], args: Iterable[Tuple[Any, ...]], n: int = mp.cpu_count()) -> list[Any]:
     """
     Executes a function in parallel using a process pool with multiple arguments.
 
@@ -30,7 +30,7 @@ def mp_calc_star(func: Callable[..., Any], args: Iterable[Tuple[Any, ...]], n: i
     n (int, optional): The number of worker processes to use. Default is the number of CPU cores.
 
     Returns:
-    List[Any]: A list of results from the function executions.
+    list[Any]: A list of results from the function executions.
     """
     with mp.Pool(n) as pool:
         results = pool.starmap(func, args)
