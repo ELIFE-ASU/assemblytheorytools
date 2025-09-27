@@ -15,12 +15,16 @@ def load_fasta(file_path: str) -> str:
     This function ignores header lines (starting with '>') and
     concatenates all sequence lines.
 
-    Args:
-        file_path (str): The path to the FASTA file.
+    Parameters
+    ----------
+    file_path : str
+        The path to the FASTA file.
 
-    Returns:
-        str: The contents of the FASTA file as a single string with all
-             sequence lines concatenated.
+    Returns
+    -------
+    str
+        The contents of the FASTA file as a single string with all
+        sequence lines concatenated.
     """
     sequence_content = ""
 
@@ -38,17 +42,22 @@ def prep_joint_string_ai(input_list: List[str]) -> Tuple[str, List[str]]:
     """
     Combine a list of strings by concatenating them with unique delimiters.
 
-    Args:
-        input_list (List[str]): List of input strings to be concatenated.
+    Parameters
+    ----------
+    input_list : List[str]
+        List of input strings to be concatenated.
 
-    Raises:
-        ValueError: If an empty string is found in the input list.
-
-    Returns:
-        Tuple[str, List[str]]: A tuple containing the concatenated string and a list of unique delimiters used.
-
-        The joint assembly index can be calculated using:
+    Returns
+    -------
+    Tuple[str, List[str]]
+        A tuple containing the concatenated string and a list of unique 
+        delimiters used. The joint assembly index can be calculated using:
         ai(amalgam_string) - 2 * len(delimiters) = joint_ai(input_list)
+
+    Raises
+    ------
+    ValueError
+        If an empty string is found in the input list.
     """
     if "" in input_list:
         raise ValueError("Empty string in input list")
@@ -72,15 +81,21 @@ def get_unique_char(input_str: str) -> str:
     printable ASCII characters. If no unique character is found, it falls
     back to searching a broader range of Unicode characters.
 
-    Args:
-        input_str (str): The input string to check for unique characters.
+    Parameters
+    ----------
+    input_str : str
+        The input string to check for unique characters.
 
-    Returns:
-        str: A character that is not present in the input string.
+    Returns
+    -------
+    str
+        A character that is not present in the input string.
 
-    Raises:
-        ValueError: If no unique character can be found within the specified
-                    ranges of characters.
+    Raises
+    ------
+    ValueError
+        If no unique character can be found within the specified
+        ranges of characters.
     """
     # Try ASCII printable characters first
     for char in string.printable:
@@ -99,17 +114,24 @@ def get_unique_char(input_str: str) -> str:
 
 def get_undir_str_molecule(undir_str: str, debug: bool = False) -> tuple[nx.Graph, dict[str, str]]:
     """
-    Make a molecule that corresponds to an undirected string. The string will have the same assembly index
-    as the molecular graph, and the paths will correspond as well.
+    Make a molecule that corresponds to an undirected string.
+    
+    The string will have the same assembly index as the molecular graph, 
+    and the paths will correspond as well.
 
-    Args:
-        undir_str (str): The undirected string.
-        debug (bool): If True, print debug information.
+    Parameters
+    ----------
+    undir_str : str
+        The undirected string.
+    debug : bool, optional
+        If True, print debug information. Default is False.
 
-    Returns:
-        tuple[nx.Graph, dict[str, str]]: A tuple containing:
-            - A networkx graph of the corresponding molecule
-            - A dictionary mapping characters to edge colours (as strings)
+    Returns
+    -------
+    tuple[nx.Graph, dict[str, str]]
+        A tuple containing:
+        - A networkx graph of the corresponding molecule
+        - A dictionary mapping characters to edge colours (as strings)
     """
 
     # Create a dictionary to map each unique character in the undirected string to a unique edge colour
@@ -142,14 +164,20 @@ def get_undir_str_molecule(undir_str: str, debug: bool = False) -> tuple[nx.Grap
 
 def get_dir_str_molecule(dir_str: str) -> nx.Graph:
     """
-    Make a molecule that corresponds to a directed string. The string will have an assembly index
-    determined by that of the molecular graph, and the shortest paths will correspond.
+    Make a molecule that corresponds to a directed string.
+    
+    The string will have an assembly index determined by that of the 
+    molecular graph, and the shortest paths will correspond.
 
-    Args:
-        dir_str (str): The directed string.
+    Parameters
+    ----------
+    dir_str : str
+        The directed string.
 
-    Returns:
-        nx.Graph: A networkx graph of the corresponding molecule.
+    Returns
+    -------
+    nx.Graph
+        A networkx graph of the corresponding molecule.
     """
     blank = 'null'
     graph = nx.Graph()
@@ -171,11 +199,15 @@ def generate_and_visualize_cfg_pathway(file_path: str) -> nx.DiGraph:
     """
     Generate and visualise a directed graph from CFG pathway data.
 
-    Args:
-        file_path (str): Path to the file containing pathway data.
+    Parameters
+    ----------
+    file_path : str
+        Path to the file containing pathway data.
 
-    Returns:
-        networkx.DiGraph: The constructed directed graph.
+    Returns
+    -------
+    nx.DiGraph
+        The constructed directed graph.
     """
 
     # Read the file content
@@ -225,12 +257,17 @@ def generate_random_strings(n_pool: int, n_length: int) -> list[str]:
     This function creates `n_pool` random strings, each of length `n_length`,
     using lowercase letters and digits.
 
-    Args:
-        n_pool (int): The number of random strings to generate.
-        n_length (int): The length of each random string.
+    Parameters
+    ----------
+    n_pool : int
+        The number of random strings to generate.
+    n_length : int
+        The length of each random string.
 
-    Returns:
-        list[str]: A list of randomly generated strings.
+    Returns
+    -------
+    list[str]
+        A list of randomly generated strings.
     """
     # Define the character set to include lowercase letters and digits
     chars = string.ascii_lowercase + string.digits
