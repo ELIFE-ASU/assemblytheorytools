@@ -2,6 +2,7 @@
 import random
 
 import networkx as nx
+from rdkit import Chem
 
 node_match = nx.algorithms.isomorphism.categorical_node_match('color', None)
 edge_match = nx.algorithms.isomorphism.categorical_edge_match('color', None)
@@ -365,3 +366,15 @@ def test_S_2_O():
             break
 
     assert flag
+
+
+def test_input_valence():
+    """
+    Check that when given saturated input graphs, the neighborhood enumeration with obey_valence=True returns no new graphs.
+    """
+    input_smis = ["N#N", "C#O", "O=O", "[H][H]"]
+    input_gs = [att.smi_to_nx(smi, add_hydrogens=False, sanitize=False) for smi in input_smis]
+
+    out = att.enumerate_neighborhood(input_gs, obey_valence=True)
+    assert len(out['up_jos']) == 0
+    assert len(out['down_jos']) == 0 # This is expected since these are all single edge graphs

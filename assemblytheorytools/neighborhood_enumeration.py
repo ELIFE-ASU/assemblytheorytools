@@ -12,7 +12,7 @@ edge_match = nx.algorithms.isomorphism.categorical_edge_match('color', None)
 ptable = Chem.GetPeriodicTable()
 
 
-def enumerate_neighborhood(graphs: List[nx.Graph], obey_valence: bool = True, allow_dots: bool = True):
+def enumerate_neighborhood(graphs: List[nx.Graph], obey_valence: bool = True, allow_dots: bool = True, debug=False):
     """
     Generate the neighborhood of the input graphs in assembly space;
     this is the set of graphs one joining operation away.
@@ -41,7 +41,7 @@ def enumerate_neighborhood(graphs: List[nx.Graph], obey_valence: bool = True, al
     up_graphs = dict()
     for i, graph1 in enumerate(graphs):
         for j, graph2 in enumerate(graphs[i:]):
-            up_graphs[(i, i + j)] = enumerate_up(graph1, graph2, obey_valence=obey_valence, allow_dots=allow_dots)
+            up_graphs[(i, i + j)] = enumerate_up(graph1, graph2, obey_valence=obey_valence, allow_dots=allow_dots, debug=debug)
 
     # Mod out the down join operations by isomorphism
     N_graphs = []
@@ -54,6 +54,7 @@ def enumerate_neighborhood(graphs: List[nx.Graph], obey_valence: bool = True, al
 
             # Filter out disconnected graphs if not allowed
             if not allow_dots and (not nx.is_connected(g1) or not nx.is_connected(g2)):
+                print("Warning: A disconnected graph was found in a down join operation. This should never happen. Please report this bug.")
                 continue
 
             for in_idx, g_part in enumerate([g1, g2]):
@@ -78,6 +79,7 @@ def enumerate_neighborhood(graphs: List[nx.Graph], obey_valence: bool = True, al
         for up_graph in up_graphs_list:
             # Filter out disconnected graphs if not allowed
             if not allow_dots and not nx.is_connected(up_graph):
+                print("Warning: A disconnected graph was found in an up join operation. This should never happen. Please report this bug.")
                 continue
 
             jo = [i, j, -1]
@@ -144,7 +146,7 @@ def get_valence(atom_symbol: str, ptable: Chem.rdchem.PeriodicTable = ptable) ->
         ValueError: If the atom symbol is invalid or not recognized by the periodic table.
     """
     atomic_num = ptable.GetAtomicNumber(atom_symbol)  # Get the atomic number of the atom.
-    return ptable.GetNOuterElecs(atomic_num)  # Return the default valence for the atomic number.
+    return ptable.GetDefaultValence(atomic_num)  # Return the default valence for the atomic number.
 
 
 def enumerate_up(graph1: nx.Graph,
@@ -172,6 +174,8 @@ def enumerate_up(graph1: nx.Graph,
 
     # Check that we have the information for valence checks
     if obey_valence:
+        if debug:
+            print("Checking valence budgets...")
         valence_budgets = [np.zeros(graph1.number_of_nodes()), np.zeros(graph2.number_of_nodes())]
         for g_idx, graph in enumerate([graph1, graph2]):
             for node in graph.nodes:
@@ -179,9 +183,21 @@ def enumerate_up(graph1: nx.Graph,
                     raise ValueError(
                         f"Node {node} does not have a color attribute. Please add a color attribute to the nodes.")
                 valence_budgets[g_idx][node] = get_valence(graph.nodes[node]['color'])
+                if debug:
+                    print(f"Node {node} in graph {g_idx + 1} has color {graph.nodes[node]['color']} and valence budget {valence_budgets[g_idx][node]}")
                 for edge in graph.edges(node):
                     valence_budgets[g_idx][node] -= graph.edges[edge][
                         'color']  # This assumes 1=single bond, 2=double bond, etc.
+                if valence_budgets[g_idx][node] < 0:
+                    print(f"Warning: Node {node} in graph {g_idx + 1} is overbonded. Skipping this graph.")
+                    return []
+        if debug:
+            print(f"Valence budgets for graph1: {valence_budgets[0]}")
+            print(f"Valence budgets for graph2: {valence_budgets[1]}")
+        if sum(valence_budgets[0]) == 0 or sum(valence_budgets[1]) == 0:  # No valence budget left
+            if debug:
+                print("No valence budget left in (at least) one of the graphs. Returning empty list.")
+            return []
 
     # Get the colors of the nodes in graph1 and graph2
     colors1 = set([graph1.nodes[node]['color'] for node in graph1.nodes])
