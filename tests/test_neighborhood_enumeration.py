@@ -312,13 +312,15 @@ def test_C_2_O():
 
 
 def test_enum_up_S_2_O():
+    custom_valence_table = {"S":4}
+
     g = nx.Graph()
     g.add_edges_from([(0, 1), ])
     g.nodes[0]['color'] = 'S'
     g.nodes[1]['color'] = 'O'
     g.edges[(0, 1)]['color'] = 2
 
-    up_graphs = att.enumerate_up(g, g, 1, 1, 1)
+    up_graphs = att.enumerate_up(g, g, 1, 1, 1, custom_valence_table=custom_valence_table)
 
     print(f"Neighborhood+ size = {len(up_graphs)}")
 
@@ -340,13 +342,15 @@ def test_enum_up_S_2_O():
 
 
 def test_S_2_O():
+    custom_valence_table = {"S":4}
+
     g = nx.Graph()
     g.add_edges_from([(0, 1), ])
     g.nodes[0]['color'] = 'S'
     g.nodes[1]['color'] = 'O'
     g.edges[(0, 1)]['color'] = 2
 
-    output = att.enumerate_neighborhood([g])
+    output = att.enumerate_neighborhood([g], custom_valence_table=custom_valence_table)
 
     print("Neighborhood size:")
     print(len(output["N_graphs"]))

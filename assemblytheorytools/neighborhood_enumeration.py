@@ -12,7 +12,7 @@ edge_match = nx.algorithms.isomorphism.categorical_edge_match('color', None)
 ptable = Chem.GetPeriodicTable()
 
 
-def enumerate_neighborhood(graphs: List[nx.Graph], obey_valence: bool = True, allow_dots: bool = True, debug=False):
+def enumerate_neighborhood(graphs: List[nx.Graph], obey_valence: bool = True, allow_dots: bool = True, debug=False, custom_valence_table = None):
     """
     Generate the neighborhood of the input graphs in assembly space;
     this is the set of graphs one joining operation away.
@@ -41,7 +41,7 @@ def enumerate_neighborhood(graphs: List[nx.Graph], obey_valence: bool = True, al
     up_graphs = dict()
     for i, graph1 in enumerate(graphs):
         for j, graph2 in enumerate(graphs[i:]):
-            up_graphs[(i, i + j)] = enumerate_up(graph1, graph2, obey_valence=obey_valence, allow_dots=allow_dots, debug=debug)
+            up_graphs[(i, i + j)] = enumerate_up(graph1, graph2, obey_valence=obey_valence, allow_dots=allow_dots, debug=debug, custom_valence_table=custom_valence_table)
 
     # Mod out the down join operations by isomorphism
     N_graphs = []
@@ -130,7 +130,7 @@ def enumerate_down(graph: nx.Graph, allow_dots: bool = True):
     return partition_pairs
 
 
-def get_valence(atom_symbol: str, ptable: Chem.rdchem.PeriodicTable = ptable) -> int:
+def get_valence(atom_symbol: str, ptable: Chem.rdchem.PeriodicTable = ptable, custom_valence_table = None) -> int:
     """
     Get the default valence of an atom based on its symbol.
 
@@ -145,15 +145,18 @@ def get_valence(atom_symbol: str, ptable: Chem.rdchem.PeriodicTable = ptable) ->
     Raises:
         ValueError: If the atom symbol is invalid or not recognized by the periodic table.
     """
-    atomic_num = ptable.GetAtomicNumber(atom_symbol)  # Get the atomic number of the atom.
-    return ptable.GetDefaultValence(atomic_num)  # Return the default valence for the atomic number.
+    if custom_valence_table and atom_symbol in custom_valence_table:
+        return custom_valence_table[atom_symbol]  # Return the custom valence if provided and available.
+    else:
+        return ptable.GetDefaultValence(atom_symbol)  # Return the default valence for the atomic number.
 
 
 def enumerate_up(graph1: nx.Graph,
                  graph2: nx.Graph,
                  obey_valence: bool = True,
                  allow_dots: bool = True,
-                 debug: bool = False):
+                 debug: bool = False,
+                 custom_valence_table = None):
     """
     Given two graphs, graph1 and graph2, this function will return the set of graphs that can be formed by
     a joining operation acting on graph1 and graph2. If obey_valence is True, then the we will resctict ourselves
@@ -182,7 +185,7 @@ def enumerate_up(graph1: nx.Graph,
                 if 'color' not in graph.nodes[node]:
                     raise ValueError(
                         f"Node {node} does not have a color attribute. Please add a color attribute to the nodes.")
-                valence_budgets[g_idx][node] = get_valence(graph.nodes[node]['color'])
+                valence_budgets[g_idx][node] = get_valence(graph.nodes[node]['color'], custom_valence_table=custom_valence_table)
                 if debug:
                     print(f"Node {node} in graph {g_idx + 1} has color {graph.nodes[node]['color']} and valence budget {valence_budgets[g_idx][node]}")
                 for edge in graph.edges(node):
@@ -222,7 +225,7 @@ def enumerate_up(graph1: nx.Graph,
         if obey_valence:  # If obey_valence is True, we will only consider identifications that do not exceed the valence budget
             for node1 in nodes1:
                 for node2 in nodes2:
-                    if get_valence(color) - valence_budgets[0][node1] <= valence_budgets[1][node2]:
+                    if get_valence(color, custom_valence_table=custom_valence_table) - valence_budgets[0][node1] <= valence_budgets[1][node2]:
                         # These identification tuples will always be written as (v1,v2) where v1 is from graph1 and v2 is from graph2
                         valid_identifications.append((node1, node2))
         else:
@@ -284,7 +287,7 @@ def enumerate_up(graph1: nx.Graph,
     return output_graphs
 
 
-def map_outer_product(combinations, graph1, graph2):  # BUG LOOKS TO BE HAPPENING HERE
+def map_outer_product(combinations, graph1, graph2):
     """
     This function will return the valid maps from the outer product of the valid color-specific maps.
     """
