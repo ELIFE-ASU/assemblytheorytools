@@ -59,3 +59,51 @@ def test_cif_ai():
     ai, _, _ = att.calculate_assembly_index(graph)
     print(ai)
     assert ai > 0
+
+
+def test_guess_bond_orders():
+    print(flush=True)
+    dir = os.path.expanduser(os.path.abspath("tests/data/cif_files/"))
+    file = os.path.join(dir, "Capgaronnite_0.cif")
+    graph = att.cif_to_nx(file)
+    graph_out, ok, info = att.guess_bond_orders(graph)
+    bond_orders = [graph_out.edges[e]["color"] for e in graph_out.edges()]
+    print("Success:", ok)
+    print("Diagnostics:", info)
+    print("Bond orders:", bond_orders)
+
+    graph = att.water_graph()
+    graph_out, ok, info = att.guess_bond_orders(graph)
+    bond_orders = [graph_out.edges[e]["color"] for e in graph_out.edges()]
+    print("Success:", ok)
+    print("Diagnostics:", info)
+    print("Bond orders:", bond_orders)
+    assert ok
+    assert bond_orders == [1, 1]
+
+    graph = att.phosphine_graph()
+    graph_out, ok, info = att.guess_bond_orders(graph)
+    bond_orders = [graph_out.edges[e]["color"] for e in graph_out.edges()]
+    print("Success:", ok)
+    print("Diagnostics:", info)
+    print("Bond orders:", bond_orders)
+    assert ok
+    assert bond_orders == [1, 1, 1]
+
+    graph = att.ph_2p_graph()
+    graph_out, ok, info = att.guess_bond_orders(graph)
+    bond_orders = [graph_out.edges[e]["color"] for e in graph_out.edges()]
+    print("Success:", ok)
+    print("Diagnostics:", info)
+    print("Bond orders:", bond_orders)
+    assert not ok
+    assert bond_orders == [1]
+
+    graph = att.co2_graph()
+    graph_out, ok, info = att.guess_bond_orders(graph)
+    bond_orders = [graph_out.edges[e]["color"] for e in graph_out.edges()]
+    print("Success:", ok)
+    print("Diagnostics:", info)
+    print("Bond orders:", bond_orders)
+    assert ok
+    assert bond_orders == [2, 2]

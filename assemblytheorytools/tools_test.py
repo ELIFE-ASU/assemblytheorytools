@@ -115,3 +115,28 @@ def ph_2p_graph() -> nx.Graph:
     # Add edge with bond type attribute
     graph.add_edge(0, 1, color=1)  # Bond between phosphorus and hydrogen
     return graph
+
+# add a function that creates a CO2 graph
+def co2_graph() -> nx.Graph:
+    """
+    Constructs a graph representation of a carbon dioxide (CO2) molecule.
+
+    The graph consists of three nodes representing the atoms in a CO2 molecule:
+    one carbon (C) and two oxygens (O). Edges represent bonds between the atoms,
+    with bond types indicated by edge attributes.
+
+    Returns:
+    --------
+    nx.Graph
+        A NetworkX graph object representing the CO2 molecule.
+    """
+    graph = nx.Graph()
+    # Add nodes with atom types as attributes
+    graph.add_node(0, color="C")  # Carbon atom
+    graph.add_node(1, color="O")  # Oxygen atom
+    graph.add_node(2, color="O")  # Oxygen atom
+
+    # Add edges with bond type attributes
+    graph.add_edge(0, 1, color=2)  # Double bond between carbon and first oxygen
+    graph.add_edge(0, 2, color=2)  # Double bond between carbon and second oxygen
+    return graph

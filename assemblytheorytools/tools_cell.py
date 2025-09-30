@@ -9,6 +9,10 @@ from ase.neighborlist import NeighborList
 from ase.neighborlist import neighbor_list, natural_cutoffs
 from scipy import sparse
 
+from typing import Dict, Tuple, Optional, Iterable
+import networkx as nx
+from rdkit import Chem
+
 
 def read_cif_file(cif_file: str) -> Atoms:
     """
@@ -197,3 +201,181 @@ def cif_to_nx(file,
     for bond in bonding:
         graph.add_edge(bond[0], bond[1], color=1)
     return graph
+
+def guess_bond_orders(
+        G: nx.Graph,
+        formal_charge_attr: Optional[str] = "formal_charge",
+        max_bond_order: int = 4,
+) -> Tuple[nx.Graph, bool, Dict]:
+    pt = Chem.GetPeriodicTable()
+    H = G.copy()
+    # Normalize node data and prepare per-atom target valences
+    atomic_num: Dict = {}
+    target_valence: Dict = {}
+    charge: Dict = {}
+
+    # Helper to pick a plausible target valence given degree constraints
+    def choose_target_valence(Z: int, needed_min: int, q: int) -> int:
+        # RDKit's valence list already accounts (approximately) for common valence states.
+        vlist: Iterable[int] = pt.GetValenceList(Z)
+        vlist = sorted(set(int(v) for v in vlist if v > 0))
+        # Heuristic: adjust with charge for main group atoms (very rough but helpful)
+        # Positive charge typically increases valence capacity by ~1 (e.g., [NH4]+),
+        # negative can decrease required sigma-bonds (e.g., [O-]).
+        # We'll bias, but still ensure >= needed_min.
+        bias = 1 if q > 0 else 0
+        candidates = [v for v in vlist if v + bias >= needed_min]
+        if candidates:
+            # prefer the smallest that fits (more common)
+            return min(candidates) + bias
+        # If nothing fits, fall back to default/max
+        dv = pt.GetDefaultValence(Z)
+        if dv >= needed_min:
+            return dv + bias
+        mx = max(pt.GetValenceList(Z))
+        return max(needed_min, int(mx))
+
+    # Build per-atom records
+    for n, data in H.nodes(data=True):
+        elem = data.get("color", None)
+        Z = pt.GetAtomicNumber(elem)
+        if Z == 0:
+            raise ValueError(f"Node {n} has unknown element symbol: {elem}")
+        q = int(data.get(formal_charge_attr, 0)) if (formal_charge_attr and formal_charge_attr in data) else 0
+
+        deg = H.degree[n]  # number of incident bonds to assign
+        tv = choose_target_valence(Z, deg, q)
+        atomic_num[n] = Z
+        charge[n] = q
+        target_valence[n] = tv
+
+    # Track residual valence and edge domains
+    residual: Dict = {n: target_valence[n] for n in H.nodes()}
+    assigned: Dict = {}  # edge -> order
+    tried_edges = 0
+    backtracks = 0
+
+    # Initialize each edge's domain: 1..max_bond_order, limited by each endpoint's residual
+    def edge_domain(u, v):
+        r = min(residual[u], residual[v], max_bond_order)
+        return [o for o in (1, 2, 3) if o <= r]
+
+    # Feasibility check after tentative assignment: can each node still be satisfied?
+    def feasible_after(u, v, order) -> bool:
+        # Tentatively reduce residuals
+        ru = residual[u] - order
+        rv = residual[v] - order
+        if ru < 0 or rv < 0:
+            return False
+
+        # For each endpoint, the remaining edges must be able to absorb remaining residual
+        for a, ra in ((u, ru), (v, rv)):
+            # Unassigned incident edges:
+            rem_edges = [e for e in H.edges(a) if e not in assigned and e != (u, v) and e != (v, u)]
+            m = len(rem_edges)
+            if m == 0:
+                # must have no remaining residual
+                if ra != 0:
+                    return False
+                continue
+            # Each remaining edge contributes at least 1 and at most max_bond_order,
+            # but capped by the other node's residual as well.
+            # Lower bound of total we can still add:
+            min_sum = 0
+            max_sum = 0
+            for e in rem_edges:
+                x, y = e
+                other = y if x == a else x
+                max_here = min(max_bond_order, ra if m == 1 else ra, residual[other])  # upper bound
+                max_here = max(0, max_here)
+                max_sum += max_here
+                min_sum += 1  # at least a single bond per remaining edge
+
+            # ra must lie between min_sum and max_sum (inclusive) to keep hope alive
+            if ra < min_sum or ra > max_sum:
+                return False
+        return True
+
+    # Select next edge (MRV: smallest domain)
+    def select_edge():
+        best = None
+        best_domain = None
+        for (u, v) in H.edges():
+            if (u, v) in assigned or (v, u) in assigned:
+                continue
+            dom = edge_domain(u, v)
+            if not dom:
+                return (u, v), []
+            if best is None or len(dom) < len(best_domain):
+                best = (u, v)
+                best_domain = dom
+        return best, best_domain if best is not None else (None, None)
+
+    # Backtracking search
+    best_partial = {}
+    best_score = -1  # number of atoms fully satisfied
+
+    def score_solution() -> int:
+        return sum(1 for n in H.nodes() if residual[n] == 0)
+
+    def search() -> bool:
+        nonlocal tried_edges, backtracks, best_partial, best_score
+        edge, dom = select_edge()
+        if edge is None:
+            # all edges assigned: feasible if all residuals are zero
+            done = all(residual[n] == 0 for n in H.nodes())
+            if not done:
+                sc = score_solution()
+                if sc > best_score:
+                    best_score = sc
+                    best_partial = assigned.copy()
+            return done
+        if not dom:
+            # dead end early
+            sc = score_solution()
+            if sc > best_score:
+                best_score = sc
+                best_partial = assigned.copy()
+            return False
+
+        u, v = edge
+        # Heuristic: try higher orders first if both have large residuals
+        dom_sorted = sorted(dom, reverse=True if residual[u] > 2 and residual[v] > 2 else False)
+        for order in dom_sorted:
+            if not feasible_after(u, v, order):
+                continue
+            # assign
+            tried_edges += 1
+            assigned[(u, v)] = order
+            residual[u] -= order
+            residual[v] -= order
+
+            if search():
+                return True
+
+            # undo
+            residual[u] += order
+            residual[v] += order
+            assigned.pop((u, v), None)
+
+        backtracks += 1
+        return False
+
+    success = search()
+
+    # Commit assignments (best available if not perfect)
+    final_assignments = assigned if success else best_partial
+    for (u, v), order in final_assignments.items():
+        H.edges[u, v]["color"] = int(order)
+
+    # Prepare diagnostics
+    info = {
+        "target_valence": target_valence,
+        "remaining_valence_per_atom": {n: residual[n] for n in H.nodes()},
+        "tried_edges": tried_edges,
+        "backtracks": backtracks,
+        "success_edges_assigned": len(final_assignments),
+        "total_edges": H.number_of_edges(),
+    }
+
+    return H, success, info

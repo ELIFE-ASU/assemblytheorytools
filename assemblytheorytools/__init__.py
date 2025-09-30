@@ -108,7 +108,8 @@ from .tools_cell import (read_cif_file,
                          atoms_to_mol_file,
                          find_clusters,
                          tile_cell,
-                         cif_to_nx)
+                         cif_to_nx,
+                         guess_bond_orders)
 from .tools_data import (sample_boostrapping,
                          sample_kde_resampling,
                          sample_importance_sampling)
@@ -165,6 +166,7 @@ from .tools_test import (check_elements,
                          print_graph_details,
                          water_graph,
                          phosphine_graph,
-                         ph_2p_graph)
+                         ph_2p_graph,
+                         co2_graph)
 
 __version__ = "1.8.0"
