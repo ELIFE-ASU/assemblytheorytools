@@ -108,6 +108,7 @@ from .tools_cell import (read_cif_file,
                          atoms_to_mol_file,
                          find_clusters,
                          tile_cell,
+                         tile_cell_shells,
                          cif_to_nx,
                          guess_bond_orders)
 from .tools_data import (sample_boostrapping,

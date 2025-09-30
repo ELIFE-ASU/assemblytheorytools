@@ -40,6 +40,12 @@ def test_tile_cell():
 
     assert n_atoms == 16
     assert n_expanded == 34
+    # view(expanded)
+    expanded, idx_c, idx_1 = att.tile_cell_shells(atoms)
+
+    view(expanded)
+    view(idx_c)
+    view(idx_1)
 
 
 def test_cif_to_nx():

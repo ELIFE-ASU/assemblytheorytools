@@ -1,17 +1,14 @@
+from typing import Dict, Tuple, Optional, Iterable
 from typing import List
 
 import ase
 import networkx as nx
 import numpy as np
-from ase.atoms import Atoms
+from ase import Atoms
 from ase.io import cif
-from ase.neighborlist import NeighborList
-from ase.neighborlist import neighbor_list, natural_cutoffs
-from scipy import sparse
-
-from typing import Dict, Tuple, Optional, Iterable
-import networkx as nx
+from ase.neighborlist import NeighborList, neighbor_list, natural_cutoffs
 from rdkit import Chem
+from scipy import sparse
 
 
 def read_cif_file(cif_file: str) -> Atoms:
@@ -182,25 +179,103 @@ def tile_cell(atoms: Atoms,
     return pruned
 
 
+def tile_cell_shells(
+        atoms: Atoms,
+        reps: tuple[int, int, int] = (3, 3, 3),
+        multi: float = 1.2,
+        eps: float = 1e-9
+) -> tuple[Atoms, Atoms, Atoms]:
+    """
+    Returns (central_atoms, first_shell_atoms, second_shell_atoms) as three Atoms objects.
+    """
+    # Build supercell
+    sup = atoms.repeat(reps)
+    scaled_positions = sup.get_scaled_positions(wrap=False)
+    reps_arr = np.array(reps, dtype=float)
+
+    # Central region bounds in scaled coordinates
+    low = (reps_arr - 1) / (2 * reps_arr)
+    high = (reps_arr + 1) / (2 * reps_arr)
+    low[reps_arr == 1.0] = 0.0
+    high[reps_arr == 1.0] = 1.0
+
+    in_central = np.all(
+        (scaled_positions >= (low - eps)) & (scaled_positions < (high + eps)),
+        axis=1
+    )
+    central_idx = np.where(in_central)[0]
+    central_set = set(map(int, central_idx))
+
+    # Neighbor list
+    cutoffs = natural_cutoffs(sup, mult=multi)
+    i, j = neighbor_list('ij', sup, cutoffs)
+
+    # Neighbor helper that returns a set (symmetric neighbors)
+    def neighbors_of_set(index_set: set[int]) -> set[int]:
+        if not index_set:
+            return set()
+        idx_arr = np.fromiter(index_set, dtype=int)
+        mask_i = np.isin(i, idx_arr)
+        mask_j = np.isin(j, idx_arr)
+        nbrs = np.concatenate([j[mask_i], i[mask_j]])
+        return set(map(int, np.unique(nbrs)))
+
+    # Shells as sets
+    first_shell_set = neighbors_of_set(central_set) - central_set
+    second_candidates = neighbors_of_set(first_shell_set)
+    second_shell_set = second_candidates - central_set - first_shell_set
+
+    # To arrays
+    central_idx = np.array(sorted(central_set), dtype=int)
+    first_shell_idx = np.array(sorted(first_shell_set), dtype=int)
+    second_shell_idx = np.array(sorted(second_shell_set), dtype=int)
+
+    # Helper to subset while preserving cell/PBC
+    def subset_atoms(indices: np.ndarray) -> Atoms:
+        mask = np.zeros(len(sup), dtype=bool)
+        mask[indices] = True
+        sub = sup[mask]
+        sub.set_cell(sup.cell)
+        sub.set_pbc(sup.pbc)
+        sub.wrap()
+        return sub
+
+    return (
+        subset_atoms(central_idx),
+        subset_atoms(first_shell_idx),
+        subset_atoms(second_shell_idx),
+    )
+
+
 def cif_to_nx(file,
               reps: tuple[int, int, int] = (3, 3, 3),
               cutoff_mult: float = 1.2,
               eps: float = 1e-9) -> nx.Graph:
+    # Load the original cell
     atoms = read_cif_file(file)
+    # Expand the cell
     expanded = tile_cell(atoms,
                          reps=reps,
                          multi=cutoff_mult,
                          eps=eps)
-    # make a graph
+    # Make a graph
     graph = nx.Graph()
-    # add nodes
+    # Add nodes
     for i, atom in enumerate(expanded):
         graph.add_node(i, color=atom.symbol)
-    # add edges
+    # Add edges based on bonding within the expanded cell
     bonding = get_bonding_config(expanded)
     for bond in bonding:
         graph.add_edge(bond[0], bond[1], color=1)
+
+    # Prune to original cluster and its bonded atoms and their neighbors
+
+    # Replace nearest neighbours +1 with H atoms
+
+    #
+
     return graph
+
 
 def guess_bond_orders(
         G: nx.Graph,
