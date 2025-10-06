@@ -1129,18 +1129,23 @@ def assemble(molecule1, molecule2, sites):
            - Collects unique products as SMILES strings
         4. Returns a randomly selected product from valid results
     
-    Args:
-        molecule1: First molecular fragment (RDKit Mol object or SMILES string)
-        molecule2: Second molecular fragment (RDKit Mol object or SMILES string)
-        sites (int): Number of reaction sites to consider:
-            - 1: Uses basic intermolecular reactions (rxn[0])
-            - 2: Uses complex cross-reactions (rxn[1])
-            - >2: Not supported, returns None
+    Parameters
+    ----------
+    molecule1 : rdkit.Chem.Mol or str
+        First molecular fragment (RDKit Mol object or SMILES string).
+    molecule2 : rdkit.Chem.Mol or str
+        Second molecular fragment (RDKit Mol object or SMILES string).
+    sites : int
+        Number of reaction sites to consider:
+        - 1: Uses basic intermolecular reactions (rxn[0])
+        - 2: Uses complex cross-reactions (rxn[1])
+        - >2: Not supported, returns None
     
-    Returns:
-        Chem.Mol or None: 
-            - RDKit Mol object of a randomly selected product if successful
-            - None if no valid products are generated or sites > 2
+    Returns
+    -------
+    rdkit.Chem.Mol or None
+        RDKit Mol object of a randomly selected product if successful,
+        None if no valid products are generated or sites > 2.
     """
 
     mol1 = [molecule1]
@@ -1217,12 +1222,16 @@ def printer(mols):
     representations, saving them as PNG files in the current working directory. Large collections are automatically
     split into manageable batches to prevent overcrowded images. Batch size is 50 molecules per image.
     
-    Args:
-        mols (list): List of RDKit Mol objects to be visualized. Each element
-                    should be a valid RDKit molecule object that can be rendered.
+    Parameters
+    ----------
+    mols : list of rdkit.Chem.Mol
+        List of RDKit Mol objects to be visualized. Each element
+        should be a valid RDKit molecule object that can be rendered.
     
-    Returns:
-        None: Function saves images to disk but does not return any value.
+    Returns
+    -------
+    None
+        Function saves images to disk but does not return any value.
     """
 
     pages = []
@@ -1249,13 +1258,17 @@ def filter_mol(mol):
     chemically unstable motifs. Any molecule containing these substructures is
     rejected to ensure chemical validity and synthetic feasibility.
     
-    Args:
-        mol (Chem.Mol): RDKit molecule object to be filtered
+    Parameters
+    ----------
+    mol : rdkit.Chem.Mol or list of rdkit.Chem.Mol
+        RDKit molecule object to be filtered. If a list is provided,
+        one molecule is randomly selected for filtering.
     
-    Returns:
-        Chem.Mol or None:
-            - Original molecule object if it passes all filters
-            - None if any forbidden substructure is detected
+    Returns
+    -------
+    rdkit.Chem.Mol or None
+        Original molecule object if it passes all filters,
+        None if any forbidden substructure is detected.
     """
 
     if type(mol) is list:
@@ -1443,14 +1456,17 @@ def conformation_filter(mol):
         4. Attempt 3D coordinate embedding using distance geometry
         5. Return molecule if successful (score=0) or None if failed (score=-1 or other)
 
-    Args:
-        mol (rdkit.Chem.Mol): The input molecule object to process. Should be a valid
-                             RDKit molecule, though basic sanitization will be attempted.
+    Parameters
+    ----------
+    mol : rdkit.Chem.Mol
+        The input molecule object to process. Should be a valid
+        RDKit molecule, though basic sanitization will be attempted.
 
-    Returns:
-        rdkit.Chem.Mol or None: 
-            - Molecule with generated 3D conformation and explicit hydrogens if successful
-            - None if geometry generation fails or encounters errors
+    Returns
+    -------
+    rdkit.Chem.Mol or None
+        Molecule with generated 3D conformation and explicit hydrogens if successful,
+        None if geometry generation fails or encounters errors.
     """
 
     Chem.SanitizeMol(mol)
@@ -1630,28 +1646,32 @@ def reassemble_old(mols,
         5. **Multi-Stage Filtering**: Apply structural and conformational filters
         6. **Output Generation**: Collect valid molecules and create visualizations
 
-    Args:
-        mols (list[rdkit.Chem.Mol]): Input molecular fragments to be reassembled.
-                                    Will be deduplicated automatically.
-        n_mol_needed (int, optional): Target number of new molecules to generate. 
-                                     Default: 1000
-        mw_min (float, optional): Minimum molecular weight for generated molecules.
-                                 Default: 20 Da
-        mw_max (float, optional): Maximum molecular weight for generated molecules.
-                                 Default: 100 Da
-        unsat_min (float, optional): Minimum degree of unsaturation (double bond equivalents).
-                                    Default: 1.0
-        unsat_max (float, optional): Maximum degree of unsaturation (double bond equivalents).
-                                    Default: 12.0
-        one_atom_weight (float, optional): Weight adjustment factor for atom overlap during
-                                          fragment assembly. Default: 2 Da
-        mw_delta (float, optional): Molecular weight tolerance factor for fragment selection.
-                                   Creates MW range: [mw_min*(1-delta), mw_max*(1+delta)]
-                                   Default: 0.1 (10% tolerance)
+    Parameters
+    ----------
+    mols : list of rdkit.Chem.Mol
+        Input molecular fragments to be reassembled.
+        Will be deduplicated automatically.
+    n_mol_needed : int, optional
+        Target number of new molecules to generate, by default 1000.
+    mw_min : float, optional
+        Minimum molecular weight for generated molecules, by default 20.
+    mw_max : float, optional
+        Maximum molecular weight for generated molecules, by default 100.
+    unsat_min : float, optional
+        Minimum degree of unsaturation (double bond equivalents), by default 1.0.
+    unsat_max : float, optional
+        Maximum degree of unsaturation (double bond equivalents), by default 12.0.
+    one_atom_weight : float, optional
+        Weight adjustment factor for atom overlap during fragment assembly, by default 2.
+    mw_delta : float, optional
+        Molecular weight tolerance factor for fragment selection.
+        Creates MW range: [mw_min*(1-delta), mw_max*(1+delta)], by default 0.1.
     
-    Returns:
-        list[rdkit.Chem.Mol]: List of successfully generated and validated molecules.
-                             Length may be less than n_mol_needed if generation fails.
+    Returns
+    -------
+    list of rdkit.Chem.Mol
+        List of successfully generated and validated molecules.
+        Length may be less than n_mol_needed if generation fails.
     """
 
     # Ensure that the input list of molecules is unique
@@ -1792,11 +1812,15 @@ def enumerate_sterioisomers(mol):
     This function takes an RDKit molecule object as input and generates all possible stereoisomers
     of the molecule. It returns a list of RDKit molecule objects representing these stereoisomers.
 
-    Args:
-        mol (rdkit.Chem.Mol): The input molecule for which stereoisomers are to be enumerated.
+    Parameters
+    ----------
+    mol : rdkit.Chem.Mol
+        The input molecule for which stereoisomers are to be enumerated.
 
-    Returns:
-        list: A list of RDKit molecule objects representing the stereoisomers of the input molecule.
+    Returns
+    -------
+    list of rdkit.Chem.Mol
+        A list of RDKit molecule objects representing the stereoisomers of the input molecule.
     """
     # Define options for stereoisomer enumeration
     opts = StereoEnumerationOptions(unique=True, onlyUnassigned=False)
@@ -1818,11 +1842,15 @@ def enumerate_tautomers(mol):
     This function takes an RDKit molecule object as input and generates all possible tautomers
     of the molecule. It returns a list of RDKit molecule objects representing these tautomers.
 
-    Args:
-        mol (rdkit.Chem.Mol): The input molecule for which tautomers are to be enumerated.
+    Parameters
+    ----------
+    mol : rdkit.Chem.Mol
+        The input molecule for which tautomers are to be enumerated.
 
-    Returns:
-        list: A list of RDKit molecule objects representing the tautomers of the input molecule.
+    Returns
+    -------
+    list of rdkit.Chem.Mol
+        A list of RDKit molecule objects representing the tautomers of the input molecule.
     """
     # Create a TautomerEnumerator object
     enumerator = rdMolStandardize.TautomerEnumerator()
@@ -1849,12 +1877,17 @@ def enumerate_heterocycles(mol, depth=None):
     This function takes an RDKit molecule object as input and generates all possible heterocycles
     of the molecule. It returns a list of RDKit molecule objects representing these heterocycles.
 
-    Args:
-        mol (rdkit.Chem.Mol): The input molecule for which heterocycles are to be enumerated.
-        depth (int, optional): The depth of enumeration. Defaults to None.
+    Parameters
+    ----------
+    mol : rdkit.Chem.Mol
+        The input molecule for which heterocycles are to be enumerated.
+    depth : int, optional
+        The depth of enumeration. Defaults to None.
 
-    Returns:
-        list: A list of RDKit molecule objects representing the heterocycles of the input molecule.
+    Returns
+    -------
+    list of rdkit.Chem.Mol
+        A list of RDKit molecule objects representing the heterocycles of the input molecule.
     """
     smiles = sorted(Chem.MolToSmiles(m) for m in EnumerateHeterocycles(mol, depth=depth))
     return [Chem.MolFromSmiles(smi) for smi in smiles]
@@ -1869,16 +1902,23 @@ def react_smiles(smiles1, smiles2, random_bond=False, con_filter=True):
     this function ignores chemical realism in favor of speed and simplicity. 
     May create impossible/unstable structures. Ignores valence and hybridization.
 
-    Args:
-        smiles1 (str): SMILES string of the first molecule to combine
-        smiles2 (str): SMILES string of the second molecule to combine
-        random_bond (bool, optional): If True, randomly selects bond order (SINGLE/DOUBLE/TRIPLE).
-                                     If False, uses single bonds only. Default: False
-        con_filter (bool, optional): If True, applies 3D conformation filter for validation.
-                                    If False, only basic sanitization. Default: True
+    Parameters
+    ----------
+    smiles1 : str
+        SMILES string of the first molecule to combine.
+    smiles2 : str
+        SMILES string of the second molecule to combine.
+    random_bond : bool, optional
+        If True, randomly selects bond order (SINGLE/DOUBLE/TRIPLE).
+        If False, uses single bonds only, by default False.
+    con_filter : bool, optional
+        If True, applies 3D conformation filter for validation.
+        If False, only basic sanitization, by default True.
 
-    Returns:
-        str or None: SMILES string of combined molecule if successful, None if combination fails
+    Returns
+    -------
+    str or None
+        SMILES string of combined molecule if successful, None if combination fails.
     """
     try:
         # Convert SMILES strings to RDKit molecule objects
@@ -2217,26 +2257,39 @@ def compose_all(graphs, attribute="level", get_atomic_count=True):
     various statistical measures including occurrence counts, usage patterns, and
     atomic distributions.
     
-    Args:
-        graphs (list[nx.Graph]): Collection of NetworkX graphs to compose. All graphs
-                               must be of the same type (all graphs or all multigraphs).
-                               Empty list will raise ValueError.
-        attribute (str, optional): Node attribute name to use for data accumulation and
-                                 level-based analysis. Default: "level"
-        get_atomic_count (bool, optional): If True, computes atomic distribution statistics
-                                         for nodes. Useful for molecular graphs. Default: True
+    Parameters
+    ----------
+    graphs : list of networkx.Graph
+        Collection of NetworkX graphs to compose. All graphs
+        must be of the same type (all graphs or all multigraphs).
+        Empty list will raise ValueError.
+    attribute : str, optional
+        Node attribute name to use for data accumulation and
+        level-based analysis, by default "level".
+    get_atomic_count : bool, optional
+        If True, computes atomic distribution statistics
+        for nodes. Useful for molecular graphs, by default True.
     
-    Returns:
-        nx.MultiDiGraph: Unified graph containing all nodes and edges from input graphs
-                        with additional computed attributes:
-                        - Node attributes:
-                          * {attribute}: Accumulated values from input graphs
-                          * "count": Number of times each node appears across graphs
-                          * "usage": Usage statistics based on specified attribute
-                          * "atomic_count": Atomic distribution (if get_atomic_count=True)
-                        - Edge attributes:
-                          * "count": Number of times each edge appears across graphs
-                        - Graph attributes: Merged from all input graphs (later graphs override)
+    Returns
+    -------
+    networkx.MultiDiGraph
+        Unified graph containing all nodes and edges from input graphs
+        with additional computed attributes:
+        - Node attributes:
+          * {attribute}: Accumulated values from input graphs
+          * "count": Number of times each node appears across graphs
+          * "usage": Usage statistics based on specified attribute
+          * "atomic_count": Atomic distribution (if get_atomic_count=True)
+        - Edge attributes:
+          * "count": Number of times each edge appears across graphs
+        - Graph attributes: Merged from all input graphs (later graphs override)
+    
+    Raises
+    ------
+    ValueError
+        If an empty list of graphs is provided.
+    networkx.NetworkXError
+        If graphs are not all of the same type (graph vs multigraph).
     """
 
     R: nx.MultiDiGraph = None
@@ -2280,14 +2333,18 @@ def accumulate_edges_data(graphs):
     """
     Count edge occurrences across a collection of NetworkX graphs.
 
-    Args:
-        graphs (list[nx.Graph]): Collection of NetworkX graphs to analyze.
+    Parameters
+    ----------
+    graphs : list of networkx.Graph
+        Collection of NetworkX graphs to analyze.
 
-    Returns:
-        dict: Dictionary mapping edge tuples to their occurrence counts:
-              - Keys: Edge tuples (node1, node2) for undirected graphs or
-                     (source, target) for directed graphs
-              - Values: Integer counts of how many input graphs contain each edge
+    Returns
+    -------
+    dict
+        Dictionary mapping edge tuples to their occurrence counts:
+        - Keys: Edge tuples (node1, node2) for undirected graphs or
+               (source, target) for directed graphs
+        - Values: Integer counts of how many input graphs contain each edge
     """
     edge_counts = {}
     for graph in graphs:
@@ -2300,14 +2357,19 @@ def accumulate_nodes_data(graphs, attribute="level"):
     """
     Accumulate node data across multiple graphs, keeping minimum attribute values and occurrence counts.
 
-    Args:
-        graphs (list[nx.Graph]): Collection of NetworkX graphs to analyze
-        attribute (str, optional): Node attribute to track minimum values for. Default: "level"
+    Parameters
+    ----------
+    graphs : list of networkx.Graph
+        Collection of NetworkX graphs to analyze.
+    attribute : str, optional
+        Node attribute to track minimum values for, by default "level".
     
-    Returns:
-        tuple[dict, dict]: Two dictionaries:
-            - nodes_data: Maps node IDs to minimum attribute values across all graphs
-            - node_counts: Maps node IDs to occurrence counts across all graphs
+    Returns
+    -------
+    tuple of dict
+        Two dictionaries:
+        - nodes_data: Maps node IDs to minimum attribute values across all graphs
+        - node_counts: Maps node IDs to occurrence counts across all graphs
     """
 
     nodes_data = {}
@@ -2483,13 +2545,18 @@ def get_possible_combinations(idx_map1, idx_map2):
         - Atoms must have compatible valence for bonding
         - Uses valence_check() to ensure realistic bonds
     
-    Args:
-        idx_map1 (dict): Atom index mapping for fragment1 {atom_idx: (element, valence_used)}
-        idx_map2 (dict): Atom index mapping for fragment2 {atom_idx: (element, valence_used)}
+    Parameters
+    ----------
+    idx_map1 : dict
+        Atom index mapping for fragment1 {atom_idx: (element, valence_used)}.
+    idx_map2 : dict
+        Atom index mapping for fragment2 {atom_idx: (element, valence_used)}.
 
-    Returns:
-        list or None: Randomly shuffled list of valid [atom1_idx, atom2_idx] pairs,
-                     or None if no valid combinations exist
+    Returns
+    -------
+    list or None
+        Randomly shuffled list of valid [atom1_idx, atom2_idx] pairs,
+        or None if no valid combinations exist.
     """
 
     possible_combinations = [
@@ -2592,9 +2659,27 @@ def get_atom_type_index_mapping(fragment):
 class ParsePathwayLog:
     """
     Parses and visualizes molecular assembly pathway logs as hierarchical directed graphs.
+    
     Processes structured log files that document molecular assembly pathways,
     converting them into NetworkX directed graphs that represent the step-by-step
-    construction of complex molecules from basic building blocks. 
+    construction of complex molecules from basic building blocks.
+    
+    Attributes
+    ----------
+    pathway_log : str
+        Original pathway log content.
+    atom_lines : list
+        Parsed atomic data from graph section.
+    building_block_lines : list
+        Parsed building block data.
+    steps_lines : dict
+        Assembly step definitions.
+    digraph_lines : list
+        Graph connectivity data.
+    G : networkx.MultiDiGraph
+        Constructed molecular assembly graph.
+    nodes_per_level : dict
+        Count of nodes at each assembly level.
     """
 
     def __init__(self, pathway_log: str):
@@ -2605,12 +2690,14 @@ class ParsePathwayLog:
         log, building a directed graph representation, validating the assembly sequence,
         and computing hierarchical statistics. All processing occurs during initialization.
         
-        Args:
-            pathway_log (str): Structured log content with required sections:
-                            - "#####Graph#####": Graph structure data
-                            - "#####Atoms#####": Atomic composition information  
-                            - "#####Steps#####": Assembly step definitions
-                            - "#####Digraph#####": Directed graph connectivity        
+        Parameters
+        ----------
+        pathway_log : str
+            Structured log content with required sections:
+            - "#####Graph#####": Graph structure data
+            - "#####Atoms#####": Atomic composition information  
+            - "#####Steps#####": Assembly step definitions
+            - "#####Digraph#####": Directed graph connectivity        
         """
         self.pathway_log = pathway_log
         self.atom_lines, self.building_block_lines, self.steps_lines, self.digraph_lines = self._parse_log()
@@ -2853,8 +2940,32 @@ class ParsePathwayLog:
 
 class Molecule:
     """
-    This class provides a unified interface for molecular structure analysis and hierarchical assembly visualization.
-    It can either work with existing assembly pathway data or compute new pathways using external tools.
+    Unified interface for molecular structure analysis and hierarchical assembly visualization.
+    
+    This class provides a comprehensive framework for molecular pathway analysis that can 
+    work with existing assembly pathway data or compute new pathways using external tools.
+    Designed for lazy evaluation where pathway computation occurs only when needed.
+    
+    Attributes
+    ----------
+    smiles : str
+        SMILES string representation of the molecule.
+    pathway : list of str or None
+        Pre-existing assembly pathway steps.
+    assembly_index : int or None
+        Position index in assembly sequence.
+    G : networkx.DiGraph or None
+        NetworkX directed graph representing assembly pathway.
+    timeout : int
+        Timeout in seconds for external pathway computation.
+    pathway_log_string : str or None
+        Raw pathway computation log.
+    pathway_fragments : list or None
+        Molecular fragments in pathway.
+    pathwayLogObj : ParsePathwayLog or None
+        Parsed pathway log object.
+    assembly_output_path : str or None
+        Path to pathway output files.
     """
 
     def __init__(self,
@@ -2872,17 +2983,23 @@ class Molecule:
         is designed for lazy evaluation - pathway computation and analysis occur
         only when needed.
         
-        Args:
-            smiles (str, optional): SMILES string of target molecule. If empty,
-                                will be extracted from graph or computed from pathway.
-            pathway (list[str], optional): Pre-existing assembly pathway steps.
-                                        Used when pathway is already known.
-            assembly_index (int, optional): Position index in assembly sequence.
-                                        Used for tracking molecular position.
-            G (nx.DiGraph, optional): NetworkX directed graph representing assembly pathway.
-                                    If provided, SMILES extracted from final node.
-            timeout (int, optional): Timeout in seconds for external pathway computation
-                                    tools. Default: 60 seconds.
+        Parameters
+        ----------
+        smiles : str, optional
+            SMILES string of target molecule. If empty, will be extracted 
+            from graph or computed from pathway, by default "".
+        pathway : list of str, optional
+            Pre-existing assembly pathway steps. Used when pathway is 
+            already known, by default None.
+        assembly_index : int, optional
+            Position index in assembly sequence. Used for tracking 
+            molecular position, by default None.
+        G : networkx.DiGraph, optional
+            NetworkX directed graph representing assembly pathway.
+            If provided, SMILES extracted from final node, by default None.
+        timeout : int, optional
+            Timeout in seconds for external pathway computation
+            tools, by default 60.
         """
         self.smiles = smiles
         self.pathway = pathway
