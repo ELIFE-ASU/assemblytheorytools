@@ -14,20 +14,24 @@ from .tools_mol import safe_standardize_mol, reset_mol_charge, smi_to_mol, inchi
 
 def bond_order_assout_to_int(edge_color: str | int) -> int:
     """
-    Convert an edge colour to an integer bond order from the Assembly CPP output file
+    Convert an edge colour to an integer bond order from the Assembly CPP output file.
 
     This function maps a string representation of a bond order (e.g. "single", "double")
     to its corresponding integer value. If the input is already an integer, it returns
     the integer directly.
 
-    Args:
-        edge_color (str | int): The edge colour representing the bond order. It can be a string
-                                ("single", "double", etc.) or an integer.
+    Parameters
+    ----------
+    edge_color : str | int
+        The edge colour representing the bond order. It can be a string
+        ("single", "double", etc.) or an integer.
 
-    Returns:
-        int: The integer representation of the bond order. If the input is a string, it returns
-             the corresponding integer value. If the input is already an integer, it returns
-             the integer directly.
+    Returns
+    -------
+    int
+        The integer representation of the bond order. If the input is a string, it returns
+        the corresponding integer value. If the input is already an integer, it returns
+        the integer directly.
     """
     edge_color_map = {
         "single": 1,
@@ -47,16 +51,24 @@ def bond_order_int_to_rdkit(bond_order: int) -> Chem.BondType:
     """
     Convert a bond order int to RDKit's BondType.
 
-    https://www.rdkit.org/docs/cppapi/classRDKit_1_1Bond.html
+    Parameters
+    ----------
+    bond_order : int
+        The bond order to convert.
 
-    Args:
-        bond_order (int): The bond order to convert.
+    Returns
+    -------
+    Chem.BondType
+        The corresponding RDKit BondType.
 
-    Returns:
-        Chem.BondType: The corresponding RDKit BondType.
+    Raises
+    ------
+    ValueError
+        If the bond order is not supported.
 
-    Raises:
-        ValueError: If the bond order is not supported.
+    References
+    ----------
+    .. [1] https://www.rdkit.org/docs/cppapi/classRDKit_1_1Bond.html
     """
     converter = {
         1: Chem.rdchem.BondType.SINGLE,
@@ -90,16 +102,24 @@ def bond_order_rdkit_to_int(bond_type: Chem.BondType) -> int:
     """
     Convert RDKit's BondType to a bond order int.
 
-    https://www.rdkit.org/docs/cppapi/classRDKit_1_1Bond.html
+    Parameters
+    ----------
+    bond_type : Chem.BondType
+        The RDKit BondType to convert.
 
-    Args:
-        bond_type (Chem.BondType): The RDKit BondType to convert.
+    Returns
+    -------
+    int
+        The corresponding bond order int.
 
-    Returns:
-        int: The corresponding bond order int.
+    Raises
+    ------
+    ValueError
+        If the bond type is not recognized.
 
-    Raises:
-        ValueError: If the bond type is not recognized.
+    References
+    ----------
+    .. [1] https://www.rdkit.org/docs/cppapi/classRDKit_1_1Bond.html
     """
     converter = {
         Chem.rdchem.BondType.UNSPECIFIED: 0,
@@ -254,11 +274,15 @@ def remove_hydrogen_from_graph(graph: nx.Graph) -> nx.Graph:
     """
     Remove all hydrogen atoms from a NetworkX graph.
 
-    Args:
-        graph (nx.Graph): The input NetworkX graph where nodes represent atoms.
+    Parameters
+    ----------
+    graph : nx.Graph
+        The input NetworkX graph where nodes represent atoms.
 
-    Returns:
-        nx.Graph: The modified graph with all hydrogen atoms removed.
+    Returns
+    -------
+    nx.Graph
+        The modified graph with all hydrogen atoms removed.
     """
     nodes = list(graph.nodes())
     for node in nodes:
@@ -271,11 +295,16 @@ def write_ass_graph_file(graph: nx.Graph, file_name: str = "graph_info") -> None
     """
     Write the graph information to a file for the Assembly CPP calculator.
 
-    Args:
-        graph (nx.Graph): The input NetworkX graph where nodes represent atoms and edges represent bonds.
-        file_name (str, optional): The name of the file to write the graph information to. Defaults to "graph_info".
+    Parameters
+    ----------
+    graph : nx.Graph
+        The input NetworkX graph where nodes represent atoms and edges represent bonds.
+    file_name : str, optional
+        The name of the file to write the graph information to. Defaults to "graph_info".
 
-    Writes:
+    Returns
+    -------
+    None
         A file containing the graph's name, number of vertices, edges, vertex colours, and edge colours.
     """
     # Get the number of vertices
@@ -310,12 +339,17 @@ def is_graph_isomorphic(g1: nx.Graph, g2: nx.Graph) -> bool:
     """
     Check if two graphs are isomorphic.
 
-    Args:
-        g1 (nx.Graph): The first input graph.
-        g2 (nx.Graph): The second input graph.
+    Parameters
+    ----------
+    g1 : nx.Graph
+        The first input graph.
+    g2 : nx.Graph
+        The second input graph.
 
-    Returns:
-        bool: True if the graphs are isomorphic, False otherwise.
+    Returns
+    -------
+    bool
+        True if the graphs are isomorphic, False otherwise.
     """
     return nx.is_isomorphic(g1, g2)
 
@@ -324,12 +358,17 @@ def scramble_node_indices(graph: nx.Graph, seed: int | None = None) -> nx.Graph:
     """
     Returns a new graph with randomly scrambled node labels.
 
-    Args:
-        graph (nx.Graph): The input graph to be scrambled.
-        seed (int | None, optional): Seed for the random number generator for reproducibility. Default is None.
+    Parameters
+    ----------
+    graph : nx.Graph
+        The input graph to be scrambled.
+    seed : int | None, optional
+        Seed for the random number generator for reproducibility. Default is None.
 
-    Returns:
-        nx.Graph: A new graph with scrambled node labels.
+    Returns
+    -------
+    nx.Graph
+        A new graph with scrambled node labels.
     """
     # Set the random seed if provided for reproducibility
     if seed is not None:
@@ -353,11 +392,15 @@ def get_disconnected_subgraphs(graph: nx.Graph) -> List[nx.Graph]:
     """
     Return subgraphs of connected components without copying if not necessary.
 
-    Args:
-        graph (nx.Graph): The input graph.
+    Parameters
+    ----------
+    graph : nx.Graph
+        The input graph.
 
-    Returns:
-        List[nx.Graph]: A list of subgraphs, each representing a connected component.
+    Returns
+    -------
+    List[nx.Graph]
+        A list of subgraphs, each representing a connected component.
     """
     return [graph.subgraph(c) for c in nx.connected_components(graph)]
 
@@ -370,21 +413,31 @@ def join_graphs(graphs: List[nx.Graph], disjoint: int = True, rename_prefix: str
     - Disjoint union: Ensures no node ID clashes by creating separate components for each graph.
     - Composition: Combines graphs while preserving node IDs, unless conflicts are detected.
 
-    Args:
-        graphs (List[nx.Graph]): A list of NetworkX graphs to be combined.
-        disjoint (int, optional): If True, performs a disjoint union of the graphs.
-                                  If False, attempts to compose the graphs. Default is True.
-        rename_prefix (str, optional): Prefix used for relabeling nodes in case of conflicts. Default is "G".
+    Parameters
+    ----------
+    graphs : List[nx.Graph]
+        A list of NetworkX graphs to be combined.
+    disjoint : int, optional
+        If True, performs a disjoint union of the graphs.
+        If False, attempts to compose the graphs. Default is True.
+    rename_prefix : str, optional
+        Prefix used for relabeling nodes in case of conflicts. Default is "G".
 
-    Returns:
-        nx.Graph: The combined graph.
+    Returns
+    -------
+    nx.Graph
+        The combined graph.
 
-    Raises:
-        ValueError: If the input list of graphs is empty.
-        TypeError: If the graphs are not of the same NetworkX type.
+    Raises
+    ------
+    ValueError
+        If the input list of graphs is empty.
+    TypeError
+        If the graphs are not of the same NetworkX type.
 
-    Note:
-        - When `disjoint` is False, node ID clashes are checked. If clashes exist, nodes are relabeled with a prefix.
+    Notes
+    -----
+    When `disjoint` is False, node ID clashes are checked. If clashes exist, nodes are relabeled with a prefix.
     """
     graphs = list(graphs)  # Convert the input iterable to a list
     if not graphs:
@@ -420,12 +473,16 @@ def write_graphml(graph: nx.Graph, file_name: str = "graph.graphml") -> None:
     """
     Writes a NetworkX graph to a GraphML file.
 
-    Args:
-        graph (nx.Graph): The graph to be written to the file.
-        file_name (str): The path to the file where the graph will be saved.
+    Parameters
+    ----------
+    graph : nx.Graph
+        The graph to be written to the file.
+    file_name : str
+        The path to the file where the graph will be saved.
 
-    Returns:
-        None
+    Returns
+    -------
+    None
     """
     nx.write_graphml_lxml(graph, os.path.abspath(file_name))
     return None
@@ -435,11 +492,15 @@ def read_graphml(file_name: str = "graph.graphml") -> nx.Graph:
     """
     Reads a NetworkX graph from a GraphML file.
 
-    Args:
-        file_name (str): The path to the file from which the graph will be read.
+    Parameters
+    ----------
+    file_name : str
+        The path to the file from which the graph will be read.
 
-    Returns:
-        nx.Graph: The graph read from the file.
+    Returns
+    -------
+    nx.Graph
+        The graph read from the file.
     """
     return nx.read_graphml(os.path.abspath(file_name))
 
@@ -448,11 +509,15 @@ def get_bond_smi(mol: Chem.Mol) -> Set[str]:
     """
     Get the list of bonds of the system in SMILES format.
 
-    Args:
-        mol (Chem.Mol): The RDKit molecule object.
+    Parameters
+    ----------
+    mol : Chem.Mol
+        The RDKit molecule object.
 
-    Returns:
-        Set[str]: A set of strings representing the bonds in SMILES format.
+    Returns
+    -------
+    Set[str]
+        A set of strings representing the bonds in SMILES format.
     """
     bond_smiles = set()
     for bond in mol.GetBonds():
@@ -632,11 +697,15 @@ def create_ionic_molecule(smiles: str) -> Tuple[nx.Graph, List[Chem.Mol]]:
     """
     Create a combined graph for an ionic molecule from dot-separated SMILES.
 
-    Args:
-        smiles (str): The SMILES string representing the ionic molecule, with parts separated by dots.
+    Parameters
+    ----------
+    smiles : str
+        The SMILES string representing the ionic molecule, with parts separated by dots.
 
-    Returns:
-        Tuple[nx.Graph, List[Chem.Mol]]: A tuple containing the combined NetworkX graph and a list of RDKit molecule objects.
+    Returns
+    -------
+    Tuple[nx.Graph, List[Chem.Mol]]
+        A tuple containing the combined NetworkX graph and a list of RDKit molecule objects.
     """
     # Split the SMILES into components
     smi_list = smiles.split('.')
@@ -675,14 +744,20 @@ def longest_path_length(digraph: nx.DiGraph) -> int:
     """
     Calculate the longest path length in a Directed Acyclic Graph (DAG).
 
-    Args:
-        digraph (nx.DiGraph): The input directed acyclic graph.
+    Parameters
+    ----------
+    digraph : nx.DiGraph
+        The input directed acyclic graph.
 
-    Returns:
-        int: The length of the longest path in the graph.
+    Returns
+    -------
+    int
+        The length of the longest path in the graph.
 
-    Raises:
-        ValueError: If the input graph is not a Directed Acyclic Graph (DAG).
+    Raises
+    ------
+    ValueError
+        If the input graph is not a Directed Acyclic Graph (DAG).
     """
     if not nx.is_directed_acyclic_graph(digraph):
         raise ValueError("Graph must be a Directed Acyclic Graph (DAG)")
@@ -710,15 +785,20 @@ def relabel_digraph(graph: nx.DiGraph) -> nx.DiGraph:
     where the label indicates the topological step (generation) of the node
     in a topological sort of the graph.
 
-    Args:
-        graph (nx.DiGraph): A directed graph to be relabeled.
+    Parameters
+    ----------
+    graph : nx.DiGraph
+        A directed graph to be relabeled.
 
-    Returns:
-        nx.DiGraph: The input graph with nodes relabeled by their topological step.
+    Returns
+    -------
+    nx.DiGraph
+        The input graph with nodes relabeled by their topological step.
 
-    Note:
-        - The graph must be a directed acyclic graph (DAG) for topological sorting to work.
-        - The "label" attribute of each node will be overwritten.
+    Notes
+    -----
+    The graph must be a directed acyclic graph (DAG) for topological sorting to work.
+    The "label" attribute of each node will be overwritten.
     """
     # Iterate through each topological generation of the graph
     for step, nodes in enumerate(nx.topological_generations(graph)):
@@ -736,15 +816,20 @@ def relabel_identifiers(graph: nx.Graph) -> nx.Graph:
     with the values of their "label" attribute. It is useful for creating
     a graph with more meaningful or human-readable node identifiers.
 
-    Args:
-        graph (nx.Graph): The input NetworkX graph whose nodes will be relabeled.
+    Parameters
+    ----------
+    graph : nx.Graph
+        The input NetworkX graph whose nodes will be relabeled.
 
-    Returns:
-        nx.Graph: A new NetworkX graph with nodes relabeled based on their "label" attribute.
+    Returns
+    -------
+    nx.Graph
+        A new NetworkX graph with nodes relabeled based on their "label" attribute.
 
-    Note:
-        - The "label" attribute must exist for all nodes in the graph.
-        - If the "label" attribute is not unique, the resulting graph may have issues.
+    Notes
+    -----
+    The "label" attribute must exist for all nodes in the graph.
+    If the "label" attribute is not unique, the resulting graph may have issues.
     """
     return nx.relabel_nodes(graph, {n: graph.nodes[n]["label"] for n in graph})
 
@@ -757,12 +842,16 @@ def canonicalize_node_labels(graph: nx.Graph) -> nx.Graph:
     sequence of integers starting from 0. This is useful for stabilizing the graph
     structure when the original node labels are non-sequential or arbitrary.
 
-    Args:
-        graph (nx.Graph): The input NetworkX graph whose nodes need to be relabeled.
+    Parameters
+    ----------
+    graph : nx.Graph
+        The input NetworkX graph whose nodes need to be relabeled.
 
-    Returns:
-        nx.Graph: A new NetworkX graph with nodes relabeled to a sequence of integers
-                  from 0 to n-1.
+    Returns
+    -------
+    nx.Graph
+        A new NetworkX graph with nodes relabeled to a sequence of integers
+        from 0 to n-1.
     """
     # Get the current node labels from the graph
     current_labels = list(graph.nodes())
