@@ -13,17 +13,22 @@ from scipy import sparse
 
 def read_cif_file(cif_file: str) -> Atoms:
     """
-    look in to using
-    https://github.com/MaterSim/PyXtal
-    https://github.com/GKieslich/crystIT
-    https://github.com/torbjornbjorkman/cif2cell/tree/master
     Read in a CIF file and return the atom object.
+    
+    Alternative libraries to consider:
+    - https://github.com/MaterSim/PyXtal
+    - https://github.com/GKieslich/crystIT
+    - https://github.com/torbjornbjorkman/cif2cell/tree/master
 
-    Args:
-        cif_file (str): The path to the CIF file.
+    Parameters
+    ----------
+    cif_file : str
+        The path to the CIF file.
 
-    Returns:
-        ase.Atoms: The atoms object.
+    Returns
+    -------
+    ase.Atoms
+        The atoms object.
     """
     # Read in the CIF file
     atoms = cif.read_cif(cif_file, primitive_cell=True, subtrans_included=False)
@@ -34,12 +39,17 @@ def atoms_to_mol_file(atoms: Atoms, file_name: str = "mol.mol") -> None:
     """
     Write a molecule to a .mol file from an ASE atoms object.
 
-    Args:
-        atoms (ase.Atoms): The input set of atoms.
-        file_name (str, optional): The name of the output .mol file. Defaults to "mol.mol".
+    Parameters
+    ----------
+    atoms : ase.Atoms
+        The input set of atoms.
+    file_name : str, optional
+        The name of the output .mol file. Default is "mol.mol".
 
-    Returns:
-        None
+    Returns
+    -------
+    None
+        This function does not return a value.
     """
     # Get the bonding configuration
     bond_pairs: List[List[int]] = get_bonding_config(atoms)
@@ -77,11 +87,15 @@ def get_bonding_config(atoms: Atoms) -> List[List[int]]:
     """
     Generate the bonding configuration for a given set of atoms.
 
-    Args:
-        atoms (ase.Atoms): The input set of atoms.
+    Parameters
+    ----------
+    atoms : ase.Atoms
+        The input set of atoms.
 
-    Returns:
-        List[List[int]]: A list of bond pairs, where each pair is represented as a list of two atom indices.
+    Returns
+    -------
+    List[List[int]]
+        A list of bond pairs, where each pair is represented as a list of two atom indices.
     """
     atoms.set_pbc([False, False, False])
     atoms.cell = [0, 0, 0]
@@ -103,24 +117,24 @@ def find_clusters(atoms, cutoff_smear=1.5):
     and identifies whether the atomic system is fully connected. If multiple disconnected clusters exist, 
     it returns the indices of atoms not belonging to the largest cluster.
 
-    Parameters:
-    -----------
-        atoms (ase.Atoms): An ASE `Atoms` object representing the molecular or periodic structure.
-        
-        cutoff_smear (float, optional): A multiplicative factor applied to the natural cutoff 
-            radii to loosen bonding criteria. Default is 1.5.
+    Parameters
+    ----------
+    atoms : ase.Atoms
+        An ASE `Atoms` object representing the molecular or periodic structure.
+    cutoff_smear : float, optional
+        A multiplicative factor applied to the natural cutoff radii to loosen bonding criteria. Default is 1.5.
 
-    Returns:
-    --------
-        list or None:
-            - If only one cluster exists (fully connected), returns `None`.
-            - If multiple clusters are found, returns a list of atom indices that do not 
-              belong to the largest connected cluster.
+    Returns
+    -------
+    list or None
+        If only one cluster exists (fully connected), returns `None`.
+        If multiple clusters are found, returns a list of atom indices that do not 
+        belong to the largest connected cluster.
 
-    Notes:
-    ------
-        - Uses ASE's `NeighborList` for graph construction.
-        - Uses SciPy's `connected_components` for clustering.
+    Notes
+    -----
+    Uses ASE's `NeighborList` for graph construction.
+    Uses SciPy's `connected_components` for clustering.
     """
     # Get the natural cutoffs
     cutoffs = natural_cutoffs(atoms)
@@ -147,6 +161,28 @@ def tile_cell(atoms: Atoms,
               multi: float = 1.2,
               eps: float = 1e-9
               ) -> Atoms:
+    """
+    Create a tiled supercell with central region and bonded atoms.
+    
+    This function creates a supercell by repeating the unit cell, identifies
+    atoms in the central region, and includes atoms bonded to the central region.
+
+    Parameters
+    ----------
+    atoms : ase.Atoms
+        The input atomic structure.
+    reps : tuple[int, int, int], optional
+        Number of repetitions in each direction (x, y, z). Default is (3, 3, 3).
+    multi : float, optional
+        Multiplier for natural cutoff distances in bonding determination. Default is 1.2.
+    eps : float, optional
+        Small epsilon value for numerical tolerance in region definition. Default is 1e-9.
+
+    Returns
+    -------
+    ase.Atoms
+        Pruned supercell containing central atoms and their bonded neighbors.
+    """
     # Create a supercell and get scaled positions
     sup = atoms.repeat(reps)
     scaled_positions = sup.get_scaled_positions(wrap=False)
@@ -186,7 +222,30 @@ def tile_cell_shells(
         eps: float = 1e-9
 ) -> tuple[Atoms, Atoms, Atoms]:
     """
-    Returns (central_atoms, first_shell_atoms, second_shell_atoms) as three Atoms objects.
+    Create a tiled supercell and separate atoms into central and shell regions.
+    
+    This function creates a supercell and identifies atoms in the central region,
+    first coordination shell, and second coordination shell based on bonding connectivity.
+
+    Parameters
+    ----------
+    atoms : ase.Atoms
+        The input atomic structure.
+    reps : tuple[int, int, int], optional
+        Number of repetitions in each direction (x, y, z). Default is (3, 3, 3).
+    multi : float, optional
+        Multiplier for natural cutoff distances in bonding determination. Default is 1.2.
+    eps : float, optional
+        Small epsilon value for numerical tolerance in region definition. Default is 1e-9.
+
+    Returns
+    -------
+    central_atoms : ase.Atoms
+        Atoms in the central region of the supercell.
+    first_shell_atoms : ase.Atoms
+        Atoms in the first coordination shell around the central region.
+    second_shell_atoms : ase.Atoms
+        Atoms in the second coordination shell around the central region.
     """
     # Build supercell
     sup = atoms.repeat(reps)
@@ -251,6 +310,29 @@ def cif_to_nx(file,
               reps: tuple[int, int, int] = (3, 3, 3),
               cutoff_mult: float = 1.2,
               eps: float = 1e-9) -> nx.Graph:
+    """
+    Convert a CIF file to a NetworkX graph representation.
+    
+    This function reads a CIF file, expands the unit cell, and creates a graph
+    where nodes represent atoms and edges represent bonds.
+
+    Parameters
+    ----------
+    file : str
+        Path to the CIF file.
+    reps : tuple[int, int, int], optional
+        Number of repetitions in each direction for supercell expansion. Default is (3, 3, 3).
+    cutoff_mult : float, optional
+        Multiplier for natural cutoff distances in bonding determination. Default is 1.2.
+    eps : float, optional
+        Small epsilon value for numerical tolerance. Default is 1e-9.
+
+    Returns
+    -------
+    nx.Graph
+        NetworkX graph with nodes representing atoms (with 'color' attribute for element symbol)
+        and edges representing bonds (with 'color' attribute for bond order).
+    """
     # Load the original cell
     atoms = read_cif_file(file)
     # Expand the cell
@@ -282,6 +364,31 @@ def guess_bond_orders(
         formal_charge_attr: Optional[str] = "formal_charge",
         max_bond_order: int = 4,
 ) -> Tuple[nx.Graph, bool, Dict]:
+    """
+    Assign bond orders to edges in a molecular graph using constraint satisfaction.
+    
+    This function uses backtracking search with constraint propagation to assign
+    bond orders that satisfy atomic valence requirements based on periodic table data.
+
+    Parameters
+    ----------
+    G : nx.Graph
+        Input molecular graph with nodes having 'color' attribute (element symbol).
+    formal_charge_attr : Optional[str], optional
+        Attribute name for formal charge on nodes. Default is "formal_charge".
+    max_bond_order : int, optional
+        Maximum allowed bond order. Default is 4.
+
+    Returns
+    -------
+    G_with_orders : nx.Graph
+        Graph with bond orders assigned to edge 'color' attributes.
+    success : bool
+        True if all valence constraints were satisfied, False otherwise.
+    info : Dict
+        Diagnostic information including target valences, remaining valences,
+        and search statistics.
+    """
     pt = Chem.GetPeriodicTable()
     H = G.copy()
     # Normalize node data and prepare per-atom target valences
