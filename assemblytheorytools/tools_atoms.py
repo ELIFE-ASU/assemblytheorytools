@@ -33,22 +33,22 @@ def smiles_to_atoms(smiles: str,
     This function parses a SMILES string into an RDKit Mol object, optionally sanitizes it,
     adds hydrogens, and converts it to an ASE Atoms object.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     smiles : str
         The SMILES string representing the molecule.
     sanitize : bool, optional
         Whether to sanitize the RDKit Mol object. Default is True.
-    add_hydrogen : bool, optional
+    add_hydrogens : bool, optional
         Whether to add explicit hydrogens to the molecule. Default is True.
 
-    Returns:
-    --------
+    Returns
+    -------
     Atoms
         The ASE Atoms object representing the molecule.
 
-    Raises:
-    -------
+    Raises
+    ------
     ValueError
         If the SMILES string cannot be parsed into a valid RDKit Mol object.
     """
@@ -74,24 +74,24 @@ def mol_to_atoms(mol: Mol,
     and optimizing its geometry. The molecule is then written to a temporary SDF file, which
     is read back and converted into an ASE Atoms object.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     mol : rdkit.Chem.rdchem.Mol
         The RDKit Mol object to be converted.
     sanitize : bool, optional
         Whether to sanitize the molecule (e.g., standardize its structure). Default is True.
-    add_hydrogen : bool, optional
+    add_hydrogens : bool, optional
         Whether to add explicit hydrogens to the molecule. Default is False.
     optimise : bool, optional
         Whether to optimize the molecule's geometry using RDKit's MMFF force field. Default is True.
 
-    Returns:
-    --------
+    Returns
+    -------
     ase.Atoms
         The ASE Atoms object representing the molecule.
 
-    Raises:
-    -------
+    Raises
+    ------
     ValueError
         If the molecule cannot be embedded or optimized.
     """
@@ -137,24 +137,24 @@ def atoms_to_mol(atoms,
     This function writes the ASE Atoms object to a temporary XYZ file, reads it back as an RDKit Mol object,
     determines the bonds, and optionally sanitizes and adds hydrogens to the molecule.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     atoms : ase.Atoms
         The ASE Atoms object representing the molecule.
     sanitize : bool, optional
         Whether to sanitize the RDKit Mol object (e.g., standardize its structure). Default is True.
-    add_hydrogen : bool, optional
+    add_hydrogens : bool, optional
         Whether to add explicit hydrogens to the molecule. Default is False.
     charge : int, optional
         The formal charge of the molecule. Default is 0.
 
-    Returns:
-    --------
+    Returns
+    -------
     rdkit.Chem.rdchem.Mol
         The RDKit Mol object representing the molecule.
 
-    Raises:
-    -------
+    Raises
+    ------
     ValueError
         If the RDKit Mol object cannot be created from the XYZ file.
     """
@@ -190,8 +190,8 @@ def atoms_to_smiles(atoms: Atoms,
     This function converts an ASE Atoms object into an RDKit Mol object,
     and then generates a SMILES string representation of the molecule.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     atoms : ase.Atoms
         The ASE Atoms object representing the molecule.
     sanitize : bool, optional
@@ -201,8 +201,8 @@ def atoms_to_smiles(atoms: Atoms,
     charge : int, optional
         The formal charge of the molecule. Default is 0.
 
-    Returns:
-    --------
+    Returns
+    -------
     str
         The SMILES string representation of the molecule.
     """
@@ -228,8 +228,8 @@ def atoms_to_nx(atoms,
     This function converts an ASE Atoms object into an RDKit Mol object,
     and then transforms the RDKit Mol object into a NetworkX graph.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     atoms : ase.Atoms
         The ASE Atoms object representing the molecule.
     sanitize : bool, optional
@@ -239,8 +239,8 @@ def atoms_to_nx(atoms,
     charge : int, optional
         The formal charge of the molecule. Default is 0.
 
-    Returns:
-    --------
+    Returns
+    -------
     nx.Graph
         A NetworkX graph representation of the molecule.
     """
@@ -262,8 +262,8 @@ def nx_to_atoms(graph: nx.Graph,
     This function converts a NetworkX graph into an RDKit Mol object,
     and then transforms the RDKit Mol object into an ASE Atoms object.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     graph : nx.Graph
         The NetworkX graph representing the molecule.
     sanitize : bool, optional
@@ -271,8 +271,8 @@ def nx_to_atoms(graph: nx.Graph,
     add_hydrogens : bool, optional
         Whether to add explicit hydrogens to the molecule. Default is False.
 
-    Returns:
-    --------
+    Returns
+    -------
     ase.Atoms
         The ASE Atoms object representing the molecule.
     """
@@ -291,13 +291,13 @@ def get_charge(mol: Mol) -> int:
     This function retrieves the formal charge of a molecule represented
     by an RDKit `Mol` object using RDKit's `GetFormalCharge` method.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     mol : rdkit.Chem.rdchem.Mol
         An RDKit molecule object.
 
-    Returns:
-    --------
+    Returns
+    -------
     int
         The formal charge of the molecule.
     """
@@ -311,15 +311,15 @@ def _calc_unpaired(capacity: int, electrons: int) -> int:
     This function determines the number of unpaired electrons based on the
     orbital capacity and the number of electrons present.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     capacity : int
         The maximum number of electrons the orbital can hold.
     electrons : int
         The number of electrons present in the orbital.
 
-    Returns:
-    --------
+    Returns
+    -------
     int
         The number of unpaired electrons. If the number of electrons is less
         than or equal to the orbital capacity, it returns the number of electrons.
@@ -338,13 +338,13 @@ def _aufbau_multiplicity(z: int) -> int:
     number of unpaired electrons in each subshell and sums them to compute the
     total spin multiplicity.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     z : int
         The atomic number of the atom.
 
-    Returns:
-    --------
+    Returns
+    -------
     int
         The spin multiplicity of the atom (2S+1).
     """
@@ -373,13 +373,13 @@ def get_spin_multiplicity(mol: Chem.Mol) -> int:
     predefined exceptions and the Aufbau principle, and finally calculates the multiplicity
     based on the radical count for molecules.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     mol : rdkit.Chem.rdchem.Mol
         An RDKit molecule object.
 
-    Returns:
-    --------
+    Returns
+    -------
     int
         The spin multiplicity of the molecule.
     """
@@ -414,21 +414,33 @@ def cp2k_calc_preset(cp2k_command=None,
                      calc_extra=None,
                      blocks_extra=None):
     """
-    Creates and configures a CP2K calculator preset for quantum chemistry calculations.
+    Create and configure a CP2K calculator preset for quantum chemistry calculations.
 
-    Parameters:
-        cp2k_command (str, optional): Path to the CP2K executable. Defaults to the 'CP2K_COMMAND' environment variable or 'cp2k.popt'.
-        directory (str, optional): Directory to store calculation files. Defaults to a temporary directory.
-        cutoff (int, optional): Plane-wave cutoff energy in Rydberg. Defaults to 400.
-        charge (int, optional): Molecular charge. Defaults to 0.
-        multiplicity (int, optional): Spin multiplicity. Defaults to 1.
-        basis_set (str, optional): Basis set to use. Defaults to 'DZVP-MOLOPT-SR-GTH'.
-        xc (str, optional): Exchange-correlation functional. Defaults to 'PBE'.
-        calc_extra (dict, optional): Additional calculation options to update the FORCE_EVAL section. Defaults to None.
-        blocks_extra (dict, optional): Additional CP2K input blocks. Defaults to None.
+    Parameters
+    ----------
+    cp2k_command : str, optional
+        Path to the CP2K executable. Defaults to the 'CP2K_COMMAND' environment variable or 'cp2k.popt'.
+    directory : str, optional
+        Directory to store calculation files. Defaults to a temporary directory.
+    cutoff : int, optional
+        Plane-wave cutoff energy in Rydberg. Default is 400.
+    charge : int, optional
+        Molecular charge. Default is 0.
+    multiplicity : int, optional
+        Spin multiplicity. Default is 1.
+    basis_set : str, optional
+        Basis set to use. Default is 'DZVP-MOLOPT-SR-GTH'.
+    xc : str, optional
+        Exchange-correlation functional. Default is 'PBE'.
+    calc_extra : dict, optional
+        Additional calculation options to update the FORCE_EVAL section. Default is None.
+    blocks_extra : dict, optional
+        Additional CP2K input blocks. Default is None.
 
-    Returns:
-        CP2K: Configured CP2K calculator object.
+    Returns
+    -------
+    CP2K
+        Configured CP2K calculator object.
     """
     if cp2k_command is None:
         cp2k_command = os.environ.get('CP2K_COMMAND', 'cp2k.popt')
@@ -484,8 +496,8 @@ def orca_calc_preset(orca_path=None,
     """
     Create and configure an ORCA calculator preset for quantum chemistry calculations.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     orca_path : str, optional
         Path to the ORCA executable. If None, it will attempt to read from the environment variable 'ORCA_PATH'.
     directory : str, optional
@@ -515,8 +527,8 @@ def orca_calc_preset(orca_path=None,
     scf_option : str, optional
         Additional SCF options to include in the ORCA input. Default is None.
 
-    Returns:
-    --------
+    Returns
+    -------
     ORCA
         Configured ORCA calculator object.
     """
@@ -628,8 +640,8 @@ def optimise_atoms(atoms,
     calculation parameters, including charge, spin multiplicity, basis set, and exchange-correlation
     functional.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     atoms : ase.Atoms
         An ASE `Atoms` object representing the molecule to be optimized.
     charge : int, optional
@@ -653,8 +665,8 @@ def optimise_atoms(atoms,
     n_procs : int, optional
         Number of processors to use for the calculation. Default is 10.
 
-    Returns:
-    --------
+    Returns
+    -------
     ase.Atoms
         The ASE `Atoms` object representing the optimized geometry of the molecule.
     """
@@ -714,13 +726,13 @@ def get_total_electrons(atoms: Atoms) -> int:
     of all atoms in the molecule and adjusts for the explicit charge
     provided in the `Atoms.info` dictionary.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     atoms : ase.Atoms
         An ASE `Atoms` object representing the molecule.
 
-    Returns:
-    --------
+    Returns
+    -------
     int
         The total number of electrons in the molecule, corrected for its charge.
     """
@@ -737,17 +749,18 @@ def get_total_electrons(atoms: Atoms) -> int:
 def round_to_nearest_two(number):
     """
     Round a number to the nearest multiple of 2.
+    
     If the result would be 0, return 1 instead.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     number : float or int
-        The number to be rounded
+        The number to be rounded.
 
-    Returns:
-    --------
+    Returns
+    -------
     int
-        The nearest multiple of 2, or 1 if result would be 0
+        The nearest multiple of 2, or 1 if result would be 0.
     """
     # Round to nearest multiple of 2
     result = round(number / 2) * 2
@@ -772,8 +785,8 @@ def calculate_ccsd_energy(atoms,
     using the ORCA quantum chemistry package. It ensures that the number of processors used does not
     exceed the total number of electrons in the system.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     atoms : ase.Atoms
         An ASE `Atoms` object representing the molecule.
     charge : int, optional
@@ -787,8 +800,8 @@ def calculate_ccsd_energy(atoms,
     n_procs : int, optional
         Number of processors to use for the calculation. Default is 10.
 
-    Returns:
-    --------
+    Returns
+    -------
     float
         The CCSD energy of the molecule in eV.
     """
@@ -821,6 +834,26 @@ def calculate_ccsd_energy(atoms,
 
 
 def grab_value(orca_file, term, splitter):
+    """
+    Extract a numerical value from an ORCA output file.
+    
+    This function searches for a specific term in an ORCA output file and extracts
+    the associated numerical value, converting it from Hartree to eV.
+
+    Parameters
+    ----------
+    orca_file : str
+        Path to the ORCA output file.
+    term : str
+        The search term to look for in the file.
+    splitter : str
+        The string used to split the line containing the term.
+
+    Returns
+    -------
+    float or None
+        The extracted value converted to eV, or None if the term is not found.
+    """
     with open(orca_file, 'r') as f:
         for line in reversed(f.readlines()):
             if term in line:
@@ -850,8 +883,8 @@ def calculate_free_energy(atoms,
     the Gibbs free energy, enthalpy, and entropy of a molecule represented by an ASE `Atoms` object.
     It supports temperature and pressure adjustments, CCSD energy calculations, and various ORCA options.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     atoms : ase.Atoms
         An ASE `Atoms` object representing the molecule.
     charge : int, optional
@@ -883,19 +916,17 @@ def calculate_free_energy(atoms,
     ccsd_energy : float, optional
         Precomputed CCSD energy in eV. If None, CCSD energy will be calculated if `use_ccsd` is True.
 
-    Returns:
-    --------
-    tuple
-        A tuple containing:
-        - energy : float
-            The Gibbs free energy in eV.
-        - enthalpy : float
-            The enthalpy in eV.
-        - entropy : float
-            The entropy correction in eV.
-
-    Raises:
+    Returns
     -------
+    energy : float
+        The Gibbs free energy in eV.
+    enthalpy : float
+        The enthalpy in eV.
+    entropy : float
+        The entropy correction in eV.
+
+    Raises
+    ------
     ValueError
         If the CCSD energy calculation fails or the ORCA setup is invalid.
     """
@@ -981,6 +1012,22 @@ def calculate_free_energy(atoms,
 
 
 def list_to_str(lst):
+    """
+    Convert a list to a comma-separated string.
+    
+    This function converts all items in a list to strings and joins them
+    with commas and spaces.
+
+    Parameters
+    ----------
+    lst : list
+        The input list to be converted.
+
+    Returns
+    -------
+    str
+        A comma-separated string representation of the list items.
+    """
     lst = [str(item) for item in lst]
     return ', '.join(lst)
 
@@ -1002,8 +1049,8 @@ def calculate_hessian(atoms,
     This function sets up and executes a quantum chemistry calculation using the ORCA package
     to compute the Hessian matrix and optimized geometry of a molecule represented by an ASE `Atoms` object.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     atoms : ase.Atoms
         An ASE `Atoms` object representing the molecule.
     charge : int, optional
@@ -1027,15 +1074,15 @@ def calculate_hessian(atoms,
     n_procs : int, optional
         Number of processors to use for the calculation. Default is 10.
 
-    Returns:
-    --------
-    tuple
-        A tuple containing:
-        - ase.Atoms: The ASE `Atoms` object representing the optimized geometry.
-        - str: Path to the Hessian matrix file.
-
-    Raises:
+    Returns
     -------
+    optimized_atoms : ase.Atoms
+        The ASE `Atoms` object representing the optimized geometry.
+    hessian_file : str
+        Path to the Hessian matrix file.
+
+    Raises
+    ------
     ValueError
         If the ORCA executable path is not provided and cannot be determined from the environment.
     """
@@ -1095,21 +1142,21 @@ def extract_conformer_info(filepath: Union[str, Path]) -> pd.DataFrame:
     This function reads an ORCA output file and parses the ensemble table to extract
     conformer data, including conformer index, energy, and percentage of the total.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     filepath : Union[str, Path]
         Path to the ORCA output file containing the ensemble table.
 
-    Returns:
-    --------
+    Returns
+    -------
     pd.DataFrame
         A pandas DataFrame containing the following columns:
         - 'Conformer': Conformer index (int).
         - 'Energy_kcal_mol': Energy in kcal/mol (float).
         - 'Percent_total': Percentage of the total (float).
 
-    Raises:
-    -------
+    Raises
+    ------
     ValueError
         If the ensemble table cannot be located in the file.
     """
@@ -1178,8 +1225,8 @@ def calculate_goat(atoms,
     This function sets up and executes a GOAT calculation to optimize molecular conformers
     and extract conformer information from the ORCA output file.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     atoms : ase.Atoms
         ASE Atoms object representing the molecule to be optimized.
     charge : int, optional
@@ -1191,16 +1238,15 @@ def calculate_goat(atoms,
     n_procs : int, optional
         Number of processors to use for the calculation. Default is 10.
 
-    Returns:
-    --------
-    tuple
-        - atoms : list of ase.Atoms
-            List of ASE Atoms objects representing the optimized conformers.
-        - df : pandas.DataFrame
-            DataFrame containing conformer information, including:
-            - 'Conformer': Conformer index (int).
-            - 'Energy_kcal_mol': Energy in kcal/mol (float).
-            - 'Percent_total': Percentage of the total (float).
+    Returns
+    -------
+    atoms : list of ase.Atoms
+        List of ASE Atoms objects representing the optimized conformers.
+    df : pandas.DataFrame
+        DataFrame containing conformer information, including:
+        - 'Conformer': Conformer index (int).
+        - 'Energy_kcal_mol': Energy in kcal/mol (float).
+        - 'Percent_total': Percentage of the total (float).
     """
     # Determine the ORCA path
     if orca_path is None:
@@ -1258,6 +1304,36 @@ def get_virtual_objects_energy(mol_list,
                                f_disp=False,
                                n_procs=10,
                                ccsd_energy=False):
+    """
+    Calculate free energies for a list of RDKit molecules.
+    
+    This function processes a list of RDKit molecules, converting each to ASE Atoms
+    objects and calculating their free energies using quantum chemistry methods.
+
+    Parameters
+    ----------
+    mol_list : list of rdkit.Chem.rdchem.Mol
+        List of RDKit molecule objects to process.
+    orca_path : str, optional
+        Path to the ORCA executable. If None, reads from environment variable 'ORCA_PATH'.
+    xc : str, optional
+        Exchange-correlation functional to use. Default is 'wB97X'.
+    basis_set : str, optional
+        Basis set to use for calculations. Default is 'def2-SVP'.
+    f_solv : bool, optional
+        Whether to include solvent effects. Default is False.
+    f_disp : bool, optional
+        Whether to include dispersion corrections. Default is False.
+    n_procs : int, optional
+        Number of processors to use. Default is 10.
+    ccsd_energy : bool, optional
+        Whether to use CCSD energy calculations. Default is False.
+
+    Returns
+    -------
+    list of float
+        List of calculated energies in eV for each molecule.
+    """
     energy_list = []
     for mol in mol_list:
         # Sanitise the molecule
