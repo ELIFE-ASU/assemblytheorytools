@@ -13,12 +13,17 @@ def safe_standardize_mol(mol: Chem.Mol, add_hydrogens: bool = True) -> Chem.Mol:
     """
     Standardise the given RDKit molecule with additional safety checks.
 
-    Args:
-        mol (rdkit.Chem.Mol): The input RDKit molecule to be standardised.
-        add_hydrogens (bool, optional): Whether to add hydrogens to the molecule. Default is True.
+    Parameters
+    ----------
+    mol : rdkit.Chem.Mol
+        The input RDKit molecule to be standardised.
+    add_hydrogens : bool, optional
+        Whether to add hydrogens to the molecule. Default is True.
 
-    Returns:
-        rdkit.Chem.Mol: The standardised RDKit molecule.
+    Returns
+    -------
+    rdkit.Chem.Mol
+        The standardised RDKit molecule.
     """
     # Update the molecule's property cache without strict checking
     mol.UpdatePropertyCache(strict=False)
@@ -43,12 +48,17 @@ def standardize_mol(mol: Chem.Mol, add_hydrogens: bool = True) -> Chem.Mol:
     """
     Standardize the given RDKit molecule.
 
-    Args:
-        mol (Chem.Mol): The input RDKit molecule to be standardised.
-        add_hydrogens (bool, optional): Whether to add hydrogens to the molecule. Default is True.
+    Parameters
+    ----------
+    mol : Chem.Mol
+        The input RDKit molecule to be standardised.
+    add_hydrogens : bool, optional
+        Whether to add hydrogens to the molecule. Default is True.
 
-    Returns:
-        Chem.Mol: The standardized RDKit molecule.
+    Returns
+    -------
+    Chem.Mol
+        The standardized RDKit molecule.
     """
     # Sanitise the molecule
     Chem.SanitizeMol(mol, catchErrors=False)
@@ -155,21 +165,28 @@ def get_total_free_valence(mol: Chem.Mol | nx.Graph,
     or a NetworkX graph representation of a molecular structure. The calculation method
     can be specified to determine how free valence is computed.
 
-    Args:
-        mol (Chem.Mol | nx.Graph): The input molecule, either as an RDKit molecule object or a NetworkX graph.
-        pt (Chem.rdchem.PeriodicTable, optional): The RDKit periodic table object. Defaults to the global periodic table.
-        method (str, optional): The method used to calculate free valence for RDKit molecules. Options are:
-            - '1': Uses the minimum valence from the periodic table's valence list minus the atom's degree.
-            - '2': Uses the default valence minus the atom's explicit valence.
-            - '3': Uses the number of outer electrons of the atom. Defaults to '1'.
+    Parameters
+    ----------
+    mol : Chem.Mol | nx.Graph
+        The input molecule, either as an RDKit molecule object or a NetworkX graph.
+    pt : Chem.rdchem.PeriodicTable, optional
+        The RDKit periodic table object. Defaults to the global periodic table.
+    method : str, optional
+        The method used to calculate free valence for RDKit molecules. Options are:
+        - '1': Uses the minimum valence from the periodic table's valence list minus the atom's degree.
+        - '2': Uses the default valence minus the atom's explicit valence.
+        - '3': Uses the number of outer electrons of the atom. Defaults to '1'.
 
-    Returns:
-        int: The total free valence of the molecule or graph.
+    Returns
+    -------
+    int
+        The total free valence of the molecule or graph.
 
-    Notes:
-        - For NetworkX graphs, the function iterates over nodes and edges to calculate free valence.
-        - For RDKit molecules, the `get_free_valence` function is used for individual atoms.
-        - The periodic table is used to retrieve atomic properties such as valence and outer electrons.
+    Notes
+    -----
+    For NetworkX graphs, the function iterates over nodes and edges to calculate free valence.
+    For RDKit molecules, the `get_free_valence` function is used for individual atoms.
+    The periodic table is used to retrieve atomic properties such as valence and outer electrons.
     """
     if isinstance(mol, nx.Graph):
         pt = pt or GetPeriodicTable()
@@ -323,11 +340,15 @@ def combine_mols(mols: Union[List[Chem.Mol], Chem.Mol]) -> Chem.Mol:
     """
     Combine multiple RDKit molecules into a single molecule.
 
-    Args:
-        mols (Union[List[Chem.Mol], Chem.Mol]): A list of RDKit molecules to be combined or a single RDKit molecule.
+    Parameters
+    ----------
+    mols : Union[List[Chem.Mol], Chem.Mol]
+        A list of RDKit molecules to be combined or a single RDKit molecule.
 
-    Returns:
-        Chem.Mol: The combined RDKit molecule if input is a list, otherwise returns the input molecule.
+    Returns
+    -------
+    Chem.Mol
+        The combined RDKit molecule if input is a list, otherwise returns the input molecule.
     """
     if isinstance(mols, list):
         combined_mol = Chem.RWMol()
@@ -342,11 +363,15 @@ def split_mols(mol: Chem.Mol) -> tuple[Chem.Mol, ...]:
     """
     Split an RDKit molecule into its individual components.
 
-    Args:
-        mol (Chem.Mol): The input RDKit molecule to be split.
+    Parameters
+    ----------
+    mol : Chem.Mol
+        The input RDKit molecule to be split.
 
-    Returns:
-        tuple[Chem.Mol, ...]: A tuple of RDKit molecule fragments.
+    Returns
+    -------
+    tuple[Chem.Mol, ...]
+        A tuple of RDKit molecule fragments.
     """
     return Chem.GetMolFrags(mol, asMols=True)
 
@@ -355,9 +380,12 @@ def write_v2k_mol_file(mol: Chem.Mol, file_path: str) -> None:
     """
     Write an RDKit molecule to a file in V2K Mol block format.
 
-    Args:
-        mol (Chem.Mol): The RDKit molecule to be written to the file.
-        file_path (str): The path to the file where the molecule will be written.
+    Parameters
+    ----------
+    mol : Chem.Mol
+        The RDKit molecule to be written to the file.
+    file_path : str
+        The path to the file where the molecule will be written.
     """
     # Need to force rdkit to use V2k mol block format
     with open(file_path, "w") as f:
@@ -366,6 +394,19 @@ def write_v2k_mol_file(mol: Chem.Mol, file_path: str) -> None:
 
 
 def get_element_set_from_mols(mols: List[Chem.Mol]) -> set:
+    """
+    Extract unique element symbols from a list of RDKit molecules.
+
+    Parameters
+    ----------
+    mols : List[Chem.Mol]
+        A list of RDKit molecule objects to extract elements from.
+
+    Returns
+    -------
+    set
+        A set containing unique element symbols found in all molecules.
+    """
     element_set = set()
     for mol in mols:
         if mol:
