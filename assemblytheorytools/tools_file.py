@@ -7,14 +7,19 @@ from typing import List, Optional
 
 def file_list(mypath=None):
     """
-    This function generates a list of all files in a specified directory.
+    Generate a list of all files in a specified directory.
+    
     If no directory is specified, it defaults to the current working directory.
 
-    Parameters:
-    mypath (str, optional): The path to the directory. Defaults to None, which means the current working directory.
+    Parameters
+    ----------
+    mypath : str, optional
+        The path to the directory. Defaults to None, which means the current working directory.
 
-    Returns:
-    list: A list of all files in the specified directory.
+    Returns
+    -------
+    list
+        A list of all files in the specified directory.
     """
     mypath = mypath or os.getcwd()  # If no path is provided, use the current working directory
     return [f for f in os.listdir(mypath) if
@@ -23,14 +28,19 @@ def file_list(mypath=None):
 
 def file_list_all(mypath: Optional[str] = None) -> List[str]:
     """
-    This function generates a list of all files in a specified directory and its subdirectories.
+    Generate a list of all files in a specified directory and its subdirectories.
+    
     If no directory is specified, it defaults to the current working directory.
 
-    Parameters:
-    mypath (Optional[str], optional): The path to the directory. Defaults to None, which means the current working directory.
+    Parameters
+    ----------
+    mypath : Optional[str], optional
+        The path to the directory. Defaults to None, which means the current working directory.
 
-    Returns:
-    List[str]: A list of all files in the specified directory and its subdirectories.
+    Returns
+    -------
+    List[str]
+        A list of all files in the specified directory and its subdirectories.
     """
     mypath = mypath or os.getcwd()  # If no path is provided, use the current working directory
     files = []
@@ -44,14 +54,19 @@ def file_list_all(mypath: Optional[str] = None) -> List[str]:
 
 def filter_files(file_paths, substring):
     """
-    This function filters a list of file paths and returns only those where the file name contains a given substring.
+    Filter a list of file paths and return only those where the file name contains a given substring.
 
-    Parameters:
-    file_paths (list): The list of file paths.
-    substring (str): The substring to look for in the file names.
+    Parameters
+    ----------
+    file_paths : list
+        The list of file paths.
+    substring : str
+        The substring to look for in the file names.
 
-    Returns:
-    list: A list of file paths where the file name contains the given substring.
+    Returns
+    -------
+    list
+        A list of file paths where the file name contains the given substring.
     """
     return list(filter(lambda file_path: substring in os.path.basename(file_path), file_paths))
 
@@ -60,12 +75,17 @@ def write_to_shared_file(message: str, shared_file: str) -> None:
     """
     Write a message to a shared file with an exclusive lock.
 
-    Args:
-        message (str): The message to write to the file.
-        shared_file (str): The path to the shared file.
+    Parameters
+    ----------
+    message : str
+        The message to write to the file.
+    shared_file : str
+        The path to the shared file.
 
-    Returns:
-        None
+    Returns
+    -------
+    None
+        This function does not return a value.
     """
     with open(shared_file, 'a') as f:
         # Acquire an exclusive lock before writing
@@ -79,14 +99,19 @@ def write_to_shared_file(message: str, shared_file: str) -> None:
 
 def remove_files(target_dir, debug=False):
     """
-    This function removes all files in the specified directory and its subdirectories.
+    Remove all files in the specified directory and its subdirectories.
 
-    Parameters:
-    target_dir (str): The path to the target directory.
-    debug (bool, optional): If True, prints the name of each file being removed. Defaults to False.
+    Parameters
+    ----------
+    target_dir : str
+        The path to the target directory.
+    debug : bool, optional
+        If True, prints the name of each file being removed. Defaults to False.
 
-    Returns:
+    Returns
+    -------
     None
+        This function does not return a value.
     """
     # List all files in the directory
     list_files = file_list_all(target_dir)
@@ -100,13 +125,17 @@ def remove_files(target_dir, debug=False):
 
 def wipe_dir(temp_dir):
     """
-    This function removes all files in the specified directory and then removes the directory itself.
+    Remove all files in the specified directory and then remove the directory itself.
 
-    Parameters:
-    temp_dir (str): The path to the directory to be wiped.
+    Parameters
+    ----------
+    temp_dir : str
+        The path to the directory to be wiped.
 
-    Returns:
+    Returns
+    -------
     None
+        This function does not return a value.
     """
     remove_files(temp_dir)
     os.rmdir(temp_dir)
@@ -117,12 +146,17 @@ def list_subdirs(directory, target="ai_calc"):
     """
     List subdirectories in a given directory that start with a specific target string.
 
-    Args:
-        directory (str): The path to the directory to search within.
-        target (str, optional): The prefix string that subdirectories must start with. Defaults to "ai_calc".
+    Parameters
+    ----------
+    directory : str
+        The path to the directory to search within.
+    target : str, optional
+        The prefix string that subdirectories must start with. Defaults to "ai_calc".
 
-    Returns:
-        list: A list of subdirectory names that start with the target string.
+    Returns
+    -------
+    list
+        A list of subdirectory names that start with the target string.
     """
     return [d for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d)) and d.startswith(target)]
 
@@ -130,6 +164,16 @@ def list_subdirs(directory, target="ai_calc"):
 def prep_json(json_path):
     """
     Take JSON file with missing edge colors entries and fill them with "ERROR" placeholder.
+
+    Parameters
+    ----------
+    json_path : str
+        The path to the JSON file to be processed.
+
+    Returns
+    -------
+    None
+        This function modifies the JSON file in place and does not return a value.
     """
 
     # Read the file as raw text
@@ -150,6 +194,19 @@ def prep_json(json_path):
 
 
 def edge_colours_replacer(match):
+    """
+    Replace empty entries in EdgeColours list with "ERROR" placeholder.
+
+    Parameters
+    ----------
+    match : re.Match
+        A regular expression match object containing the EdgeColours list content.
+
+    Returns
+    -------
+    str
+        A string with the fixed EdgeColours list where empty entries are replaced with "ERROR".
+    """
     # Get the list content
     items = match.group(1)
     # Replace empty entries (,, or leading/trailing commas) with "ERROR"
