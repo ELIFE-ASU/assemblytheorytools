@@ -5,12 +5,17 @@ def check_elements(input_list, reference_list):
     """
     Check if all elements in the input list are present in the reference list.
 
-    Args:
-        input_list (list): The list of elements to check.
-        reference_list (list): The list of reference elements.
+    Parameters
+    ----------
+    input_list : list
+        The list of elements to check.
+    reference_list : list
+        The list of reference elements.
 
-    Returns:
-        bool: True if all elements in input_list are in reference_list, False otherwise.
+    Returns
+    -------
+    bool
+        True if all elements in input_list are in reference_list, False otherwise.
     """
     # Handle an empty list case
     if not input_list:
@@ -24,11 +29,15 @@ def print_graph_details(graph):
     """
     Print the details of a graph, including node indices, node colours, edge connections, and edge colours.
 
-    Args:
-        graph (networkx.Graph): The graph whose details are to be printed.
+    Parameters
+    ----------
+    graph : networkx.Graph
+        The graph whose details are to be printed.
 
-    Returns:
-        None
+    Returns
+    -------
+    None
+        This function prints information and does not return a value.
     """
     print("{", flush=True)
     for node in graph.nodes(data=True):
@@ -48,8 +57,8 @@ def water_graph() -> nx.Graph:
     one oxygen (O) and two hydrogens (H). Edges represent bonds between the atoms,
     with bond types indicated by edge attributes.
 
-    Returns:
-    --------
+    Returns
+    -------
     nx.Graph
         A NetworkX graph object representing the water molecule.
     """
@@ -73,8 +82,8 @@ def phosphine_graph() -> nx.Graph:
     one phosphorus (P) and three hydrogens (H). Edges represent bonds between the atoms,
     with bond types indicated by edge attributes.
 
-    Returns:
-    --------
+    Returns
+    -------
     nx.Graph
         A NetworkX graph object representing the phosphine molecule.
     """
@@ -95,15 +104,14 @@ def phosphine_graph() -> nx.Graph:
 def ph_2p_graph() -> nx.Graph:
     """
     Constructs a graph representation of a simple phosphine-like molecule.
+    
     The system is +2 charged, with two phosphorus atoms and one hydrogen atom.
+    The graph consists of two nodes representing the atoms: one phosphorus (P) 
+    and one hydrogen (H). An edge represents the bond between the phosphorus 
+    and hydrogen atoms, with the bond type indicated by an edge attribute.
 
-    The graph consists of two nodes representing the atoms:
-    one phosphorus (P) and one hydrogen (H). An edge represents the bond
-    between the phosphorus and hydrogen atoms, with the bond type indicated
-    by an edge attribute.
-
-    Returns:
-    --------
+    Returns
+    -------
     nx.Graph
         A NetworkX graph object representing the phosphine-like molecule.
     """
@@ -125,8 +133,8 @@ def co2_graph() -> nx.Graph:
     one carbon (C) and two oxygens (O). Edges represent bonds between the atoms,
     with bond types indicated by edge attributes.
 
-    Returns:
-    --------
+    Returns
+    -------
     nx.Graph
         A NetworkX graph object representing the CO2 molecule.
     """
