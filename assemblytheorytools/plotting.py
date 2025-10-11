@@ -29,6 +29,29 @@ plt.rcParams['axes.linewidth'] = 2.0
 
 
 def n_plot(xlab: str, ylab: str, xs: int = 14, ys: int = 14) -> None:
+    """
+    Configure plot aesthetics with axis labels, ticks, and tight layout.
+    
+    Sets up matplotlib plot formatting including minor ticks, tick parameters,
+    axis labels with custom font sizes, and applies tight layout for optimal
+    spacing.
+    
+    Parameters
+    ----------
+    xlab : str
+        Label for the x-axis.
+    ylab : str
+        Label for the y-axis.
+    xs : int, optional
+        Font size for x-axis label, by default 14.
+    ys : int, optional
+        Font size for y-axis label, by default 14.
+    
+    Returns
+    -------
+    None
+        Modifies the current matplotlib plot in-place.
+    """
     plt.minorticks_on()
     plt.tick_params(axis='both', which='major', labelsize=ys - 2, direction='in', length=6, width=2)
     plt.tick_params(axis='both', which='minor', labelsize=ys - 2, direction='in', length=4, width=2)
@@ -40,6 +63,33 @@ def n_plot(xlab: str, ylab: str, xs: int = 14, ys: int = 14) -> None:
 
 
 def ax_plot(fig: plt.Figure, ax: plt.Axes, xlab: str, ylab: str, xs: int = 14, ys: int = 14) -> None:
+    """
+    Configure axis aesthetics with labels, ticks, and tight layout.
+    
+    Sets up matplotlib axis formatting including minor ticks, tick parameters,
+    axis labels with custom font sizes, and applies tight layout for optimal
+    spacing. Similar to n_plot but operates on specific figure and axis objects.
+    
+    Parameters
+    ----------
+    fig : matplotlib.figure.Figure
+        Matplotlib Figure object to apply tight layout.
+    ax : matplotlib.axes.Axes
+        Matplotlib Axes object to configure.
+    xlab : str
+        Label for the x-axis.
+    ylab : str
+        Label for the y-axis.
+    xs : int, optional
+        Font size for x-axis label, by default 14.
+    ys : int, optional
+        Font size for y-axis label, by default 14.
+    
+    Returns
+    -------
+    None
+        Modifies the figure and axis in-place.
+    """
     ax.minorticks_on()
     ax.tick_params(axis='both', which='major', labelsize=ys - 2, direction='in', length=6, width=2)
     ax.tick_params(axis='both', which='minor', labelsize=ys - 2, direction='in', length=4, width=2)
@@ -60,6 +110,42 @@ def plot_graph(graph: nx.Graph,
                width: int = 2,
                linewidths: int = 2,
                seed: int = 42) -> tuple[Figure, Axes]:
+    """
+    Visualize a NetworkX graph with customizable layout and styling options.
+    
+    Creates a matplotlib visualization of a NetworkX graph using various layout
+    algorithms. Supports multiple layout types including force-directed, circular,
+    spectral, and topological layouts.
+    
+    Parameters
+    ----------
+    graph : networkx.Graph
+        NetworkX graph object to visualize.
+    fig_size : tuple of float, optional
+        Figure size in inches as (width, height), by default (12, 7).
+    layout : str, optional
+        Layout algorithm to use. Options: 'kawai', 'spring', 'circular',
+        'shell', 'spectral', 'spiral', 'arf', 'topological', by default 'kawai'.
+    f_labs : bool, optional
+        If True, display node labels, by default False.
+    edge_color : str, optional
+        Color for edges, by default 'grey'.
+    node_size : int, optional
+        Size of nodes in points^2, by default 300.
+    edgecolors : str, optional
+        Color for node borders, by default 'black'.
+    width : int, optional
+        Line width for edges, by default 2.
+    linewidths : int, optional
+        Line width for node borders, by default 2.
+    seed : int, optional
+        Random seed for spring layout reproducibility, by default 42.
+    
+    Returns
+    -------
+    tuple of (matplotlib.figure.Figure, matplotlib.axes.Axes)
+        Figure and axis objects containing the graph visualization.
+    """
     # Get the position of the nodes based on the specified layout
     if layout == 'kawai':
         pos = nx.kamada_kawai_layout(graph)
@@ -108,6 +194,39 @@ def plot_mol_graph(graph: nx.Graph,
                    width: int = 2,
                    linewidths: int = 2,
                    seed: int = 42) -> tuple[Figure, Axes]:
+    """
+    Visualize a molecular graph with atom-specific coloring.
+    
+    Creates a matplotlib visualization of a molecular NetworkX graph where
+    nodes are colored according to their atomic element type. Uses standard
+    CPK coloring convention for chemical elements.
+    
+    Parameters
+    ----------
+    graph : networkx.Graph
+        NetworkX graph representing a molecular structure with 'element'
+        node attributes.
+    fig_size : tuple of float, optional
+        Figure size in inches as (width, height), by default (12, 7).
+    layout : str, optional
+        Layout algorithm to use. Options: 'kawai', 'spring', 'circular',
+        'shell', 'spectral', 'spiral', 'arf', by default 'kawai'.
+    f_labs : bool, optional
+        If True, display node labels, by default False.
+    node_size : int, optional
+        Size of nodes in points^2, by default 300.
+    width : int, optional
+        Line width for edges, by default 2.
+    linewidths : int, optional
+        Line width for node borders, by default 2.
+    seed : int, optional
+        Random seed for spring layout reproducibility, by default 42.
+    
+    Returns
+    -------
+    tuple of (matplotlib.figure.Figure, matplotlib.axes.Axes)
+        Figure and axis objects containing the molecular graph visualization.
+    """
     # Get the position of the nodes based on the specified layout
     if layout == 'kawai':
         pos = nx.kamada_kawai_layout(graph)
@@ -179,6 +298,30 @@ def plot_mol_graph(graph: nx.Graph,
 def plot_interactive_graph(graph: nx.Graph,
                            show: bool = False,
                            filename: str = "interactive_graph.html") -> Network:
+    """
+    Create an interactive HTML visualization of a NetworkX graph using PyVis.
+    
+    Generates an interactive graph visualization with node coloring based on
+    degree (number of connections). Higher degree nodes appear in darker shades
+    of blue. The visualization can be displayed in a Jupyter notebook or saved
+    as an HTML file.
+    
+    Parameters
+    ----------
+    graph : networkx.Graph
+        NetworkX graph object to visualize interactively.
+    show : bool, optional
+        If True, displays the graph in a Jupyter notebook using an iframe.
+        If False, saves to HTML file, by default False.
+    filename : str, optional
+        Name of the HTML file to save when show=False, 
+        by default "interactive_graph.html".
+    
+    Returns
+    -------
+    pyvis.network.Network
+        PyVis Network object containing the interactive visualization.
+    """
     # Color each node based on its degree
     max_nbr = len(max(graph.adj.values(), key=lambda x: len(x)))
     blues = colormaps.get_cmap("Blues")
@@ -209,6 +352,37 @@ def plot_digraph_metro(digraph: nx.DiGraph,
                        filename: str = 'metro',
                        steps: bool = False,
                        vo_smiles: bool = True) -> None:
+    """
+    Visualize a directed graph in metro/subway map style using dagviz.
+    
+    Creates a hierarchical visualization of a directed graph resembling a
+    metro/subway map. Optionally labels nodes with topological steps or
+    SMILES strings for molecular graphs.
+    
+    Parameters
+    ----------
+    digraph : networkx.DiGraph
+        Directed graph to visualize.
+    filename : str, optional
+        Output filename (without extension) for the SVG and PNG files,
+        by default 'metro'.
+    steps : bool, optional
+        If True, relabels nodes with their topological generation step,
+        by default False.
+    vo_smiles : bool, optional
+        If True, labels nodes with SMILES representations from 'vo' attribute,
+        by default True.
+    
+    Returns
+    -------
+    None
+        Saves visualization to SVG and PNG files.
+    
+    Raises
+    ------
+    ImportError
+        If dagviz or cairosvg packages are not installed.
+    """
     try:
         import cairosvg
         import dagviz
@@ -254,6 +428,44 @@ def plot_pathway(graph: nx.DiGraph,
                  arrow_style: str = '1',
                  layout_style: str = 'crossmin_long',
                  frame_on: bool = True) -> tuple[Figure, Axes]:
+    """
+    Visualize a directed acyclic graph as a pathway with customizable layout.
+    
+    Creates a layered pathway visualization with topological ordering. Supports
+    molecular structure icons, optimized crossing minimization layouts, and
+    customizable arrow styles.
+    
+    Parameters
+    ----------
+    graph : networkx.DiGraph
+        Directed acyclic graph representing a pathway or assembly process.
+    fig_size : tuple of float, optional
+        Figure size in inches as (width, height), by default (12, 7).
+    show_icons : bool, optional
+        If True, displays molecular structure icons on nodes, by default True.
+    node_color : str, optional
+        Color for nodes in hex format, by default '#264f70'.
+    plot_type : str, optional
+        Type of plot visualization ('mol' for molecules), by default 'mol'.
+    arrow_style : str, optional
+        Arrow rendering style: '1' for white edges, '2' for grey edges,
+        by default '1'.
+    layout_style : str, optional
+        Layout algorithm: 'crossmin', 'crossmin_long', 'sa', or default
+        multipartite, by default 'crossmin_long'.
+    frame_on : bool, optional
+        If True, displays axis frame, by default True.
+    
+    Returns
+    -------
+    tuple of (matplotlib.figure.Figure, matplotlib.axes.Axes)
+        Figure and axis objects containing the pathway visualization.
+    
+    Raises
+    ------
+    ValueError
+        If arrow_style is not '1' or '2'.
+    """
     fig, ax = plt.subplots(figsize=fig_size)
 
     for layer, nodes in enumerate(nx.topological_generations(graph)):
@@ -682,6 +894,34 @@ def scatter_plot(x,
                  fontsize=16,
                  alpha=0.5,
                  ):
+    """
+    Create a simple scatter plot with customizable styling.
+    
+    Generates a basic 2D scatter plot with black markers and configurable
+    transparency, labels, and sizing.
+    
+    Parameters
+    ----------
+    x : array-like
+        X-coordinates of the points.
+    y : array-like
+        Y-coordinates of the points.
+    xlab : str, optional
+        Label for the x-axis, by default 'x'.
+    ylab : str, optional
+        Label for the y-axis, by default 'y'.
+    figsize : tuple of float, optional
+        Figure size in inches as (width, height), by default (8, 5).
+    fontsize : int, optional
+        Font size for axis labels, by default 16.
+    alpha : float, optional
+        Transparency of markers (0=transparent, 1=opaque), by default 0.5.
+    
+    Returns
+    -------
+    tuple of (matplotlib.figure.Figure, matplotlib.axes.Axes)
+        Figure and axis objects containing the scatter plot.
+    """
     # Create a figure and axis
     fig, ax = plt.subplots(figsize=figsize)
     ax.scatter(x, y, color='black', alpha=alpha, s=50)
@@ -697,6 +937,35 @@ def scatter_plot_with_colorbar(x,
                                figsize=(8, 5),
                                fontsize=16,
                                ):
+    """
+    Create a density-colored scatter plot using kernel density estimation.
+    
+    Generates a 2D scatter plot where points are colored based on their local
+    density calculated via Gaussian kernel density estimation. High-density
+    regions appear in warmer colors.
+    
+    Parameters
+    ----------
+    x : array-like
+        X-coordinates of the points.
+    y : array-like
+        Y-coordinates of the points.
+    xlab : str, optional
+        Label for the x-axis, by default 'x'.
+    ylab : str, optional
+        Label for the y-axis, by default 'y'.
+    cmap : str, optional
+        Matplotlib colormap name for density coloring, by default 'viridis'.
+    figsize : tuple of float, optional
+        Figure size in inches as (width, height), by default (8, 5).
+    fontsize : int, optional
+        Font size for axis labels, by default 16.
+    
+    Returns
+    -------
+    tuple of (matplotlib.figure.Figure, matplotlib.axes.Axes)
+        Figure and axis objects containing the density-colored scatter plot.
+    """
     # Create a figure and axis
     fig, ax = plt.subplots(figsize=figsize)
 
