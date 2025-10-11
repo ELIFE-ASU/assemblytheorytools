@@ -40,11 +40,15 @@ def load_assembly_output(file_path):
     """
     Load the assembly output from a file.
 
-    Args:
-        file_path (str): Path to the file containing the assembly output.
+    Parameters
+    ----------
+    file_path : str
+        Path to the file containing the assembly output.
 
-    Returns:
-        int: The assembly index extracted from the file.
+    Returns
+    -------
+    int
+        The assembly index extracted from the file.
     """
     with open(file_path, "r") as f:
         return next(int(line.split(":")[-1].strip().strip('\n')) for line in f if "assembly index" in line)
@@ -58,15 +62,28 @@ def run_command(command,
     """
     Run a command in the subprocess with specified output and error files, and a timeout.
 
-    Args:
-        command (list): The command to run as a list of arguments.
-        output_file (str): The file to write standard output to. Defaults to "output.out".
-        error_file (str): The file to write standard error to. Defaults to "error.err".
-        timeout (float): The maximum time in seconds to allow the command to run. Defaults to 100.0 seconds.
-        verbose (bool): If True, print the command execution result. Defaults to False.
+    Parameters
+    ----------
+    command : list
+        The command to run as a list of arguments.
+    output_file : str, optional
+        The file to write standard output to, by default "output.out".
+    error_file : str, optional
+        The file to write standard error to, by default "error.err".
+    timeout : float, optional
+        The maximum time in seconds to allow the command to run, by default 10000.0.
+    verbose : bool, optional
+        If True, print the command execution result, by default False.
 
-    Returns:
-        bool: True if the command executed successfully, False otherwise.
+    Returns
+    -------
+    bool
+        True if the command executed successfully, False otherwise.
+    
+    Raises
+    ------
+    ValueError
+        If command is None.
     """
     if command is None:
         raise ValueError("Command must be provided")
@@ -106,11 +123,20 @@ def run_command_simple(command):
     """
     Run a simple command in the subprocess.
 
-    Args:
-        command (str): The command to run as a string.
+    Parameters
+    ----------
+    command : str
+        The command to run as a string.
 
-    Returns:
-        bytes: The standard output of the command.
+    Returns
+    -------
+    bytes
+        The standard output of the command.
+    
+    Raises
+    ------
+    ValueError
+        If command is None.
     """
     if command is None:
         raise ValueError("Command must be provided")
@@ -123,11 +149,23 @@ def joint_correction(mol, ass_index):
     """
     Correct the assembly index based on the number of components in the molecule or chemical system.
 
-    Args: mol (Union[nx.Graph, Chem.Mol, str]): The molecule or chemical system, which can be a NetworkX graph, an RDKit
-    object, or a file path to a .mol file. ass_index (int): The initial assembly index.
+    Parameters
+    ----------
+    mol : Union[nx.Graph, Chem.Mol, str]
+        The molecule or chemical system, which can be a NetworkX graph, an RDKit
+        object, or a file path to a .mol file.
+    ass_index : int
+        The initial assembly index.
 
-    Returns:
-        int: The corrected assembly index.
+    Returns
+    -------
+    int
+        The corrected assembly index.
+    
+    Raises
+    ------
+    ValueError
+        If input type is not supported.
     """
     if isinstance(mol, nx.Graph):
         # Get the number of connected components in the graph
@@ -427,10 +465,16 @@ def add_to_bashrc(export_line, file=".bashrc"):
     """
     Append an export line to the specified bash configuration file.
 
-    Args:
-        export_line (str): The export line to add to the bash configuration file.
-        file (str, optional): The name of the bash configuration file. Defaults to ".bashrc".
+    Parameters
+    ----------
+    export_line : str
+        The export line to add to the bash configuration file.
+    file : str, optional
+        The name of the bash configuration file, by default ".bashrc".
 
+    Returns
+    -------
+    None
     """
     # Get the path to the file in the user's home directory
     file_path = os.path.expanduser(f"~/{file}")
