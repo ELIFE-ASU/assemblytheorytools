@@ -11,18 +11,30 @@ from .assembly import calculate_assembly_index
 
 def get_atom_order(mol: Mol) -> List[int]:
     """
-    This function calculates and returns the order of atoms in a molecule based on their canonical ranks.
-
-    Parameters:
-        mol (rdkit.Chem.rdchem.Mol): The input molecule.
-
-    Returns:
-        List[int]: A list of atom indices in the order of their canonical ranks.
-
-    The function works as follows:
-    1. It calculates the canonical ranks of the atoms in the molecule.
-    2. It pairs each atom's canonical rank with its index and sorts these pairs.
-    3. It extracts and returns the atom indices from the sorted list of pairs.
+    Calculate canonical atom ordering for a molecule.
+    
+    Computes the canonical ranks of atoms and returns their indices sorted
+    by rank. This provides a consistent atom ordering based on molecular
+    structure and chirality.
+    
+    Parameters
+    ----------
+    mol : rdkit.Chem.rdchem.Mol
+        The input RDKit molecule object.
+    
+    Returns
+    -------
+    list of int
+        List of atom indices ordered by their canonical ranks.
+    
+    Notes
+    -----
+    The function uses RDKit's CanonicalRankAtoms which considers:
+    1. Atomic connectivity and properties
+    2. Chiral centers
+    3. Graph symmetry
+    
+    This ensures consistent atom ordering across isomorphic molecules.
     """
     # Calculate the canonical ranks of the atoms
     ranks = Chem.CanonicalRankAtoms(mol, includeChirality=True)
@@ -38,13 +50,26 @@ def get_atom_order(mol: Mol) -> List[int]:
 
 def mol_with_atom_index(mol: Mol) -> Mol:
     """
-    Add atom indices as atom map numbers to the molecule.
-
-    Args:
-        mol (rdkit.Chem.rdchem.Mol): The RDKit molecule object.
-
-    Returns:
-        rdkit.Chem.rdchem.Mol: The molecule with atom indices set as atom map numbers.
+    Add atom indices as atom map numbers to a molecule.
+    
+    Sets each atom's map number to match its index in the molecule,
+    useful for visualization and tracking atoms through reactions.
+    
+    Parameters
+    ----------
+    mol : rdkit.Chem.rdchem.Mol
+        The RDKit molecule object to modify.
+    
+    Returns
+    -------
+    rdkit.Chem.rdchem.Mol
+        The same molecule with atom map numbers set to atom indices.
+    
+    Notes
+    -----
+    This modifies the molecule in-place and returns the modified object.
+    Atom map numbers are commonly used in reaction SMARTS and for
+    visualizing atom correspondences.
     """
     for atom in mol.GetAtoms():
         atom.SetAtomMapNum(atom.GetIdx())
@@ -53,18 +78,26 @@ def mol_with_atom_index(mol: Mol) -> Mol:
 
 def swap_random_elements_list(arr: list[int]) -> list[int]:
     """
-    This function swaps two random elements in a list.
-
-    Parameters:
-        arr (list[int]): The input list.
-
-    Returns:
-        list[int]: The list after swapping two random elements.
-
-    The function works as follows:
-    1. It checks if the list has at least 2 elements. If not, it returns the original list.
-    2. It selects two distinct random indices from the list.
-    3. It swaps the elements at these indices in the list.
+    Swap two randomly selected elements in a list.
+    
+    Selects two distinct random indices and swaps the elements at those
+    positions. If the list has fewer than 2 elements, returns unchanged.
+    
+    Parameters
+    ----------
+    arr : list of int
+        The input list to modify.
+    
+    Returns
+    -------
+    list of int
+        The list after swapping two random elements.
+    
+    Notes
+    -----
+    - Returns the original list if it has fewer than 2 elements
+    - Uses numpy.random.choice for index selection
+    - Modifies the list in-place and returns it
     """
     n_atoms = len(arr)
     # Check if the array has at least 2 elements
@@ -82,18 +115,25 @@ def swap_random_elements_list(arr: list[int]) -> list[int]:
 
 def scramble_list(lst):
     """
-    This function shuffles the elements in a list in-place and returns the shuffled list.
-
-    Parameters:
-    lst (list): The input list.
-
-    Returns:
-    list: The list after shuffling its elements.
-
-    The function works as follows:
-    1. It creates a copy of the input list.
-    2. It shuffles the elements in the copied list in-place using numpy's random.shuffle function.
-    3. It returns the shuffled list.
+    Randomly shuffle list elements.
+    
+    Creates a copy of the input list and shuffles it in-place using
+    numpy's random shuffle algorithm.
+    
+    Parameters
+    ----------
+    lst : list
+        The input list to shuffle.
+    
+    Returns
+    -------
+    list
+        A shuffled copy of the input list.
+    
+    Notes
+    -----
+    The original list is not modified. Uses numpy.random.shuffle
+    which implements the Fisher-Yates shuffle algorithm.
     """
     out = lst.copy()
     np.random.shuffle(out)
@@ -102,18 +142,26 @@ def scramble_list(lst):
 
 def swap_random_elements(lst):
     """
-    This function swaps two random elements in a list.
-
-    Parameters:
-    lst (list): The input list.
-
-    Returns:
-    list: The list after swapping two random elements.
-
-    The function works as follows:
-    1. It checks if the list has at least 2 elements. If not, it returns the original list.
-    2. It selects two distinct random indices from the list.
-    3. It swaps the elements at these indices in the list.
+    Swap two randomly selected elements in a list.
+    
+    Selects two distinct random indices using Python's random.sample
+    and swaps the elements at those positions.
+    
+    Parameters
+    ----------
+    lst : list
+        The input list to modify.
+    
+    Returns
+    -------
+    list
+        The list after swapping two random elements.
+    
+    Notes
+    -----
+    - Returns the original list unchanged if it has fewer than 2 elements
+    - Uses random.sample for index selection
+    - Modifies the list in-place and returns it
     """
 
     # Check if the list has at least 2 elements
@@ -131,49 +179,82 @@ def swap_random_elements(lst):
 
 def pad_list(lst, length):
     """
-    This function pads a list with empty strings to a specified length.
-
-    Parameters:
-    lst (list): The input list.
-    length (int): The desired length of the list after padding.
-
-    Returns:
-    list: The list after padding. If the original list is shorter than the specified length,
-    empty strings are appended to the list until it reaches the specified length.
-    If the original list is longer or equal to the specified length, it is returned as is.
+    Pad a list with empty strings to a specified length.
+    
+    Extends the list by appending empty strings until it reaches the
+    desired length. If the list is already at or beyond the target length,
+    returns it unchanged.
+    
+    Parameters
+    ----------
+    lst : list
+        The input list to pad.
+    length : int
+        The desired length of the padded list.
+    
+    Returns
+    -------
+    list
+        The padded list with empty strings appended if needed.
+    
+    Notes
+    -----
+    If len(lst) >= length, the original list is returned unchanged.
     """
     return lst + [''] * (length - len(lst))
 
 
 def get_max_list_lengths(lists):
     """
-    This function calculates and returns the maximum length among a list of lists.
-
-    Parameters:
-    lists (list of list): The input list of lists.
-
-    Returns:
-    int: The maximum length among the lists.
-
-    The function works as follows:
-    1. It calculates the length of each list in the input list of lists.
-    2. It returns the maximum of these lengths.
+    Calculate the maximum length among a collection of lists.
+    
+    Parameters
+    ----------
+    lists : list of list
+        Collection of lists to analyze.
+    
+    Returns
+    -------
+    int
+        The maximum length among all input lists.
+    
+    Examples
+    --------
+    >>> get_max_list_lengths([[1, 2], [1, 2, 3], [1]])
+    3
     """
     return max([len(lst) for lst in lists])
 
 
 def ensure_equal_length(l1, l2, l3, max_length=None):
     """
-    This function ensures that all input lists have the same length by padding them with empty strings.
-
-    Parameters:
-    l1, l2, l3 (list): The input lists.
-    max_length (int, optional): The desired length of the lists after padding. If not provided, the maximum length of the input lists is used.
-
-    Returns:
-    list of list: The input lists after padding. If an original list is shorter than the specified length,
-    empty strings are appended to the list until it reaches the specified length.
-    If an original list is longer or equal to the specified length, it is returned as is.
+    Ensure three lists have equal length by padding with empty strings.
+    
+    Pads all input lists to the same length by appending empty strings.
+    The target length is either specified or determined from the longest
+    input list.
+    
+    Parameters
+    ----------
+    l1 : list
+        First input list.
+    l2 : list
+        Second input list.
+    l3 : list
+        Third input list.
+    max_length : int, optional
+        Target length for all lists. If None, uses the maximum length
+        among the three input lists, by default None.
+    
+    Returns
+    -------
+    list of list
+        Three lists [l1_padded, l2_padded, l3_padded] all with equal length.
+    
+    Examples
+    --------
+    >>> ensure_equal_length([1, 2], [1, 2, 3], [1])
+    [[1, 2, ''], [1, 2, 3], [1, '', '']]
     """
     max_length = max_length or max(map(len, [l1, l2, l3]))
     return [l + [''] * (max_length - len(l)) for l in [l1, l2, l3]]
@@ -183,16 +264,29 @@ def plot_vo(dup_vo: List[str], rem_vo: List[str], ree_vo: List[str], outfile: st
             image_size: Tuple[int, int] = (600, 600)) -> None:
     """
     Plot virtual objects in a grid image and save to a file.
-
-    Args:
-        dup_vo (List[str]): List of duplicate virtual objects in InChI format.
-        rem_vo (List[str]): List of remnant virtual objects in InChI format.
-        ree_vo (List[str]): List of removed-edges virtual objects in InChI format.
-        outfile (str, optional): The name of the output file. Default is "virtual_objects.png".
-        image_size (Tuple[int, int], optional): The size of each sub-image in the grid. Default is (600, 600).
-
-    Returns:
-        None
+    
+    Creates a matrix visualization of three categories of virtual objects:
+    duplicates, remnants, and removed-edges. Converts InChI strings to
+    molecular structures and arranges them in a labeled grid.
+    
+    Parameters
+    ----------
+    dup_vo : list of str
+        List of duplicate virtual objects in InChI format.
+    rem_vo : list of str
+        List of remnant virtual objects in InChI format.
+    ree_vo : list of str
+        List of removed-edges virtual objects in InChI format.
+    outfile : str, optional
+        The name of the output image file, by default "virtual_objects.png".
+    image_size : tuple of int, optional
+        The size of each sub-image in the grid as (width, height),
+        by default (600, 600).
+    
+    Returns
+    -------
+    None
+        Saves the grid image to the specified output file.
     """
     im_mat = ensure_equal_length(dup_vo, rem_vo, ree_vo)
     max_length = get_max_list_lengths(im_mat)
@@ -210,14 +304,23 @@ def plot_simple_idx_compare(mol_list: List[Mol], labels: Optional[List[str]] = N
     """
     Plot a grid image of molecules with atom indices and save to a file.
 
-    Args:
-        mol_list (List[Mol]): List of RDKit molecule objects.
-        labels (Optional[List[str]], optional): List of labels for each molecule. If None, default labels are generated. Default is None.
-        outfile (str, optional): The name of the output file. Default is "allpath_indexes.png".
-        image_size (Tuple[int, int], optional): The size of each sub-image in the grid. Default is (600, 600).
+    Parameters
+    ----------
+    mol_list : List[Mol]
+        List of RDKit molecule objects to visualize.
+    labels : Optional[List[str]], optional
+        List of labels for each molecule. If None, default labels
+        ("Path 1", "Path 2", ...) are generated, by default None.
+    outfile : str, optional
+        The name of the output image file, by default "allpath_indexes.png".
+    image_size : Tuple[int, int], optional
+        The size of each sub-image in the grid as (width, height),
+        by default (600, 600).
 
-    Returns:
-        None
+    Returns
+    -------
+    None
+        Saves the grid image to the specified output file.
     """
     if labels is None:
         labels = [f"Path {i + 1}" for i in range(len(mol_list))]
@@ -230,13 +333,34 @@ def all_shortest_paths(mol: Mol, f_graph_care: bool = False, max_attempts: int =
     """
     Generate all unique shortest paths of a molecule by scrambling atom indices.
 
-    Args:
-        mol (rdkit.Chem.Mol): The input RDKit molecule object.
-        f_graph_care (bool, optional): Whether to kekulize the molecule. Default is False.
-        max_attempts (int, optional): Maximum number of consecutive attempts without finding new VOs.
+    Parameters
+    ----------
+    mol : rdkit.Chem.Mol
+        The input RDKit molecule object.
+    f_graph_care : bool, optional
+        Whether to kekulize the molecule, by default False.
+    max_attempts : int, optional
+        Maximum number of consecutive attempts without finding new virtual
+        objects (VOs) before terminating the search, by default 3.
 
-    Returns:
-        List[str]: A list of unique VOs SMILES strings representing the shortest paths.
+    Returns
+    -------
+    List[str]
+        A list of unique virtual object (VO) InChI strings representing the
+        shortest paths.
+
+    Raises
+    ------
+    ValueError
+        If the input is not an RDKit molecule object.
+
+    Notes
+    -----
+    The function uses atom index scrambling to explore different molecular
+    representations and identify all unique virtual objects. The total number
+    of attempts is calculated as 4 times the number of bonds in the molecule,
+    but the search terminates early if no new VOs are found for `max_attempts`
+    consecutive iterations.
     """
     if not isinstance(mol, Chem.Mol):
         raise ValueError("Input must be an RDKit molecule object.")
