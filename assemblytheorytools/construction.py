@@ -18,13 +18,25 @@ def transform_array(target_array, comp_array, source_val, target_val, new_val, p
     This function iterates over the comparison array and updates the target array by replacing elements
     that match the target value and source value with a new value, according to the pairs list.
 
-    :param target_array: List of lists, where each sublist represents an edge in the target array.
-    :param comp_array: List of lists, where each sublist represents an edge in the comparison array.
-    :param source_val: The source value to be replaced.
-    :param target_val: The target value to be replaced.
-    :param new_val: The new value to replace the source and target values.
-    :param pairs_list: List of pairs that determine valid replacements.
-    :return: The modified target array with updated values.
+    Parameters
+    ----------
+    target_array : list of list
+        List of lists, where each sublist represents an edge in the target array.
+    comp_array : list of list
+        List of lists, where each sublist represents an edge in the comparison array.
+    source_val : int
+        The source value to be replaced.
+    target_val : int
+        The target value to be replaced.
+    new_val : int
+        The new value to replace the source and target values.
+    pairs_list : list of list
+        List of pairs that determine valid replacements.
+
+    Returns
+    -------
+    list of list
+        The modified target array with updated values.
     """
     for i, edge in enumerate(comp_array):
         if edge[0] == target_val and [source_val, edge[1]] in pairs_list:
@@ -38,8 +50,15 @@ def repeated_sizes(repeated):
     """
     Returns a sorted list of unique sizes of the second element in each tuple in the repeated list.
 
-    :param repeated: List of tuples, where each tuple contains two elements.
-    :return: Sorted list of unique sizes of the second element in each tuple.
+    Parameters
+    ----------
+    repeated : list of tuple
+        List of tuples, where each tuple contains two elements.
+
+    Returns
+    -------
+    list
+        Sorted list of unique sizes of the second element in each tuple.
     """
     rep = sorted(set(len(rep[1]) for rep in repeated))
     return rep
@@ -52,9 +71,17 @@ def equal_list(list_a, list_b):
     This function converts each sublist in the input lists to a set of tuples and compares them.
     It returns True if both lists contain the same sets of tuples, otherwise False.
 
-    :param list_a: First list of lists to compare.
-    :param list_b: Second list of lists to compare.
-    :return: True if both lists contain the same sets of tuples, otherwise False.
+    Parameters
+    ----------
+    list_a : list of list
+        First list of lists to compare.
+    list_b : list of list
+        Second list of lists to compare.
+
+    Returns
+    -------
+    bool
+        True if both lists contain the same sets of tuples, otherwise False.
     """
     set_a = {tuple(sorted(sublist)) for sublist in list_a}
     set_b = {tuple(sorted(sublist)) for sublist in list_b}
@@ -68,9 +95,18 @@ def check_edge_in_list(edges, list_in):
     This function iterates over each list in the input list of lists and uses the `equal_list` function
     to check if any of these lists contain the same elements as the given list of edges.
 
-    :param edges: List of edges to check.
-    :param list_in: List of lists, where each sublist is a list of edges.
-    :return: True if the given list of edges is present in any of the lists within the input list of lists, otherwise False.
+    Parameters
+    ----------
+    edges : list
+        List of edges to check.
+    list_in : list of list
+        List of lists, where each sublist is a list of edges.
+
+    Returns
+    -------
+    bool
+        True if the given list of edges is present in any of the lists within the input 
+        list of lists, otherwise False.
     """
     return any(equal_list(l, edges) for l in list_in)
 
@@ -83,9 +119,17 @@ def equivalence(remnant_pieces, equivalences):
     If an edge's vertex matches any vertex in the equivalences list, it replaces the vertex with the corresponding
     equivalent vertex.
 
-    :param remnant_pieces: List of lists, where each sublist represents a piece containing edges.
-    :param equivalences: List of pairs, where each pair represents an equivalence between two vertices.
-    :return: A deep copy of the remnant pieces with applied equivalence transformations.
+    Parameters
+    ----------
+    remnant_pieces : list of list
+        List of lists, where each sublist represents a piece containing edges.
+    equivalences : list of list
+        List of pairs, where each pair represents an equivalence between two vertices.
+
+    Returns
+    -------
+    list of list
+        A deep copy of the remnant pieces with applied equivalence transformations.
     """
     pieces_copy = copy.deepcopy(remnant_pieces)
     equivalences_array = np.array(equivalences)
@@ -108,11 +152,27 @@ def fix_repeated_equiv(edge_list, repeated_equiv, equivalences, edge_pairs):
     This function identifies and resolves repeated equivalences in the edge list. It updates the edge list and
     repeated equivalences by applying transformations based on the equivalences and edge pairs.
 
-    :param edge_list: List of edges to be transformed.
-    :param repeated_equiv: List of repeated equivalences to be fixed.
-    :param equivalences: List of equivalences to be applied.
-    :param edge_pairs: List of valid edge pairs for transformations.
-    :return: Tuple containing the updated edge list, repeated equivalences, and equivalences.
+    Parameters
+    ----------
+    edge_list : list
+        List of edges to be transformed.
+    repeated_equiv : list
+        List of repeated equivalences to be fixed.
+    equivalences : list
+        List of equivalences to be applied.
+    edge_pairs : list
+        List of valid edge pairs for transformations.
+
+    Returns
+    -------
+    tuple
+        A tuple containing:
+        - edge_list : list
+            The updated edge list.
+        - repeated_equiv : list
+            The updated repeated equivalences.
+        - equivalences : list
+            The updated equivalences.
     """
     global new_val, target_val, source_val
     equivalences = np.unique(equivalences, axis=0).tolist()
@@ -170,11 +230,20 @@ def index_set(lists, list_in):
     Finds the index of a list within a list of lists that matches the given list.
 
     This function converts the input list and each list within the list of lists to a set of tuples.
-    It then checks if any of these sets match the set of the input list and returns the index (1-based) of the matching list.
+    It then checks if any of these sets match the set of the input list and returns the index (1-based) 
+    of the matching list.
 
-    :param lists: List of lists to search within.
-    :param list_in: List to find within the list of lists.
-    :return: 1-based index of the matching list, or None if no match is found.
+    Parameters
+    ----------
+    lists : list of list
+        List of lists to search within.
+    list_in : list
+        List to find within the list of lists.
+
+    Returns
+    -------
+    int or None
+        1-based index of the matching list, or None if no match is found.
     """
     list_in_set = set(tuple(row) for row in list_in)
     for i, i_list in enumerate(lists):
@@ -186,8 +255,15 @@ def select_length(dict_array):
     """
     Takes a dictionary and returns the entry for the 'len' key.
 
-    :param dict_array: Dictionary containing arrays lengths and indexes.
-    :return: Entry for e['len'].
+    Parameters
+    ----------
+    dict_array : dict
+        Dictionary containing arrays lengths and indexes.
+
+    Returns
+    -------
+    int or float
+        Entry for the 'len' key.
     """
     return dict_array["len"]
 
@@ -199,13 +275,17 @@ def tables_to_mol(tables):
     This function takes a tuple containing atom and bond information, constructs an RDKit RWMol object,
     adds atoms and bonds to it.
 
-    Args:
-        tables (tuple): A tuple containing two lists:
-            - atoms_info (list): A list of tuples where each tuple contains an atom index and atom type.
-            - bonds_info (list): A list of tuples where each tuple contains two atom indices and a bond type.
+    Parameters
+    ----------
+    tables : tuple
+        A tuple containing two lists:
+        - atoms_info (list): A list of tuples where each tuple contains an atom index and atom type.
+        - bonds_info (list): A list of tuples where each tuple contains two atom indices and a bond type.
 
-    Returns:
-        Chem.Mol: An RDKit molecule object with the specified atoms and bonds.
+    Returns
+    -------
+    Chem.Mol
+        An RDKit molecule object with the specified atoms and bonds.
     """
     atoms_info, bonds_info = tables
     edit_mol = RWMol()
@@ -229,13 +309,17 @@ def tables_to_nx(tables):
     This function takes a tuple containing atom and bond information, constructs a NetworkX graph object,
     adds nodes and edges to it, and assigns attributes to them.
 
-    Args:
-        tables (tuple): A tuple containing two lists:
-            - atoms_info (list): A list of tuples where each tuple contains an atom index and atom type.
-            - bonds_info (list): A list of tuples where each tuple contains two atom indices and a bond type.
+    Parameters
+    ----------
+    tables : tuple
+        A tuple containing two lists:
+        - atoms_info (list): A list of tuples where each tuple contains an atom index and atom type.
+        - bonds_info (list): A list of tuples where each tuple contains two atom indices and a bond type.
 
-    Returns:
-        nx.Graph: A NetworkX graph object with the specified nodes and edges.
+    Returns
+    -------
+    nx.Graph
+        A NetworkX graph object with the specified nodes and edges.
     """
     atoms_info, bonds_info = tables
     graph = nx.Graph()
@@ -253,6 +337,29 @@ def tables_to_nx(tables):
 
 class AssemblyConstruction:
     def __init__(self, data, if_string=False, vo_type="graph", input_graph=None):
+        """
+        Initialize the AssemblyConstruction object with pathway data.
+
+        Parameters
+        ----------
+        data : dict
+            The pathway data from assemblycpp containing graph information,
+            remnants, duplicates, and other assembly metadata.
+        if_string : bool, optional
+            Whether to sort combined pieces during construction, by default False.
+        vo_type : str, optional
+            Type of virtual object representation to use ("graph", "mol", 
+            "smiles", or "inchi"), by default "graph".
+        input_graph : nx.Graph, optional
+            Input graph to read edge colors from when AssemblyCpp fails to 
+            output edge colors beyond index 5, by default None.
+
+        Notes
+        -----
+        This constructor initializes all internal data structures needed for 
+        pathway construction, including vertices, edges, vertex/edge labels,
+        remnant edges, duplicates, and equivalences.
+        """
         self.v = data["file_graph"][0]['Vertices']
         self.e = data["file_graph"][0]['Edges']
         self.v_l = data["file_graph"][0]['VertexColours']
@@ -296,27 +403,33 @@ class AssemblyConstruction:
         are detected, the method merges the fragments, appends the result as a new step, 
         and updates the digraph to reflect the transformation lineage.
 
-        Parameters:
-        -----------
-            pieces_mod (list): Current disjoint graph fragments to be scanned for merging.
-        
-            steps_mod (list): List of previously constructed transformation steps.
+        Parameters
+        ----------
+        pieces_mod : list
+            Current disjoint graph fragments to be scanned for merging.
+        steps_mod : list
+            List of previously constructed transformation steps.
+        repeated_mo1_cp : list
+            Copy of repeated motifs used to resolve digraph parentage.
+        step : int
+            Current index in the step construction sequence.
+        digraph : list
+            Directed graph tracking transformation steps and dependencies.
+        indexes : list
+            Step indices associated with repeated motifs.
 
-            repeated_mo1_cp (list): Copy of repeated motifs used to resolve digraph parentage.
-
-            step (int): Current index in the step construction sequence.
-
-            digraph (list): Directed graph tracking transformation steps and dependencies.
-
-            indexes (list): Step indices associated with repeated motifs.
-
-        Returns:
-        --------
-            tuple:
-                - pieces_mod (list): Updated fragment list after possible merging.
-                - steps_mod (list): Updated list of transformation steps.
-                - step (int): Updated step count.
-                - digraph (list): Updated digraph with new transformation links.
+        Returns
+        -------
+        tuple
+            A tuple containing:
+            - pieces_mod : list
+                Updated fragment list after possible merging.
+            - steps_mod : list
+                Updated list of transformation steps.
+            - step : int
+                Updated step count.
+            - digraph : list
+                Updated digraph with new transformation links.
         """
         left_sort = [rep[0] for rep in repeated_mo1_cp]
         right_sort = [rep[1] for rep in repeated_mo1_cp]
@@ -333,15 +446,17 @@ class AssemblyConstruction:
     
             If no match is found, an "_error" label is used as a fallback source in the digraph.
 
-            Parameters:
-            -----------
-                piece (list): A graph fragment or reaction step being traced as a source node.
-        
-                step (int): The current step index being constructed as the target node.
+            Parameters
+            ----------
+            piece : list
+                A graph fragment or reaction step being traced as a source node.
+            step : int
+                The current step index being constructed as the target node.
 
-            Returns:
-            --------
-                None: Modifies the `digraph` list in-place by appending a [source, target] entry.
+            Returns
+            -------
+            None
+                Modifies the `digraph` list in-place by appending a [source, target] entry.
             """
             if piece in left_sort:
                 digraph.append(["step_{}".format(indexes[left_sort.index(piece)]), "step_{}".format(step)])
@@ -394,27 +509,35 @@ class AssemblyConstruction:
         The method also tracks which fragments have been added and associates them with 
         their corresponding indices for downstream pathway construction.
 
-        Parameters:
-        -----------
-            pieces_mod (list): Current list of disjoint pathway fragments (edge groups).
-        
-            steps_mod (list): List of transformation steps constructed so far.
-        
-            sorted_repeated_mod1 (list): List of repeated motifs sorted by subgraph size.
+        Parameters
+        ----------
+        pieces_mod : list
+            Current list of disjoint pathway fragments (edge groups).
+        steps_mod : list
+            List of transformation steps constructed so far.
+        sorted_repeated_mod1 : list
+            List of repeated motifs sorted by subgraph size.
+        step : int
+            Current step index in the construction process.
+        digraph : list
+            Current digraph representing the reaction assembly.
 
-            step (int): Current step index in the construction process.
-
-            digraph (list): Current digraph representing the reaction assembly.
-
-        Returns:
-        --------
-            tuple:
-                - pieces_mod (list): Updated list of pathway fragments after integration.
-                - steps_mod (list): Updated list of pathway steps.
-                - sorted_repeated_mod1_cp (list): Deep copy of the original motif list for reference.
-                - step (int): Updated step counter.
-                - digraph (list): Updated digraph structure.
-                - indexes (list): Index mapping of added fragments to step references.
+        Returns
+        -------
+        tuple
+            A tuple containing:
+            - pieces_mod : list
+                Updated list of pathway fragments after integration.
+            - steps_mod : list
+                Updated list of pathway steps.
+            - sorted_repeated_mod1_cp : list
+                Deep copy of the original motif list for reference.
+            - step : int
+                Updated step counter.
+            - digraph : list
+                Updated digraph structure.
+            - indexes : list
+                Index mapping of added fragments to step references.
         """
         step_ind = [1] * len(sorted_repeated_mod1)
         indexes = [0] * len(sorted_repeated_mod1)
@@ -466,16 +589,20 @@ class AssemblyConstruction:
         Intermediate steps and the resulting pathway are stored as attributes 
         on the instance for downstream use (e.g., visualization, logging, or graph generation).
 
-        Parameters:
-        -----------
-            None
+        Parameters
+        ----------
+        None
 
-        Returns:
-        --------
-            None: The results are stored in the following instance attributes:
-                - self.steps (list): Sequence of transformation steps forming the pathway.
-                - self.digraph (list): Final digraph structure representing stepwise assembly.
-                - self.pieces_mod (list): Remaining or modified substructures after construction.
+        Returns
+        -------
+        None
+            The results are stored in the following instance attributes:
+            - self.steps : list
+                Sequence of transformation steps forming the pathway.
+            - self.digraph : list
+                Final digraph structure representing stepwise assembly.
+            - self.pieces_mod : list
+                Remaining or modified substructures after construction.
         """
         step = 0
         digraph = []
@@ -517,21 +644,27 @@ class AssemblyConstruction:
         RDKit molecule, SMILES, or InChI. The generated data is stored as attributes on 
         the class instance for further use in graph construction or analysis.
 
-        Parameters:
-        -----------
-            None
+        Parameters
+        ----------
+        None
 
-        Returns:
-        --------
-            None: All generated data is stored in the instance attributes:
-                - self.molecules_vo (list): List of individual molecule representations per atom.
-                - self.molecules_steps (list): List of molecule representations per transformation step.
-                - self.steps_indx_s (list): Indexed and encoded transformation step data.
-                - self.vs_atoms (list): Vertex (atom) labels for each step.
-    
-        Raises:
+        Returns
         -------
-            ValueError: If `self.vo_type` is not one of 'graph', 'mol', 'smiles', or 'inchi'.
+        None
+            All generated data is stored in the instance attributes:
+            - self.molecules_vo : list
+                List of individual molecule representations per atom.
+            - self.molecules_steps : list
+                List of molecule representations per transformation step.
+            - self.steps_indx_s : list
+                Indexed and encoded transformation step data.
+            - self.vs_atoms : list
+                Vertex (atom) labels for each step.
+    
+        Raises
+        ------
+        ValueError
+            If `self.vo_type` is not one of 'graph', 'mol', 'smiles', or 'inchi'.
         """
         # Generate the virtual objects
         molecules_vo = []
@@ -598,10 +731,26 @@ class AssemblyConstruction:
 
         Each node is connected according to self.digraph and contains attributes:
         - type: 'virtual_object' or 'step'
-        - smiles: The corresponding SMILES string from molecules_vo or molecules_steps
+        - vo: The corresponding molecule representation from molecules_vo or molecules_steps
+        - label: String representation for visualization
 
-        Returns:
-            nx.DiGraph: A directed graph representing the assembly pathway.
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        tuple
+            A tuple containing:
+            - graph : nx.DiGraph
+                A directed graph representing the assembly pathway.
+            - unique_molecules : list
+                List of unique virtual objects from the pathway.
+        
+        Raises
+        ------
+        ValueError
+            If `self.vo_type` is not one of 'graph', 'mol', 'smiles', or 'inchi'.
         """
         self.generate_pathway()
         self.generate_vo()
@@ -684,10 +833,15 @@ class AssemblyConstruction:
             - Step descriptions (`self.steps`)
             - Digraph structure (`self.digraph`)
 
-        Returns:
-        --------
-            str: A multi-line formatted string representing the internal state 
-                 of the pathway and its graph structure.
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        str
+            A multi-line formatted string representing the internal state 
+            of the pathway and its graph structure.
         """
         pathway_file = []
         pathway_file.append("#####Graph#####\n")
@@ -715,30 +869,36 @@ def parse_pathway_file(file, vo_type="smiles", debug=False, log=False, input_gra
     assembly directed graph using the specified virtual object (VO) type,
     and optionally prints debug information or returns a pathway log.
 
-    Parameters:
-    -----------
-        file (str): Path to the JSON pathway file.
+    Parameters
+    ----------
+    file : str
+        Path to the JSON pathway file.
+    vo_type : str, optional
+        Type of virtual object representation to use (e.g., "smiles", "graph", 
+        "mol", "inchi"), by default "smiles".
+    debug : bool, optional
+        If True, prints debug information about each node, by default False.
+    log : bool, optional
+        If True, returns an additional string describing the pathway log, 
+        by default False.
+    input_graph : nx.Graph, optional
+        Input graph to read edge colors from. If None, edge colors are read 
+        from the pathway file, by default None.
 
-        vo_type (str, optional): Type of virtual object representation 
-            to use (e.g., "smiles"). Default is "smiles".
-
-        debug (bool, optional): If True, prints debug information about
-            each node. Default is False.
-
-        log (bool, optional): If True, returns an additional string 
-            describing the pathway log. Default is False.
-
-    Returns:
-    --------
-        tuple:
-            If log is False:
-                (graph, vo_list): 
-                    graph (nx.DiGraph): The constructed assembly directed graph.
-                    vo_list (list): List of virtual objects used in the graph.
-            
-            If log is True:
-                (graph, vo_list, log_string): 
-                    log_string (str): A summary log string of the pathway steps.
+    Returns
+    -------
+    tuple
+        If log is False:
+            (graph, vo_list) where:
+            - graph : nx.DiGraph
+                The constructed assembly directed graph.
+            - vo_list : list
+                List of virtual objects used in the graph.
+        
+        If log is True:
+            (graph, vo_list, log_string) where:
+            - log_string : str
+                A summary log string of the pathway steps.
     """
     # # Load the pathway file
     with open(file) as f:
@@ -800,16 +960,24 @@ def assign_levels(G: nx.DiGraph, inplace: bool = True) -> None | nx.DiGraph:
     Assigns assembly depth to nodes in a graph.
     For consistency, assembly depth is referred to as "level" in this context.
 
-
     Parameters
     ----------
-    G : networkx.DiGraph
+    G : nx.DiGraph
         A directed graph where nodes represent (sub-)objects and edges represent assembly steps.
+    inplace : bool, optional
+        If True, modifies the graph in place. If False, returns a modified copy, 
+        by default True.
+
     Returns
     -------
-    None or networkx.DiGraph
+    None or nx.DiGraph
         If inplace is True, modifies the graph in place and returns None.
         If inplace is False, returns a new graph with updated node attributes.
+    
+    Raises
+    ------
+    TypeError
+        If the input graph G is not a directed graph (DiGraph).
     """
     if not isinstance(G, nx.DiGraph):
         raise TypeError("Graph G must be a directed graph (DiGraph).")
@@ -829,16 +997,23 @@ def assign_levels(G: nx.DiGraph, inplace: bool = True) -> None | nx.DiGraph:
 
 
 def immediate_predecessors(data, interval):
-    """    
+    """
+    Extract immediate predecessors in the pathway for a given interval.
+    
     For example, if we have the abracadabra data, and we want the whole interval,
     then it will return ["abra", "c", "a", "d", "abra"].
     
-    Args:
-        data (json): The pathway data from assemblycpp.
-        interval (tuple): A tuple of the form (start, length) indicating the interval.
+    Parameters
+    ----------
+    data : dict
+        The pathway data from assemblycpp (JSON format).
+    interval : tuple
+        A tuple of the form (start, length) indicating the interval.
     
-    Returns:
-        list: A list of strings representing the immediate predecessors in the pathway.
+    Returns
+    -------
+    list
+        A list of strings representing the immediate predecessors in the pathway.
     """
     output = []
 
@@ -870,13 +1045,19 @@ def build_str(interval, data, path):
     """
     Builds the string from the pathway data and adds it to the path.
     
-    Args:
-        str (str): The string to build.
-        data (json): The pathway data from assemblycpp.
-        path (networkx.DiGraph): The current pathway graph.
+    Parameters
+    ----------
+    interval : tuple
+        A tuple of the form (start, end) indicating the interval to build.
+    data : dict
+        The pathway data from assemblycpp (JSON format).
+    path : nx.DiGraph
+        The current pathway graph.
     
-    Returns:
-        networkx.DiGraph: Updated pathway with the string added.
+    Returns
+    -------
+    nx.DiGraph
+        Updated pathway with the string added.
     """
 
     ledger = immediate_predecessors(data, interval)
@@ -904,12 +1085,24 @@ def parse_string_pathway_file(file_path_pathway):
     """
     Parses a pathway file and returns the pathway as a list of virtual objects.
     
-    Args:
-        file_path_pathway (str): Path to the pathway file.
+    Parameters
+    ----------
+    file_path_pathway : str
+        Path to the pathway file.
     
-    Returns:
-        VOs: dict of virtual objects in calculated pathway.
-        path: networkx.DiGraph representing the pathway.
+    Returns
+    -------
+    tuple
+        A tuple containing:
+        - VOs : dict
+            Dictionary of virtual objects in calculated pathway.
+        - path : nx.DiGraph
+            NetworkX directed graph representing the pathway.
+    
+    Raises
+    ------
+    FileNotFoundError
+        If the pathway file is not found at the specified path.
     """
     if not os.path.isfile(file_path_pathway):
         raise FileNotFoundError(f"Pathway file not found: {file_path_pathway}")
@@ -939,12 +1132,18 @@ def molstr_to_str(molstr, edge_color_dict=None):
     """
     Takes a mol string and translates it into the corresponding string.
 
-    Args:
-        molstr (nx.graph): The mol to translate.
-        edge_color_dict (dict, optional): Dictionary mapping edges to colors. Defaults to None, implicitly encoding if the mol string is directed or not.
+    Parameters
+    ----------
+    molstr : nx.Graph
+        The molecular graph to translate.
+    edge_color_dict : dict, optional
+        Dictionary mapping edges to colors. If None, the function assumes 
+        the mol string is directed, by default None.
 
-    Returns:
-        out_str: The translated string.
+    Returns
+    -------
+    str
+        The translated string.
     """
 
     out_str = ""
