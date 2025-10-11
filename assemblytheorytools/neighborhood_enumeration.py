@@ -14,19 +14,47 @@ ptable = Chem.GetPeriodicTable()
 
 def enumerate_neighborhood(graphs: List[nx.Graph], obey_valence: bool = True, allow_dots: bool = True, debug=False, custom_valence_table = None):
     """
-    Generate the neighborhood of the input graphs in assembly space;
-    this is the set of graphs one joining operation away.
-
-    WARNING: Input graphs are assumed to be distinct.
-
-    Returns a dictionary with the following keys:
-    - "input_graphs": the same list of graphs input to the function
-    - "N_graphs": a list of graphs in the neighborhood (unique up to isomorphism)
-    - "down_jos": a set of `down' join operations with elements like (n1,n2,s)
-       where n1 and n2 are indices in the N_input list and s is an index in the input_graphs list
-    - "up_jos": a set of `up' join operations with elements like (s1,s2,n),
-         where s1 and s2 are indices in the input_graphs list and n is an index in the N_graphs list
-    - "allow_dots": a boolean indicating whether disconnected graphs are allowed in the output
+    Generate the neighborhood of input graphs in assembly space.
+    
+    Computes the set of graphs that are one joining operation away from the
+    input graphs. This includes both "down joins" (decompositions) and "up joins"
+    (combinations). Results are deduplicated by graph isomorphism.
+    
+    Parameters
+    ----------
+    graphs : list of networkx.Graph
+        Input graphs to compute the neighborhood for. Assumed to be distinct.
+    obey_valence : bool, optional
+        If True, enforce valence constraints when creating up joins,
+        by default True.
+    allow_dots : bool, optional
+        If True, allow disconnected graphs in the output, by default True.
+    debug : bool, optional
+        If True, enable debug mode for additional output, by default False.
+    custom_valence_table : dict or None, optional
+        Custom valence table mapping atom symbols to valence values.
+        If None, uses RDKit default valences, by default None.
+    
+    Returns
+    -------
+    dict
+        Dictionary with the following keys:
+        
+        - "input_graphs" : list of networkx.Graph
+            Canonicalized versions of input graphs.
+        - "N_graphs" : list of networkx.Graph
+            Graphs in the neighborhood, unique up to isomorphism.
+        - "down_jos" : set of tuple
+            Down join operations as (n1, n2, s) where n1, n2 are indices
+            in N_graphs and s is an index in input_graphs.
+        - "up_jos" : set of tuple
+            Up join operations as (s1, s2, n) where s1, s2 are indices
+            in input_graphs and n is an index in N_graphs.
+    
+    Warnings
+    --------
+    Input graphs are assumed to be distinct. Duplicate graphs may lead
+    to redundant computations.
     """
 
     # Canonicalize the input graphs
@@ -100,9 +128,31 @@ def enumerate_neighborhood(graphs: List[nx.Graph], obey_valence: bool = True, al
 
 def enumerate_down(graph: nx.Graph, allow_dots: bool = True):
     """
-    Given a connected graph, this function will enumerate the power set of edges,
-    and filter for the edge sets where the subgraph restricted to these edges, and its complement,
-    are both connected. This is a brute force method, and will be slow for large graphs.
+    Enumerate all edge partitions of a graph into two connected subgraphs.
+    
+    Computes the power set of edges and filters for edge sets where both
+    the subgraph induced by these edges and its complement are connected.
+    Uses brute force enumeration and may be slow for large graphs.
+    
+    Parameters
+    ----------
+    graph : networkx.Graph
+        Input connected graph to partition.
+    allow_dots : bool, optional
+        If True, allows disconnected unions of partitions, by default True.
+    
+    Returns
+    -------
+    list of list
+        List of partition pairs, where each element is [subset, complement].
+        Each subset is a list of edges forming a connected subgraph, and
+        complement is the list of remaining edges also forming a connected
+        subgraph.
+    
+    Notes
+    -----
+    This is a brute-force method that enumerates all possible edge subsets.
+    Time complexity is O(2^|E|) where |E| is the number of edges.
     """
     partition_pairs = []
     edges = list(graph.edges())
@@ -132,18 +182,31 @@ def enumerate_down(graph: nx.Graph, allow_dots: bool = True):
 
 def get_valence(atom_symbol: str, ptable: Chem.rdchem.PeriodicTable = ptable, custom_valence_table = None) -> int:
     """
-    Get the default valence of an atom based on its symbol.
-
-    Args:
-        atom_symbol (str): The chemical symbol of the atom (e.g., "C" for carbon, "O" for oxygen).
-        ptable (Chem.rdchem.PeriodicTable, optional): An RDKit PeriodicTable object.
-            Defaults to the global `ptable` instance.
-
-    Returns:
-        int: The default valence of the atom.
-
-    Raises:
-        ValueError: If the atom symbol is invalid or not recognized by the periodic table.
+    Get the default valence of an atom based on its chemical symbol.
+    
+    Retrieves the valence from a custom table if provided, otherwise uses
+    RDKit's periodic table default valence values.
+    
+    Parameters
+    ----------
+    atom_symbol : str
+        The chemical symbol of the atom (e.g., "C" for carbon, "O" for oxygen).
+    ptable : rdkit.Chem.rdchem.PeriodicTable, optional
+        RDKit PeriodicTable object for looking up default valences.
+        Defaults to the global `ptable` instance.
+    custom_valence_table : dict or None, optional
+        Custom valence mapping {atom_symbol: valence}. If provided and
+        contains the atom symbol, this value takes precedence, by default None.
+    
+    Returns
+    -------
+    int
+        The default or custom valence of the atom.
+    
+    Raises
+    ------
+    ValueError
+        If the atom symbol is invalid or not recognized by the periodic table.
     """
     if custom_valence_table and atom_symbol in custom_valence_table:
         return custom_valence_table[atom_symbol]  # Return the custom valence if provided and available.
@@ -158,17 +221,50 @@ def enumerate_up(graph1: nx.Graph,
                  debug: bool = False,
                  custom_valence_table = None):
     """
-    Given two graphs, graph1 and graph2, this function will return the set of graphs that can be formed by
-    a joining operation acting on graph1 and graph2. If obey_valence is True, then the we will resctict ourselves
-    to only those graphs that obey the valence rules of the atoms in the graph.
-
-    The algorithm is as follows:
-    1. Enumerate the vertex colors shared by graph1 and graph2.
-    2. For each shared color, enumerate the combinations of possible valid vertex identifications.
-    3. Filter out combinations that produce multi-edges or break valence rules (if obey_valence is True).
-    4. Enumerate the outer product of these combinations (skipping the invalid combination of no identification).
-    5. Filter out combinations that produce multi-edges.
-    6. Generate the output graphs from the set valid of vertex identification combinations.
+    Enumerate graphs formed by joining two input graphs.
+    
+    Computes all possible graphs that can be created by identifying (merging)
+    vertices of the same color between two input graphs. Optionally enforces
+    chemical valence constraints and filters for connected graphs.
+    
+    Parameters
+    ----------
+    graph1 : networkx.Graph
+        First input graph with 'color' node attributes.
+    graph2 : networkx.Graph
+        Second input graph with 'color' node attributes.
+    obey_valence : bool, optional
+        If True, enforces valence rules for atoms (prevents overbonding),
+        by default True.
+    allow_dots : bool, optional
+        If True, allows disconnected output graphs, by default True.
+    debug : bool, optional
+        If True, prints detailed debugging information, by default False.
+    custom_valence_table : dict or None, optional
+        Custom valence mapping {atom_symbol: valence}. If None, uses
+        RDKit default valences, by default None.
+    
+    Returns
+    -------
+    list of networkx.Graph
+        List of graphs formed by valid vertex identifications between
+        graph1 and graph2.
+    
+    Notes
+    -----
+    Algorithm:
+    
+    1. Enumerate vertex colors shared by both graphs
+    2. For each color, enumerate valid vertex identification combinations
+    3. Filter combinations that produce multi-edges or violate valence rules
+    4. Compute outer product of combinations across all colors
+    5. Filter out combinations that create multi-edges
+    6. Generate output graphs from valid vertex identifications
+    
+    Raises
+    ------
+    ValueError
+        If nodes lack 'color' attributes when obey_valence is True.
     """
 
     # # Copy graphs for safety
@@ -289,7 +385,31 @@ def enumerate_up(graph1: nx.Graph,
 
 def map_outer_product(combinations, graph1, graph2):
     """
-    This function will return the valid maps from the outer product of the valid color-specific maps.
+    Compute valid vertex identification maps from outer product of color-specific maps.
+    
+    Enumerates the Cartesian product of valid color-specific vertex identification
+    maps and filters out those that would create multi-edges in the joined graph.
+    
+    Parameters
+    ----------
+    combinations : dict
+        Dictionary mapping colors to sets of valid vertex identification maps
+        for that color. Format: {color: {frozenset((node1, node2), ...)}}.
+    graph1 : networkx.Graph
+        First input graph with 'color' node attributes.
+    graph2 : networkx.Graph
+        Second input graph with 'color' node attributes.
+    
+    Returns
+    -------
+    list of set
+        List of valid complete vertex identification maps, where each map
+        is a set of (graph1_node, graph2_node) tuples.
+    
+    Notes
+    -----
+    Special case: If only one color exists, returns the valid maps for that
+    color directly without computing the outer product.
     """
     # If there is only one color, we can just return the valid maps for that color
     if len(combinations) == 1:
@@ -326,7 +446,31 @@ def map_outer_product(combinations, graph1, graph2):
 
 def conditional_check_multi_edge_generation(candidate_map, g1_check_edges, g2_check_edges):
     """
-    Check that the candidate map does not generate multi-edges in the joined graph.
+    Check if a vertex identification map would create multi-edges.
+    
+    Validates that a candidate vertex identification mapping between two graphs
+    would not produce multi-edges (parallel edges) when the graphs are joined.
+    
+    Parameters
+    ----------
+    candidate_map : set or frozenset
+        Set of vertex identification pairs (graph1_node, graph2_node).
+    g1_check_edges : list of tuple
+        Edges in graph1 to check for potential multi-edge conflicts.
+        Should only include edges connecting different colors.
+    g2_check_edges : list of tuple
+        Edges in graph2 to check for potential multi-edge conflicts.
+        Should only include edges connecting different colors.
+    
+    Returns
+    -------
+    bool
+        True if the mapping is valid (no multi-edges created), False otherwise.
+    
+    Notes
+    -----
+    Multi-edges occur when two vertices that are connected in one graph
+    get identified with two vertices that are also connected in the other graph.
     """
 
     g1_vertices = sorted([pair[0] for pair in candidate_map])
@@ -345,9 +489,37 @@ def conditional_check_multi_edge_generation(candidate_map, g1_check_edges, g2_ch
 
 def map_application(map, graph1, graph2):
     """
-    This function will apply the map to the two graphs and return the resulting graph.
-    The map is a list of tuples, where each tuple is a pair of nodes to be identified.
-    A tuple in the map will be of the form (v1, v2), where v1 is from graph1 and v2 is from graph2.
+    Apply vertex identification map to join two graphs.
+    
+    Creates a joined graph by composing two input graphs and then contracting
+    (identifying) vertex pairs specified in the mapping. Node labels in graph2
+    are incremented to avoid collisions before composition.
+    
+    Parameters
+    ----------
+    map : iterable of tuple
+        Vertex identification mapping as (graph1_node, graph2_node) pairs.
+        Each pair specifies two nodes that should be merged in the output.
+    graph1 : networkx.Graph
+        First input graph.
+    graph2 : networkx.Graph
+        Second input graph (node labels will be incremented internally).
+    
+    Returns
+    -------
+    networkx.Graph
+        Joined graph with vertices identified according to the map.
+    
+    Raises
+    ------
+    ValueError
+        If the joined graph has an unexpected number of edges, indicating
+        a potential bug in the vertex identification process.
+    
+    Notes
+    -----
+    The function performs vertex identification by contracting nodes, which
+    merges two vertices into one while preserving all incident edges.
     """
 
     n1 = graph1.number_of_nodes()
