@@ -162,8 +162,15 @@ def randic_index(mol: Mol) -> float:
     It is used for the study of molecular structure-activity
     relationships and the prediction of physicochemical properties.
 
-    :param mol: An RDKit molecule object.
-    :return: The Randic index.
+    Parameters
+    ----------
+    mol : rdkit.Chem.rdchem.Mol
+        An RDKit molecule object.
+
+    Returns
+    -------
+    float
+        The Randic index.
     """
     adj_matrix = Chem.rdmolops.GetAdjacencyMatrix(mol)
     degrees = [sum(row) for row in adj_matrix]
@@ -183,8 +190,15 @@ def kirchhoff_index(mol: Mol) -> float:
     resistances between all pairs of vertices in the molecular graph. It is used for
     predicting physicochemical properties and molecular activities.
 
-    :param mol: An RDKit molecule object.
-    :return: The Kirchhoff index.
+    Parameters
+    ----------
+    mol : rdkit.Chem.rdchem.Mol
+        An RDKit molecule object.
+
+    Returns
+    -------
+    float
+        The Kirchhoff index.
     """
     adjacency_matrix = Chem.rdmolops.GetAdjacencyMatrix(mol).astype(np.float64)
     degree_matrix = np.diag(np.sum(adjacency_matrix, axis=1))
@@ -207,9 +221,17 @@ def spacial_score(mol: Mol, normalise: bool = False) -> float:
     Spacial score is a descriptor that quantifies the spatial arrangement
     of atoms in a molecule. It can be used to predict various molecular properties.
 
-    :param mol: An RDKit molecule object.
-    :param normalise: A boolean indicating whether to normalise the score.
-    :return: The spacial score of the molecule.
+    Parameters
+    ----------
+    mol : rdkit.Chem.rdchem.Mol
+        An RDKit molecule object.
+    normalise : bool, optional
+        A boolean indicating whether to normalise the score, by default False.
+
+    Returns
+    -------
+    float
+        The spacial score of the molecule.
     """
     return rdkit.Chem.SpacialScore.SPS(mol, normalise)
 
@@ -225,9 +247,17 @@ def get_mol_descriptors(mol: Mol, missingval: Optional[Any] = None) -> Dict[str,
     in a dictionary. If a descriptor calculation fails, a specified missing value
     is assigned.
 
-    :param mol: An RDKit molecule object.
-    :param missingval: The value to assign if a descriptor calculation fails. Default is None.
-    :return: A dictionary with descriptor names as keys and their calculated values as values.
+    Parameters
+    ----------
+    mol : rdkit.Chem.rdchem.Mol
+        An RDKit molecule object.
+    missingval : Optional[Any], optional
+        The value to assign if a descriptor calculation fails, by default None.
+
+    Returns
+    -------
+    Dict[str, Any]
+        A dictionary with descriptor names as keys and their calculated values as values.
     """
     res = {}
     for nm, fn in Descriptors._descList:
@@ -247,9 +277,17 @@ def tanimoto_similarity(mol1: Mol, mol2: Mol) -> float:
     molecular fingerprints. It is commonly used in cheminformatics to compare
     the structural similarity of molecules.
 
-    :param mol1: An RDKit molecule object representing the first molecule.
-    :param mol2: An RDKit molecule object representing the second molecule.
-    :return: The Tanimoto similarity between the two molecules.
+    Parameters
+    ----------
+    mol1 : rdkit.Chem.rdchem.Mol
+        An RDKit molecule object representing the first molecule.
+    mol2 : rdkit.Chem.rdchem.Mol
+        An RDKit molecule object representing the second molecule.
+
+    Returns
+    -------
+    float
+        The Tanimoto similarity between the two molecules.
     """
     fpgen = Chem.GetRDKitFPGenerator()
     fp1 = fpgen.GetFingerprint(mol1)
@@ -265,10 +303,19 @@ def dice_morgan_similarity(mol1: Mol, mol2: Mol, radius: int = 3) -> float:
     molecular fingerprints. It is commonly used in cheminformatics to compare
     the structural similarity of molecules.
 
-    :param mol1: An RDKit molecule object representing the first molecule.
-    :param mol2: An RDKit molecule object representing the second molecule.
-    :param radius: The radius parameter for the Morgan fingerprint. Default is 3.
-    :return: The Dice similarity between the two molecules.
+    Parameters
+    ----------
+    mol1 : rdkit.Chem.rdchem.Mol
+        An RDKit molecule object representing the first molecule.
+    mol2 : rdkit.Chem.rdchem.Mol
+        An RDKit molecule object representing the second molecule.
+    radius : int, optional
+        The radius parameter for the Morgan fingerprint, by default 3.
+
+    Returns
+    -------
+    float
+        The Dice similarity between the two molecules.
     """
     fpgen = Chem.GetMorganGenerator(radius=radius)
     fp1 = fpgen.GetSparseCountFingerprint(mol1)
@@ -282,11 +329,15 @@ def get_chirality(mol: Mol) -> int:
 
     This function calculates the number of chiral centres in a given RDKit molecule object.
 
-    Parameters:
-        mol (rdkit.Chem.rdchem.Mol): An RDKit molecule object.
+    Parameters
+    ----------
+    mol : rdkit.Chem.rdchem.Mol
+        An RDKit molecule object.
 
-    Returns:
-        int: The number of chiral centres in the molecule.
+    Returns
+    -------
+    int
+        The number of chiral centres in the molecule.
     """
     nc = len(Chem.FindMolChiralCenters(mol,
                                        useLegacyImplementation=False,
@@ -504,16 +555,17 @@ def compress_zlib_graph(graph: nx.Graph, level: int = 9) -> bytes:
     node-link format, encodes it to a UTF-8 JSON string, and compresses 
     it using zlib.
 
-    Parameters:
-    -----------
-        graph (nx.Graph): The NetworkX graph to compress.
-        
-        level (int, optional): Compression level (0-9). Default is 9 
-            (maximum compression).
+    Parameters
+    ----------
+    graph : nx.Graph
+        The NetworkX graph to compress.
+    level : int, optional
+        Compression level (0-9), by default 9 (maximum compression).
 
-     Returns:
-    ---------
-        bytes: The compressed graph data as a byte string.
+    Returns
+    -------
+    bytes
+        The compressed graph data as a byte string.
     """
     # Convert graph to node-link data (JSON-serialisable)
     data = json_graph.node_link_data(graph)
@@ -533,13 +585,15 @@ def decompress_zlib_graph(compressed_data: bytes) -> nx.Graph:
     NetworkX graph in JSON node-link format, decompresses and 
     decodes them, and reconstructs the original graph.
 
-    Parameters:
-    -----------
-        compressed_data (bytes): The compressed graph data as a byte string.
+    Parameters
+    ----------
+    compressed_data : bytes
+        The compressed graph data as a byte string.
 
-    Returns:
-    --------
-        nx.Graph: The reconstructed NetworkX graph.
+    Returns
+    -------
+    nx.Graph
+        The reconstructed NetworkX graph.
     """
     # Decompress to JSON string
     json_str = zlib.decompress(compressed_data).decode('utf-8')
