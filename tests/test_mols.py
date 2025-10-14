@@ -822,4 +822,3 @@ def test_calculate_rust_ai():
     ai_v5, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
     print(ai_v5, flush=True)
     assert ai_v5 == ai_r, f"Expected AI to be {ai_v5}, but got {ai_r}"
-

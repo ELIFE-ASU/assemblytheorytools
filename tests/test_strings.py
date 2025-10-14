@@ -65,7 +65,7 @@ def test_delimiter_chars():
     """
     s_in = ["a"] * 95
     a1, v1, p1 = att.calculate_string_assembly_index(s_in, directed=True)
-    a2, v2, p2 = att.calculate_string_assembly_index(s_in, directed=False) # I think this is locked behind issue #297
+    a2, v2, p2 = att.calculate_string_assembly_index(s_in, directed=False)  # I think this is locked behind issue #297
     a3, v3, p3 = att.calculate_string_assembly_index(s_in, mode='cfg')
     assert a1 == a2
     assert a1 == a3

@@ -2,7 +2,6 @@
 import random
 
 import networkx as nx
-from rdkit import Chem
 
 node_match = nx.algorithms.isomorphism.categorical_node_match('color', None)
 edge_match = nx.algorithms.isomorphism.categorical_edge_match('color', None)
@@ -312,7 +311,7 @@ def test_C_2_O():
 
 
 def test_enum_up_S_2_O():
-    custom_valence_table = {"S":4}
+    custom_valence_table = {"S": 4}
 
     g = nx.Graph()
     g.add_edges_from([(0, 1), ])
@@ -342,7 +341,7 @@ def test_enum_up_S_2_O():
 
 
 def test_S_2_O():
-    custom_valence_table = {"S":4}
+    custom_valence_table = {"S": 4}
 
     g = nx.Graph()
     g.add_edges_from([(0, 1), ])
@@ -381,4 +380,4 @@ def test_input_valence():
 
     out = att.enumerate_neighborhood(input_gs, obey_valence=True)
     assert len(out['up_jos']) == 0
-    assert len(out['down_jos']) == 0 # This is expected since these are all single edge graphs
+    assert len(out['down_jos']) == 0  # This is expected since these are all single edge graphs

@@ -124,6 +124,7 @@ def ph_2p_graph() -> nx.Graph:
     graph.add_edge(0, 1, color=1)  # Bond between phosphorus and hydrogen
     return graph
 
+
 # add a function that creates a CO2 graph
 def co2_graph() -> nx.Graph:
     """

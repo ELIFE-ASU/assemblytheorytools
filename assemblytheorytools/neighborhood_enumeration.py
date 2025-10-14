@@ -12,7 +12,11 @@ edge_match = nx.algorithms.isomorphism.categorical_edge_match('color', None)
 ptable = Chem.GetPeriodicTable()
 
 
-def enumerate_neighborhood(graphs: List[nx.Graph], obey_valence: bool = True, allow_dots: bool = True, debug=False, custom_valence_table = None):
+def enumerate_neighborhood(graphs: List[nx.Graph],
+                           obey_valence: bool = True,
+                           allow_dots: bool = True,
+                           debug=False,
+                           custom_valence_table=None):
     """
     Generate the neighborhood of input graphs in assembly space.
     
@@ -69,7 +73,12 @@ def enumerate_neighborhood(graphs: List[nx.Graph], obey_valence: bool = True, al
     up_graphs = dict()
     for i, graph1 in enumerate(graphs):
         for j, graph2 in enumerate(graphs[i:]):
-            up_graphs[(i, i + j)] = enumerate_up(graph1, graph2, obey_valence=obey_valence, allow_dots=allow_dots, debug=debug, custom_valence_table=custom_valence_table)
+            up_graphs[(i, i + j)] = enumerate_up(graph1,
+                                                 graph2,
+                                                 obey_valence=obey_valence,
+                                                 allow_dots=allow_dots,
+                                                 debug=debug,
+                                                 custom_valence_table=custom_valence_table)
 
     # Mod out the down join operations by isomorphism
     N_graphs = []
@@ -82,7 +91,8 @@ def enumerate_neighborhood(graphs: List[nx.Graph], obey_valence: bool = True, al
 
             # Filter out disconnected graphs if not allowed
             if not allow_dots and (not nx.is_connected(g1) or not nx.is_connected(g2)):
-                print("Warning: A disconnected graph was found in a down join operation. This should never happen. Please report this bug.")
+                print(
+                    "Warning: A disconnected graph was found in a down join operation. This should never happen. Please report this bug.")
                 continue
 
             for in_idx, g_part in enumerate([g1, g2]):
@@ -107,7 +117,8 @@ def enumerate_neighborhood(graphs: List[nx.Graph], obey_valence: bool = True, al
         for up_graph in up_graphs_list:
             # Filter out disconnected graphs if not allowed
             if not allow_dots and not nx.is_connected(up_graph):
-                print("Warning: A disconnected graph was found in an up join operation. This should never happen. Please report this bug.")
+                print(
+                    "Warning: A disconnected graph was found in an up join operation. This should never happen. Please report this bug.")
                 continue
 
             jo = [i, j, -1]
@@ -180,7 +191,7 @@ def enumerate_down(graph: nx.Graph, allow_dots: bool = True):
     return partition_pairs
 
 
-def get_valence(atom_symbol: str, ptable: Chem.rdchem.PeriodicTable = ptable, custom_valence_table = None) -> int:
+def get_valence(atom_symbol: str, ptable: Chem.rdchem.PeriodicTable = ptable, custom_valence_table=None) -> int:
     """
     Get the default valence of an atom based on its chemical symbol.
     
@@ -219,7 +230,7 @@ def enumerate_up(graph1: nx.Graph,
                  obey_valence: bool = True,
                  allow_dots: bool = True,
                  debug: bool = False,
-                 custom_valence_table = None):
+                 custom_valence_table=None):
     """
     Enumerate graphs formed by joining two input graphs.
     
@@ -281,9 +292,11 @@ def enumerate_up(graph1: nx.Graph,
                 if 'color' not in graph.nodes[node]:
                     raise ValueError(
                         f"Node {node} does not have a color attribute. Please add a color attribute to the nodes.")
-                valence_budgets[g_idx][node] = get_valence(graph.nodes[node]['color'], custom_valence_table=custom_valence_table)
+                valence_budgets[g_idx][node] = get_valence(graph.nodes[node]['color'],
+                                                           custom_valence_table=custom_valence_table)
                 if debug:
-                    print(f"Node {node} in graph {g_idx + 1} has color {graph.nodes[node]['color']} and valence budget {valence_budgets[g_idx][node]}")
+                    print(
+                        f"Node {node} in graph {g_idx + 1} has color {graph.nodes[node]['color']} and valence budget {valence_budgets[g_idx][node]}")
                 for edge in graph.edges(node):
                     valence_budgets[g_idx][node] -= graph.edges[edge][
                         'color']  # This assumes 1=single bond, 2=double bond, etc.
@@ -321,7 +334,8 @@ def enumerate_up(graph1: nx.Graph,
         if obey_valence:  # If obey_valence is True, we will only consider identifications that do not exceed the valence budget
             for node1 in nodes1:
                 for node2 in nodes2:
-                    if get_valence(color, custom_valence_table=custom_valence_table) - valence_budgets[0][node1] <= valence_budgets[1][node2]:
+                    if get_valence(color, custom_valence_table=custom_valence_table) - valence_budgets[0][node1] <= \
+                            valence_budgets[1][node2]:
                         # These identification tuples will always be written as (v1,v2) where v1 is from graph1 and v2 is from graph2
                         valid_identifications.append((node1, node2))
         else:
@@ -356,7 +370,8 @@ def enumerate_up(graph1: nx.Graph,
                         # Check that every pair is in valid_identifications
                         valid = False  # This is the default value if the candidate map doesn't make it through the next if statement
                         if all(pair in valid_identifications for pair in candidate_color_map):
-                            valid = conditional_check_multi_edge_generation(candidate_color_map, g1_check_edges,
+                            valid = conditional_check_multi_edge_generation(candidate_color_map,
+                                                                            g1_check_edges,
                                                                             g2_check_edges)  # Check for multi-edges
                         if valid:  # This candidate color map is valid, so we will add it to the list of valid color maps
                             valid_color_maps.add(candidate_color_map)

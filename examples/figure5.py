@@ -1,6 +1,8 @@
-import networkx as nx
-import assemblytheorytools as att
 import matplotlib.pyplot as plt
+import networkx as nx
+
+import assemblytheorytools as att
+
 
 # This script will make the assembly theoretic calculations
 # regarding adder circuits- results shown in figure 5 of the ATT paper.
@@ -15,7 +17,7 @@ def make_n_bit_adder(full_adder, n):
     tag_map = {}
     for i in range(n):
         # Create a copy of the full adder
-        G = nx.relabel_nodes(full_adder, lambda x: x + i*100, copy=True)
+        G = nx.relabel_nodes(full_adder, lambda x: x + i * 100, copy=True)
         # Relabel tags
         for node, data in G.nodes(data=True):
             if 'tag' in data:
@@ -40,7 +42,7 @@ def make_n_bit_adder(full_adder, n):
         # Merge the next adder into the result
         result = nx.compose(result, adders[i])
         # Contract C_out of previous with C_in of current
-        contracted_node = tag_map[f'C_out_{i-1}']
+        contracted_node = tag_map[f'C_out_{i - 1}']
         other_node = tag_map[f'C_in_{i}']
         result = nx.contracted_nodes(
             result,
@@ -88,7 +90,7 @@ full_adder.add_node(12, color='w', tag='C_out')
 full_adder.add_edge(9, 12, color=2)
 
 plt.figure()
-#pos = nx.spring_layout(full_adder, seed=42)
+# pos = nx.spring_layout(full_adder, seed=42)
 pos = {
     0: (-1.25, -1),
     1: (-0.25, -1),
@@ -126,7 +128,7 @@ two_bit_adder_v2 = make_n_bit_adder(full_adder, 2)
 for i, obj in enumerate([full_adder, two_bit_adder_v2]):
     obj = att.canonicalize_node_labels(obj)
     ai, vo, path, logfile = att.calculate_assembly_index(obj, return_log_file=True, debug=True)
-    print(f"Assembly Index for {i+1}bit adder = {ai}")
+    print(f"Assembly Index for {i + 1}bit adder = {ai}")
     print(f"Object size = {len(obj.edges())}\n")
     if i == 0:
         for idx, g in enumerate(vo):
@@ -139,6 +141,3 @@ for i, obj in enumerate([full_adder, two_bit_adder_v2]):
             plt.title(f"vo[{idx}]")
             plt.savefig(f"full_adder_circuit_vo_{idx}.png", dpi=300)
             plt.close()
-    
-
-
