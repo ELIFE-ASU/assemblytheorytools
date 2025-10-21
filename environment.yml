@@ -1,0 +1,18 @@
+name: assemblytheorytools
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12
+  - pip
+  - numpy>=2.1.3
+  - scipy>=1.15.1
+  - pandas>=2.2.3
+  - matplotlib>=3.9.2
+  - networkx>=3.4.2
+  - ase>=3.23.0
+  - rdkit>=2024.03.5
+  - ipython>=8.30.0
+  - pip:
+    - pyvis>=0.3.2
+    - "CFG @ git+https://github.com/ELIFE-ASU/CFG.git"
