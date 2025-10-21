@@ -22,7 +22,6 @@ from .assembly import (calculate_assembly_index,
                        calculate_jo_assembly_ratio,
                        calculate_rust_ai,
                        integer_chain)
-
 from .complexity_scores import (count_unique_bonds,
                                 molecular_weight,
                                 bertz_complexity,
@@ -86,6 +85,9 @@ from .reassembler import (assemble,
                           Molecule,
                           MoleculeSpace,
                           Assemble)
+from .recursive_ma import (build_tree,
+                           tree_depth,
+                           MAEstimator)
 from .tools_atoms import (smiles_to_atoms,
                           mol_to_atoms,
                           atoms_to_mol,
