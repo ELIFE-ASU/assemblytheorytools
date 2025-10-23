@@ -101,9 +101,6 @@ def ma_samples(mw, n_samples):
 
 
 def unify_trees(trees: list[dict]):
-    """
-    Recursively merge `trees` into one tree.
-    """
     if not trees:
         return {}
     elif len(trees) == 1:
@@ -129,7 +126,7 @@ class MAEstimator:
         self.zero = np.zeros(n_samples)
 
     @functools.cache
-    def estimate_by_MW(self, mw, has_children):
+    def estimate_by_mw(self, mw, has_children):
         lower, upper = mw - self.tol, mw + self.tol
         if not has_children:
             for isotope, weight in ISOTOPES.items():
@@ -139,11 +136,11 @@ class MAEstimator:
                     return self.zero
         return ma_samples(mw, self.n_samples)
 
-    def estimate_MA(self, tree: dict[float, dict], mw: float, progress_levels=0, joint=False):
+    def estimate_ma(self, tree: dict[float, dict], mw: float, progress_levels=0, joint=False):
         children = unify_trees([tree.get(mw, None) or self.precursors(tree, mw)])
         if joint:
-            return sum(self.estimate_MA(children, child, progress_levels - 1) for child in children)
-        child_estimates = {mw: self.estimate_by_MW(mw, bool(children))}
+            return sum(self.estimate_ma(children, child, progress_levels - 1) for child in children)
+        child_estimates = {mw: self.estimate_by_mw(mw, bool(children))}
 
         for child in children:
             complement = mw - child
@@ -161,8 +158,8 @@ class MAEstimator:
 
             # Simple child + complement with no common precursors
             ma_candidates = [
-                self.estimate_MA(children, child, progress_levels - 1)
-                + self.estimate_MA(children, complement, progress_levels - 1)
+                self.estimate_ma(children, child, progress_levels - 1)
+                + self.estimate_ma(children, complement, progress_levels - 1)
                 + 1.0
             ]
 
@@ -171,7 +168,7 @@ class MAEstimator:
                 if min(chunks) < MIN_CHUNK:
                     continue
                 chunk_mas = sum(
-                    self.estimate_MA(
+                    self.estimate_ma(
                         children,
                         chunk,
                         progress_levels - 1,
@@ -260,33 +257,10 @@ def _build_tree(data, level=1, acc=None, parent=None, max_level=3):
 
 
 def build_tree(data: dict, max_level=3):
-    """
-    Build a tree from a dictionary of {level: DataFrame, ...}.
-
-    Args:
-        data (dict): {level: DataFrame, ...}.
-        max_level (int): maximum MS level to include in the tree, e.g. 3 for MS3.
-    """
     return _build_tree(data, max_level=max_level)
 
 
 def tree_depth(tree: dict):
-    """
-    Calculate the level of nesting in a tree.
-
-    >>> tree_depth({})
-    0
-    >>> tree_depth({1: None})
-    1
-    >>> tree_depth({1: {}})
-    1
-    >>> tree_depth({1: {2: {3: None}}})
-    3
-    >>> tree_depth({1: {2: {3: None}, 4: None}})
-    3
-    >>> tree_depth({1: {2: {3: None}, 4: {5: None}}})
-    4
-    """
     if isinstance(tree, dict) and len(tree) > 0:
         return 1 + max(tree_depth(v) for v in tree.values())
     else:
@@ -346,20 +320,6 @@ def process(
         min_rel_intensity: float = 0.0,
         n_digits: int = 3,
 ) -> dict[int, pd.DataFrame]:
-    """
-    Process a sample by binning peak intensities and removing low-intensity peaks.
-
-    Args:
-        sample (dict[int, pd.DataFrame]): {level: DataFrame, ...}.
-        max_num_peaks (int): maximum number of peaks to keep per parent.
-        min_abs_intensity (dict[int, float]): minimum absolute child peak intensity by level.
-        min_rel_intensity (float): minimum relative child peak intensity, relative to parent's most intense child peak.
-        n_digits (int): Number of digits to round m/z values for intensity binning.
-            Full precision retained in final output by taking median m/z.
-
-    Returns:
-        dict[int, pd.DataFrame]: {level: DataFrame, ...}.
-    """
     sample = {
         level: _process_df(
             level,
@@ -384,38 +344,3 @@ def process(
             }
         )
     return sample
-
-
-def identify_parents(dataset, mass_tol: float, ms_n_digits: int):
-    """
-    Link MSn+1 peaks to MSn peaks.
-
-    Args:
-        dataset (dict[int, pd.DataFrame]): {level: DataFrame, ...}.
-            Each DataFrame must have columns "mz_bin" and "parent_bin", created by the process() function.
-            These values are used to link parent and child peaks.
-        mass_tol (float): mass tolerance in Da.
-        ms_n_digits (int): number of decimal places used in binning m/z values.
-            **The same value used in process() must be specified here.**
-    """
-    new_dataset = {}
-    new_dataset[min(dataset)] = dataset[min(dataset)]
-    for level in sorted(dataset)[:-1]:
-        new_dataset[level + 1] = (
-            pd.merge_asof(
-                dataset[level + 1].sort_values("parent_bin"),
-                new_dataset[level][["mz_bin"]]
-                .sort_values("mz_bin")
-                .reset_index(),
-                left_on="parent_bin",
-                right_on="mz_bin",
-                suffixes=("", "_x"),
-                tolerance=int(MASS_TOL * 10 ** MS_N_DIGITS),
-                direction="nearest",
-            )
-            .rename(columns={"index": "parent_id"})
-            .dropna(subset=["parent_id"])
-            .astype({"parent_id": int})
-            .drop(columns=["mz_bin_x"])
-        )
-    return new_dataset
