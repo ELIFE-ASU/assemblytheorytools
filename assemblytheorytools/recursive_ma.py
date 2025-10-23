@@ -77,30 +77,20 @@ ISOTOPES = {
     "Zirconium": 89.904708,
 }
 
-# Monoisotopic masses of common adduct ions
-COMMON_PRECURSORS = [
-    # Source: https://www.nist.gov/pml/atomic-weights-and-isotopic-compositions-relative-atomic-masses
-    0.0,  # Nothing
-    1.007825,  # H+
-]
 
-# Minimum MW of what can be considered a fragment
-MIN_CHUNK = 20.0
-
-
-def ma_distribution_params(mw):
+def _ma_distribution_params(mw):
     alpha = -0.0044321370413747405 * mw + -1.1014882364398888
     loc = 0.075 * mw - 1.3
     scale = 0.008058454819492319 * mw + 0.546185725719078
     return alpha, loc, scale
 
 
-def ma_samples(mw, n_samples):
-    alpha, loc, scale = ma_distribution_params(mw)
+def _ma_samples(mw, n_samples):
+    alpha, loc, scale = _ma_distribution_params(mw)
     return np.maximum(skewnorm(alpha, loc, scale).rvs(n_samples), 0.)
 
 
-def unify_trees(trees: list[dict]):
+def _unify_trees(trees: list[dict]):
     if not trees:
         return {}
     elif len(trees) == 1:
@@ -113,17 +103,29 @@ def unify_trees(trees: list[dict]):
         return {
             **{k: child1[k] for k in child1_keys - common_keys},
             **{k: child2[k] for k in child2_keys - common_keys},
-            **{k: unify_trees([child1[k], child2[k]]) for k in common_keys},
+            **{k: _unify_trees([child1[k], child2[k]]) for k in common_keys},
         }
 
 
 class MAEstimator:
-    def __init__(self, same_level=True, tol=0.01, adduct_masses=COMMON_PRECURSORS, n_samples=20):
+    def __init__(self,
+                 same_level=True,
+                 tol=0.01,
+                 adduct_masses=None,
+                 n_samples=20,
+                 min_chunk=20.0):
+        # Source: https://www.nist.gov/pml/atomic-weights-and-isotopic-compositions-relative-atomic-masses
+        if adduct_masses is None:
+            adduct_masses = [
+                0.0,  # Nothing
+                1.007825,  # H+
+            ]
         self.same_level = same_level
         self.tol = tol
         self.adduct_masses = adduct_masses
         self.n_samples = n_samples
         self.zero = np.zeros(n_samples)
+        self.min_chunk = min_chunk  # Minimum MW of what can be considered a fragment
 
     @functools.cache
     def estimate_by_mw(self, mw, has_children):
@@ -134,23 +136,23 @@ class MAEstimator:
                     # MW matches an isotope; MA = 0
                     print(f"HIT: {mw} ~ {isotope} ({weight})")
                     return self.zero
-        return ma_samples(mw, self.n_samples)
+        return _ma_samples(mw, self.n_samples)
 
     def estimate_ma(self, tree: dict[float, dict], mw: float, progress_levels=0, joint=False):
-        children = unify_trees([tree.get(mw, None) or self.precursors(tree, mw)])
+        children = _unify_trees([tree.get(mw, None) or self.precursors(tree, mw)])
         if joint:
             return sum(self.estimate_ma(children, child, progress_levels - 1) for child in children)
         child_estimates = {mw: self.estimate_by_mw(mw, bool(children))}
 
         for child in children:
             complement = mw - child
-            if complement < MIN_CHUNK or child < MIN_CHUNK:
+            if complement < self.min_chunk or child < self.min_chunk:
                 continue
 
             common = [
                 p
                 for p in self.common_precursors(children, child, complement)
-                if p > MIN_CHUNK and max(child - p, complement - p) > MIN_CHUNK
+                if p > self.min_chunk and max(child - p, complement - p) > self.min_chunk
             ]
 
             if common and progress_levels > 0:
@@ -165,7 +167,7 @@ class MAEstimator:
 
             for precursor in common:
                 chunks = [child - precursor, complement - precursor, precursor]
-                if min(chunks) < MIN_CHUNK:
+                if min(chunks) < self.min_chunk:
                     continue
                 chunk_mas = sum(
                     self.estimate_ma(
@@ -181,7 +183,6 @@ class MAEstimator:
             if progress_levels > 0:
                 print(f"MA({mw} = {child} + {complement}) = {child_estimates[child].mean()}")
 
-        # estimate = np.concatenate(list(child_estimates.values()))
         estimate = min(child_estimates.values(), key=np.mean)
         return estimate
 
@@ -191,7 +192,7 @@ class MAEstimator:
         return set(precursors1).intersection(precursors2)
 
     def precursors(self, data, parent):
-        if parent < MIN_CHUNK:
+        if parent < self.min_chunk:
             return {}
 
         possible_ions = [parent + adduct for adduct in self.adduct_masses]
@@ -200,25 +201,21 @@ class MAEstimator:
             for d in data
             if any(d - self.tol < p < d + self.tol for p in possible_ions)
         ]
-        children = unify_trees(
-            [
-                {
-                    **{
-                        p - child: self.same_level_precursors(data, p - child)
-                        for child in data[p] or {}
-                    },
-                    **(data[p] or {}),
-                }
-                for p in parent_candidates
-            ]
-        )
+        children = _unify_trees([
+            {
+                **{
+                    p - child: self.same_level_precursors(data, p - child)
+                    for child in data[p] or {}
+                },
+                **(data[p] or {}),
+            }
+            for p in parent_candidates
+        ])
         if not children and self.same_level:
-            children = unify_trees(
-                [
-                    self.same_level_precursors(data, p)
-                    for p in parent_candidates or possible_ions
-                ]
-            )
+            children = _unify_trees([
+                self.same_level_precursors(data, p)
+                for p in parent_candidates or possible_ions
+            ])
 
         # sometimes child peaks are heavier than parent
         return {k: v for k, v in children.items() if 0 < k < parent}
@@ -244,7 +241,7 @@ def _build_tree(data, level=1, acc=None, parent=None, max_level=3):
             _build_tree(data, level=2, acc=acc[peak], parent=peak, max_level=max_level)
         return acc
     if level > max_level:
-        return
+        return None
     level_df = data[level]
     parent_df = data[level - 1].drop(columns=["parent_id"], errors="ignore")
     level_df = level_df.join(parent_df, on="parent_id", rsuffix="_parent")
@@ -254,6 +251,7 @@ def _build_tree(data, level=1, acc=None, parent=None, max_level=3):
         _build_tree(
             data, level=level + 1, acc=acc[peak], parent=peak, max_level=max_level
         )
+    return None
 
 
 def build_tree(data: dict, max_level=3):
@@ -316,10 +314,12 @@ def _process_df(
 def process(
         sample: dict[int, pd.DataFrame],
         max_num_peaks: int = 200,
-        min_abs_intensity: dict[int, float] = defaultdict(lambda: 0.0),
+        min_abs_intensity=None,
         min_rel_intensity: float = 0.0,
         n_digits: int = 3,
 ) -> dict[int, pd.DataFrame]:
+    if min_abs_intensity is None:
+        min_abs_intensity = defaultdict(lambda: 0.0)
     sample = {
         level: _process_df(
             level,
