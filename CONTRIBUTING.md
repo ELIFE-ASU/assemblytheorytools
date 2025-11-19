@@ -9,10 +9,12 @@ To contribute, branch the repo, make changes, and submit a pull request.
 
 Contribution checklist:
 
-- Code must be packaged into reusable functions or classes.
-- Code must use current tooling.
-- Code must have documentation.
-- Code must have at least one passing test.
+- New functionality must be packaged into reusable functions or classes.
+- New functionality must use current tooling.
+- New functionality must have type hints.
+- New functionality must have docstrings.
+- New functionality must have unit tests.
+- Code changes must not reduce existing test coverage.
 
 ## Running tests
 
@@ -25,10 +27,10 @@ $ python -m unittest discover -vv
 
 ## Coding guidelines
 
-This project targets Python 3.8 or later.
+This project targets Python 3.12 or later, please ensure your code is compatible.
 
 ### Docstrings
 
 The docstring lines should not be longer than 76 characters (which allows rendering without soft-wrap of the entire
 module in a 80x24 terminal window).  
-Docstrings should be written in Google format.
+Docstrings should be written in Numpy style format.
