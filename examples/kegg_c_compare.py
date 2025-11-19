@@ -26,7 +26,7 @@ def get_bottcher_complexity(smi):
 
 if __name__ == "__main__":
     max_heavy = 15
-    data_file_in = "CBRdb_C.csv"
+    data_file_in = "CBRdb_C.csv.zip"
     kegg_data_in_path = os.path.expanduser(os.path.abspath(f"..//..//{data_file_in}"))
     target_url = f'https://raw.githubusercontent.com/ELIFE-ASU/CBRdb/refs/heads/main/{data_file_in}'
 
