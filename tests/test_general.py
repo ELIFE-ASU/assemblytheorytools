@@ -707,3 +707,47 @@ def test_parallel_processing():
     print(f"Results: {results}", flush=True)
     expected_ais = [3, 4, 4, 6, 5, 6, 6, 6, 6, 8]
     assert results == expected_ais
+
+
+def _add(a, b):
+    """
+    Add two numbers.
+
+    This helper function takes two numerical inputs and returns their sum.
+
+    Parameters:
+    -----------
+    a : int or float
+        The first number to add.
+    b : int or float
+        The second number to add.
+
+    Returns:
+    --------
+    int or float
+        The sum of the two input numbers.
+    """
+    return a + b
+
+
+def test_mp_calc_star():
+    """
+    Test the `mp_calc_star` function for parallel execution with multiple arguments.
+
+    This function performs the following steps:
+    1. Defines a list of argument tuples to be passed to the `_add` function.
+    2. Defines the expected results for the addition of each tuple.
+    3. Calls the `mp_calc_star` function to perform parallel computation of `_add` on the arguments.
+    4. Asserts that the results from `mp_calc_star` match the expected results.
+
+    Asserts:
+        - The results of the parallel computation are equal to the expected results.
+
+    Notes:
+        - The `_add` function is a helper function that adds two numbers.
+        - The `mp_calc_star` function is used for multiprocessing with multiple arguments.
+    """
+    args = [(1, 2), (3, 4), (5, 6), (7, 8)]
+    expected_results = [3, 7, 11, 15]
+    results = att.mp_calc_star(_add, args)
+    assert results == expected_results
