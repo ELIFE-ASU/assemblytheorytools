@@ -72,3 +72,37 @@ def tp_calc(func: Callable[[Any], Any], arg: Iterable[Any], n: int = mp.cpu_coun
     with ThreadPoolExecutor(max_workers=n) as executor:
         results = list(executor.map(func, arg))
     return results
+
+
+def mp_calc_chunked(
+        func: Callable[[Any], Any],
+        arg: Iterable[Any],
+        n: int | None = None,
+        chunksize: int | None = None,
+) -> list[Any]:
+    """
+    Executes a function in parallel using a process pool, with optional chunking.
+
+    Parameters
+    ----------
+    func : Callable[[Any], Any]
+        The function to execute (on a single element).
+    arg : Iterable[Any]
+        An iterable of arguments to pass to the function.
+    n : int, optional
+        Number of worker processes (default: mp.cpu_count()).
+    chunksize : int, optional
+        How many items each worker gets per batch. If None, multiprocessing
+        chooses a default based on len(arg).
+
+    Returns
+    -------
+    list[Any]
+        A list of results from the function executions.
+    """
+    if n is None:
+        n = mp.cpu_count()
+
+    with mp.Pool(n) as pool:
+        results = pool.map(func, arg, chunksize=chunksize or 1)
+    return results

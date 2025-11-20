@@ -156,7 +156,8 @@ from .tools_mol import (safe_standardize_mol,
                         smi_remove_implicit_hydrogen)
 from .tools_mp import (mp_calc,
                        mp_calc_star,
-                       tp_calc)
+                       tp_calc,
+                       mp_calc_chunked)
 from .tools_string import (load_fasta,
                            prep_joint_string_ai,
                            get_unique_char,
