@@ -7,11 +7,8 @@ import assemblytheorytools as att
 if __name__ == "__main__":
     print(flush=True)
 
-    # Define the SMILES string for glycine and alanine
+    # Define the SMILES string
     smi = 'C(C(=O)O)N.C[C@@H](C(=O)O)N'
-    # L-Serine: C([C@@H](C(=O)O)N)O
-    # Tryptophan: c1[nH]c2ccccc2c1C[C@H](N)C(=O)O
-    smi = 'C([C@@H](C(=O)O)N)O'
 
     # Convert the SMILES string to an RDKit Mol object
     mol = att.smi_to_mol(smi)

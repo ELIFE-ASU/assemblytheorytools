@@ -8,9 +8,3 @@ if __name__ == "__main__":
 
     print(f"Assembly index: {ai}", flush=True)
     print(f"virt_obj: {virt_obj}", flush=True)
-
-    # Convert to graph
-    graph = att.mol_to_nx(mol)
-
-    # dry run the assembly calculation
-    att.assembly_dry_run(graph)

@@ -11,12 +11,12 @@ plt.rcParams['axes.linewidth'] = 2.0
 
 
 def get_ai(smi):
-    ai, _, _ = att.calculate_assembly_index(att.smi_to_nx(smi), strip_hydrogen=True)
+    ai, _, _ = att.calculate_assembly_index(att.smi_to_nx(smi), strip_hydrogen=True, timeout=60.0*5)
     return ai
 
 
 if __name__ == "__main__":
-    max_heavy = 30
+    max_heavy = 50
     data_file_in = "CBRdb_C.csv.zip"
     kegg_data_in_path = os.path.expanduser(os.path.abspath(f"..//..//{data_file_in}"))
     target_url = f'https://raw.githubusercontent.com/ELIFE-ASU/CBRdb/refs/heads/main/{data_file_in}'
@@ -50,9 +50,14 @@ if __name__ == "__main__":
     df = df.dropna(subset=['smiles'])
     print(f"Number of molecules: {len(df)}")
 
-    df['assembly_index'] = att.mp_calc(get_ai, df['smiles'])
+    df['assembly_index'] = att.mp_calc(get_ai, df['smiles'], n=6)
     df = df.dropna(subset=['assembly_index'])
     df = df[df['assembly_index'] >= 0]
+
+    # Write the dataframe to a csv file
+    df.to_csv("kegg_c_assembly_index.csv", index=False)
+    df.to_csv("kegg_c_assembly_index.csv.zip", index=False)
+
 
     att.scatter_plot(df['n_heavy_atoms'],
                      df['assembly_index'],
