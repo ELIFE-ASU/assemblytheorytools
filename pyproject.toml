@@ -1,12 +1,54 @@
 [build-system]
-requires = ["setuptools >= 42.0.0", "wheel"]
+requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[tool.pytest.ini_options]
-markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "serial",
+[project]
+name = "assemblytheorytools"
+version = "1.8.0"
+description = "A centralised set of tools for doing assembly theory calculations."
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">=3.12"
+license = { text = "MIT" }
+
+authors = [
+  { name = "Louie Slocombe", email = "louies@hotmail.co.uk" },
 ]
+
+dependencies = [
+  "ase>=3.23.0",
+  "numpy>=2.1.3",
+  "scipy>=1.15.1",
+  "pandas>=2.2.3",
+  "matplotlib>=3.9.2",
+  "networkx>=3.4.2",
+  "rdkit>=2024.03.5",
+  "ipython>=8.30.0",
+  "pyvis>=0.3.2",
+  "CFG @ git+https://github.com/ELIFE-ASU/CFG.git",
+]
+
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "pytest-cov",
+]
+
+[project.urls]
+Homepage = "https://github.com/ELIFE-ASU/assemblytheorytools"
+Repository = "https://github.com/ELIFE-ASU/assemblytheorytools"
 
 [tool.setuptools]
 include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["assemblytheorytools*"]
+
+[tool.setuptools.package-data]
+"assemblytheorytools" = ["precompiled/*"]
