@@ -29,8 +29,6 @@ if __name__ == "__main__":
     df = pd.read_csv(kegg_data_in_path, low_memory=False)
     # Only select the compound_id, smiles, n_heavy_atoms, n_chiral_centers columns
     df = df[['compound_id', 'smiles', 'n_heavy_atoms']]
-    # remove duplicates based on the smiles column
-    df = df.drop_duplicates(subset=['smiles'])
     # Remove . in the smiles column
     df = df[~df['smiles'].str.contains(r"\.")]
     # Remove * in the smiles column
