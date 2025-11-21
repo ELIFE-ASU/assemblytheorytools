@@ -3,14 +3,15 @@ import random
 import tempfile
 from collections import defaultdict
 from html import escape
-from typing import List
+from typing import List, Optional, Sequence, Dict, Tuple, Any
 
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 from IPython.display import HTML
 from ase.visualize.plot import plot_atoms
-from matplotlib import colormaps, colors
+from matplotlib import colormaps, colors, cm
+from matplotlib.cm import ScalarMappable
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
@@ -634,13 +635,21 @@ def _plot_directed_network(nodes: List[str],
                            x: np.ndarray,
                            y: np.ndarray,
                            max_ai: int,
-                           labels: bool,
+                           labels: bool, # can be bool or List[str]
                            node_size: float,
                            arrow_size: float,
                            node_color: str,
+                           node_edge_color: str,
+                           node_linewidth: float,
                            edge_color: str,
+                           arrow_alpha: float,
                            fig_size: float,
-                           filename: str):
+                           filename: Optional[str] = None,
+                           dpi: int = 300,
+                           fig: Optional[plt.Figure] = None,
+                           ax: Optional[plt.Axes] = None,
+                           save_kwargs: Optional[Dict[str, Any]] = None
+                           ) -> Tuple[plt.Figure, plt.Axes]:
     """
     Generate and save a circle network plot as a PNG file.
 
@@ -666,8 +675,9 @@ def _plot_directed_network(nodes: List[str],
     max_ai : int
         Maximum assembly index (defines the number of concentric circles to draw).
 
-    labels : bool
-        If True, display node labels on the plot.
+    'labels' can be a boolean (draw/no draw) or a list of per-node labels (strings).
+    If a list is provided, empty strings or None entries will not render text but
+    nodes remain present.
 
     node_size : float
         Size of the nodes in the plot.
@@ -700,73 +710,94 @@ def _plot_directed_network(nodes: List[str],
     if len(nodes) != len(adjacency_matrix) or len(adjacency_matrix) != len(x) or len(x) != len(y):
         raise ValueError("Lengths of nodes, adjacency_matrix, x, and y must be equal.")
 
-    # Create a directed graph
+    # build graph and positions
     graph = nx.DiGraph()
-
-    # Add nodes and their positions
-    positions = {nodes[i]: (x[i], y[i]) for i in range(len(nodes))}
+    positions = {nodes[i]: (float(x[i]), float(y[i])) for i in range(len(nodes))}
     graph.add_nodes_from(nodes)
 
-    # Add edges based on the adjacency matrix
-    for i in range(len(nodes)):
-        for j in range(len(nodes)):
-            # Non-zero value indicates an edge
-            if adjacency_matrix[i][j] != 0:
-                graph.add_edge(nodes[i], nodes[j])
+    n = len(nodes)
+    for i in range(n):
+        for j in range(n):
+            if adjacency_matrix[i, j] != 0:
+                graph.add_edge(nodes[i], nodes[j], weight=float(adjacency_matrix[i, j]))
 
-    # Create a plot
-    fig, ax = plt.subplots(figsize=(fig_size, fig_size))
+    # create fig/ax if not provided
+    if fig is None or ax is None:
+        fig, ax = plt.subplots(figsize=(fig_size, fig_size))
 
-    # Draw concentric circles
+    # draw underlying concentric circles
     for radius in range(1, max_ai + 2):
         circle = Circle((0, 0), radius, color="black", alpha=1, fill=False, lw=1.5)
         ax.add_artist(circle)
 
-    # Draw the graph
+    # draw nodes and base edges (networkx draws arrows only for some backends; we use nx.draw for consistency)
     nx.draw(
         graph,
         pos=positions,
-        with_labels=labels,
+        ax=ax,
+        with_labels=False,
         node_color=node_color,
+        edgecolors=node_edge_color,
+        linewidths=node_linewidth,
         edge_color='white',
         node_size=node_size,
-        font_size=node_size / 200,
+        font_size=max(8, int(node_size / 300)),
         font_color="black",
         arrowstyle="->",
         arrowsize=arrow_size,
-        connectionstyle="arc3,rad=0.2"  # For curved edges
+        connectionstyle="arc3,rad=0.2"
     )
-    for edge in graph.edges():
-        src, dst = edge
-        # If the source node is above the destination node, curve the arrow downward (negative rad)
-        if positions[src][0] > positions[dst][0]:
-            rad = 0.25
-        # If the source node is below the destination node, curve the arrow upward (positive rad)
-        elif positions[src][0] < positions[dst][0]:
+
+    # draw curved directed edges individually for consistent arrowstyle and alpha
+    for src, dst, data in graph.edges(data=True):
+        # choose curvature based on horizontal placement
+        x_src, y_src = positions[src]
+        x_dst, y_dst = positions[dst]
+        if x_src > x_dst:
             rad = -0.25
-        # If the source and destination nodes are horizontally aligned
+        elif x_src < x_dst:
+            rad = 0.25
         else:
             rad = 0.0
-
         nx.draw_networkx_edges(
             graph,
             pos=positions,
-            edgelist=[edge],
+            edgelist=[(src, dst)],
             ax=ax,
             arrows=True,
             arrowstyle="->",
-            width=2.5,
+            width=1.8,
             edge_color=edge_color,
+            alpha=arrow_alpha,
             connectionstyle=f"arc3,rad={rad}",
+            arrowsize=arrow_size,
             min_target_margin=10,
         )
 
-    # Set limits for the plot to accommodate the circles
+    # labels: per-node list or global boolean
+    font_size = max(8, int(node_size / 200))
+    if isinstance(labels, (list, tuple, np.ndarray)):
+        for i, node in enumerate(nodes):
+            lab = labels[i] if i < len(labels) else ""
+            if lab:
+                ax.text(positions[node][0], positions[node][1], str(lab),
+                        ha='center', va='center', fontsize=font_size)
+    elif bool(labels):
+        for node in nodes:
+            ax.text(positions[node][0], positions[node][1], str(node),
+                    ha='center', va='center', fontsize=font_size)
+
     ax.set_xlim(-max_ai - 1.5, max_ai + 1.5)
     ax.set_ylim(-max_ai - 1.5, max_ai + 1.5)
     ax.set_aspect("equal", adjustable="datalim")
     fig.tight_layout()
-    plt.savefig(f"{filename}", dpi=600)
+
+    # Save if requested
+    if filename is not None:
+        if save_kwargs is None:
+            save_kwargs = {"bbox_inches": "tight", "pad_inches": 0.02}
+        fig.savefig(filename, dpi=dpi, **save_kwargs)
+
     return fig, ax
 
 
@@ -777,9 +808,20 @@ def plot_assembly_circle(nodes,
                          node_size=1000,
                          arrow_size=80,
                          node_color='#264f70',
+                         node_edge_color: str = "black",
+                         node_linewidth: float = 2.5,
                          edge_color='Grey',
+                         arrow_alpha=1.0,
                          fig_size=10,
-                         filename='assembly_circles.png'):
+                         filename: Optional[str] = None,
+                         dpi: int = 300,
+                         fig: Optional[plt.Figure] = None,
+                         ax: Optional[plt.Axes] = None,
+                         cmap: Optional[Any] = None,
+                         norm: Optional[Any] = None,
+                         colorbar_label: Optional[str] = None,
+                         save_kwargs: Optional[Dict[str, Any]] = None
+                         ):
     '''
     Here is a function to plot a graph, where objects are displayed in concentric
     circles according to their assembly index.
@@ -817,72 +859,125 @@ def plot_assembly_circle(nodes,
         filename (OPTIONAL): str
 
     '''
-    if adj_matrix is None:  # If adj matrix is not provided, the rules_graph will be the output
-        G = CFG.ai_with_pathways(nodes, f_print=False)[2]
-        nodes = list(G.nodes())
-        adj_matrix = nx.adjacency_matrix(G).toarray()
+    if adj_matrix is None:
+        raise ValueError("adj_matrix must be provided to plot_assembly_circle in this optimized variant.")
 
     n_nodes = len(nodes)
 
     if assembly_indices is None:
-        assembly_indices = np.zeros(n_nodes, dtype=int)
-
-        for i in range(n_nodes):
-            assembly_indices[i] = CFG.ai_with_pathways(nodes[i], f_print=False)[0]
+        raise ValueError("assembly_indices must be provided.")
 
     angles = np.full(n_nodes, np.nan)
+    max_ai = int(max(assembly_indices))
+    min_ai = int(min(assembly_indices))
 
-    max_ai = max(assembly_indices)
-    min_ai = min(assembly_indices)
+    # compute building blocks (minimum ai)
+    n_building_blocks = sum(1 for ai in assembly_indices if ai == min_ai)
+    # assign equispaced angles to building blocks
+    idxs_bb = [i for i, ai in enumerate(assembly_indices) if ai == min_ai]
+    for k, i in enumerate(idxs_bb):
+        angles[i] = 2 * np.pi * (k / max(1, n_building_blocks))
 
-    # Finding the number of building blocks, defined as those with minimum assembly index
-    n_building_blocks = 0
-    for i in range(n_nodes):
-        if assembly_indices[i] == min_ai:
-            n_building_blocks += 1
-
-    # Assign equispaced angles to building blocks
-    n = 1
-    for i in range(n_nodes):
-        if assembly_indices[i] == min_ai:
-            angles[i] = n * 2 * np.pi / n_building_blocks
-            n += 1
-
-    # Assign angles for higher assembly index objects
-    while np.any(np.isnan(angles)):  # While there are angles left
+    # assign angles to others by averaging parents' angles via adjacency (simple propagation)
+    # iterative fill: for remaining nodes, average angles of neighbors that have angles
+    adj = np.array(adj_matrix)
+    while np.any(np.isnan(angles)):
+        changed = False
         for i in range(n_nodes):
-            # If the string has no angle associated
             if np.isnan(angles[i]):
-                set_angles = np.array([])
-                for j in range(n_nodes):
-                    if adj_matrix[j, i] >= 1:
-                        set_angles = np.append(set_angles, angles[j])
-                if np.all(~np.isnan(set_angles)):
-                    angles[i] = _average_angles(set_angles)
+                # take neighbors (incoming or outgoing) that have angles
+                nbrs = set(np.where(adj[i, :] != 0)[0].tolist() + np.where(adj[:, i] != 0)[0].tolist())
+                nbrs_with_angles = [j for j in nbrs if not np.isnan(angles[j])]
+                if nbrs_with_angles:
+                    angles[i] = np.mean(angles[nbrs_with_angles])
+                    changed = True
+        if not changed:
+            # fallback spacing if graph disconnected: place remaining evenly
+            remaining = [i for i in range(n_nodes) if np.isnan(angles[i])]
+            for k, i in enumerate(remaining):
+                angles[i] = 2 * np.pi * (k / max(1, len(remaining)))
+            break
 
-    # Transform positions from polar to cartesian
-    x_positions = (assembly_indices + 1) * np.cos(angles)
-    y_positions = (assembly_indices + 1) * np.sin(angles)
+        # Resolve exact-angle overlaps: if multiple nodes share the same angle (within tol),
+        # spread them slightly around that central angle so they don't plot exactly on top.
+        tol = 1e-12
+        finite_idxs = np.where(~np.isnan(angles))[0]
+        processed = np.zeros(n_nodes, dtype=bool)
+        for idx in finite_idxs:
+            if processed[idx]:
+                continue
+            # find indices with the same angle (within tolerance)
+            same = [j for j in finite_idxs if np.isclose(angles[j], angles[idx], atol=tol)]
+            if len(same) > 1:
+                # span controls how far we spread duplicates (radians). Keep small.
+                span = min(0.18, 0.06 * len(same))
+                offsets = np.linspace(-span, span, len(same))
+                # sort by original index for determinism
+                for k, j in enumerate(sorted(same)):
+                    angles[j] = angles[j] + offsets[k]
+            processed[same] = True
 
-    # Add custom labels if not "None"
-    if labels is None:
-        display_labels = nodes
-    else:
-        display_labels = labels
+    x_positions = (np.array(assembly_indices) + 1) * np.cos(angles)
+    y_positions = (np.array(assembly_indices) + 1) * np.sin(angles)
 
-    # Plot the network
-    fig, ax = _plot_directed_network(display_labels,
-                                     adj_matrix,
-                                     x_positions,
-                                     y_positions,
-                                     max_ai,
-                                     labels,  # always show labels if custom provided
-                                     node_size,
-                                     arrow_size,
-                                     node_color,
-                                     edge_color,
-                                     fig_size,
-                                     filename)
+    # If fig/ax not provided, create them (no fallbacks beyond this)
+    if fig is None or ax is None:
+        fig, ax = plt.subplots(figsize=(fig_size, fig_size))
+
+    # call the underlying plotting routine drawing onto our fig/ax
+    fig, ax = _plot_directed_network(
+        nodes=nodes,
+        adjacency_matrix=np.array(adj_matrix),
+        x=x_positions,
+        y=y_positions,
+        max_ai=max_ai,
+        labels=labels,
+        node_size=node_size,
+        arrow_size=arrow_size,
+        node_color=node_color,
+        node_edge_color=node_edge_color,
+        node_linewidth=node_linewidth,
+        edge_color=edge_color,
+        arrow_alpha=arrow_alpha,
+        fig_size=fig_size,
+        filename=None,  # defer saving until after colorbar addition
+        fig=fig,
+        ax=ax,
+        dpi=dpi,
+        save_kwargs=save_kwargs,
+    )
+
+    # Add colorbar inline if user passed cmap and norm
+    if cmap is not None and norm is not None:
+        sm = ScalarMappable(norm=norm, cmap=cmap)
+        sm.set_array(np.linspace(getattr(norm, "vmin", 0), getattr(norm, "vmax", 1), 256))
+        cbar = fig.colorbar(sm, ax=ax, orientation="vertical", fraction=0.046, pad=0.02)
+
+        # force integer-only tick labels
+        import matplotlib.ticker as mticker
+        vmin = norm.vmin if hasattr(norm, "vmin") else 0.0
+        vmax = norm.vmax if hasattr(norm, "vmax") else 1.0
+        tick_min = int(np.ceil(vmin))
+        tick_max = int(np.floor(vmax))
+
+        if tick_max >= tick_min:
+            ticks = np.arange(tick_min, tick_max + 1)
+            cbar.set_ticks(ticks)
+            cbar.set_ticklabels([str(int(t)) for t in ticks])
+        else:
+            # small/fractional range: still request integer ticks from locator
+            cbar.locator = mticker.MaxNLocator(integer=True)
+            cbar.update_ticks()
+
+        if colorbar_label:
+            cbar.set_label(colorbar_label)
+
+    # finally save if requested (after colorbar added)
+    if filename is not None:
+        if save_kwargs is None:
+            save_kwargs = {"bbox_inches": "tight", "pad_inches": 0.02}
+        fig.savefig(filename, dpi=dpi, **save_kwargs)
+
     return fig, ax
 
 
