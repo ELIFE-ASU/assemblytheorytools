@@ -1,8 +1,27 @@
 import os
 
+import matplotlib.pyplot as plt
 import networkx as nx
 
 import assemblytheorytools as att
+
+
+def test_readme_example():
+    print(flush=True)
+    smi = 'CN1C=NC2=C1C(=O)N(C(=O)N2C)C'
+    graph = att.smi_to_nx(smi)
+    ai, virt_obj, pathway = att.calculate_assembly_index(graph, strip_hydrogen=True)
+
+    # Convert the virtual object graphs to a SMILES string
+    virt_obj = [att.nx_to_smi(graph, add_hydrogens=False) for graph in virt_obj]
+
+    print(f"Assembly index: {ai}", flush=True)
+    print(f"virt_obj: {virt_obj}", flush=True)
+    # Assembly index: 9
+    # ['C=NC', 'C=NC=CC', 'CC1=CN=CN1C', 'C=N', 'CN', 'C=CN=C', 'CNC', 'C=O', 'CC', 'CC1=C(N(C)C=O)N=CN1C', 'CN(C)C=O', 'C=C', 'CN1C(=O)C2=C(N=CN2C)N(C)C1=O', 'CN(C)C']
+    att.plot_pathway(pathway, plot_type='graph')
+    # plt.savefig('readme_example.png', dpi=600)
+    plt.show()
 
 
 def test_ai_graph():
