@@ -1,6 +1,7 @@
 <img width="2096" height="934" alt="Frame - 1 (2)" src="https://github.com/user-attachments/assets/4cc72e01-3ea4-4c0e-abd8-ba1af100b79b" />
 
 # 🧪
+
 `AssemblyTheoryTools` <!-- [![Stars](https://img.shields.io/github/stars/ELIFE-ASU/assemblytheorytools.svg?style=social&maxAge=3600&label=Star)](https://github.com/ELIFE-ASU/assemblytheorytools/stargazers)-->
 
 A centralised set of tools for doing assembly theory calculations [\[1\]](#ref1) written in Python.
@@ -105,6 +106,12 @@ The `pathway` is a directional graph where each node represents a virtual object
 and each edge represents a joining operation that combines input virtual objects
 into one output virtual object.
 
+Convert the virtual object graphs to a SMILES string.
+
+```
+virt_obj = [att.nx_to_smi(graph, add_hydrogens=False) for graph in virt_obj]
+```
+
 We should be able to print the results:
 
 ```
@@ -116,8 +123,17 @@ We should see the output:
 
 ```
 Assembly index: 9
-virt_obj: ['C=N', 'C=CC', 'CN(C)C=O', 'CN(C)C', 'CN(C=O)CN','Cn1c(=O)c2c(ncn2C)n(C)c1=O']
+virt_obj: ['C=NC=CC', 'CN(C)C', 'CN', 'CC1=CN=CN1C', 'CNC', 'C=O', 'C=NC', 'CN(C)C=O', 'CC', 'C=C', 'C=CN=C', 'CC1=C(N(C)C=O)N=CN1C', 'C=N', 'CN1C(=O)C2=C(N=CN2C)N(C)C1=O']
 ```
+
+Let's plot the results.
+
+```
+att.plot_pathway(pathway, plot_type='graph')
+plt.show()
+```
+
+![readme_example.png](readme_example.png)
 
 ## 💭 Feedback
 
