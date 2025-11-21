@@ -841,3 +841,40 @@ def test_calculate_rust_ai():
     ai_v5, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
     print(ai_v5, flush=True)
     assert ai_v5 == ai_r, f"Expected AI to be {ai_v5}, but got {ai_r}"
+
+
+def test_calculate_assembly():
+    """
+    Test the `calculate_assembly` function for a set of molecular graphs.
+
+    This function performs the following steps:
+    1. Defines a list of SMILES strings representing molecules.
+    2. Converts the SMILES strings to NetworkX graphs.
+    3. Defines a list of integers representing molecule indices.
+    4. Specifies settings for the assembly calculation.
+    5. Calculates the assembly value using the `calculate_assembly` function.
+    6. Compares the calculated assembly value to the expected reference value.
+
+    Asserts:
+        - The calculated assembly value matches the expected reference value.
+    """
+    print(flush=True)
+    # Define a list of SMILES strings
+    smiles = ['[H]OC(=O)C([H])([H])N([H])[H]',
+              '[H]OC(=O)C([H])(N([H])[H])C([H])([H])[H]',
+              '[H]OC(=O)C([H])([H])N([H])[H]',
+              '[H]C([H])([H])C([H])([H])[H]',
+              '[H]OC(=O)C([H])([H])N([H])[H]']
+    # Convert the SMILES strings to NetworkX graphs
+    graphs = [att.smi_to_nx(smi) for smi in smiles]
+    # Define a list of molecule indices
+    n_i = [1, 2, 3, 4, 5]
+    # Define settings for the assembly calculation
+    settings = {'strip_hydrogen': True}
+    # Calculate the assembly value
+    ass = att.calculate_assembly(graphs, n_i, settings)
+    print(ass, flush=True)
+    # Define the reference assembly value
+    ref = 11.87409143815135
+    # Assert that the calculated assembly value matches the reference value
+    assert ass == ref
