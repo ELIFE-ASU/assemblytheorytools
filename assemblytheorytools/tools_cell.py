@@ -1,3 +1,4 @@
+import warnings
 from typing import Dict, Tuple, Optional, Iterable
 from typing import List
 
@@ -333,6 +334,8 @@ def cif_to_nx(file,
         NetworkX graph with nodes representing atoms (with 'color' attribute for element symbol)
         and edges representing bonds (with 'color' attribute for bond order).
     """
+    # Raise a warning that the code is experimental
+    warnings.warn("The cif_to_nx function is experimental.", UserWarning)
     # Load the original cell
     atoms = read_cif_file(file)
     # Expand the cell
@@ -389,6 +392,10 @@ def guess_bond_orders(
         Diagnostic information including target valences, remaining valences,
         and search statistics.
     """
+
+    # Raise a warning that the code is experimental
+    warnings.warn("The guess_bond_orders function is experimental.", UserWarning)
+
     pt = Chem.GetPeriodicTable()
     H = G.copy()
     # Normalize node data and prepare per-atom target valences
