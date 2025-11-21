@@ -1,4 +1,5 @@
 from .assembly import (calculate_assembly_index,
+                       calculate_assembly,
                        calculate_string_assembly_index,
                        joint_correction,
                        load_assembly_output,

@@ -371,6 +371,45 @@ def calculate_assembly_index(mol,
         return (ai, virt_obj, path) if not return_log_file else (ai, virt_obj, path, log_file)
 
 
+def calculate_assembly(graphs: list[nx.Graph], n_i: list[float], settings: dict | None = None, parallel=True) -> float:
+    """
+    Calculate the assembly value for a set of molecular graphs.
+
+    This function computes the assembly value based on the assembly indices of the input graphs
+    and their respective weights. It supports parallel computation for efficiency.
+
+    Parameters
+    ----------
+    graphs : list[nx.Graph]
+        A list of molecular graphs represented as NetworkX graph objects.
+    n_i : list[float]
+        A list of weights corresponding to each graph in the `graphs` list.
+    settings : dict | None, optional
+        A dictionary of settings for the assembly index calculation. Defaults to an empty dictionary.
+    parallel : bool, optional
+        If True, calculates assembly indices in parallel. Defaults to True.
+
+    Returns
+    -------
+    float
+        The calculated assembly value, which is a weighted sum of the regularized assembly indices.
+    """
+    settings = settings or {}
+
+    if parallel:
+        # Calculate assembly indices in parallel
+        ai_list, _, _ = calculate_assembly_parallel(graphs, settings)
+    else:
+        # Calculate assembly indices sequentially
+        ai_list = [calculate_assembly_index(graph, **settings)[0] for graph in graphs]
+
+    # Regularize the assembly indices to ensure non-negative values
+    ai_list = [regularise_ai(ai) for ai in ai_list]
+    n_t = sum(n_i)  # Total weight of all graphs
+    # Compute the weighted sum of the exponential of the assembly indices
+    return sum(np.exp(ai) * ((n - 1) / n_t) for ai, n in zip(ai_list, n_i))
+
+
 def calculate_assembly_semi_metric(graph1,
                                    graph2,
                                    dir_code=None,
