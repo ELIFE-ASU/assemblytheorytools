@@ -221,5 +221,25 @@ def main():
     
     print(f"\nFinal MA estimate: {ma_detailed.mean():.2f} ± {ma_detailed.std():.2f}")
 
+
+    # Test 6: Detailed Joint calculation (with progress)
+    print("\n" + "=" * 70)
+    print("[Test 4] Detailed Joint MA calculation with intermediate steps")
+    print("-" * 70)
+    tree1 = {400.0: {200.0: {}, 100.0: {}}}
+    tree2 = {500.0: {300.0: {}, 100.0: {}}}
+    
+    print("\nMeta tree (combining multiple samples):")
+    meta = meta_tree([tree1, tree2], meta_parent_mz=1e6)
+    print_tree(meta)
+
+    ma_detailed = estimator.estimate_ma(
+        tree=meta,
+        mw=1e6,
+        progress_levels=3
+    )
+    
+    print(f"\nFinal MA estimate: {ma_detailed.mean():.2f} ± {ma_detailed.std():.2f}")
+
 if __name__ == "__main__":
     main()
