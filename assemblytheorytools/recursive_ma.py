@@ -173,7 +173,7 @@ class MAEstimator:
                     return self.zero
         return _ma_samples(mw, self.n_samples)
 
-    def estimate_ma(self, tree: dict[float, dict], mw: float, progress_levels=0, joint=False):
+    def estimate_ma(self, tree: dict[float, dict], mw: float = tree[0], progress_levels=0, joint=False):
         """
         Recursive MA estimation:
         - Decompose mass into children and evaluate pathway steps.
