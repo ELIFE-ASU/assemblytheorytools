@@ -90,7 +90,7 @@ def _ma_samples(mw, n_samples):
     return np.maximum(skewnorm(alpha, loc, scale).rvs(n_samples), 0.)
 
 
-def _unify_trees(trees: list[dict]):
+def unify_trees(trees: list[dict]):
     if not trees:
         return {}
     elif len(trees) == 1:
@@ -103,7 +103,7 @@ def _unify_trees(trees: list[dict]):
         return {
             **{k: child1[k] for k in child1_keys - common_keys},
             **{k: child2[k] for k in child2_keys - common_keys},
-            **{k: _unify_trees([child1[k], child2[k]]) for k in common_keys},
+            **{k: unify_trees([child1[k], child2[k]]) for k in common_keys},
         }
 
 
@@ -139,7 +139,7 @@ class MAEstimator:
         return _ma_samples(mw, self.n_samples)
 
     def estimate_ma(self, tree: dict[float, dict], mw: float, progress_levels=0, joint=False):
-        children = _unify_trees([tree.get(mw, None) or self.precursors(tree, mw)])
+        children = unify_trees([tree.get(mw, None) or self.precursors(tree, mw)])
         if joint:
             return sum(self.estimate_ma(children, child, progress_levels - 1) for child in children)
         child_estimates = {mw: self.estimate_by_mw(mw, bool(children))}
@@ -201,7 +201,7 @@ class MAEstimator:
             for d in data
             if any(d - self.tol < p < d + self.tol for p in possible_ions)
         ]
-        children = _unify_trees([
+        children = unify_trees([
             {
                 **{
                     p - child: self.same_level_precursors(data, p - child)
@@ -212,7 +212,7 @@ class MAEstimator:
             for p in parent_candidates
         ])
         if not children and self.same_level:
-            children = _unify_trees([
+            children = unify_trees([
                 self.same_level_precursors(data, p)
                 for p in parent_candidates or possible_ions
             ])
