@@ -105,7 +105,10 @@ def unify_trees(trees: list[dict]):
             **{k: child2[k] for k in child2_keys - common_keys},
             **{k: unify_trees([child1[k], child2[k]]) for k in common_keys},
         }
-
+        
+def meta_tree(samples: list[dict], meta_parent_mz: float=1e6) -> dict:
+    tree = unify_trees(samples)
+    return {meta_parent_mz: tree}
 
 class MAEstimator:
     def __init__(self,
