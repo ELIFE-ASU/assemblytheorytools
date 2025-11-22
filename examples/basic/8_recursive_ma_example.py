@@ -10,22 +10,11 @@ This script demonstrates how to use the MA estimation code by:
 
 import numpy as np
 import pandas as pd
-from assemblytheorytools.recursive_ma import process, build_tree, tree_depth, MAEstimator#, meta_tree
+from assemblytheorytools.recursive_ma import process, build_tree, tree_depth, MAEstimator, meta_tree
 
 def create_simple_tree():
     """
     Create a fragmentation tree manually.
-    
-    Structure:
-        400.0
-        ├─ 300.0
-        │  ├─ 200.0
-        │  ├─ 150.0
-        │  └─ 100.0
-        ├─ 250.0
-        │  ├─ 150.0
-        │  └─ 100.0
-        └─ 200.0
     """
     tree = {
         400.0: {
