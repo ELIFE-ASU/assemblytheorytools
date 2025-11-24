@@ -6,7 +6,6 @@ import numpy as np
 import pandas as pd
 from scipy.stats.distributions import skewnorm
 
-
 # Monoisotopic masses for a set of atomic elements.
 # Used to detect when a mass corresponds directly to a single element (MA = 0 case).
 ISOTOPES = {
@@ -125,8 +124,9 @@ def unify_trees(trees: list[dict]):
             **{k: child2[k] for k in child2_keys - common_keys},
             **{k: unify_trees([child1[k], child2[k]]) for k in common_keys},
         }
-        
-def meta_tree(samples: list[dict], meta_parent_mz: float=1e6) -> dict:
+
+
+def meta_tree(samples: list[dict], meta_parent_mz: float = 1e6) -> dict:
     """
     Encapsulate multiple trees under a single 'meta' parent precursor.
     Useful for estimating Joint MA of multi-molecular samples.
@@ -134,17 +134,19 @@ def meta_tree(samples: list[dict], meta_parent_mz: float=1e6) -> dict:
     tree = unify_trees(samples)
     return {meta_parent_mz: tree}
 
+
 class MAEstimator:
     """
     Estimate Molecular Assembly (MA) values given MS fragmentation trees.
     """
+
     def __init__(self,
                  same_level=True,
                  tol=0.01,
                  adduct_masses=None,
                  n_samples=20,
                  min_chunk=20.0):
-                     
+
         # Source: https://www.nist.gov/pml/atomic-weights-and-isotopic-compositions-relative-atomic-masses
         if adduct_masses is None:
             adduct_masses = [
@@ -188,7 +190,7 @@ class MAEstimator:
             complement = mw - child
             if complement < self.min_chunk or child < self.min_chunk:
                 continue
-                
+
             # Detect shared precursor masses
             common = [
                 p
@@ -240,7 +242,7 @@ class MAEstimator:
         """
         if parent < self.min_chunk:
             return {}
-            
+
         # Check for possible adduct-variant parent relationships
         possible_ions = [parent + adduct for adduct in self.adduct_masses]
         parent_candidates = [
@@ -248,7 +250,7 @@ class MAEstimator:
             for d in data
             if any(d - self.tol < p < d + self.tol for p in possible_ions)
         ]
-        
+
         # Combine known children from matching candidates
         children = unify_trees([
             {
