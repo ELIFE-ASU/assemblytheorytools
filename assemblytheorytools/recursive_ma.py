@@ -232,7 +232,7 @@ class MAEstimator:
                 print(f"MA({mw} = {child} + {complement}) = {child_estimates[child].mean()}")
 
         estimate = min(child_estimates.values(), key=np.mean)
-        return estimate
+        return np.mean(estimate)
 
     def common_precursors(self, data, parent1, parent2):
         """Find shared parent peaks that could generate both fragments."""
@@ -330,84 +330,3 @@ def tree_depth(tree: dict):
         return 1 + max(tree_depth(v) for v in tree.values())
     else:
         return 0
-
-
-def _process_df(
-        level,
-        ms_df: pd.DataFrame,
-        max_num_peaks,
-        min_abs_intensity,
-        min_rel_intensity,
-        n_digits,
-):
-    original_len = len(ms_df)
-
-    if "parent" not in ms_df:
-        ms_df["parent"] = 10 ** 6
-    ms_df = ms_df[ms_df.mz < ms_df.parent - 1]
-
-    ms_df = ms_df.assign(
-        mz_bin=(ms_df.mz.round(n_digits) * 10 ** n_digits).astype(int),
-        parent_bin=(ms_df.parent.round(n_digits) * 10 ** n_digits).astype(int),
-    )
-
-    min_intensity_fn = lambda df: max(
-        min_abs_intensity[level], df["intensity"].max() * min_rel_intensity
-    )
-    filter_fn = (
-        lambda g: g[g["intensity"] > min_intensity_fn(g)]
-        .sort_values("intensity")
-        .tail(max_num_peaks)
-    )
-    ms_df = (
-        ms_df.groupby(["mz_bin", "parent_bin"])
-        .agg({"intensity": "sum", "mz": "median", "parent": "median"})
-        .reset_index()
-        .groupby("parent_bin")
-        .apply(filter_fn)
-        .reset_index()
-    )
-
-    result = (
-        ms_df.groupby("parent_rounded")
-        .apply(lambda g: g.sort_values("intensity").tail(max_num_peaks))
-        .reset_index(drop=True)
-    )
-
-    logging.debug(f"Level {level}: {len(result)} out of {original_len} peaks retained")
-    return result
-
-
-def process(
-        sample: dict[int, pd.DataFrame],
-        max_num_peaks: int = 200,
-        min_abs_intensity=None,
-        min_rel_intensity: float = 0.0,
-        n_digits: int = 3,
-) -> dict[int, pd.DataFrame]:
-    if min_abs_intensity is None:
-        min_abs_intensity = defaultdict(lambda: 0.0)
-    sample = {
-        level: _process_df(
-            level,
-            df.reset_index(),
-            max_num_peaks,
-            min_abs_intensity,
-            min_rel_intensity,
-            n_digits,
-        )
-        for level, df in sample.items()
-    }
-    if 1 not in sample:
-        # Generate placeholder MS1 if only MS2+ present
-        parent_peak = (
-            sample[2].groupby("parent")["intensity"].sum().sort_values().index[-1]
-        )
-        sample[1] = pd.DataFrame(
-            {
-                "mz": [parent_peak],
-                "intensity": 100000.0,
-                "mz_bin": [int(parent_peak * 10 ** n_digits)],
-            }
-        )
-    return sample
