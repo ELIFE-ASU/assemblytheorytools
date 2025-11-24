@@ -8,7 +8,7 @@ This script demonstrates how to use the MA estimation code by:
 4. Estimating molecular assembly complexity
 """
 
-from assemblytheorytools.recursive_ma import tree_depth, MAEstimator, meta_tree
+from assemblytheorytools.recursive_ma import tree_depth, MAEstimator, meta_tree, unify_trees
 
 
 def create_simple_tree():
