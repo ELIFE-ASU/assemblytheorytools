@@ -86,9 +86,9 @@ mock_data = {
 
 print("Testing mock fragmentation tree…")
 
-parent_ma = np.mean(estimator.estimate_ma(mock_data, 371.4))
-child1_ma = np.mean(estimator.estimate_ma(mock_data[371.4], 150.1))
-child2_ma = np.mean(estimator.estimate_ma(mock_data[371.4], 221.3))
+parent_ma = estimator.estimate_ma(mock_data, 371.4)
+child1_ma = estimator.estimate_ma(mock_data[371.4], 150.1)
+child2_ma = estimator.estimate_ma(mock_data[371.4], 221.3)
 
 print("Parent MA:", parent_ma)
 print("Child1 MA:", child1_ma)
