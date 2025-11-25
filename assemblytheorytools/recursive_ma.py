@@ -321,6 +321,10 @@ def _build_tree(data, level=1, acc=None, parent=None, max_level=3):
 
 def build_tree(data: dict, max_level=3):
     """Simple wrapper for initiating tree construction."""
+    if type(data) != dict:
+        raise TypeError("Data input is not a dictionary")
+    elif data == {}:
+        raise Exception("Data input is empty")
     return _build_tree(data, max_level=max_level)
 
 
