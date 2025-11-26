@@ -37,7 +37,8 @@ def enumerate_neighborhood(graphs: List[nx.Graph],
         If True, enable debug mode for additional output, by default False.
     custom_valence_table : dict or None, optional
         Custom valence table mapping atom symbols to valence values.
-        If None, uses RDKit default valences, by default None.
+        Example: custom_valence_table={'P': 3, 'S': 4}
+        If None or atoms not in custom table are encountered, it uses RDKit default valences, by default None.
     
     Returns
     -------
