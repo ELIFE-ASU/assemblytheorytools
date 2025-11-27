@@ -882,7 +882,7 @@ def test_calculate_assembly():
 def test_joint_correction_does_not_affect_failed_assembly_index():
     """
     Testing a fix that prevented joint_correction running on ai <= 0
-    Previously, rjoint_correction was appliet to ai = -1 (i.e. failed
+    Previously, joint_correction was applied to ai = -1 (i.e. failed
     in exact mode) reducing ai further for multi-component molecules
     (e.g. -2, -3). This test is to ensure that future refactors do 
     not remove this fix.
