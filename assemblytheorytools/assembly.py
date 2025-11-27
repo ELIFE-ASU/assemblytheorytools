@@ -360,7 +360,7 @@ def calculate_assembly_index(mol,
                     traceback.print_exc()
 
         # Apply joint correction if necessary
-        if joint_corr:
+        if joint_corr and ai > 0:
             ai = joint_correction(mol, ai)
 
         # Print log file path if required
