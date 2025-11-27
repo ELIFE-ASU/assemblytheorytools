@@ -1,6 +1,6 @@
 import itertools
 from typing import List
-
+import sys # For debugging
 import networkx as nx
 import numpy as np
 from rdkit import Chem
@@ -253,8 +253,9 @@ def enumerate_up(graph1: nx.Graph,
     debug : bool, optional
         If True, prints detailed debugging information, by default False.
     custom_valence_table : dict or None, optional
-        Custom valence mapping {atom_symbol: valence}. If None, uses
-        RDKit default valences, by default None.
+        Custom valence table mapping atom symbols to valence values.
+        Example: custom_valence_table={'P': 3, 'S': 4}
+        If None or atoms not in custom table are encountered, it uses RDKit default valences, by default None.
     
     Returns
     -------
@@ -278,10 +279,6 @@ def enumerate_up(graph1: nx.Graph,
     ValueError
         If nodes lack 'color' attributes when obey_valence is True.
     """
-
-    # # Copy graphs for safety
-    # graph1 = graph1.copy()
-    # graph2 = graph2.copy()
 
     # Check that we have the information for valence checks
     if obey_valence:
@@ -368,6 +365,7 @@ def enumerate_up(graph1: nx.Graph,
                 for node1_perm in itertools.permutations(nodes1, k):
                     for node2_perm in itertools.permutations(nodes2, k):
                         candidate_color_map = frozenset(zip(node1_perm, node2_perm))
+                        
                         # Check that every pair is in valid_identifications
                         valid = False  # This is the default value if the candidate map doesn't make it through the next if statement
                         if all(pair in valid_identifications for pair in candidate_color_map):
@@ -383,9 +381,8 @@ def enumerate_up(graph1: nx.Graph,
     valid_maps = map_outer_product(combinations, graph1, graph2)
 
     if debug:
-        print(f"Number of combinations = {len(combinations)}")
-        print(combinations.keys())
-        print([combinations[key] for key in combinations.keys()])
+        print("Combination keys: ", combinations.keys())
+        print("Combination items: ", [combinations[key] for key in combinations.keys()])
         print(f"Number of valid color-specific maps = {sum(len(combinations[key]) for key in combinations.keys())}")
         print(f"Number of valid maps = {len(valid_maps)}")
 
@@ -393,6 +390,19 @@ def enumerate_up(graph1: nx.Graph,
     output_graphs = []
     for m in valid_maps:
         joined = map_application(m, graph1, graph2)
+        if not nx.is_connected(joined):
+            print("Warning: A disconnected graph was formed in an up join operation. This should never happen. Please report this bug.")
+            print(f"Graph1 has {graph1.number_of_nodes()} nodes and {graph1.number_of_edges()} edges.")
+            print(f"Graph1 nodes data: {graph1.nodes(data=True)}")
+            print(f"Graph1 edges data: {graph1.edges(data=True)}")
+            print(f"Graph2 has {graph2.number_of_nodes()} nodes and {graph2.number_of_edges()} edges.")
+            print(f"Graph2 nodes data: {graph2.nodes(data=True)}")
+            print(f"Graph2 edges data: {graph2.edges(data=True)}")
+            print(f"Joined graph has {joined.number_of_nodes()} nodes and {joined.number_of_edges()} edges.")
+            print(f"Joined graph nodes data: {joined.nodes(data=True)}")
+            print(f"Joined graph edges data: {joined.edges(data=True)}")
+            print(f"Vertex identification map: {m}")
+            sys.exit()
         if not allow_dots and not nx.is_connected(joined):
             continue
         output_graphs.append(joined)
@@ -427,9 +437,16 @@ def map_outer_product(combinations, graph1, graph2):
     Special case: If only one color exists, returns the valid maps for that
     color directly without computing the outer product.
     """
+
+    #print("Computing map outer product...")
+
     # If there is only one color, we can just return the valid maps for that color
     if len(combinations) == 1:
-        return combinations[list(combinations.keys())[0]]
+        #print("Combinations: ",combinations) # Combinations is entering with an empty frozenset... (DEBUGGING comment)
+        valid_maps = combinations[list(combinations.keys())[0]]
+        valid_maps -= {frozenset()}  # Remove the trivial map
+        #print(f"Valid maps found: {valid_maps}")
+        return valid_maps
     valid_maps = []  # This will be the list of valid maps
     # Remove colors with empty sets
     filtered_combinations = {color: maps for color, maps in combinations.items() if maps}
@@ -449,14 +466,16 @@ def map_outer_product(combinations, graph1, graph2):
                 g2_check_edges.append(tuple(sorted(edge)))
 
     # Now we will enumerate the outer product of these combinations
-    for candidate_map in itertools.product(
-            *lists_of_maps):  # THIS IS WHERE THE BUG IS HAPPENING, itertools is passing []
-        candidate_map = set(itertools.chain.from_iterable(
-            candidate_map))  # This should flatten the tuple of sets of tuples into a single set of tuples
-        valid = conditional_check_multi_edge_generation(candidate_map, g1_check_edges, g2_check_edges)
+    for candidate_map in itertools.product(*lists_of_maps):  # THIS IS WHERE THE BUG IS HAPPENING, itertools is passing []
+        candidate_map = set(itertools.chain.from_iterable(candidate_map))  # This should flatten the tuple of sets of tuples into a single set of tuples
+        if len(candidate_map) > 0: # Discard trivial maps # NEW CODE 11/26/2025
+            valid = conditional_check_multi_edge_generation(candidate_map, g1_check_edges, g2_check_edges)
 
-        if valid:
-            valid_maps.append(candidate_map)
+            if valid: # and len(candidate_map) > 0:  # This candidate map is valid and non-trivial, so we will add it to the list of valid maps
+                #print("Valid map found:", candidate_map)
+                valid_maps.append(candidate_map)
+
+    #print(f"Valid maps found: {valid_maps}")
     return valid_maps
 
 
@@ -552,3 +571,4 @@ def map_application(map, graph1, graph2):
             f"The joined graph has the wrong number of edges, {len(joined_graph.edges())} =/= {len(g1.edges())} + {len(g2.edges())}. This is probably a bug. Please report it.")
 
     return joined_graph
+
