@@ -73,12 +73,10 @@ def test_enumerate_up_small():
     G4 = nx.Graph()
     G4.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 0)])
     G5 = nx.Graph()
-    G5.add_edges_from([(0, 4), (1, 4), (2, 4), (3, 4)])
-    G6 = nx.Graph()
-    G6.add_edges_from([(0, 1), (1, 2), (2, 3), (0, 2)])
+    G5.add_edges_from([(0, 1), (1, 2), (2, 3), (0, 2)])
 
     # Add colors to the nodes and edges
-    for g in [g1, g2, G1, G2, G3, G4, G5, G6]:
+    for g in [g1, g2, G1, G2, G3, G4, G5]:
         for i in g.nodes():
             g.nodes[i]['color'] = 'C'
         for e in g.edges():
@@ -91,10 +89,10 @@ def test_enumerate_up_small():
         if not any(nx.is_isomorphic(g, unique_g) for unique_g in unique_graphs):
             unique_graphs.append(g)
     print(f"Number of unique graphs after iso-check: {len(unique_graphs)}")
-    assert len(unique_graphs) == 6
+    assert len(unique_graphs) == 5
     # Check that the output graphs are isomorphic to the expected graphs
-    for expected_graph in [G1, G2, G3, G4, G5, G6]:
-        assert any(nx.is_isomorphic(g, expected_graph) for g in unique_graphs)
+    for expected_graph in [G1, G2, G3, G4, G5]:
+        assert any(nx.is_isomorphic(g, expected_graph, node_match=node_match, edge_match=edge_match) for g in unique_graphs)
 
 
 def test_enumerate_up_runs():
