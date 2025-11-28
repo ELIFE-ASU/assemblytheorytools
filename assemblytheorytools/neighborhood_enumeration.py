@@ -10,6 +10,7 @@ from .tools_graph import canonicalize_node_labels
 node_match = nx.algorithms.isomorphism.categorical_node_match('color', None)
 edge_match = nx.algorithms.isomorphism.categorical_edge_match('color', None)
 ptable = Chem.GetPeriodicTable()
+from networkx.algorithms.graph_hashing import weisfeiler_lehman_graph_hash
 
 def enumerate_neighborhood(graphs: List[nx.Graph],
                            obey_valence: bool = True,
@@ -77,6 +78,9 @@ def enumerate_neighborhood(graphs: List[nx.Graph],
 
     # Mod out the down join operations by isomorphism
     N_graphs = []
+    # hash_value -> list of indices into N_graphs
+    buckets = {}
+
     down_jos = set()
     for s in range(len(graphs)):
         for down_partition in down_partitions[s]:
@@ -91,44 +95,60 @@ def enumerate_neighborhood(graphs: List[nx.Graph],
                 continue
 
             for in_idx, g_part in enumerate([g1, g2]):
+                h = weisfeiler_lehman_graph_hash(g_part, node_attr="color", edge_attr="color")
+                candidate_idxs = buckets.get(h, [])
                 found = False
-                for n_idx, g in enumerate(N_graphs):
+                # Only compare against graphs that share the same hash
+                for idx in candidate_idxs:
+                    g = N_graphs[idx]
                     if nx.is_isomorphic(g_part, g, node_match=node_match, edge_match=edge_match):
-                        jo[in_idx] = n_idx
+                        jo[in_idx] = idx
                         found = True
                         break
+
                 if not found:
                     N_graphs.append(g_part.copy())
                     jo[in_idx] = len(N_graphs) - 1
+                    buckets.setdefault(h, []).append(jo[in_idx])
 
             if jo[0] <= jo[1]:
                 down_jos.add(tuple(jo))
             else:
                 down_jos.add(tuple([jo[1], jo[0], s]))
 
-    # Mod out the up join operations by isomorphism
+    # ----- Mod out the up join operations by isomorphism -----
+    
     up_jos = set()
     for (i, j), up_graphs_list in up_graphs.items():
         for up_graph in up_graphs_list:
-            # Filter out disconnected graphs if not allowed
-            if not allow_dots and not nx.is_connected(up_graph):
-                print(
-                    "Warning: A disconnected graph was found in an up join operation. This should never happen. Please report this bug.")
-                continue
+            # Check connectivity
+            if not nx.is_connected(up_graph):
+                print("Warning: A disconnected graph was found in an up join operation. "
+                      "This should never happen. Please report this bug.")
+                sys.exit()
 
             jo = [i, j, -1]
-            
+
+            h = weisfeiler_lehman_graph_hash(up_graph, node_attr="color", edge_attr="color")
+            candidate_idxs = buckets.get(h, [])
+
             found = False
-            for idx, g in enumerate(N_graphs):
+            # Only compare against graphs that share the same hash
+            for idx in candidate_idxs:
+                g = N_graphs[idx]
                 if nx.is_isomorphic(up_graph, g, node_match=node_match, edge_match=edge_match):
                     jo[2] = idx
                     found = True
                     break
-            if not found:
-                N_graphs.append(up_graph.copy())
-                jo[2] = len(N_graphs) - 1
 
-            up_jos.add(tuple(jo))  # jo's are already canonicalized
+            if not found:
+                # new iso class
+                N_graphs.append(up_graph.copy())
+                new_idx = len(N_graphs) - 1
+                jo[2] = new_idx
+                buckets.setdefault(h, []).append(new_idx)
+
+            up_jos.add(tuple(jo))
 
     return {"input_graphs": graphs, "N_graphs": N_graphs, "down_jos": down_jos, "up_jos": up_jos}
 
@@ -460,12 +480,11 @@ def map_outer_product(combinations, graph1, graph2):
                 g2_check_edges.append(tuple(sorted(edge)))
 
     # Now we will enumerate the outer product of these combinations
-    for candidate_map in itertools.product(*lists_of_maps):  # THIS IS WHERE THE BUG IS HAPPENING, itertools is passing []
-        candidate_map = set(itertools.chain.from_iterable(candidate_map))  # This should flatten the tuple of sets of tuples into a single set of tuples
-        if len(candidate_map) > 0: # Discard trivial maps # NEW CODE 11/26/2025
+    for candidate_map in itertools.product(*lists_of_maps):  
+        candidate_map = set(itertools.chain.from_iterable(candidate_map))  # This flattens the tuple of sets of tuples into a single set of tuples
+        if len(candidate_map) > 0: # Discard trivial maps 
             valid = conditional_check_multi_edge_generation(candidate_map, g1_check_edges, g2_check_edges)
-
-            if valid: # and len(candidate_map) > 0:  # This candidate map is valid and non-trivial, so we will add it to the list of valid maps
+            if valid:  # This candidate map is valid and non-trivial, so we will add it to the list of valid maps
                 valid_maps.append(candidate_map)
 
     return valid_maps
