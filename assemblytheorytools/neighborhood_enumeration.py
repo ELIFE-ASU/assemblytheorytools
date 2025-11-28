@@ -11,7 +11,6 @@ node_match = nx.algorithms.isomorphism.categorical_node_match('color', None)
 edge_match = nx.algorithms.isomorphism.categorical_edge_match('color', None)
 ptable = Chem.GetPeriodicTable()
 
-
 def enumerate_neighborhood(graphs: List[nx.Graph],
                            obey_valence: bool = True,
                            allow_dots: bool = True,
@@ -74,12 +73,7 @@ def enumerate_neighborhood(graphs: List[nx.Graph],
     up_graphs = dict()
     for i, graph1 in enumerate(graphs):
         for j, graph2 in enumerate(graphs[i:]):
-            up_graphs[(i, i + j)] = enumerate_up(graph1,
-                                                 graph2,
-                                                 obey_valence=obey_valence,
-                                                 allow_dots=allow_dots,
-                                                 debug=debug,
-                                                 custom_valence_table=custom_valence_table)
+            up_graphs[(i, i + j)] = enumerate_up(graph1, graph2, obey_valence=obey_valence, allow_dots=allow_dots, debug=debug, custom_valence_table=custom_valence_table)
 
     # Mod out the down join operations by isomorphism
     N_graphs = []
@@ -123,6 +117,7 @@ def enumerate_neighborhood(graphs: List[nx.Graph],
                 continue
 
             jo = [i, j, -1]
+            
             found = False
             for idx, g in enumerate(N_graphs):
                 if nx.is_isomorphic(up_graph, g, node_match=node_match, edge_match=edge_match):
@@ -442,11 +437,10 @@ def map_outer_product(combinations, graph1, graph2):
 
     # If there is only one color, we can just return the valid maps for that color
     if len(combinations) == 1:
-        #print("Combinations: ",combinations) # Combinations is entering with an empty frozenset... (DEBUGGING comment)
         valid_maps = combinations[list(combinations.keys())[0]]
         valid_maps -= {frozenset()}  # Remove the trivial map
-        #print(f"Valid maps found: {valid_maps}")
         return valid_maps
+    
     valid_maps = []  # This will be the list of valid maps
     # Remove colors with empty sets
     filtered_combinations = {color: maps for color, maps in combinations.items() if maps}
@@ -472,10 +466,8 @@ def map_outer_product(combinations, graph1, graph2):
             valid = conditional_check_multi_edge_generation(candidate_map, g1_check_edges, g2_check_edges)
 
             if valid: # and len(candidate_map) > 0:  # This candidate map is valid and non-trivial, so we will add it to the list of valid maps
-                #print("Valid map found:", candidate_map)
                 valid_maps.append(candidate_map)
 
-    #print(f"Valid maps found: {valid_maps}")
     return valid_maps
 
 
@@ -569,6 +561,14 @@ def map_application(map, graph1, graph2):
     if len(joined_graph.edges()) != len(g1.edges()) + len(g2.edges()):
         raise ValueError(
             f"The joined graph has the wrong number of edges, {len(joined_graph.edges())} =/= {len(g1.edges())} + {len(g2.edges())}. This is probably a bug. Please report it.")
+
+    # Clean up NetworkX contraction metadata and normalize node labels so
+    # the returned graph has stable, contiguous node labels and no
+    # stale 'contraction' dict keys that refer to old labels.
+    for _, data in list(joined_graph.nodes(data=True)):
+        data.pop('contraction', None)
+    joined_graph = nx.convert_node_labels_to_integers(joined_graph, first_label=0)
+
 
     return joined_graph
 
