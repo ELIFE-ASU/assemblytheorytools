@@ -293,3 +293,112 @@ def find_roots(nodes):
     if not roots:
         roots = [n for n in nodes if n["id"] not in all_children]
     return roots
+
+
+
+
+# testing:
+if __name__ == "__main__":
+    # === User params ===
+    FNAME = ""                    # add path to mzml file
+    MZ_TOL_PPM = 10.0
+    MIN_INTENSITY = 0.0
+    
+    # Performance tuning
+    RT_WINDOW = 60.0              # seconds to search backwards for parent candidates
+    MAX_PARENT_CANDIDATES = 200   # limit candidate parents checked per child (to bound worst-case work)
+    MIN_FRAGMENT_LOSS = 0.003     # minimum Da loss to consider real fragmentation
+
+    print("Loading spectra...")
+    exp = load_spectra(FNAME)
+    print(f"Spectra count: {len(exp.getSpectra())}")
+
+    print("Building nodes...")
+    nodes = build_nodes(exp,MIN_INTENSITY)
+
+    print("Attaching children (fast)...")
+    attach_children_fast(nodes, ppm_tol=MZ_TOL_PPM, rt_window=RT_WINDOW, max_candidates=MAX_PARENT_CANDIDATES)
+
+    any_ms1 = any(n["ms_level"] == 1 for n in nodes)
+    if not any_ms1:
+        print("No MS1 found — creating virtual MS1 nodes for MS2 roots...")
+        nodes = create_virtual_ms1_nodes(nodes, ppm_tol=MZ_TOL_PPM)
+
+    roots = find_roots(nodes)
+    print(f"Found {len(roots)} root(s). Shrinking tree...")
+    tree = [shrink_node(r) for r in roots]
+
+    OUT = "ms_tree_pyopenms_fast_centroid.json"
+    with open(OUT, "w") as f:
+        json.dump(tree, f, indent=2)
+    print(f"Tree built! Output: {OUT}")
+
+    print("Collapsing matching fragments...")
+    collapsed_trees = []
+    for root in tree:
+        collapsed = collapse_matching_fragments(root)
+        collapsed_trees.extend(collapsed)
+
+    print("Converting to m/z-only trees...")
+    mz_trees = []
+    for root in collapsed_trees:
+        root_mz = root["mz"]
+        children_tree = convert_to_mz_tree(root)
+        mz_trees.append({root_mz: children_tree})
+
+    print("Merging duplicate fragments (fast)...")
+    mz_trees_merged = []
+    for tree_dict in mz_trees:
+        merged_tree = {}
+        for root_mz, root_tree in tree_dict.items():
+            merged_tree[root_mz] = merge_duplicate_fragments(root_tree, ppm_tol=MZ_TOL_PPM)
+        mz_trees_merged.append(merged_tree)
+
+    OUT_MZ = "ms_tree_mz_only_fast_centroid.json"
+    with open(OUT_MZ, "w") as f:
+        json.dump(mz_trees_merged, f, indent=2)
+    print(f"M/Z tree saved to: {OUT_MZ} ({len(mz_trees_merged)} molecules)")
+
+    print("Creating depth-pruned versions...")
+    def get_max_depth(mz_dict, current_depth=1):
+        if not mz_dict:
+            return current_depth
+        max_child_depth = current_depth
+        for child_tree in mz_dict.values():
+            child_depth = get_max_depth(child_tree, current_depth + 1)
+            max_child_depth = max(max_child_depth, child_depth)
+        return max_child_depth
+
+    def prune_to_depth(mz_dict, max_depth, current_depth=1):
+        if current_depth >= max_depth:
+            return {}
+        pruned = {}
+        for mz, child_tree in mz_dict.items():
+            pruned[mz] = prune_to_depth(child_tree, max_depth, current_depth + 1)
+        return pruned
+
+    max_depth = 0
+    for tree_dict in mz_trees_merged:
+        for root_mz, root_tree in tree_dict.items():
+            depth = get_max_depth(root_tree)
+            if depth > max_depth:
+                max_depth = depth
+
+    depth_pruned = {}
+    for level in range(1, max_depth + 1):
+        pruned_trees = []
+        for tree_dict in mz_trees_merged:
+            pruned_tree = {}
+            for root_mz, root_tree in tree_dict.items():
+                pruned_tree[root_mz] = prune_to_depth(root_tree, level)
+            pruned_trees.append(pruned_tree)
+        depth_pruned[level] = pruned_trees
+
+    OUT_PRUNED = "ms_tree_depth_pruned_fast_centroid.json"
+    with open(OUT_PRUNED, "w") as f:
+        json.dump(depth_pruned, f, indent=2)
+
+    print(f"Depth-pruned trees saved to: {OUT_PRUNED}")
+    print(f"Maximum tree depth: {max_depth}")
+    print(f"Pruned levels: {list(depth_pruned.keys())}")
+
