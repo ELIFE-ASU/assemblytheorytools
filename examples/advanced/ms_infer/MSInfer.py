@@ -1,12 +1,15 @@
-from pyopenms import MSExperiment, MzMLFile
-import numpy as np
 import json
 from bisect import bisect_right
 from typing import List, Dict, Any
 
+import numpy as np
+from pyopenms import MSExperiment, MzMLFile
+
+
 # === Utilities ===
 def ppm_to_da(mz: float, ppm: float) -> float:
     return mz * ppm / 1e6
+
 
 # === Load spectra once ===
 def load_spectra(fname: str) -> MSExperiment:
@@ -14,6 +17,7 @@ def load_spectra(fname: str) -> MSExperiment:
     MzMLFile().load(fname, exp)
     exp.updateRanges()
     return exp
+
 
 # === Build node records, store NumPy arrays for peaks; MS1 centroid computed here ===
 def extract_node_fast(spec, index: int, min_intensity=0) -> Dict[str, Any]:
@@ -66,21 +70,23 @@ def extract_node_fast(spec, index: int, min_intensity=0) -> Dict[str, Any]:
     return {
         "id": spec.getNativeID() or f"scan={index}",
         "index": index,
-        "rt": float(spec.getRT()),        # seconds (PyOpenMS uses seconds)
+        "rt": float(spec.getRT()),  # seconds (PyOpenMS uses seconds)
         "ms_level": ms_level,
-        "peaks_mz": mz_arr,               # numpy array
-        "peaks_int": int_arr,             # numpy array
-        "precursor_mz": precursor_mz,     # now set for MS1 via centroid if missing
+        "peaks_mz": mz_arr,  # numpy array
+        "peaks_int": int_arr,  # numpy array
+        "precursor_mz": precursor_mz,  # now set for MS1 via centroid if missing
         "isolation": isolation_win,
         "children": [],
         "parent_node": None
     }
 
-def build_nodes(exp: MSExperiment,min_intensity=0) -> List[Dict[str, Any]]:
+
+def build_nodes(exp: MSExperiment, min_intensity=0) -> List[Dict[str, Any]]:
     nodes = []
     for i, spec in enumerate(exp.getSpectra()):
-        nodes.append(extract_node_fast(spec, i,min_intensity))
+        nodes.append(extract_node_fast(spec, i, min_intensity))
     return nodes
+
 
 # === Create fast indexes by MS level (sorted by RT) ===
 def build_level_index(nodes: List[Dict[str, Any]]):
@@ -94,9 +100,13 @@ def build_level_index(nodes: List[Dict[str, Any]]):
         rt_index[level] = [n["rt"] for n in lst]
     return ms_by_level, rt_index
 
+
 # === Attach children using RT-limited search + vectorized peak matching ===
-def attach_children_fast(nodes: List[Dict[str, Any]], ppm_tol=10,
-                         rt_window=60.0, max_candidates=200, MIN_FRAGMENT_LOSS=0.003):
+def attach_children_fast(nodes: List[Dict[str, Any]],
+                         ppm_tol=10,
+                         rt_window=60.0,
+                         max_candidates=200,
+                         MIN_FRAGMENT_LOSS=0.003):
     ms_by_level, rt_index = build_level_index(nodes)
 
     def candidate_parents_for(child):
@@ -165,6 +175,7 @@ def attach_children_fast(nodes: List[Dict[str, Any]], ppm_tol=10,
             best_parent["children"].append(child)
             child["parent_node"] = best_parent
 
+
 # === Virtual MS1 creation (fallback) ===
 def create_virtual_ms1_nodes(nodes, ppm_tol=10):
     all_children = {c["id"] for p in nodes for c in p["children"]}
@@ -207,6 +218,7 @@ def create_virtual_ms1_nodes(nodes, ppm_tol=10):
 
     return nodes + ms1_groups
 
+
 # === Tree functions (same logic but using precursor_mz as node mz) ===
 def shrink_node(node, parent_mz_value=None):
     mz = node["precursor_mz"]
@@ -218,6 +230,7 @@ def shrink_node(node, parent_mz_value=None):
         "parent_mz": parent_mz_value,
         "children": [shrink_node(c, mz) for c in node["children"]]
     }
+
 
 def collapse_matching_fragments(node, ppm_tol=10):
     node_mz = node["mz"]
@@ -236,6 +249,7 @@ def collapse_matching_fragments(node, ppm_tol=10):
     node["children"] = new_children
     return [node]
 
+
 def convert_to_mz_tree(node):
     mz = node["mz"]
     children_dict = {}
@@ -243,6 +257,7 @@ def convert_to_mz_tree(node):
         child_tree = convert_to_mz_tree(child)
         children_dict[child["mz"]] = child_tree
     return children_dict
+
 
 def merge_duplicate_fragments(mz_dict: Dict[float, Dict], ppm_tol=10):
     if not mz_dict:
@@ -272,6 +287,7 @@ def merge_duplicate_fragments(mz_dict: Dict[float, Dict], ppm_tol=10):
 
     return merged
 
+
 def merge_two_trees(tree1, tree2, ppm_tol=10):
     if not tree1:
         return tree2.copy()
@@ -287,6 +303,7 @@ def merge_two_trees(tree1, tree2, ppm_tol=10):
             combined[mz2] = subtree2
     return combined
 
+
 def find_roots(nodes):
     all_children = {c["id"] for p in nodes for c in p["children"]}
     roots = [n for n in nodes if n["id"] not in all_children and n["ms_level"] == 1]
@@ -295,26 +312,24 @@ def find_roots(nodes):
     return roots
 
 
-
-
 # testing:
 if __name__ == "__main__":
     # === User params ===
-    FNAME = ""                    # add path to mzml file
+    FNAME = ""  # add path to mzml file
     MZ_TOL_PPM = 10.0
     MIN_INTENSITY = 0.0
-    
+
     # Performance tuning
-    RT_WINDOW = 60.0              # seconds to search backwards for parent candidates
-    MAX_PARENT_CANDIDATES = 200   # limit candidate parents checked per child (to bound worst-case work)
-    MIN_FRAGMENT_LOSS = 0.003     # minimum Da loss to consider real fragmentation
+    RT_WINDOW = 60.0  # seconds to search backwards for parent candidates
+    MAX_PARENT_CANDIDATES = 200  # limit candidate parents checked per child (to bound worst-case work)
+    MIN_FRAGMENT_LOSS = 0.003  # minimum Da loss to consider real fragmentation
 
     print("Loading spectra...")
     exp = load_spectra(FNAME)
     print(f"Spectra count: {len(exp.getSpectra())}")
 
     print("Building nodes...")
-    nodes = build_nodes(exp,MIN_INTENSITY)
+    nodes = build_nodes(exp, MIN_INTENSITY)
 
     print("Attaching children (fast)...")
     attach_children_fast(nodes, ppm_tol=MZ_TOL_PPM, rt_window=RT_WINDOW, max_candidates=MAX_PARENT_CANDIDATES)
@@ -360,6 +375,8 @@ if __name__ == "__main__":
     print(f"M/Z tree saved to: {OUT_MZ} ({len(mz_trees_merged)} molecules)")
 
     print("Creating depth-pruned versions...")
+
+
     def get_max_depth(mz_dict, current_depth=1):
         if not mz_dict:
             return current_depth
@@ -369,6 +386,7 @@ if __name__ == "__main__":
             max_child_depth = max(max_child_depth, child_depth)
         return max_child_depth
 
+
     def prune_to_depth(mz_dict, max_depth, current_depth=1):
         if current_depth >= max_depth:
             return {}
@@ -376,6 +394,7 @@ if __name__ == "__main__":
         for mz, child_tree in mz_dict.items():
             pruned[mz] = prune_to_depth(child_tree, max_depth, current_depth + 1)
         return pruned
+
 
     max_depth = 0
     for tree_dict in mz_trees_merged:
@@ -401,4 +420,3 @@ if __name__ == "__main__":
     print(f"Depth-pruned trees saved to: {OUT_PRUNED}")
     print(f"Maximum tree depth: {max_depth}")
     print(f"Pruned levels: {list(depth_pruned.keys())}")
-

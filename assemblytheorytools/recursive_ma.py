@@ -181,10 +181,10 @@ class MAEstimator:
         - Decompose mass into children and evaluate pathway steps.
         - Combine MAs from fragmentation hierarchy.
         """
-        
+
         if mw is None:
             mw = tree[0]
-            
+
         children = unify_trees([tree.get(mw, None) or self.precursors(tree, mw)])
         if joint:
             return sum(self.estimate_ma(children, child, progress_levels - 1) for child in children)
