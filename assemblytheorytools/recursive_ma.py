@@ -1,9 +1,6 @@
 import functools
-import logging
-from collections import defaultdict
 
 import numpy as np
-import pandas as pd
 from scipy.stats.distributions import skewnorm
 
 # Monoisotopic masses for a set of atomic elements.
@@ -82,12 +79,35 @@ ISOTOPES = {
 
 def _ma_distribution_params(mw):
     """
-    Convert mass (mw) into skew-normal distribution parameters.
+    Convert a molecular weight into skew-normal distribution parameters.
 
-    These parameters are based on an empirically fitted model that estimates 
-    molecular assembly (MA) as a function of mass.
+    Jirasek, M., (2024).
+    Investigating and quantifying molecular complexity using assembly theory and spectroscopy.
+    ACS Central Science, 10(5), 1054-1064.
+
+    Parameters
+    ----------
+    mw : float
+        Molecular weight (mass) for which to estimate distribution parameters.
+
+    Returns
+    -------
+    (alpha, loc, scale) : tuple of float
+        alpha
+            Shape (skewness) parameter for :class:`scipy.stats.skewnorm`.
+        loc
+            Location (central tendency) parameter.
+        scale
+            Scale (spread) parameter.
+
+    Notes
+    -----
+    The returned parameters are produced by an empirically fitted linear model:
+    - ``alpha = -0.0044321370413747405 * mw - 1.1014882364398888``
+    - ``loc   =  0.075 * mw - 1.3``
+    - ``scale =  0.008058454819492319 * mw + 0.546185725719078``
     """
-    alpha = -0.0044321370413747405 * mw + -1.1014882364398888
+    alpha = -0.0044321370413747405 * mw - 1.1014882364398888
     loc = 0.075 * mw - 1.3
     scale = 0.008058454819492319 * mw + 0.546185725719078
     return alpha, loc, scale
@@ -95,8 +115,22 @@ def _ma_distribution_params(mw):
 
 def _ma_samples(mw, n_samples):
     """
-    Sample MA complexity estimates from a skew-normal distribution
-    while enforcing non-negative results.
+    Generate Molecular Assembly (MA) complexity estimates from a skew-normal distribution.
+
+    This function samples values from a skew-normal distribution defined by the molecular weight (mw),
+    ensuring that all sampled values are non-negative.
+
+    Parameters
+    ----------
+    mw : float
+        Molecular weight (mass) used to calculate the skew-normal distribution parameters.
+    n_samples : int
+        Number of samples to generate from the distribution.
+
+    Returns
+    -------
+    numpy.ndarray
+        An array of non-negative MA complexity estimates sampled from the skew-normal distribution.
     """
     alpha, loc, scale = _ma_distribution_params(mw)
     return np.maximum(skewnorm(alpha, loc, scale).rvs(n_samples), 0.)
@@ -106,9 +140,23 @@ def unify_trees(trees: list[dict]):
     """
     Merge multiple fragmentation trees into one unified structure.
 
-    Rules:
-    - Keys unique to each tree are preserved as-is.
-    - Shared keys are recursively unified.
+    Parameters
+    ----------
+    trees : list of dict
+        A list of fragmentation trees, where each tree is represented as a dictionary.
+
+    Returns
+    -------
+    dict
+        A unified tree structure. Keys unique to each tree are preserved as-is,
+        while shared keys are recursively unified.
+
+    Notes
+    -----
+    - If the input list is empty, an empty dictionary is returned.
+    - If the input list contains only one tree, that tree is returned as-is.
+    - For multiple trees, keys unique to each tree are preserved, and shared keys
+      are recursively unified by calling `unify_trees` on their values.
     """
     if not trees:
         return {}
@@ -128,8 +176,24 @@ def unify_trees(trees: list[dict]):
 
 def meta_tree(samples: list[dict], meta_parent_mz: float = 1e6) -> dict:
     """
-    Encapsulate multiple trees under a single 'meta' parent precursor.
-    Useful for estimating Joint MA of multi-molecular samples.
+    Combine multiple fragmentation trees under a single 'meta' parent precursor.
+
+    This function takes a list of fragmentation trees and merges them into a single
+    unified tree structure, encapsulated under a 'meta' parent precursor with a specified
+    mass-to-charge ratio (m/z).
+
+    Parameters
+    ----------
+    samples : list of dict
+        A list of fragmentation trees, where each tree is represented as a dictionary.
+    meta_parent_mz : float, optional
+        The mass-to-charge ratio (m/z) of the 'meta' parent precursor. Defaults to 1e6.
+
+    Returns
+    -------
+    dict
+        A dictionary representing the unified tree structure, with the 'meta' parent precursor
+        as the root node.
     """
     tree = unify_trees(samples)
     return {meta_parent_mz: tree}
@@ -138,6 +202,15 @@ def meta_tree(samples: list[dict], meta_parent_mz: float = 1e6) -> dict:
 class MAEstimator:
     """
     Estimate Molecular Assembly (MA) values given MS fragmentation trees.
+
+    This class provides methods to estimate Molecular Assembly (MA) values
+    based on fragmentation trees. It supports recursive decomposition of
+    molecular weights into fragments and evaluates pathway steps to compute
+    MA values.
+
+    Jirasek, M., (2024).
+    Investigating and quantifying molecular complexity using assembly theory and spectroscopy.
+    ACS Central Science, 10(5), 1054-1064.
     """
 
     def __init__(self,
@@ -146,7 +219,22 @@ class MAEstimator:
                  adduct_masses=None,
                  n_samples=20,
                  min_chunk=20.0):
+        """
+        Initialize the MAEstimator instance.
 
+        Parameters
+        ----------
+        same_level : bool, optional
+            Whether to allow fallback to sibling peaks at the same fragmentation level. Defaults to True.
+        tol : float, optional
+            Tolerance for matching mass-to-charge ratios (m/z). Defaults to 0.01.
+        adduct_masses : list of float, optional
+            List of adduct masses to consider for parent-child relationships. Defaults to [0.0, 1.007825].
+        n_samples : int, optional
+            Number of samples to generate for MA complexity estimates. Defaults to 20.
+        min_chunk : float, optional
+            Minimum molecular weight (MW) that can be considered a fragment. Defaults to 20.0.
+        """
         # Source: https://www.nist.gov/pml/atomic-weights-and-isotopic-compositions-relative-atomic-masses
         if adduct_masses is None:
             adduct_masses = [
@@ -163,25 +251,53 @@ class MAEstimator:
     @functools.cache
     def estimate_by_mw(self, mw, has_children):
         """
-        If the mass matches an element isotope → MA = zero.
-        Otherwise → draw from empirical distribution.
+        Estimate MA values based on molecular weight.
+
+        If the molecular weight matches an element isotope, the MA value is set to zero.
+        Otherwise, values are drawn from an empirical skew-normal distribution.
+
+        Parameters
+        ----------
+        mw : float
+            Molecular weight to estimate MA values for.
+        has_children : bool
+            Whether the molecular weight has child fragments.
+
+        Returns
+        -------
+        numpy.ndarray
+            An array of MA values, either zeros or sampled from the distribution.
         """
         lower, upper = mw - self.tol, mw + self.tol
         if not has_children:
             for isotope, weight in ISOTOPES.items():
                 if lower < weight < upper:
-                    # MW matches an isotope; MA = 0
-                    # print(f"HIT: {mw} ~ {isotope} ({weight})")
                     return self.zero
         return _ma_samples(mw, self.n_samples)
 
     def estimate_ma(self, tree: dict[float, dict], mw: float = None, progress_levels=0, joint=False):
         """
-        Recursive MA estimation:
-        - Decompose mass into children and evaluate pathway steps.
-        - Combine MAs from fragmentation hierarchy.
-        """
+        Estimate MA values recursively for a fragmentation tree.
 
+        This method decomposes a molecular weight into child fragments, evaluates
+        pathway steps, and combines MA values from the fragmentation hierarchy.
+
+        Parameters
+        ----------
+        tree : dict[float, dict]
+            A nested dictionary representing the fragmentation tree.
+        mw : float, optional
+            Molecular weight to start the estimation from. Defaults to the root of the tree.
+        progress_levels : int, optional
+            Number of levels to print progress for. Defaults to 0.
+        joint : bool, optional
+            Whether to compute joint MA values for all children. Defaults to False.
+
+        Returns
+        -------
+        float
+            The estimated MA value for the given molecular weight.
+        """
         if mw is None:
             mw = tree[0]
 
@@ -235,14 +351,42 @@ class MAEstimator:
         return np.mean(estimate)
 
     def common_precursors(self, data, parent1, parent2):
-        """Find shared parent peaks that could generate both fragments."""
+        """
+        Find shared parent peaks for two fragments.
+
+        Parameters
+        ----------
+        data : dict
+            Fragmentation tree data.
+        parent1 : float
+            First fragment mass.
+        parent2 : float
+            Second fragment mass.
+
+        Returns
+        -------
+        set
+            A set of shared parent peaks.
+        """
         precursors1 = self.precursors(data, parent1)
         precursors2 = self.precursors(data, parent2)
         return set(precursors1).intersection(precursors2)
 
     def precursors(self, data, parent):
         """
-        Find peaks that could serve as parents for both masses
+        Find potential parent peaks for a given fragment.
+
+        Parameters
+        ----------
+        data : dict
+            Fragmentation tree data.
+        parent : float
+            Fragment mass to find parents for.
+
+        Returns
+        -------
+        dict
+            A dictionary of potential parent peaks and their children.
         """
         if parent < self.min_chunk:
             return {}
@@ -277,7 +421,21 @@ class MAEstimator:
         return {k: v for k, v in children.items() if 0 < k < parent}
 
     def same_level_precursors(self, data, parent):
-        """Search masses at the same fragmentation level for valid associations."""
+        """
+        Find valid associations at the same fragmentation level.
+
+        Parameters
+        ----------
+        data : dict
+            Fragmentation tree data.
+        parent : float
+            Parent mass to find associations for.
+
+        Returns
+        -------
+        dict
+            A dictionary of valid associations at the same level.
+        """
         result = {}
         adducts, tol = self.adduct_masses, self.tol
         for ion in data:
@@ -291,8 +449,37 @@ class MAEstimator:
 
 def _build_tree(data, level=1, acc=None, parent=None, max_level=3):
     """
-    Build nested fragmentation tree from MSn DataFrames:
-    - Each level groups child peaks by their parent peak reference.
+    Build a nested fragmentation tree from MSn DataFrames.
+
+    This function recursively constructs a tree structure where each level groups
+    child peaks by their parent peak reference. The tree is built up to a specified
+    maximum level.
+
+    Parameters
+    ----------
+    data : dict
+        A dictionary containing MSn DataFrames, where each key represents a level
+        and the value is a DataFrame with mass-to-charge ratio (m/z) and parent information.
+    level : int, optional
+        The current level of the tree being processed. Defaults to 1.
+    acc : dict, optional
+        The accumulator dictionary that stores the tree structure. Defaults to None.
+    parent : float, optional
+        The parent peak reference for the current level. Defaults to None.
+    max_level : int, optional
+        The maximum depth of the tree to construct. Defaults to 3.
+
+    Returns
+    -------
+    dict or None
+        The constructed tree as a nested dictionary if `level` is 1, otherwise None.
+
+    Notes
+    -----
+    - At the first level, the function initializes the accumulator dictionary.
+    - For levels beyond the maximum level, the function returns None.
+    - The function joins the current MS level to its parent level using parent IDs
+      and groups child peaks by matching parent m/z values.
     """
     max_level = min(max_level, max(data))
     if level == 1:
@@ -320,7 +507,33 @@ def _build_tree(data, level=1, acc=None, parent=None, max_level=3):
 
 
 def build_tree(data: dict, max_level=3):
-    """Simple wrapper for initiating tree construction."""
+    """
+    Simple wrapper for initiating tree construction.
+
+    This function serves as a wrapper around `_build_tree` to construct a nested
+    fragmentation tree from the given data. It validates the input data and ensures
+    that the tree construction process starts with the specified maximum depth.
+
+    Parameters
+    ----------
+    data : dict
+        A dictionary containing MSn DataFrames, where each key represents a level
+        and the value is a DataFrame with mass-to-charge ratio (m/z) and parent information.
+    max_level : int, optional
+        The maximum depth of the tree to construct. Defaults to 3.
+
+    Returns
+    -------
+    dict
+        The constructed tree as a nested dictionary.
+
+    Raises
+    ------
+    TypeError
+        If the input `data` is not a dictionary.
+    Exception
+        If the input `data` is an empty dictionary.
+    """
     if type(data) != dict:
         raise TypeError("Data input is not a dictionary")
     elif data == {}:
@@ -329,7 +542,22 @@ def build_tree(data: dict, max_level=3):
 
 
 def tree_depth(tree: dict):
-    """Compute maximum fragmentation depth."""
+    """
+    Compute the maximum depth of a fragmentation tree.
+
+    This function calculates the maximum depth of a nested dictionary structure,
+    where each level represents a deeper level of fragmentation.
+
+    Parameters
+    ----------
+    tree : dict
+        A dictionary representing the fragmentation tree.
+
+    Returns
+    -------
+    int
+        The maximum depth of the tree. Returns 0 if the tree is empty or not a dictionary.
+    """
     if isinstance(tree, dict) and len(tree) > 0:
         return 1 + max(tree_depth(v) for v in tree.values())
     else:
