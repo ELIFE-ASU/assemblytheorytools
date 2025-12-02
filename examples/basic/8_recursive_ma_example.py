@@ -1,6 +1,11 @@
 """
 Test script for Mass Spectrometry Molecular Assembly (MA) Estimator
 
+See:
+Jirasek, M., (2024).
+Investigating and quantifying molecular complexity using assembly theory and spectroscopy.
+ACS Central Science, 10(5), 1054-1064.
+
 This script demonstrates how to use the MA estimation code by:
 1. Creating synthetic MS/MS data
 2. Processing it through the pipeline
