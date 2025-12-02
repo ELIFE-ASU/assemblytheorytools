@@ -13,12 +13,22 @@ This script demonstrates how to use the MA estimation code by:
 4. Estimating molecular assembly complexity
 """
 
-from assemblytheorytools.recursive_ma import tree_depth, MAEstimator, meta_tree, unify_trees
+import assemblytheorytools as att
 
 
 def create_simple_tree():
     """
-    Create a fragmentation tree manually.
+    Create a simple fragmentation tree manually.
+
+    This function constructs and returns a predefined fragmentation tree
+    structure. The tree is represented as a nested dictionary, where the keys
+    are m/z values (mass-to-charge ratios) and the values are subtrees.
+
+    Returns
+    -------
+    dict
+        A dictionary representing the fragmentation tree, with m/z values as
+        keys and subtrees as values.
     """
     tree = {
         400.0: {
@@ -39,7 +49,20 @@ def create_simple_tree():
 
 
 def create_complex_tree():
-    """Create a more complex fragmentation tree with deeper hierarchy."""
+    """
+    Create a more complex fragmentation tree with deeper hierarchy.
+
+    This function constructs and returns a predefined fragmentation tree
+    structure with a deeper hierarchy compared to a simple tree. The tree
+    is represented as a nested dictionary, where the keys are m/z values
+    (mass-to-charge ratios) and the values are subtrees.
+
+    Returns
+    -------
+    dict
+        A dictionary representing the complex fragmentation tree, with m/z
+        values as keys and subtrees as values.
+    """
     tree = {
         500.0: {
             400.0: {
@@ -67,17 +90,6 @@ def create_complex_tree():
     return tree
 
 
-def print_tree(tree, indent=0, max_depth=10):
-    """Pretty print a fragmentation tree"""
-    if indent > max_depth or not isinstance(tree, dict):
-        return
-
-    for mz, children in sorted(tree.items(), reverse=True):
-        print("  " * indent + f"├─ m/z: {mz:.2f}")
-        if children:
-            print_tree(children, indent + 1, max_depth)
-
-
 def test_tree_operations():
     """Test tree utility functions"""
     print("\n" + "=" * 70)
@@ -88,32 +100,32 @@ def test_tree_operations():
     tree2 = {400.0: {300.0: {}, 100.0: {}}}
 
     print("\nTree 1:")
-    print_tree(tree1)
+    att.print_tree(tree1)
 
     print("\nTree 2:")
-    print_tree(tree2)
+    att.print_tree(tree2)
 
     print("\nUnified tree:")
-    unified = unify_trees([tree1, tree2])
-    print_tree(unified)
+    unified = att.unify_trees([tree1, tree2])
+    att.print_tree(unified)
 
-    print(f"\nDepth of unified tree: {tree_depth(unified)}")
+    print(f"\nDepth of unified tree: {att.tree_depth(unified)}")
 
     print("\nUnify Tree for Joint MA calculations:")
     tree1 = {400.0: {200.0: {}, 100.0: {}}}
     tree2 = {500.0: {300.0: {}, 100.0: {}}}
 
     print("\nTree 1:")
-    print_tree(tree1)
+    att.print_tree(tree1)
 
     print("\nTree 2:")
-    print_tree(tree2)
+    att.print_tree(tree2)
     print("\nMeta tree (combining multiple samples):")
-    meta = meta_tree([tree1, tree2], meta_parent_mz=1e6)
-    print_tree(meta)
+    meta = att.meta_tree([tree1, tree2], meta_parent_mz=1e6)
+    att.print_tree(meta)
 
 
-def main():
+if __name__ == "__main__":
     print("=" * 70)
     print("MA Estimator Test Script")
     print("=" * 70)
@@ -124,11 +136,11 @@ def main():
     simple_tree = create_simple_tree()
 
     print("\nTree structure:")
-    print_tree(simple_tree)
-    print(f"\nTree depth: {tree_depth(simple_tree)}")
+    att.print_tree(simple_tree)
+    print(f"\nTree depth: {att.tree_depth(simple_tree)}")
 
     # Create MA estimator
-    estimator = MAEstimator(
+    estimator = att.MAEstimator(
         same_level=True,
         tol=0.5,  # Mass tolerance in Da
         n_samples=20,  # Number of Monte Carlo samples
@@ -157,8 +169,8 @@ def main():
     complex_tree = create_complex_tree()
 
     print("\nTree structure:")
-    print_tree(complex_tree)
-    print(f"\nTree depth: {tree_depth(complex_tree)}")
+    att.print_tree(complex_tree)
+    print(f"\nTree depth: {att.tree_depth(complex_tree)}")
 
     precursor_mz = 500.0
     print(f"\nEstimating MA for precursor: {precursor_mz:.2f} Da")
@@ -215,7 +227,7 @@ def main():
     }
 
     print("\nTree structure:")
-    print_tree(detailed_tree)
+    att.print_tree(detailed_tree)
 
     ma_detailed = estimator.estimate_ma(
         tree=detailed_tree,
@@ -233,8 +245,8 @@ def main():
     tree2 = {500.0: {300.0: {}, 100.0: {}}}
 
     print("\nMeta tree (combining multiple samples):")
-    meta = meta_tree([tree1, tree2], meta_parent_mz=1e6)
-    print_tree(meta)
+    meta = att.meta_tree([tree1, tree2], meta_parent_mz=1e6)
+    att.print_tree(meta)
 
     ma_detailed = estimator.estimate_ma(
         tree=meta,
@@ -243,7 +255,3 @@ def main():
     )
 
     print(f"\nFinal MA estimate: {ma_detailed.mean():.2f} ± {ma_detailed.std():.2f}")
-
-
-if __name__ == "__main__":
-    main()

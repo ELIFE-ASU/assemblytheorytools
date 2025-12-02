@@ -51,7 +51,7 @@ def load_spectra(fname: str) -> MSExperiment:
     return exp
 
 
-def extract_node_fast(spec, index: int, min_intensity=0) -> Dict[str, Any]:
+def extract_node_fast(spec, index: int, min_intensity=0.0) -> Dict[str, Any]:
     """
     Extract information from a spectrum and create a node representation.
 
@@ -143,7 +143,7 @@ def extract_node_fast(spec, index: int, min_intensity=0) -> Dict[str, Any]:
     }
 
 
-def build_nodes(exp: MSExperiment, min_intensity=0) -> List[Dict[str, Any]]:
+def build_nodes(exp: MSExperiment, min_intensity=0.0) -> List[Dict[str, Any]]:
     """
     Build a list of nodes from an MSExperiment object.
 
@@ -526,10 +526,10 @@ def merge_duplicate_fragments(mz_dict: Dict[float, Dict], ppm_tol=10.0):
         combined = {}
         for st in group_subtrees:
             for child_mz, child_tree in st.items():
-                combined[child_mz] = merge_two_trees(combined.get(child_mz, {}), child_tree, ppm_tol)
+                combined[child_mz] = merge_two_trees(combined.get(child_mz, {}), child_tree, ppm_tol=ppm_tol)
 
         # Add the merged subtree to the result
-        merged[mz_i] = merge_duplicate_fragments(combined, ppm_tol)
+        merged[mz_i] = merge_duplicate_fragments(combined, ppm_tol=ppm_tol)
         i = j
 
     return merged
@@ -566,7 +566,7 @@ def merge_two_trees(tree1, tree2, ppm_tol=10.0):
         matched = False
         for mz1 in list(combined.keys()):
             if abs(mz1 - mz2) <= ppm_to_da(max(mz1, mz2), ppm_tol):
-                combined[mz1] = merge_two_trees(combined[mz1], subtree2, ppm_tol)
+                combined[mz1] = merge_two_trees(combined[mz1], subtree2, ppm_tol=ppm_tol)
                 matched = True
                 break
         if not matched:

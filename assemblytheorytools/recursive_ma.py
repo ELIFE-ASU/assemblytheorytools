@@ -562,3 +562,26 @@ def tree_depth(tree: dict):
         return 1 + max(tree_depth(v) for v in tree.values())
     else:
         return 0
+
+
+def print_tree(tree, indent=0, max_depth=10):
+    """
+    Pretty print a fragmentation tree.
+
+    Recursively prints the structure of a fragmentation tree in a readable format.
+
+    Parameters
+    ----------
+    tree : dict
+        The fragmentation tree as a nested dictionary.
+    indent : int, optional
+        Current indentation level. Defaults to 0.
+    max_depth : int, optional
+        Maximum depth to print. Defaults to 10.
+    """
+    if indent > max_depth or not isinstance(tree, dict):
+        return
+
+    for mz, children in sorted(tree.items(), reverse=True):
+        print("  " * indent + f"├─ m/z: {mz:.2f}")
+        print_tree(children, indent + 1, max_depth)

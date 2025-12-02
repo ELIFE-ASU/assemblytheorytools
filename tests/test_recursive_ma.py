@@ -4,12 +4,12 @@ from pathlib import Path
 import assemblytheorytools as att
 
 
-def test_MAEstimator():
+def test_ma_estimator():
     estimator = att.MAEstimator(same_level=True, tol=3e-3)
-    HERE = Path.cwd()
+    here = Path.cwd()
     pickle_files = {
         int(f.name.split("_")[1][2]): pickle.load(f.open("rb"))
-        for f in sorted(HERE.glob("*.pkl"))
+        for f in sorted(here.glob("*.pkl"))
     }
 
     for level, data in pickle_files.items():
