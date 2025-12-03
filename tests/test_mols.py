@@ -4,6 +4,10 @@ import matplotlib.pyplot as plt
 import networkx as nx
 
 import assemblytheorytools as att
+import pytest
+
+# helper data structures for molecule test data
+from tests.data.molecule_data.molecules import SMILES
 
 
 def test_readme_example():
@@ -617,8 +621,27 @@ def test_calculate_sum_assembly():
     ai_sum = att.calculate_sum_assembly(graphs, settings, parallel=False)
     assert ai_sum == 7
 
-
-def test_calculate_assembly_similarity():
+@pytest.mark.parametrize(
+        "smiles_list, settings, parallel, enforce_exact_mode, expected",
+        [
+            # Testing known similarity of 0.75
+            (["C1=CC=CC=C1", "C1=CC=CC=C1O"], {'strip_hydrogen': True}, True, True, 0.75),
+            (["C1=CC=CC=C1", "C1=CC=CC=C1O"], {'strip_hydrogen': True}, False, True, 0.75),
+            # testing timeout returning -1, with parallel=True and parallel=False
+            ([SMILES.taxol, SMILES.taxol],{'strip_hydrogen': True, "timeout":1}, True, True, -1.0),
+            ([SMILES.taxol, SMILES.taxol],{'strip_hydrogen': True, "timeout":1}, False, True, -1.0),
+            # Testing identical molecules have similarity 1 with parallel=True and parallel=False
+            ([SMILES.glycine, SMILES.glycine],{'strip_hydrogen': True}, True, True, 1.0),
+            ([SMILES.glycine, SMILES.glycine],{'strip_hydrogen': True}, False, True, 1.0),
+            ([SMILES.tryptophan, SMILES.tryptophan],{'strip_hydrogen': True}, True, True, 1.0),
+            ([SMILES.tryptophan, SMILES.tryptophan],{'strip_hydrogen': True}, False, True, 1.0),
+        ],
+)
+def test_calculate_assembly_similarity(smiles_list,
+                                       settings,
+                                       parallel,
+                                       enforce_exact_mode,
+                                       expected,):
     """
     Test the calculation of assembly similarity between two molecular graphs.
 
@@ -631,15 +654,27 @@ def test_calculate_assembly_similarity():
     Asserts:
         - The calculated similarity is equal to 0.75.
     """
-    print(flush=True)
-    graphs = [att.smi_to_nx("C1=CC=CC=C1"), att.smi_to_nx("C1=CC=CC=C1O")]
-    settings = {'strip_hydrogen': True}
-    similarity = att.calculate_assembly_similarity(graphs, settings=settings, parallel=True)
-    print(similarity, flush=True)
-    assert similarity == 0.75
-    similarity = att.calculate_assembly_similarity(graphs, settings=settings, parallel=False)
-    print(similarity, flush=True)
-    assert similarity == 0.75
+    # print(flush=True)
+    # graphs = [att.smi_to_nx("C1=CC=CC=C1"), att.smi_to_nx("C1=CC=CC=C1O")]
+    # settings = {'strip_hydrogen': True}
+    # similarity = att.calculate_assembly_similarity(graphs, settings=settings, parallel=True)
+    # print(similarity, flush=True)
+    # assert similarity == 0.75
+    # similarity = att.calculate_assembly_similarity(graphs, settings=settings, parallel=False)
+    # print(similarity, flush=True)
+    # assert similarity == 0.75
+
+    graphs = [att.smi_to_nx(smi) for smi in smiles_list]
+    similarity = att.calculate_assembly_similarity(
+        graphs, 
+        settings=settings, 
+        parallel=parallel,
+        enforce_exact_mode=enforce_exact_mode,)
+    if expected == -1.0:
+        assert similarity == -1.0
+    else:
+        assert similarity == pytest.approx(expected)
+
 
 
 def test_node_canonicalization():
