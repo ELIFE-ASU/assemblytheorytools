@@ -81,6 +81,21 @@ def create_complex_tree():
 
 
 def test_unify_trees():
+    """
+    Test the `unify_trees` function from the `assemblytheorytools` (att) module.
+
+    This function performs the following steps:
+    1. Defines two sample fragmentation trees.
+    2. Prints the structure of each tree.
+    3. Unifies the two trees into a single tree and prints the unified structure.
+    4. Asserts that the unified tree matches the expected structure.
+    5. Calculates and prints the depth of the unified tree.
+    6. Asserts that the depth of the unified tree matches the expected value.
+
+    Assertions:
+        - The unified tree structure should match the expected dictionary.
+        - The depth of the unified tree should be 2.
+    """
     print(flush=True)
     # Define two sample trees
     tree1 = {400.0: {200.0: {}, 100.0: {}}}
@@ -106,6 +121,19 @@ def test_unify_trees():
 
 
 def test_meta_tree():
+    """
+    Test the `meta_tree` function from the `assemblytheorytools` (att) module.
+
+    This function performs the following steps:
+    1. Defines two sample fragmentation trees.
+    2. Prints the structure of each tree.
+    3. Combines the two trees into a meta tree with a specified parent m/z value.
+    4. Prints the resulting meta tree structure.
+    5. Asserts that the meta tree matches the expected structure.
+
+    Assertions:
+        - The meta tree structure should match the expected dictionary.
+    """
     print(flush=True)
     # Define two new trees for joint MA calculations
     tree1 = {400.0: {200.0: {}, 100.0: {}}}
@@ -123,82 +151,148 @@ def test_meta_tree():
     print("\nMeta tree (combining multiple samples):", flush=True)
     meta = att.meta_tree([tree1, tree2], meta_parent_mz=1e6)
     att.print_tree(meta)
+
+    # Assert that the meta tree matches the expected structure
     assert meta == {1000000.0: {400.0: {200.0: {}, 100.0: {}}, 500.0: {300.0: {}, 100.0: {}}}}
 
 
 def test_ma_estimator_simple():
+    """
+    Test the MAEstimator with a simple fragmentation tree.
+
+    This function performs the following steps:
+    1. Creates a simple fragmentation tree.
+    2. Prints the tree structure and its depth.
+    3. Initializes an MAEstimator with specific parameters.
+    4. Estimates the molecular assembly (MA) for the precursor m/z value.
+    5. Prints the results, including the mean, standard deviation, and range of the MA estimates.
+    6. Asserts that the calculated results match the expected values within a tolerance.
+
+    Assertions:
+        - The calculated MA mean, standard deviation, minimum, and maximum values
+          should match the expected values within a tolerance of 0.01.
+    """
     print(flush=True)
+    # Create a simple fragmentation tree
     simple_tree = create_simple_tree()
 
+    # Print the tree structure and its depth
     print("\nTree structure:", flush=True)
     att.print_tree(simple_tree)
     print(f"\nTree depth: {att.tree_depth(simple_tree)}", flush=True)
 
-    # Create MA estimator
+    # Initialize the MAEstimator with specific parameters
     estimator = att.MAEstimator(
-        same_level=True,
+        same_level=True,  # Consider fragments at the same level
         tol=0.5,  # Mass tolerance in Da
         n_samples=20,  # Number of Monte Carlo samples
         min_chunk=20.0  # Minimum fragment size to consider
     )
 
-    # Estimate MA
+    # Define the precursor m/z value
     precursor_mz = 400.0
     print(f"\nEstimating MA for precursor: {precursor_mz:.2f} Da", flush=True)
 
+    # Estimate the molecular assembly (MA) for the precursor
     ma_estimate = estimator.estimate_ma(
         tree=simple_tree,
         mw=precursor_mz,
-        progress_levels=0
+        progress_levels=0  # Disable progress tracking
     )
 
+    # Print the results of the MA estimation
     print(f"\nResults:")
     print(f"  MA estimate (mean): {np.mean(ma_estimate):.2f}", flush=True)
     print(f"  MA estimate (std):  {np.std(ma_estimate):.2f}", flush=True)
     print(f"  MA range: [{np.min(ma_estimate):.2f}, {np.max(ma_estimate):.2f}]", flush=True)
 
+    # Compare the results with the expected values
     results = np.array([np.mean(ma_estimate), np.std(ma_estimate), np.min(ma_estimate), np.max(ma_estimate)])
     expected = np.array([21.14, 1.92, 17.73, 25.38])
     assert np.allclose(results, expected, atol=0.01)
 
 
 def test_ma_estimator_complex():
+    """
+    Test the MAEstimator with a complex fragmentation tree.
+
+    This function performs the following steps:
+    1. Creates a complex fragmentation tree using the `create_complex_tree` function.
+    2. Prints the tree structure and its depth.
+    3. Initializes an MAEstimator with specific parameters:
+       - `same_level=True`: Considers fragments at the same level.
+       - `tol=0.5`: Sets the mass tolerance in Da.
+       - `n_samples=20`: Specifies the number of Monte Carlo samples.
+       - `min_chunk=20.0`: Sets the minimum fragment size to consider.
+    4. Estimates the molecular assembly (MA) for a precursor m/z value of 400.0 Da.
+    5. Prints the results, including the mean, standard deviation, and range of the MA estimates.
+    6. Asserts that the calculated results match the expected values within a tolerance of 0.01.
+
+    Assertions:
+        - The calculated MA mean, standard deviation, minimum, and maximum values
+          should match the expected values within a tolerance of 0.01.
+    """
     print(flush=True)
+    # Create a complex fragmentation tree
     simple_tree = create_complex_tree()
 
+    # Print the tree structure and its depth
     print("\nTree structure:", flush=True)
     att.print_tree(simple_tree)
     print(f"\nTree depth: {att.tree_depth(simple_tree)}", flush=True)
 
-    # Create MA estimator
+    # Create an MAEstimator with specific parameters
     estimator = att.MAEstimator(
-        same_level=True,
+        same_level=True,  # Consider fragments at the same level
         tol=0.5,  # Mass tolerance in Da
         n_samples=20,  # Number of Monte Carlo samples
         min_chunk=20.0  # Minimum fragment size to consider
     )
 
-    # Estimate MA
+    # Define the precursor m/z value
     precursor_mz = 400.0
     print(f"\nEstimating MA for precursor: {precursor_mz:.2f} Da", flush=True)
 
+    # Estimate the molecular assembly (MA) for the precursor
     ma_estimate = estimator.estimate_ma(
         tree=simple_tree,
         mw=precursor_mz,
-        progress_levels=0
+        progress_levels=0  # Disable progress tracking
     )
 
+    # Print the results of the MA estimation
     print(f"\nResults:")
     print(f"  MA estimate (mean): {np.mean(ma_estimate):.2f}", flush=True)
     print(f"  MA estimate (std):  {np.std(ma_estimate):.2f}", flush=True)
     print(f"  MA range: [{np.min(ma_estimate):.2f}, {np.max(ma_estimate):.2f}]", flush=True)
 
+    # Compare the results with the expected values
     results = np.array([np.mean(ma_estimate), np.std(ma_estimate), np.min(ma_estimate), np.max(ma_estimate)])
     expected = np.array([25.83, 2.48, 19.26, 29.06])
     assert np.allclose(results, expected, atol=0.01)
 
 
 def test_ma_estimator_element():
+    """
+    Test the MAEstimator with elemental and non-elemental masses.
+
+    This function performs the following steps:
+    1. Initializes an MAEstimator with specific parameters:
+       - `same_level=True`: Considers fragments at the same level.
+       - `tol=0.5`: Sets the mass tolerance in Da.
+       - `n_samples=20`: Specifies the number of Monte Carlo samples.
+       - `min_chunk=20.0`: Sets the minimum fragment size to consider.
+    2. Tests the MA estimation for Iron-56 (55.934939 Da), asserting that the
+       MA estimate is approximately 0 for a pure element.
+    3. Tests the MA estimation for Copper-63 (62.929599 Da), printing the
+       result (expected to be approximately 0 for a pure element).
+    4. Tests the MA estimation for a non-isotope mass (123.456 Da), asserting
+       that the MA estimate is greater than 0 for a compound.
+
+    Assertions:
+        - The MA estimate for Iron-56 should be 0.0.
+        - The MA estimate for the non-isotope mass should be greater than 0.0.
+    """
     print(flush=True)
     # Create MA estimator
     estimator = att.MAEstimator(
@@ -230,6 +324,25 @@ def test_ma_estimator_element():
 
 
 def test_ma_estimator_detailed_tree():
+    """
+    Test the MAEstimator with a detailed fragmentation tree.
+
+    This function performs the following steps:
+    1. Initializes an MAEstimator with specific parameters:
+       - `same_level=True`: Considers fragments at the same level.
+       - `tol=0.5`: Sets the mass tolerance in Da.
+       - `n_samples=20`: Specifies the number of Monte Carlo samples.
+       - `min_chunk=20.0`: Sets the minimum fragment size to consider.
+    2. Defines a detailed fragmentation tree structure.
+    3. Prints the tree structure.
+    4. Estimates the molecular assembly (MA) for the precursor m/z value of 300.0 Da.
+    5. Prints the final MA estimate, including the mean and standard deviation.
+    6. Asserts that the calculated results match the expected values within a tolerance of 0.01.
+
+    Assertions:
+        - The calculated MA mean and standard deviation should match the expected values
+          within a tolerance of 0.01.
+    """
     print(flush=True)
     # Create MA estimator
     estimator = att.MAEstimator(
@@ -239,6 +352,7 @@ def test_ma_estimator_detailed_tree():
         min_chunk=20.0  # Minimum fragment size to consider
     )
 
+    # Define a detailed fragmentation tree
     detailed_tree = {
         300.0: {
             200.0: {
@@ -248,22 +362,47 @@ def test_ma_estimator_detailed_tree():
         }
     }
 
+    # Print the tree structure
     print("\nTree structure:", flush=True)
     att.print_tree(detailed_tree)
 
+    # Estimate the molecular assembly (MA) for the precursor
     ma_estimate = estimator.estimate_ma(
         tree=detailed_tree,
         mw=300.0,
         progress_levels=3
     )
 
+    # Print the final MA estimate
     print(f"\nFinal MA estimate: {np.mean(ma_estimate):.2f} ± {np.std(ma_estimate):.2f}", flush=True)
+
+    # Compare the results with the expected values
     results = np.array([np.mean(ma_estimate), np.std(ma_estimate)])
     expected = np.array([17.48, 3.35])
     assert np.allclose(results, expected, atol=0.01)
 
 
 def test_ma_estimator_joint():
+    """
+    Test the MAEstimator with a meta tree combining multiple samples.
+
+    This function performs the following steps:
+    1. Initializes an MAEstimator with specific parameters:
+       - `same_level=True`: Considers fragments at the same level.
+       - `tol=0.5`: Sets the mass tolerance in Da.
+       - `n_samples=20`: Specifies the number of Monte Carlo samples.
+       - `min_chunk=20.0`: Sets the minimum fragment size to consider.
+    2. Defines two sample fragmentation trees.
+    3. Combines the two trees into a meta tree with a specified parent m/z value.
+    4. Prints the structure of the meta tree.
+    5. Estimates the molecular assembly (MA) for the meta tree.
+    6. Prints the final MA estimate, including the mean and standard deviation.
+    7. Asserts that the calculated results match the expected values within a tolerance of 0.01.
+
+    Assertions:
+        - The calculated MA mean and standard deviation should match the expected values
+          within a tolerance of 0.01.
+    """
     print(flush=True)
     # Create MA estimator
     estimator = att.MAEstimator(
@@ -272,20 +411,27 @@ def test_ma_estimator_joint():
         n_samples=20,  # Number of Monte Carlo samples
         min_chunk=20.0  # Minimum fragment size to consider
     )
+
+    # Define two sample trees
     tree1 = {400.0: {200.0: {}, 100.0: {}}}
     tree2 = {500.0: {300.0: {}, 100.0: {}}}
 
+    # Combine the trees into a meta tree and print the structure
     print("\nMeta tree (combining multiple samples):")
     meta = att.meta_tree([tree1, tree2], meta_parent_mz=1e6)
     att.print_tree(meta)
 
+    # Estimate the molecular assembly (MA) for the meta tree
     ma_estimate = estimator.estimate_ma(
         tree=meta,
         mw=1e6,
         progress_levels=3
     )
 
+    # Print the final MA estimate
     print(f"\nFinal MA estimate: {np.mean(ma_estimate):.2f} ± {np.std(ma_estimate):.2f}", flush=True)
+
+    # Compare the results with the expected values
     results = np.array([np.mean(ma_estimate), np.std(ma_estimate)])
     expected = np.array([66964.27, 5103.06])
     assert np.allclose(results, expected, atol=0.01)
