@@ -348,7 +348,7 @@ class MAEstimator:
                 print(f"MA({mw} = {child} + {complement}) = {child_estimates[child].mean()}")
 
         estimate = min(child_estimates.values(), key=np.mean)
-        return np.mean(estimate)
+        return estimate
 
     def common_precursors(self, data, parent1, parent2):
         """
