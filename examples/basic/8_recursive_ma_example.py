@@ -90,41 +90,6 @@ def create_complex_tree():
     return tree
 
 
-def test_tree_operations():
-    """Test tree utility functions"""
-    print("\n" + "=" * 70)
-    print("Testing Tree Operations")
-    print("=" * 70)
-
-    tree1 = {400.0: {200.0: {}, 100.0: {}}}
-    tree2 = {400.0: {300.0: {}, 100.0: {}}}
-
-    print("\nTree 1:")
-    att.print_tree(tree1)
-
-    print("\nTree 2:")
-    att.print_tree(tree2)
-
-    print("\nUnified tree:")
-    unified = att.unify_trees([tree1, tree2])
-    att.print_tree(unified)
-
-    print(f"\nDepth of unified tree: {att.tree_depth(unified)}")
-
-    print("\nUnify Tree for Joint MA calculations:")
-    tree1 = {400.0: {200.0: {}, 100.0: {}}}
-    tree2 = {500.0: {300.0: {}, 100.0: {}}}
-
-    print("\nTree 1:")
-    att.print_tree(tree1)
-
-    print("\nTree 2:")
-    att.print_tree(tree2)
-    print("\nMeta tree (combining multiple samples):")
-    meta = att.meta_tree([tree1, tree2], meta_parent_mz=1e6)
-    att.print_tree(meta)
-
-
 if __name__ == "__main__":
     print("=" * 70)
     print("MA Estimator Test Script")
@@ -208,9 +173,6 @@ if __name__ == "__main__":
     print(f"\nTesting non-isotope mass (123.456 Da)")
     ma_random = estimator.estimate_ma(random_tree, 123.456, progress_levels=0)
     print(f"  MA estimate: {ma_random.mean():.2f} (should be >0 for compound)")
-
-    # Test 4: Tree operations
-    test_tree_operations()
 
     # Test 5: Detailed calculation (with progress)
     print("\n" + "=" * 70)
