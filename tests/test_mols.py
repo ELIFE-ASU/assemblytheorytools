@@ -7,7 +7,7 @@ import assemblytheorytools as att
 import pytest
 
 # helper data structures for molecule test data
-from tests.data.molecule_data.molecules import SMILES
+from tests.data.molecule_data.molecules import MOLS
 
 
 def test_readme_example():
@@ -627,14 +627,24 @@ def test_calculate_sum_assembly():
             # Testing known similarity of 0.75
             (["C1=CC=CC=C1", "C1=CC=CC=C1O"], {'strip_hydrogen': True}, True, True, 0.75),
             (["C1=CC=CC=C1", "C1=CC=CC=C1O"], {'strip_hydrogen': True}, False, True, 0.75),
-            # testing timeout returning -1, with parallel=True and parallel=False
-            ([SMILES.taxol, SMILES.taxol],{'strip_hydrogen': True, "timeout":1}, True, True, -1.0),
-            ([SMILES.taxol, SMILES.taxol],{'strip_hydrogen': True, "timeout":1}, False, True, -1.0),
+            # testing timeout returning -1, with parallel=True and parallel=False.
+            # Taxol is used to force timeout. The latter 2 tests ensure that 
+            # "exact":False is being overriden. Warning: Will fail if the binary
+            #  is ever fast enough to complete JA(taxol, taxol) in < 1 second. 
+            ([MOLS["taxol"].smiles, MOLS["taxol"].smiles],{'strip_hydrogen': True, "timeout":1}, True, True, -1.0),
+            ([MOLS["taxol"].smiles, MOLS["taxol"].smiles],{'strip_hydrogen': True, "timeout":1}, False, True, -1.0),
+            ([MOLS["taxol"].smiles, MOLS["taxol"].smiles],{'strip_hydrogen': True, "timeout":1, "exact":False}, True, True, -1.0),
+            ([MOLS["taxol"].smiles, MOLS["taxol"].smiles],{'strip_hydrogen': True, "timeout":1, "exact":False}, False, True, -1.0),
             # Testing identical molecules have similarity 1 with parallel=True and parallel=False
-            ([SMILES.glycine, SMILES.glycine],{'strip_hydrogen': True}, True, True, 1.0),
-            ([SMILES.glycine, SMILES.glycine],{'strip_hydrogen': True}, False, True, 1.0),
-            ([SMILES.tryptophan, SMILES.tryptophan],{'strip_hydrogen': True}, True, True, 1.0),
-            ([SMILES.tryptophan, SMILES.tryptophan],{'strip_hydrogen': True}, False, True, 1.0),
+            ([MOLS["glycine"].smiles, MOLS["glycine"].smiles],{'strip_hydrogen': True}, True, True, 1.0),
+            ([MOLS["glycine"].smiles, MOLS["glycine"].smiles],{'strip_hydrogen': True}, False, True, 1.0),
+            ([MOLS["n-icosane"].smiles, MOLS["n-icosane"].smiles],{'strip_hydrogen': True}, True, True, 1.0),
+            ([MOLS["n-icosane"].smiles, MOLS["n-icosane"].smiles],{'strip_hydrogen': True}, False, True, 1.0),           
+            # Some test with enforce_exact_mode False. These test molecules that do not timeout, as the value for 
+            # timed out molecules in the "exact":False case is unpredictable
+            (["C1=CC=CC=C1", "C1=CC=CC=C1O"], {'strip_hydrogen': True, "exact":False}, True, False, 0.75),
+            ([MOLS["glycine"].smiles, MOLS["glycine"].smiles],{'strip_hydrogen': True, "exact":False}, True, False, 1.0),
+            ([MOLS["glycine"].smiles, MOLS["glycine"].smiles],{'strip_hydrogen': True, "exact":False}, False, False, 1.0),
         ],
 )
 def test_calculate_assembly_similarity(smiles_list,
@@ -643,26 +653,19 @@ def test_calculate_assembly_similarity(smiles_list,
                                        enforce_exact_mode,
                                        expected,):
     """
-    Test the calculation of assembly similarity between two molecular graphs.
+    Test the calculation of assembly similarity between two molecular 
+    graphs.
 
-    This function performs the following steps:
+    This function performs the following steps for each of the test cases:
     1. Converts two SMILES strings to NetworkX graphs.
-    2. Calculates the assembly similarity between the two graphs using the `calculate_assembly_similarity` function.
-    3. Prints the calculated similarity value.
-    4. Asserts that the calculated similarity matches the expected value.
+    2. Calculates the assembly similarity between the two graphs using
+       the `calculate_assembly_similarity` function.
+    3. Asserts that the calculated similarity matches the expected value.
 
     Asserts:
-        - The calculated similarity is equal to 0.75.
+        - The calculated similarity is equal to the expected value
+          for each test case
     """
-    # print(flush=True)
-    # graphs = [att.smi_to_nx("C1=CC=CC=C1"), att.smi_to_nx("C1=CC=CC=C1O")]
-    # settings = {'strip_hydrogen': True}
-    # similarity = att.calculate_assembly_similarity(graphs, settings=settings, parallel=True)
-    # print(similarity, flush=True)
-    # assert similarity == 0.75
-    # similarity = att.calculate_assembly_similarity(graphs, settings=settings, parallel=False)
-    # print(similarity, flush=True)
-    # assert similarity == 0.75
 
     graphs = [att.smi_to_nx(smi) for smi in smiles_list]
     similarity = att.calculate_assembly_similarity(

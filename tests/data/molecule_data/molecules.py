@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from pathlib import Path
-from types import SimpleNamespace
 import csv
 
 DATA_PATH = Path(__file__).with_name("test_molecule_data.csv")
@@ -42,11 +41,4 @@ def _load_molecules() -> dict[str, Molecule]:
     return mols
 
 
-MOLS_BY_NAME: dict[str, Molecule] = _load_molecules()
-
-SMILES = SimpleNamespace(
-    **{name: mol.smiles for name, mol in MOLS_BY_NAME.items()}
-)
-ASSEMBLY_INDEX = SimpleNamespace(
-    **{name: mol.assembly_index for name, mol in MOLS_BY_NAME.items()}
-)
+MOLS: dict[str, Molecule] = _load_molecules()
