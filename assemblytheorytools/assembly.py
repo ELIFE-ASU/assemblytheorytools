@@ -1215,18 +1215,25 @@ def calculate_sum_assembly(graphs, settings, parallel=True) -> int:
         parallel (bool, optional): If True, calculate assembly indices in parallel. Defaults to True.
 
     Returns:
-        int: The sum of assembly indices for the input graphs.
+        int: The sum of assembly indices for the input graphs. Returns -1 if 
+             any assembly indices are invalid (e.g. incomplete in exact mode)
     """
     # Calculate assembly indices based on the parallel flag
     if parallel:
         ai_list = calculate_assembly_parallel(graphs, settings)[0]
     else:
         ai_list = [calculate_assembly_index(graph, **settings)[0] for graph in graphs]
+    
+    # return -1 if there are any invalid assembly indices
+    # e.g. incomplete in exact mode
+    if any(ai < 0 for ai in ai_list):
+        return -1
+    
     # Sum the assembly indices
     return sum(ai_list)
 
 
-def calculate_assembly_similarity(graphs, settings=None, parallel=True) -> float:
+def calculate_assembly_similarity(graphs, settings=None, parallel=True, enforce_exact_mode=True) -> float:
     """
     Calculate the assembly similarity index for a list of molecular graphs.
 
@@ -1241,22 +1248,45 @@ def calculate_assembly_similarity(graphs, settings=None, parallel=True) -> float
         A dictionary of settings to be passed to the `calculate_assembly_index` function. Defaults to an empty dictionary.
     parallel : bool, optional
         If True, calculates the assembly indices in parallel. Defaults to True.
+    enforce_exact_mode: bool
+        If True (default) the assembly calculations will use exact mode. 
+        This is default as approximate assembly indices can result in 
+        inconsistent / meaningless similarity values.
 
     Returns:
     --------
     float
         The assembly similarity index. If the joint assembly index is 0, returns 0.0.
+        If any exact assembly calculations fail to complete returns -1.0
+
+    Warnings
+    --------
+        Passing more than two graphs is allowed, but the resulting similarity
+        value may be difficult to interpret and may not exhibit expected
+        pairwise behaviour (e.g., remaining within the [0, 1] range). For
+        example, the similarity of three identical graphs will be reported
+        as 2.0.
     """
     if settings is None:
         settings = {}
+
+    if enforce_exact_mode:
+        settings["exact"] = True
+    
     # Calculate assembly index sum
     ai_sum = calculate_sum_assembly(graphs, settings, parallel=parallel)
+
+    if ai_sum < 0:
+        return -1.0
 
     # Join the graphs into a single joint graph
     joint_graphs = join_graphs(graphs)
 
     # Calculate the joint assembly index
     ai_jai = calculate_assembly_index(joint_graphs, **settings)[0]
+
+    if ai_jai < 0:
+        return -1.0
 
     # Compute the assembly similarity index
     return (ai_sum / ai_jai - 1.0) if ai_jai != 0 else 0.0
