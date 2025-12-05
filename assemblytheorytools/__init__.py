@@ -88,7 +88,10 @@ from .reassembler import (assemble,
                           Assemble)
 from .recursive_ma import (build_tree,
                            tree_depth,
-                           MAEstimator)
+                           MAEstimator,
+                           unify_trees,
+                           print_tree,
+                           meta_tree)
 from .tools_atoms import (smiles_to_atoms,
                           mol_to_atoms,
                           atoms_to_mol,
