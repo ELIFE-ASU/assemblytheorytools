@@ -797,7 +797,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         # Get the assembly code directory
         if dir_code is None:
             dir_code = add_assembly_to_path(str_mode=True)
-
+        
         # Create working directory
         temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}" if debug else tempfile.mkdtemp()
         os.makedirs(temp_dir, exist_ok=True)
@@ -1024,7 +1024,13 @@ def add_assembly_to_path(str_mode=False):
     # Check if the environment variable is already set
     if not os.environ.get(key):
         # Default executable name for Linux systems
-        exec_name = "asscpp_combined_static_linux"
+        
+        if str_mode:
+            exec_name = "asscpp_combined_static_strings"
+        else:
+            exec_name = "asscpp_combined_static_linux"
+        
+        
         full_att_path = os.path.join(os.path.dirname(__file__), "precompiled", exec_name)
 
         # Check if the precompiled executable exists
