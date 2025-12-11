@@ -92,26 +92,16 @@ We take testing seriously. Code changes must not reduce existing test coverage.
 
 ### Writing Tests
 
-* Tests are written using the standard library `unittest` module.
+* Tests are written using the standard library `pytest` module.
 * Place new tests in the `tests/` directory, mirroring the structure of the source code.
 
 ### Running Tests
 
-You can run the full suite using:
-
-```console
-$ python -m unittest discover -vv
-```
+You can run the full suite using pytest.
 
 ### Checking Coverage
 
-We recommend checking coverage locally to ensure you haven't missed any branches:
-
-```console
-$ pip install coverage
-$ coverage run -m unittest discover
-$ coverage report -m
-```
+We recommend checking coverage locally to ensure you haven't unknowingly altered other code.
 
 -----
 
