@@ -1629,7 +1629,8 @@ def reassemble_old(mols,
                    mw_delta=0.1
                    ):
     """
-    Generate new molecules by reassembling molecular fragments with comprehensive filtering.
+    Generate new molecules by reassembling molecular fragments with comprehensive filtering,
+    as proposed by Liu et al. [1]_.
     
     This function creates novel molecular structures by systematically combining input molecular
     fragments, applying origami cyclization operations, and filtering results based on multiple
@@ -1669,6 +1670,13 @@ def reassemble_old(mols,
     list of rdkit.Chem.Mol
         List of successfully generated and validated molecules.
         Length may be less than n_mol_needed if generation fails.
+
+    References
+    ----------
+    .. [1] Liu, Y., Mathis, C., Bajczyk, M. D., Marshall, S. M., Wilbraham, L., & Cronin, L. (2021).
+       Exploring and mapping chemical space with molecular assembly trees. Science Advances, 7(39), eabj2465.
+       https://www.science.org/doi/full/10.1126/sciadv.abj2465
+
     """
 
     # Ensure that the input list of molecules is unique
@@ -3010,12 +3018,20 @@ class MoleculeSpace:
 
 class MoleculeGenerationAssemblyPool:
     """
-    Generate novel molecules from molecular fragment pools.
+    Generate novel molecules from molecular fragment pools. See Pagel et al. [1]_ for details.
     
     This class implements a molecular generation algorithm that creates new molecules
     by randomly combining fragments from existing assembly pathways. It uses statistical sampling
     based on fragment occurrence frequencies and chemical compatibility to generate chemically
     reasonable novel molecular structures.
+
+    References
+    ----------
+
+    .. [1] Pagel, S., Sharma, A., & Cronin, L. (2024).
+           Mapping evolution of molecules across biochemistry with assembly theory.
+           arXiv preprint arXiv:2409.05993.
+
     """
 
     def __init__(self, assembly_pool) -> None:
@@ -3637,6 +3653,16 @@ class Assemble:
     fragments by overlapping atoms and forming new bonds. It uses probabilistic selection of
     overlap sites, chemical validation, and retry mechanisms to generate chemically reasonable
     molecular products from fragment precursors.
+
+    See Pagel et al. [1]_ for details.
+
+    References
+    ----------
+
+    .. [1] Pagel, S., Sharma, A., & Cronin, L. (2024).
+           Mapping evolution of molecules across biochemistry with assembly theory.
+           arXiv preprint arXiv:2409.05993.
+
     """
 
     # Empircal propabilities of number of atom overlaps, starting at 1
