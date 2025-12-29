@@ -195,26 +195,80 @@ def calculate_assembly_index(mol,
                              return_log_file=False,
                              exact=False):
     """
-    Calculate the assembly index for a given molecule.
+    Calculate the assembly index for a molecule or molecular graph.
 
-    This function processes a molecule to compute its assembly index using an external assembly tool.
-    It supports various input types, including NetworkX graphs, RDKit molecules, and `.mol` files.
+    This function computes the assembly index (AI) for a given input using the
+    external assembly calculator or internal CFG upper-bound. Supported input
+    types include NetworkX graphs, RDKit `Chem.Mol` objects and paths to `*.mol`
+    files. For plain string inputs an upper-bound via `CFG.ai_with_pathways` is
+    returned (the function warns and exits early). The function can create a
+    temporary working directory (removed unless `debug` is True), invoke the
+    external assembler, and parse produced output and pathway files.
 
-    Args:
-        mol (Union[nx.Graph, Chem.Mol, str]): The molecule to process. Can be a NetworkX graph, RDKit molecule, or a file path.
-        dir_code (str, optional): Path to the assembly tool executable. Defaults to None.
-        timeout (float, optional): Maximum time allowed for assembly index calculation. Defaults to 100.0 seconds.
-        debug (bool, optional): If True, enables debug mode and creates a timestamped directory. Defaults to False.
-        joint_corr (bool, optional): If True, applies joint correction to the assembly index. Defaults to True.
-        strip_hydrogen (bool, optional): If True, removes hydrogen atoms from the molecule before processing. Defaults to False.
-        return_log_file (bool, optional): If True, returns the path to the log file. Defaults to False.
-        exact (bool, optional): If True, calculates the exact assembly index. Defaults to False.
+    Parameters
+    ----------
+    mol : Union[nx.Graph, Chem.Mol, str]
+        Input to analyse:
+        - NetworkX ``nx.Graph``: written as an assembly graph and processed by the
+          external calculator.
+        - RDKit ``Chem.Mol``: written to a V2K-style ``.mol`` file and processed.
+        - Path to a ``*.mol`` file: copied or rewritten into the working directory.
+        - Plain string (not ending with ``.mol``): treated as a string input and
+          processed via ``CFG.ai_with_pathways`` (upper bound) with an early return.
+    dir_code : str, optional
+        Path to the assembly executable. When ``None`` the bundled/compiled binary
+        is located via ``add_assembly_to_path``. Default is ``None``.
+    timeout : float, optional
+        Maximum time in seconds to allow the external calculator to run. Default
+        is ``100.0``. If exceeded the function attempts a graceful interrupt and
+        will try to extract the best found upper bound from the log.
+    debug : bool, optional
+        If True, create a timestamped working directory (``ai_calc_<ts>``) and keep
+        debug output and temporary files. Default is ``False``.
+    joint_corr : bool, optional
+        If True, apply a correction to the returned AI for multi-component
+        systems (subtracting component offsets). Default is ``True``.
+    strip_hydrogen : bool, optional
+        If True, remove explicit hydrogens prior to writing input files. Default
+        is ``False``.
+    return_log_file : bool, optional
+        If True, return the path to the assembler log file as the fourth element
+        of the returned tuple. Default is ``False``.
+    exact : bool, optional
+        When True request exact calculation behaviour where supported. Default is
+        ``False``.
 
-    Returns:
-        tuple: Contains the assembly index, virtual object, pathway, and optionally the log file path.
+    Returns
+    -------
+    tuple
+        If ``return_log_file`` is False returns a 3-tuple: ``(ai, virt_obj, path)``:
+        - ai (int): Computed assembly index (>= 0) or negative sentinel on failure.
+        - virt_obj: Virtual object representation returned by pathway parser (or ``None``).
+        - path: Parsed pathway structure (or ``None``).
+        If ``return_log_file`` is True returns ``(ai, virt_obj, path, log_file)`` where
+        ``log_file`` is the path to the assembler log produced in the working folder.
 
-    Raises:
-        ValueError: If the input type is unsupported.
+    Raises
+    ------
+    ValueError
+        If ``mol`` is not a supported type or input conversion fails.
+    OSError, subprocess.CalledProcessError
+        If external tools or the assembly executable cannot be found, executed or
+        compiled successfully.
+    subprocess.TimeoutExpired
+        If an invoked external process cannot be terminated within ``timeout`` and
+        the underlying subprocess module raises this exception.
+
+    Notes
+    -----
+    - Temporary working directories named like ``ai_calc_<timestamp>`` are created;
+      they are removed automatically unless ``debug`` is True.
+    - In timeout cases the function attempts to read the assembler log for the
+      last reported ``min AI found so far`` and may return that as an upper bound.
+    - When pathway output is present the function parses it and returns the
+      pathway and virtual object via ``parse_pathway_file`` / ``prep_json``.
+    - Joint correction subtracts component offsets so multi-component AIs are
+      comparable with single-component results.
     """
     # Initialize variables
     ai = -1
@@ -524,6 +578,71 @@ def add_to_bashrc(export_line, file=".bashrc"):
 
 
 def compile_assembly_cpp_script(assembly_tar_path="assemblycpp-main", boost_version="1_86_0", exe_name="asscpp_v5"):
+    """
+    Compile a packaged assembly C++ tarball into a local executable and install it for user use.
+
+    This helper extracts a tarball containing the assembly C\+\+ source (expected to
+    contain a v5 combined source tree), downloads or locates Boost as required,
+    compiles the main source into a standalone executable and installs the result
+    into the current working directory (or a named path derived from *exe_name*).
+    It also attempts to record the installed executable path in the user's shell
+    startup files so the binary can be found via the environment variable
+    ``ASS_PATH``.
+
+    Parameters
+    ----------
+    assembly_tar_path : str, optional
+        Base path (without ``.tar.gz``) to the packaged assembly source archive.
+        Default is ``assemblycpp-main`` which implies an archive named
+        ``assemblycpp-main.tar.gz`` in the current working directory.
+    boost_version : str, optional
+        Boost release identifier to download when a system-provided Boost is not
+        available. Formatted like ``1_86_0`` and used to build a URL for the Boost
+        source tarball. Default is ``1_86_0``.
+    exe_name : str, optional
+        Base name for the produced executable file. The function compiles the
+        source to an executable at a path derived from this name (for example
+        creating a file at ``./asscpp_v5`` when ``exe_name`` is ``asscpp_v5``).
+        Default is ``asscpp_v5``.
+
+    Returns
+    -------
+    None
+        The function performs compilation and installation as side effects and does
+        not return a value on success.
+
+    Raises
+    ------
+    subprocess.CalledProcessError
+        If a required external command (for example ``wget``, ``g++``, ``clang++``
+        or other shell utilities) fails with a non-zero exit status during download
+        or compilation steps.
+    OSError
+        On filesystem or permission errors (for example when changing file modes,
+        creating files/directories, or writing to shell startup files).
+    FileNotFoundError
+        If the expected source archive (``{assembly_tar_path}.tar.gz``) is missing
+        or if the compiled executable cannot be found after the build.
+
+    Notes
+    -----
+    - On Linux the function currently uses standard GNU toolchain commands (``tar``,
+      ``wget``, ``g++``) and compiles the single-file combined source into a local
+      executable; it sets the file mode to be executable (``0o755``).
+    - On macOS the function prefers Homebrew-managed Boost and compiles with
+      ``clang++`` when available; it queries ``brew --prefix boost`` to locate
+      headers/libs.
+    - The function mutates the caller's environment indirectly by appending an
+      ``export ASS_PATH=...`` line to shell startup files (``~/.bashrc`` and
+      ``~/.profile``) when it installs a binary into the current working
+      directory; callers should inspect these files if unwanted modifications
+      occur.
+    - The implementation assumes the tarball layout contains a single top-level
+      directory with the expected combined source (``v5_combined_linux/main.cpp``
+      or equivalent). Adjust *assembly_tar_path* to match the archive contents.
+    - Use this helper interactively or from build scripts only when the host
+      environment is trusted; it performs network downloads and executes compilers.
+    """
     print("compile_assembly_code", flush=True)
 
     # Detect operating system
@@ -601,6 +720,49 @@ def compile_assembly_cpp_script(assembly_tar_path="assemblycpp-main", boost_vers
 
 
 def compile_assembly_cpp():
+    """
+    Compile the assemblycpp C++ project and install the produced executable.
+
+    This function clones the `assemblycpp-v5` repository, configures and builds it
+    using CMake (platform-specific adjustments applied), moves the resulting
+    executable to `assemblytheorytools/precompiled/assembly`, sets executable
+    permissions, and removes temporary build artifacts.
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    None
+        The function performs compilation and installation as side effects and
+        returns `None` on success.
+
+    Raises
+    ------
+    OSError
+        If required build tools (e.g. `git`, `cmake`) are missing or the host
+        operating system is unsupported.
+    subprocess.CalledProcessError
+        If a subprocess command (for example `git clone`, `cmake` or build steps)
+        returns a non-zero exit status.
+    FileNotFoundError
+        If the expected compiled executable cannot be located after the build.
+
+    Notes
+    -----
+    - Host platform detection is performed via `platform.system().lower()` and
+      behaviour is adjusted for `linux`, `darwin` (macOS) and `windows`.
+    - On macOS the function may attempt to install missing dependencies using
+      Homebrew; on Linux it currently requires `git` and `cmake` to be present.
+    - The function temporarily changes the working directory to the cloned
+      repository and restores the original working directory on exit.
+    - The compiled executable is expected at `assemblycpp-v5/build/bin/assembly`
+      and is moved to `assemblytheorytools/precompiled/assembly`.
+    - Callers should be prepared to handle exceptions; the function prints
+      diagnostic messages on error.
+    """
+
     start_dir = os.getcwd()
     try:
         print(flush=True)
@@ -680,20 +842,83 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
                                     mode="str",
                                     return_log_file=False):
     """
-    Calculate the assembly index of a string or a set of strings. 
-    This function uses the molecular assembly calculator by constructing molecular graphs which correspond to the
-    strings.
+    Calculate the assembly index for a string or a list of strings.
 
-    Args:
-        input_data (Union[str, List[str]]): The input data, which can be a single string or a list of strings.
-        dir_code (str, optional): The directory code for the assembly tool. Defaults to None.
-        timeout (float, optional): The maximum time in seconds to allow the command to run. Defaults to 100.0 seconds.
-        debug (bool, optional): If True, create a directory with a timestamp for debugging. Defaults to False.
-        directed (bool, optional): If True, treat strings as directed. Defaults to True, treating strings as
-        undirected.
-        mode ("mol"/"str"/"cfg", optional): "mol" uses the molecular assembly calculator, "str" uses the string assembly
-        calculator, "cfg" uses the RePair upper bound.
+    This function computes an (optionally joint) assembly index for textual inputs by
+    mapping strings to molecular graphs or by using a dedicated string-assembly
+    executable. It supports three modes: ``'mol'`` (map to molecular graph and use
+    molecular calculator), ``'str'`` (use string-assembly executable), and ``'cfg'``
+    (use CFG/RePair upper bound). Joint calculations for multiple strings are
+    handled by `prep_joint_string_ai` and corrected for delimiters and directedness.
+
+    Parameters
+    ----------
+    input_data : Union[str, List[str]]
+        A single string or a list of strings to analyse. Lists are treated as joint
+        inputs (limited to 95 items for joint calculations).
+    dir_code : str, optional
+        Path to the assembly executable; when ``None`` the bundled/compiled binary
+        is located via ``add_assembly_to_path`` or equivalent.
+    timeout : float, optional
+        Maximum time in seconds to allow the external calculator to run. Default is
+        100.0.
+    debug : bool, optional
+        If True, create a timestamped temporary directory and print debug output.
+        Default is False.
+    directed : bool, optional
+        If True, treat strings as directed; affects encoding and post-processing.
+        Default is True.
+    mode : {'mol', 'str', 'cfg'}, optional
+        Selects the calculation backend:
+        - ``'mol'``: encode strings as molecular graphs and run molecular assembler.
+        - ``'str'``: use the string-assembly executable.
+        - ``'cfg'``: use CFG/RePair upper bound (fast, approximate).
+        Default is ``'str'``.
+    return_log_file : bool, optional
+        If True, return the path to the log file produced by the external run as
+        the fourth element of the returned tuple. Default is False.
+
+    Returns
+    -------
+    tuple
+        If ``return_log_file`` is False returns a 3-tuple: ``(ai, virt_obj, path)`` where
+        ``ai`` is the (possibly joint) assembly index (int), ``virt_obj`` is a list
+        or other representation of virtual objects (or ``None``), and ``path`` is the
+        pathway representation (or ``None``). If ``return_log_file`` is True returns
+        ``(ai, virt_obj, path, log_file)`` where ``log_file`` is the path to the
+        assembler log produced in the temporary ``ai_calc_*`` folder.
+
+    Raises
+    ------
+    ValueError
+        If ``input_data`` is neither a string nor a list of strings, or if an
+        unsupported ``mode`` is provided, or if list length exceeds supported limit.
+    OSError
+        If required external tools or compiled executables are not available and
+        automatic compilation fails.
+    subprocess.TimeoutExpired
+        When an invoked external process exceeds ``timeout`` and cannot be cleanly
+        terminated.
+
+    Notes
+    -----
+    - Joint inputs (lists) are encoded with delimiters; the final returned AI is
+      corrected by subtracting delimiter and directedness offsets.
+    - Temporary working directories named like ``ai_calc_<timestamp>`` are created;
+      they are removed automatically unless ``debug`` is True.
+    - In 'str' mode the function expects the string-assembly binary (set via
+      environment variable ``ASS_STR_PATH`` or found by ``add_assembly_to_path``).
+    - In 'cfg' mode the function delegates to ``CFG.ai_with_pathways`` and
+      returns an upper bound; no external binary is invoked.
+    - For reproducible behaviour consider using ``debug=True`` to preserve the
+      temporary folder and log files.
+
+    Examples
+    --------
+    >>> ai, vo, path = calculate_string_assembly_index("ABCDEF", timeout=60.0)
+    >>> ai, vo, path, log = calculate_string_assembly_index(["A","B"], return_log_file=True, mode="str")
     """
+
     log_file = None
     if isinstance(input_data, str):
         # Handle the case where input_data is a single string
@@ -948,18 +1173,48 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
 
 def assembly_dry_run(mol, temp_dir=None, strip_hydrogen=False):
     """
-    Perform a dry run of the assembly process for a given molecule.
+    Prepare input files for an assembly run without invoking the code.
 
-    Args:
-        mol (Union[nx.Graph, Chem.Mol, str]): The molecule, which can be a NetworkX graph, an RDKit molecule, or a file
-         path to a .mol file.
-        temp_dir (str, optional): The temporary directory to use for file operations. Defaults to the current working
-         directory.
-        strip_hydrogen (bool, optional): If True, removes hydrogen atoms from the molecule before processing. Defaults
-         to False.
+    This function performs a dry run that writes the appropriate input file(s)
+    for the assembly calculator for inspection or manual use. Depending on the
+    type of `mol` it will produce a graph input (`graph_in`) or a V2K-style
+    `.mol` file (`tmp.mol`) inside `temp_dir` (or the current working directory
+    when `temp_dir` is None). When `strip_hydrogen` is True explicit hydrogens
+    are removed prior to writing.
 
-    Raises:
-        ValueError: If the input molecule type is not supported.
+    Parameters
+    ----------
+    mol : Union[nx.Graph, Chem.Mol, str]
+        The molecule to prepare:
+        - NetworkX ``nx.Graph``: written via ``write_ass_graph_file`` as `graph_in`.
+        - RDKit ``Chem.Mol``: written via ``write_v2k_mol_file`` as `tmp.mol`.
+        - Path to a ``*.mol`` file: copied into ``temp_dir`` or re-written as
+          ``tmp.mol`` after hydrogen removal when ``strip_hydrogen`` is True.
+    temp_dir : str, optional
+        Directory where input files will be written. If None the current working
+        directory is used.
+    strip_hydrogen : bool, optional
+        If True, remove explicit hydrogens before writing files. Default is False.
+
+    Returns
+    -------
+    None
+        Files are written to disk for manual inspection; no value is returned.
+
+    Raises
+    ------
+    ValueError
+        If ``mol`` is not a supported type (neither a NetworkX graph, an RDKit
+        ``Chem.Mol`` nor a path to a ``*.mol`` file).
+
+    Notes
+    -----
+    - The function does not call the external assembly executable; it only
+      prepares input files consumed by that tool.
+    - The original ``mol`` object passed by the caller is not modified; copies
+      or temporary objects may be created for writing.
+    - For ``*.mol`` paths and RDKit ``Chem.Mol`` objects, hydrogen handling uses
+      RDKit's ``Chem.RemoveHs`` / ``Chem.AddHs`` as appropriate.
     """
     if temp_dir is None:
         temp_dir = os.getcwd()
@@ -1002,21 +1257,36 @@ def assembly_dry_run(mol, temp_dir=None, strip_hydrogen=False):
 
 def add_assembly_to_path(str_mode=False):
     """
-    Add the path to the assembly executable to the environment variable.
+    Ensure the assembly executable path is available in the environment and return it.
 
-    This function checks if the assembly executable path is already set in the environment variable.
-    If not, it attempts to locate the precompiled assembly executable or compile it if necessary.
-    The path is then added to the environment variable.
+    The function checks the environment for a path variable (`ASS_STR_PATH` when
+    *str_mode* is True, otherwise `ASS_PATH`). If not present it looks for a
+    precompiled executable in the package `precompiled` directory, attempts to
+    compile the assembly code when necessary, and sets the environment variable.
 
-    Args:
-        str_mode (bool): If True, use the string assembly executable path (`ASS_STR_PATH`).
-                         If False, use the molecular assembly executable path (`ASS_PATH`).
+    Parameters
+    ----------
+    str_mode : bool, optional
+        If True, operate on the string-assembly executable variable
+        ``ASS_STR_PATH``; otherwise operate on the molecular assembly variable
+        ``ASS_PATH``. Default is False.
 
-    Returns:
-        str: The path to the assembly executable.
+    Returns
+    -------
+    str
+        Absolute path to the assembly executable stored in the chosen environment variable.
 
-    Raises:
-        FileNotFoundError: If the assembly executable cannot be found or compiled.
+    Raises
+    ------
+    FileNotFoundError
+        If the executable cannot be located or compiled successfully.
+
+    Notes
+    -----
+    - The function mutates ``os.environ`` by setting the selected key.
+    - The function searches for executables inside the package `precompiled`
+      folder adjacent to the module file and may call ``compile_assembly_cpp()``
+      to build a missing executable.
     """
     # Determine the environment variable key based on the mode
     key = "ASS_STR_PATH" if str_mode else "ASS_PATH"
@@ -1056,40 +1326,109 @@ def add_assembly_to_path(str_mode=False):
 
 
 def get_most_recent_calc():
+    """
+    Locate the most recent assembly calculation directory in the current working directory.
+
+    The function scans the current working directory for folders whose names start
+    with ``ai_calc_`` and returns the path to the most recently created one (as
+    determined by the file system creation time).
+
+    Returns
+    -------
+    str
+        Absolute path to the most recent calculation folder.
+
+    Raises
+    ------
+    FileNotFoundError
+        If no folder starting with ``ai_calc_`` is present in the current working directory.
+
+    Notes
+    -----
+    - The function uses :func:`os.path.getctime` to determine the "most recent"
+      folder. On some platforms this value measures the creation time; on others
+      it may reflect the last metadata change.
+    - The function returns an absolute path built from the current working
+      directory and the selected folder name.
+    """
     assembly_folders = [folder for folder in os.listdir(os.getcwd()) if folder.startswith("ai_calc_")]
-    assembly_folder = max(assembly_folders, key=os.path.getctime)
+    if not assembly_folders:
+        raise FileNotFoundError("No 'ai_calc_' folders found in the current working directory")
+    assembly_folder = max(assembly_folders, key=lambda fn: os.path.getctime(os.path.join(os.getcwd(), fn)))
     assembly_path = os.path.join(os.getcwd(), assembly_folder)
     return assembly_path
 
 
 def load_assembly_time() -> float:
     """
-    Load the assembly time from the most recent output file in the most recent "ai_calc_" folder.
+    Load the time-to-completion recorded by the most recent assembly run.
 
-    This function performs the following steps:
-    1. Identifies the most recent folder starting with "ai_calc_" in the current working directory.
-    2. Identifies the most recent file ending with "Out" in the identified folder.
-    3. Reads the time to completion from the last line of the identified file.
-    4. Removes the identified folder.
+    The function locates the most recent directory in the current working
+    directory whose name starts with ``ai_calc_``, finds the most recent file
+    in that directory whose name ends with ``Out``, reads the last line of the
+    file, extracts the numeric time value, and returns it in seconds.
 
-    Returns:
-        float: The time to completion extracted from the file in seconds.
+    Returns
+    -------
+    float
+        Time to completion in seconds (the value read from the file is assumed
+        to be in microseconds and is converted to seconds).
+
+    Raises
+    ------
+    FileNotFoundError
+        If no ``ai_calc_`` directory is found or if no ``Out`` file exists in the
+        most recent calculation directory.
+    ValueError
+        If the time value cannot be parsed as a number from the last line of the
+        selected file.
+    OSError
+        If removal of the assembly folder fails during cleanup.
+
+    Notes
+    -----
+    - The function removes the identified ``ai_calc_`` directory after reading
+      the time value.
+    - The implementation expects the last line of the ``Out`` file to contain a
+      colon-separated value whose final token is the numeric time (matching the
+      historical behavior of the project). The numeric value is interpreted as
+      microseconds and converted to seconds by multiplying by ``1e-6``.
+    - Uses :func:`get_most_recent_calc` to find the latest calculation folder.
+
+    Examples
+    --------
+    >>> t = load_assembly_time()
+    >>> isinstance(t, float)
+    True
     """
-    # Get the most recent folder starting with "ai_calc_"
-    assembly_folders = [folder for folder in os.listdir(os.getcwd()) if folder.startswith("ai_calc_")]
-    assembly_folder = max(assembly_folders, key=os.path.getctime)
-    assembly_path = os.path.join(os.getcwd(), assembly_folder)
+    # Locate the most recent assembly calculation folder
     assembly_path = get_most_recent_calc()
+    if not os.path.isdir(assembly_path):
+        raise FileNotFoundError(f"No assembly calculation folder found: {assembly_path}")
 
-    # Get the most recent file ending with "Out"
-    assembly_files = [file for file in os.listdir(assembly_path) if file.endswith("Out")]
-    latest_file = os.path.join(assembly_path, assembly_files[-1])
+    # Find files ending with "Out" and pick the most recent by creation time
+    out_files = [f for f in os.listdir(assembly_path) if f.endswith("Out")]
+    if not out_files:
+        raise FileNotFoundError(f"No '*Out' files found in {assembly_path}")
 
-    # Read the time to completion from the last line of the file
-    with open(latest_file, "r") as f:
-        time_to_completion = f.readlines()[-1].split(":")[-1].strip()
+    out_files = sorted(out_files, key=lambda fn: os.path.getctime(os.path.join(assembly_path, fn)))
+    latest_file = os.path.join(assembly_path, out_files[-1])
 
-    # Remove the assembly folder
+    # Read the last line and extract the trailing numeric token
+    with open(latest_file, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+        if not lines:
+            raise ValueError(f"File {latest_file} is empty")
+        last_line = lines[-1].strip()
+
+    # Extract the value after the last colon and convert to float (assumed microseconds)
+    try:
+        time_token = last_line.split(":")[-1].strip()
+        time_to_completion = float(time_token)
+    except Exception as e:
+        raise ValueError(f"Failed to parse time from '{latest_file}': {e}") from e
+
+    # Cleanup the assembly folder and return time in seconds
     shutil.rmtree(assembly_path)
     return float(time_to_completion) * 1e-6
 
