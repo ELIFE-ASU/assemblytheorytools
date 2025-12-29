@@ -1628,26 +1628,45 @@ def calculate_rust_ai(mol: Chem.Mol,
 
 def integer_chain(n: int) -> int:
     """
-    Read shortest integer chain length l(n) from precomputed data file.
+    Read the shortest integer chain length l(n) from a precomputed data file.
 
-    Args:
-        n (int): Input integer.
+    The function looks up a precomputed table stored in `data/integer_chain_9999.txt`
+    shipped with the package and returns the smallest length of an addition chain for
+    the integer *n*.
 
-    Returns:
-        l (int): l(n), the smallest length of an integer chain for n.
+    Parameters
+    ----------
+    n : int
+        Positive integer for which to obtain the shortest addition-chain length.
+        Valid range is 1 to 9999 (inclusive).
+
+    Returns
+    -------
+    int
+        The shortest addition-chain length l(n). For ``n == 1`` the function returns ``0``.
+
+    Raises
+    ------
+    ValueError
+        If ``n < 1`` or ``n > 9999`` because the precomputed data only covers 1..9999.
+
+    Notes
+    -----
+    The implementation expects the data file to have the chain length for *n* on the
+    line with index ``n + 1`` (0-based enumeration of lines) and to store the length as
+    the fourth whitespace-separated field on that line.
+    See https://wwwhomes.uni-bielefeld.de/achim/addition_chain.html for larger n.
     """
-
     if n < 1:
         raise ValueError("n must be a positive integer.")
     elif n > 9999:
         raise ValueError(
-            "n must be less than or equal to 9999. See https://wwwhomes.uni-bielefeld.de/achim/addition_chain.html for larger n.")
+            "n must be less than or equal to 9999.")
     elif n == 1:
         return 0
 
-    base_path = os.path.dirname(__file__)
-    data_path = os.path.join(base_path, 'data')
-    with open(os.path.join(data_path, 'ln_9999.txt'), 'r') as file:
-        for i, line in enumerate(file):  # Slightly more efficient than readlines()
+    data_path = os.path.join(os.path.dirname(__file__), 'data', 'integer_chain_9999.txt')
+    with open(data_path, 'r') as file:
+        for i, line in enumerate(file):
             if i == n + 1:
                 return int(line.split()[3])
