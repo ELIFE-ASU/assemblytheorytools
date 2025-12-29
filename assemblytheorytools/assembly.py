@@ -797,7 +797,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         # Get the assembly code directory
         if dir_code is None:
             dir_code = add_assembly_to_path(str_mode=True)
-        
+
         # Create working directory
         temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}" if debug else tempfile.mkdtemp()
         os.makedirs(temp_dir, exist_ok=True)
@@ -1024,13 +1024,12 @@ def add_assembly_to_path(str_mode=False):
     # Check if the environment variable is already set
     if not os.environ.get(key):
         # Default executable name for Linux systems
-        
+
         if str_mode:
             exec_name = "asscpp_combined_static_strings"
         else:
             exec_name = "asscpp_combined_static_linux"
-        
-        
+
         full_att_path = os.path.join(os.path.dirname(__file__), "precompiled", exec_name)
 
         # Check if the precompiled executable exists
@@ -1229,12 +1228,12 @@ def calculate_sum_assembly(graphs, settings, parallel=True) -> int:
         ai_list = calculate_assembly_parallel(graphs, settings)[0]
     else:
         ai_list = [calculate_assembly_index(graph, **settings)[0] for graph in graphs]
-    
+
     # return -1 if there are any invalid assembly indices
     # e.g. incomplete in exact mode
     if any(ai < 0 for ai in ai_list):
         return -1
-    
+
     # Sum the assembly indices
     return sum(ai_list)
 
@@ -1278,7 +1277,7 @@ def calculate_assembly_similarity(graphs, settings=None, parallel=True, enforce_
 
     if enforce_exact_mode:
         settings["exact"] = True
-    
+
     # Calculate assembly index sum
     ai_sum = calculate_sum_assembly(graphs, settings, parallel=parallel)
 

@@ -9,11 +9,9 @@ import numpy as np
 import pandas as pd
 from ase import Atoms
 from ase.calculators.cp2k import CP2K
-from ase.calculators.orca import ORCA
-from ase.calculators.orca import OrcaProfile
+from ase.calculators.orca import ORCA, OrcaProfile
 from ase.io import read
-from ase.units import Hartree
-from ase.units import Rydberg
+from ase.units import Hartree, Rydberg
 from rdkit import Chem as Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem import rdDetermineBonds

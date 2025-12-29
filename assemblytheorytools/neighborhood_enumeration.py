@@ -1,6 +1,7 @@
 import itertools
+import sys
 from typing import List
-import sys # For debugging
+
 import networkx as nx
 import numpy as np
 from rdkit import Chem
@@ -11,6 +12,7 @@ node_match = nx.algorithms.isomorphism.categorical_node_match('color', None)
 edge_match = nx.algorithms.isomorphism.categorical_edge_match('color', None)
 ptable = Chem.GetPeriodicTable()
 from networkx.algorithms.graph_hashing import weisfeiler_lehman_graph_hash
+
 
 def enumerate_neighborhood(graphs: List[nx.Graph],
                            obey_valence: bool = True,
@@ -74,7 +76,8 @@ def enumerate_neighborhood(graphs: List[nx.Graph],
     up_graphs = dict()
     for i, graph1 in enumerate(graphs):
         for j, graph2 in enumerate(graphs[i:]):
-            up_graphs[(i, i + j)] = enumerate_up(graph1, graph2, obey_valence=obey_valence, allow_dots=allow_dots, debug=debug, custom_valence_table=custom_valence_table)
+            up_graphs[(i, i + j)] = enumerate_up(graph1, graph2, obey_valence=obey_valence, allow_dots=allow_dots,
+                                                 debug=debug, custom_valence_table=custom_valence_table)
 
     # Mod out the down join operations by isomorphism
     N_graphs = []
@@ -117,7 +120,7 @@ def enumerate_neighborhood(graphs: List[nx.Graph],
                 down_jos.add(tuple([jo[1], jo[0], s]))
 
     # ----- Mod out the up join operations by isomorphism -----
-    
+
     up_jos = set()
     for (i, j), up_graphs_list in up_graphs.items():
         for up_graph in up_graphs_list:
@@ -380,7 +383,7 @@ def enumerate_up(graph1: nx.Graph,
                 for node1_perm in itertools.permutations(nodes1, k):
                     for node2_perm in itertools.permutations(nodes2, k):
                         candidate_color_map = frozenset(zip(node1_perm, node2_perm))
-                        
+
                         # Check that every pair is in valid_identifications
                         valid = False  # This is the default value if the candidate map doesn't make it through the next if statement
                         if all(pair in valid_identifications for pair in candidate_color_map):
@@ -406,7 +409,8 @@ def enumerate_up(graph1: nx.Graph,
     for m in valid_maps:
         joined = map_application(m, graph1, graph2)
         if not nx.is_connected(joined):
-            print("Warning: A disconnected graph was formed in an up join operation. This should never happen. Please report this bug.")
+            print(
+                "Warning: A disconnected graph was formed in an up join operation. This should never happen. Please report this bug.")
             print(f"Graph1 has {graph1.number_of_nodes()} nodes and {graph1.number_of_edges()} edges.")
             print(f"Graph1 nodes data: {graph1.nodes(data=True)}")
             print(f"Graph1 edges data: {graph1.edges(data=True)}")
@@ -453,14 +457,14 @@ def map_outer_product(combinations, graph1, graph2):
     color directly without computing the outer product.
     """
 
-    #print("Computing map outer product...")
+    # print("Computing map outer product...")
 
     # If there is only one color, we can just return the valid maps for that color
     if len(combinations) == 1:
         valid_maps = combinations[list(combinations.keys())[0]]
         valid_maps -= {frozenset()}  # Remove the trivial map
         return valid_maps
-    
+
     valid_maps = []  # This will be the list of valid maps
     # Remove colors with empty sets
     filtered_combinations = {color: maps for color, maps in combinations.items() if maps}
@@ -480,9 +484,10 @@ def map_outer_product(combinations, graph1, graph2):
                 g2_check_edges.append(tuple(sorted(edge)))
 
     # Now we will enumerate the outer product of these combinations
-    for candidate_map in itertools.product(*lists_of_maps):  
-        candidate_map = set(itertools.chain.from_iterable(candidate_map))  # This flattens the tuple of sets of tuples into a single set of tuples
-        if len(candidate_map) > 0: # Discard trivial maps 
+    for candidate_map in itertools.product(*lists_of_maps):
+        candidate_map = set(itertools.chain.from_iterable(
+            candidate_map))  # This flattens the tuple of sets of tuples into a single set of tuples
+        if len(candidate_map) > 0:  # Discard trivial maps
             valid = conditional_check_multi_edge_generation(candidate_map, g1_check_edges, g2_check_edges)
             if valid:  # This candidate map is valid and non-trivial, so we will add it to the list of valid maps
                 valid_maps.append(candidate_map)
@@ -588,6 +593,4 @@ def map_application(map, graph1, graph2):
         data.pop('contraction', None)
     joined_graph = nx.convert_node_labels_to_integers(joined_graph, first_label=0)
 
-
     return joined_graph
-

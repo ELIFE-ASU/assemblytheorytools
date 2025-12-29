@@ -3,16 +3,16 @@ import random
 import tempfile
 from collections import defaultdict
 from html import escape
-from typing import List, Optional, Sequence, Dict, Tuple, Any
+from typing import List, Optional, Dict, Tuple, Any
 
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 from IPython.display import HTML
 from ase.visualize.plot import plot_atoms
-from matplotlib import colormaps, colors, cm
-from matplotlib.cm import ScalarMappable
+from matplotlib import colormaps, colors
 from matplotlib.axes import Axes
+from matplotlib.cm import ScalarMappable
 from matplotlib.figure import Figure
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from matplotlib.patches import Circle
@@ -20,7 +20,6 @@ from pyvis.network import Network
 from rdkit.Chem import Draw
 from scipy.stats import gaussian_kde
 
-import CFG
 from .tools_atoms import mol_to_atoms
 from .tools_graph import relabel_digraph, nx_to_smi
 from .tools_mol import smi_to_mol
@@ -635,7 +634,7 @@ def _plot_directed_network(nodes: List[str],
                            x: np.ndarray,
                            y: np.ndarray,
                            max_ai: int,
-                           labels: bool, # can be bool or List[str]
+                           labels: bool,  # can be bool or List[str]
                            node_size: float,
                            arrow_size: float,
                            node_color: str,

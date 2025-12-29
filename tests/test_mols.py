@@ -621,37 +621,40 @@ def test_calculate_sum_assembly():
     ai_sum = att.calculate_sum_assembly(graphs, settings, parallel=False)
     assert ai_sum == 7
 
+
 @pytest.mark.parametrize(
-        "smiles_list, settings, parallel, enforce_exact_mode, expected",
-        [
-            # Testing known similarity of 0.75
-            (["C1=CC=CC=C1", "C1=CC=CC=C1O"], {'strip_hydrogen': True}, True, True, 0.75),
-            (["C1=CC=CC=C1", "C1=CC=CC=C1O"], {'strip_hydrogen': True}, False, True, 0.75),
-            # testing timeout returning -1, with parallel=True and parallel=False.
-            # Taxol is used to force timeout. The latter 2 tests ensure that 
-            # "exact":False is being overriden. Warning: Will fail if the binary
-            #  is ever fast enough to complete JA(taxol, taxol) in < 1 second. 
-            ([MOLS["taxol"].smiles, MOLS["taxol"].smiles],{'strip_hydrogen': True, "timeout":1}, True, True, -1.0),
-            ([MOLS["taxol"].smiles, MOLS["taxol"].smiles],{'strip_hydrogen': True, "timeout":1}, False, True, -1.0),
-            ([MOLS["taxol"].smiles, MOLS["taxol"].smiles],{'strip_hydrogen': True, "timeout":1, "exact":False}, True, True, -1.0),
-            ([MOLS["taxol"].smiles, MOLS["taxol"].smiles],{'strip_hydrogen': True, "timeout":1, "exact":False}, False, True, -1.0),
-            # Testing identical molecules have similarity 1 with parallel=True and parallel=False
-            ([MOLS["glycine"].smiles, MOLS["glycine"].smiles],{'strip_hydrogen': True}, True, True, 1.0),
-            ([MOLS["glycine"].smiles, MOLS["glycine"].smiles],{'strip_hydrogen': True}, False, True, 1.0),
-            ([MOLS["n-icosane"].smiles, MOLS["n-icosane"].smiles],{'strip_hydrogen': True}, True, True, 1.0),
-            ([MOLS["n-icosane"].smiles, MOLS["n-icosane"].smiles],{'strip_hydrogen': True}, False, True, 1.0),           
-            # Some test with enforce_exact_mode False. These test molecules that do not timeout, as the value for 
-            # timed out molecules in the "exact":False case is unpredictable
-            (["C1=CC=CC=C1", "C1=CC=CC=C1O"], {'strip_hydrogen': True, "exact":False}, True, False, 0.75),
-            ([MOLS["glycine"].smiles, MOLS["glycine"].smiles],{'strip_hydrogen': True, "exact":False}, True, False, 1.0),
-            ([MOLS["glycine"].smiles, MOLS["glycine"].smiles],{'strip_hydrogen': True, "exact":False}, False, False, 1.0),
-        ],
+    "smiles_list, settings, parallel, enforce_exact_mode, expected",
+    [
+        # Testing known similarity of 0.75
+        (["C1=CC=CC=C1", "C1=CC=CC=C1O"], {'strip_hydrogen': True}, True, True, 0.75),
+        (["C1=CC=CC=C1", "C1=CC=CC=C1O"], {'strip_hydrogen': True}, False, True, 0.75),
+        # testing timeout returning -1, with parallel=True and parallel=False.
+        # Taxol is used to force timeout. The latter 2 tests ensure that
+        # "exact":False is being overriden. Warning: Will fail if the binary
+        #  is ever fast enough to complete JA(taxol, taxol) in < 1 second.
+        ([MOLS["taxol"].smiles, MOLS["taxol"].smiles], {'strip_hydrogen': True, "timeout": 1}, True, True, -1.0),
+        ([MOLS["taxol"].smiles, MOLS["taxol"].smiles], {'strip_hydrogen': True, "timeout": 1}, False, True, -1.0),
+        ([MOLS["taxol"].smiles, MOLS["taxol"].smiles], {'strip_hydrogen': True, "timeout": 1, "exact": False}, True,
+         True, -1.0),
+        ([MOLS["taxol"].smiles, MOLS["taxol"].smiles], {'strip_hydrogen': True, "timeout": 1, "exact": False}, False,
+         True, -1.0),
+        # Testing identical molecules have similarity 1 with parallel=True and parallel=False
+        ([MOLS["glycine"].smiles, MOLS["glycine"].smiles], {'strip_hydrogen': True}, True, True, 1.0),
+        ([MOLS["glycine"].smiles, MOLS["glycine"].smiles], {'strip_hydrogen': True}, False, True, 1.0),
+        ([MOLS["n-icosane"].smiles, MOLS["n-icosane"].smiles], {'strip_hydrogen': True}, True, True, 1.0),
+        ([MOLS["n-icosane"].smiles, MOLS["n-icosane"].smiles], {'strip_hydrogen': True}, False, True, 1.0),
+        # Some test with enforce_exact_mode False. These test molecules that do not timeout, as the value for
+        # timed out molecules in the "exact":False case is unpredictable
+        (["C1=CC=CC=C1", "C1=CC=CC=C1O"], {'strip_hydrogen': True, "exact": False}, True, False, 0.75),
+        ([MOLS["glycine"].smiles, MOLS["glycine"].smiles], {'strip_hydrogen': True, "exact": False}, True, False, 1.0),
+        ([MOLS["glycine"].smiles, MOLS["glycine"].smiles], {'strip_hydrogen': True, "exact": False}, False, False, 1.0),
+    ],
 )
 def test_calculate_assembly_similarity(smiles_list,
                                        settings,
                                        parallel,
                                        enforce_exact_mode,
-                                       expected,):
+                                       expected, ):
     """
     Test the calculation of assembly similarity between two molecular 
     graphs.
@@ -669,15 +672,14 @@ def test_calculate_assembly_similarity(smiles_list,
 
     graphs = [att.smi_to_nx(smi) for smi in smiles_list]
     similarity = att.calculate_assembly_similarity(
-        graphs, 
-        settings=settings, 
+        graphs,
+        settings=settings,
         parallel=parallel,
-        enforce_exact_mode=enforce_exact_mode,)
+        enforce_exact_mode=enforce_exact_mode, )
     if expected == -1.0:
         assert similarity == -1.0
     else:
         assert similarity == pytest.approx(expected)
-
 
 
 def test_node_canonicalization():
@@ -916,6 +918,7 @@ def test_calculate_assembly():
     ref = 11.87409143815135
     # Assert that the calculated assembly value matches the reference value
     assert ass == ref
+
 
 def test_joint_correction_does_not_affect_failed_assembly_index():
     """
