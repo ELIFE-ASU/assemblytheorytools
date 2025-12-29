@@ -6,9 +6,6 @@ import networkx as nx
 import assemblytheorytools as att
 import pytest
 
-# helper data structures for molecule test data
-from tests.data.molecule_data.molecules import MOLS
-
 
 def test_readme_example():
     print(flush=True)
@@ -632,22 +629,38 @@ def test_calculate_sum_assembly():
         # Taxol is used to force timeout. The latter 2 tests ensure that
         # "exact":False is being overriden. Warning: Will fail if the binary
         #  is ever fast enough to complete JA(taxol, taxol) in < 1 second.
-        ([MOLS["taxol"].smiles, MOLS["taxol"].smiles], {'strip_hydrogen': True, "timeout": 1}, True, True, -1.0),
-        ([MOLS["taxol"].smiles, MOLS["taxol"].smiles], {'strip_hydrogen': True, "timeout": 1}, False, True, -1.0),
-        ([MOLS["taxol"].smiles, MOLS["taxol"].smiles], {'strip_hydrogen': True, "timeout": 1, "exact": False}, True,
-         True, -1.0),
-        ([MOLS["taxol"].smiles, MOLS["taxol"].smiles], {'strip_hydrogen': True, "timeout": 1, "exact": False}, False,
-         True, -1.0),
+        ([att.test_mols["taxol"].smiles,
+          att.test_mols["taxol"].smiles],
+         {'strip_hydrogen': True, "timeout": 1}, True, True, -1.0),
+        ([att.test_mols["taxol"].smiles,
+          att.test_mols["taxol"].smiles],
+         {'strip_hydrogen': True, "timeout": 1}, False, True, -1.0),
+        ([att.test_mols["taxol"].smiles,
+          att.test_mols["taxol"].smiles],
+         {'strip_hydrogen': True, "timeout": 1, "exact": False}, True, True, -1.0),
+        ([att.test_mols["taxol"].smiles,
+          att.test_mols["taxol"].smiles],
+         {'strip_hydrogen': True, "timeout": 1, "exact": False}, False, True, -1.0),
         # Testing identical molecules have similarity 1 with parallel=True and parallel=False
-        ([MOLS["glycine"].smiles, MOLS["glycine"].smiles], {'strip_hydrogen': True}, True, True, 1.0),
-        ([MOLS["glycine"].smiles, MOLS["glycine"].smiles], {'strip_hydrogen': True}, False, True, 1.0),
-        ([MOLS["n-icosane"].smiles, MOLS["n-icosane"].smiles], {'strip_hydrogen': True}, True, True, 1.0),
-        ([MOLS["n-icosane"].smiles, MOLS["n-icosane"].smiles], {'strip_hydrogen': True}, False, True, 1.0),
+        ([att.test_mols["glycine"].smiles,
+          att.test_mols["glycine"].smiles],
+         {'strip_hydrogen': True}, True, True, 1.0),
+        ([att.test_mols["glycine"].smiles,
+          att.test_mols["glycine"].smiles],
+         {'strip_hydrogen': True}, False, True, 1.0),
+        ([att.test_mols["n-icosane"].smiles,
+          att.test_mols["n-icosane"].smiles],
+         {'strip_hydrogen': True}, True, True, 1.0),
+        ([att.test_mols["n-icosane"].smiles,
+          att.test_mols["n-icosane"].smiles],
+         {'strip_hydrogen': True}, False, True, 1.0),
         # Some test with enforce_exact_mode False. These test molecules that do not timeout, as the value for
         # timed out molecules in the "exact":False case is unpredictable
         (["C1=CC=CC=C1", "C1=CC=CC=C1O"], {'strip_hydrogen': True, "exact": False}, True, False, 0.75),
-        ([MOLS["glycine"].smiles, MOLS["glycine"].smiles], {'strip_hydrogen': True, "exact": False}, True, False, 1.0),
-        ([MOLS["glycine"].smiles, MOLS["glycine"].smiles], {'strip_hydrogen': True, "exact": False}, False, False, 1.0),
+        ([att.test_mols["glycine"].smiles,
+          att.test_mols["glycine"].smiles], {'strip_hydrogen': True, "exact": False}, True, False, 1.0),
+        ([att.test_mols["glycine"].smiles,
+          att.test_mols["glycine"].smiles], {'strip_hydrogen': True, "exact": False}, False, False, 1.0),
     ],
 )
 def test_calculate_assembly_similarity(smiles_list,
@@ -671,11 +684,10 @@ def test_calculate_assembly_similarity(smiles_list,
     """
 
     graphs = [att.smi_to_nx(smi) for smi in smiles_list]
-    similarity = att.calculate_assembly_similarity(
-        graphs,
-        settings=settings,
-        parallel=parallel,
-        enforce_exact_mode=enforce_exact_mode, )
+    similarity = att.calculate_assembly_similarity(graphs,
+                                                   settings=settings,
+                                                   parallel=parallel,
+                                                   enforce_exact_mode=enforce_exact_mode)
     if expected == -1.0:
         assert similarity == -1.0
     else:

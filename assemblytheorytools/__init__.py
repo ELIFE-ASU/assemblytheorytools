@@ -171,6 +171,7 @@ from .tools_test import (check_elements,
                          water_graph,
                          phosphine_graph,
                          ph_2p_graph,
-                         co2_graph)
+                         co2_graph,
+                         test_mols)
 
 __version__ = "1.8.0"

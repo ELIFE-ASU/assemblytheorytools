@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import csv
 
-DATA_PATH = Path(__file__).with_name("test_molecule_data.csv")
+DATA_PATH = Path(__file__).with_name("tests/data/test_molecule_data.csv")
 
 
 @dataclass(frozen=True)
@@ -82,4 +82,4 @@ def _load_molecules() -> dict[str, Molecule]:
     return mols
 
 
-MOLS: dict[str, Molecule] = _load_molecules()
+test_mols: dict[str, Molecule] = _load_molecules()
