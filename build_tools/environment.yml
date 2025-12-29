@@ -16,3 +16,4 @@ dependencies:
   - pyvis>=0.3.2
   - pip:
       - "CFG @ git+https://github.com/ELIFE-ASU/CFG.git"
+      - "assemblytheorytools @ git+https://github.com/ELIFE-ASU/assemblytheorytools.git",
