@@ -1,4 +1,4 @@
-name: assemblytheorytools
+name: att_env
 channels:
   - conda-forge
   - defaults

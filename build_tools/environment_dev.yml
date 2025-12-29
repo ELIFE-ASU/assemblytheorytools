@@ -1,0 +1,21 @@
+name: att_dev_env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python>=3.14
+  - pip
+  - numpy
+  - scipy
+  - pandas
+  - matplotlib
+  - networkx
+  - ase
+  - rdkit
+  - ipython
+  - pyvis
+  - pytest
+  - sphinx
+  - sphinx-rtd-theme
+  - pip:
+      - "CFG @ git+https://github.com/ELIFE-ASU/CFG.git"
