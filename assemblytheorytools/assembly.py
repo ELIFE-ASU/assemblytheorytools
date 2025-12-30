@@ -335,7 +335,11 @@ def calculate_assembly_index(mol,
             with open(log_file, "w") as log:
                 start_time = time.time()
                 process = subprocess.Popen(
-                    [dir_code, file_path_in],
+                    [dir_code,
+                     file_path_in,
+                     '-memTest=0',
+                     '-removeHydrogens=0',
+                     '-compensateDisjoint=0'],
                     stdout=log,
                     stderr=log
                 )
