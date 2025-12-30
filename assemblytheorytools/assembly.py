@@ -186,6 +186,34 @@ def joint_correction(mol, ass_index):
     return ass_index - correction
 
 
+def _convert_timeout_for_platform(seconds: float) -> int:
+    """
+    Convert a timeout expressed in seconds to platform-specific integer units.
+
+    Behavior:
+      - Windows (platform name contains ``"windows"``) -> milliseconds (seconds * 1_000)
+      - Linux (``"linux"``) or macOS (``"darwin"``) -> microseconds (seconds * 1_000_000)
+      - Other platforms -> integer seconds (``int(seconds)``)
+
+    Parameters
+    ----------
+    seconds : float
+        Timeout value in seconds. Expected to be a numeric value (non-negative
+        when used as a timeout).
+
+    Returns
+    -------
+    int
+        The converted timeout suitable for passing to platform-specific APIs.
+    """
+    system = platform.system().lower()
+    if "windows" in system:
+        return int(seconds * 1_000)
+    if "linux" in system or "darwin" in system:
+        return int(seconds * 1_000_000)
+    return int(seconds)
+
+
 def calculate_assembly_index(mol,
                              dir_code=None,
                              timeout=100.0,
@@ -330,6 +358,9 @@ def calculate_assembly_index(mol,
         file_path_pathway = os.path.join(file_path_in + "Pathway")
         log_file = os.path.join(temp_dir, "assembly_output.log")
 
+        # Convert timeout flag from seconds to x miliseconds in windows and x microseconds in linux/macOS
+        timeout_flag = _convert_timeout_for_platform(timeout)
+
         # Run the assembly code and log output
         try:
             with open(log_file, "w") as log:
@@ -339,22 +370,15 @@ def calculate_assembly_index(mol,
                      file_path_in,
                      '-memTest=0',
                      '-removeHydrogens=0',
-                     '-compensateDisjoint=0'],
+                     '-compensateDisjoint=0'
+                     f'-runTime={timeout_flag}'],
                     stdout=log,
                     stderr=log
                 )
-                while process.poll() is None:
-                    # Check for timeout
-                    if time.time() - start_time > timeout:
-                        print("Warning: Assembly calculation timed out. Terminating...", flush=True)
-                        # This simulates Ctrl+C, getting the right output from assemblyCpp
-                        process.send_signal(signal.SIGINT)
-                        process.wait()
-                        time.sleep(0.1)
-                        if process.poll() is None:
-                            process.kill()
-                        timed_out = True
-                        break
+                process.wait()
+                if time.time() - start_time > timeout:
+                    timed_out = True
+                    print("Warning: Assembly calculation timed out.", flush=True)
 
         except Exception as e:
             print(f"Error: {e}", flush=True)
