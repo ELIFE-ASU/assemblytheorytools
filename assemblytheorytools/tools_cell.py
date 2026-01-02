@@ -152,7 +152,8 @@ def find_clusters(atoms: Atoms, cutoff_smear: float = 1.5) -> Optional[List[int]
         return None
     else:
         # Select the atoms in the largest component
-        atoms_in_component: List[int] = [i for i, c in enumerate(component_list) if c == np.argmax(np.bincount(component_list))]
+        atoms_in_component: List[int] = [i for i, c in enumerate(component_list) if
+                                         c == np.argmax(np.bincount(component_list))]
         atoms_to_remove: List[int] = [i for i in range(len(atoms)) if i not in atoms_in_component]
         print("Number of clusters:", n_components)
         print("Atoms to remove:", atoms_to_remove)

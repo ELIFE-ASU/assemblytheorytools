@@ -522,7 +522,8 @@ class AssemblyConstruction:
                               steps_mod: List[List[Any]],
                               sorted_repeated_mod1: List[Any],
                               step: int,
-                              digraph: List[List[str]]) -> Tuple[List[List[Any]], List[List[Any]], List[Any], int, List[List[str]], List[int]]:
+                              digraph: List[List[str]]) -> Tuple[
+        List[List[Any]], List[List[Any]], List[Any], int, List[List[str]], List[int]]:
         """
         Construct the initial pathway by integrating repeated molecular fragments.
 
@@ -889,7 +890,8 @@ def parse_pathway_file(file: str,
                        vo_type: str = "smiles",
                        debug: bool = False,
                        log: bool = False,
-                       input_graph: Optional[nx.Graph] = None) -> Union[Tuple[nx.DiGraph, List[Any]], Tuple[nx.DiGraph, List[Any], str]]:
+                       input_graph: Optional[nx.Graph] = None) -> Union[
+    Tuple[nx.DiGraph, List[Any]], Tuple[nx.DiGraph, List[Any], str]]:
     """
     Parse a pathway JSON file and construct an assembly graph.
 

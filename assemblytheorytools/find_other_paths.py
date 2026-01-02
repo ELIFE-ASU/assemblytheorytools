@@ -1,9 +1,8 @@
 import random
-from typing import List, Tuple, Optional
+from typing import List
 
 import numpy as np
 from rdkit.Chem import AllChem as Chem
-from rdkit.Chem import Draw
 from rdkit.Chem.rdchem import Mol
 
 from .assembly import calculate_assembly_index

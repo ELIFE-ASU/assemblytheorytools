@@ -873,7 +873,8 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
                                     debug: bool = False,
                                     directed: bool = True,
                                     mode: str = "str",
-                                    return_log_file: bool = False) -> Union[Tuple[int, Any, Any], Tuple[int, Any, Any, Optional[str]]]:
+                                    return_log_file: bool = False) -> Union[
+    Tuple[int, Any, Any], Tuple[int, Any, Any, Optional[str]]]:
     """
     Calculate the assembly index for a string or a list of strings.
 

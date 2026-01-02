@@ -1,6 +1,7 @@
+from typing import Union, Tuple
+
 import numpy as np
 from scipy.stats import gaussian_kde
-from typing import Union, Tuple
 
 
 def random_argmin(arr: np.ndarray) -> int:
