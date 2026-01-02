@@ -2,28 +2,27 @@ import fcntl
 import json
 import os
 import re
-from typing import List, Optional
+from typing import List, Optional, Iterable, Match
 
 
-def file_list(mypath=None):
+def file_list(mypath: Optional[str] = None) -> List[str]:
     """
     Generate a list of all files in a specified directory.
-    
+
     If no directory is specified, it defaults to the current working directory.
 
     Parameters
     ----------
-    mypath : str, optional
+    mypath : Optional[str], optional
         The path to the directory. Defaults to None, which means the current working directory.
 
     Returns
     -------
-    list
+    List[str]
         A list of all files in the specified directory.
     """
-    mypath = mypath or os.getcwd()  # If no path is provided, use the current working directory
-    return [f for f in os.listdir(mypath) if
-            os.path.isfile(os.path.join(mypath, f))]  # Return a list of all files in the directory
+    mypath = mypath or os.getcwd()
+    return [f for f in os.listdir(mypath) if os.path.isfile(os.path.join(mypath, f))]
 
 
 def file_list_all(mypath: Optional[str] = None) -> List[str]:
@@ -52,23 +51,23 @@ def file_list_all(mypath: Optional[str] = None) -> List[str]:
     return files
 
 
-def filter_files(file_paths, substring):
+def filter_files(file_paths: Iterable[str], substring: str) -> List[str]:
     """
     Filter a list of file paths and return only those where the file name contains a given substring.
 
     Parameters
     ----------
-    file_paths : list
-        The list of file paths.
+    file_paths : Iterable[str]
+        The iterable of file paths.
     substring : str
         The substring to look for in the file names.
 
     Returns
     -------
-    list
+    List[str]
         A list of file paths where the file name contains the given substring.
     """
-    return list(filter(lambda file_path: substring in os.path.basename(file_path), file_paths))
+    return [file_path for file_path in file_paths if substring in os.path.basename(file_path)]
 
 
 def write_to_shared_file(message: str, shared_file: str) -> None:
@@ -97,7 +96,7 @@ def write_to_shared_file(message: str, shared_file: str) -> None:
     return None
 
 
-def remove_files(target_dir, debug=False):
+def remove_files(target_dir: str, debug: bool = False) -> None:
     """
     Remove all files in the specified directory and its subdirectories.
 
@@ -113,17 +112,15 @@ def remove_files(target_dir, debug=False):
     None
         This function does not return a value.
     """
-    # List all files in the directory
-    list_files = file_list_all(target_dir)
-    # Remove the files
-    for file in list_files:
+    files: List[str] = file_list_all(target_dir)
+    for file_path in files:
         if debug:
-            print(f"Removing file {file}", flush=True)
-        os.remove(file)
+            print(f"Removing file {file_path}", flush=True)
+        os.remove(file_path)
     return None
 
 
-def wipe_dir(temp_dir):
+def wipe_dir(temp_dir: str) -> None:
     """
     Remove all files in the specified directory and then remove the directory itself.
 
@@ -142,7 +139,7 @@ def wipe_dir(temp_dir):
     return None
 
 
-def list_subdirs(directory, target="ai_calc"):
+def list_subdirs(directory: str, target: str = "ai_calc") -> List[str]:
     """
     List subdirectories in a given directory that start with a specific target string.
 
@@ -155,13 +152,13 @@ def list_subdirs(directory, target="ai_calc"):
 
     Returns
     -------
-    list
+    List[str]
         A list of subdirectory names that start with the target string.
     """
     return [d for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d)) and d.startswith(target)]
 
 
-def prep_json(json_path):
+def prep_json(json_path: str) -> None:
     """
     Take JSON file with missing edge colors entries and fill them with "ERROR" placeholder.
 
@@ -175,12 +172,11 @@ def prep_json(json_path):
     None
         This function modifies the JSON file in place and does not return a value.
     """
-
     # Read the file as raw text
     with open(json_path, 'r') as f:
         raw = f.read()
 
-        # This regex matches "EdgeColours": [ ... ]
+    # This regex matches "EdgeColours": [ ... ]
     pattern = r'"EdgeColours"\s*:\s*\[(.*?)\]'
     fixed_raw = re.sub(pattern, edge_colours_replacer, raw, flags=re.DOTALL)
 
@@ -193,7 +189,7 @@ def prep_json(json_path):
     return None
 
 
-def edge_colours_replacer(match):
+def edge_colours_replacer(match: Match[str]) -> str:
     """
     Replace empty entries in EdgeColours list with "ERROR" placeholder.
 
@@ -207,11 +203,8 @@ def edge_colours_replacer(match):
     str
         A string with the fixed EdgeColours list where empty entries are replaced with "ERROR".
     """
-    # Get the list content
-    items = match.group(1)
-    # Replace empty entries (,, or leading/trailing commas) with "ERROR"
-    # Split by comma, strip whitespace, replace empty with "ERROR"
-    fixed_items = []
+    items: str = match.group(1)
+    fixed_items: List[str] = []
     for item in items.split(','):
         val = item.strip()
         if val == '':

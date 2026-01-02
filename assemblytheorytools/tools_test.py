@@ -1,35 +1,25 @@
 import csv
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Sequence, TypeVar
 
 import networkx as nx
 
+T = TypeVar("T")
 
-def check_elements(input_list, reference_list):
+
+def check_elements(input_list: Sequence[T], reference_list: Sequence[T]) -> bool:
     """
     Check if all elements in the input list are present in the reference list.
 
-    Parameters
-    ----------
-    input_list : list
-        The list of elements to check.
-    reference_list : list
-        The list of reference elements.
-
-    Returns
-    -------
-    bool
-        True if all elements in input_list are in reference_list, False otherwise.
+    Returns False for an empty input list (preserves existing behavior).
     """
-    # Handle an empty list case
     if not input_list:
         return False
-
-        # Check if all elements are in reference_list
     return all(item in reference_list for item in input_list)
 
 
-def print_graph_details(graph):
+def print_graph_details(graph: nx.Graph) -> None:
     """
     Print the details of a graph, including node indices, node colours, edge connections, and edge colours.
 
