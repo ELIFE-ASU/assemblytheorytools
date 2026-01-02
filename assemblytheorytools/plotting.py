@@ -3,7 +3,7 @@ import random
 import tempfile
 from collections import defaultdict
 from html import escape
-from typing import List, Optional, Dict, Tuple, Any
+from typing import List, Optional, Dict, Tuple, Any, Union, Sequence
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -800,18 +800,18 @@ def _plot_directed_network(nodes: List[str],
     return fig, ax
 
 
-def plot_assembly_circle(nodes,
-                         adj_matrix=None,
-                         assembly_indices=None,
-                         labels=None,
-                         node_size=1000,
-                         arrow_size=80,
-                         node_color='#264f70',
+def plot_assembly_circle(nodes: Sequence[Any],
+                         adj_matrix: Optional[np.ndarray] = None,
+                         assembly_indices: Optional[Sequence[int]] = None,
+                         labels: Optional[Union[bool, Sequence[str]]] = None,
+                         node_size: float = 1000,
+                         arrow_size: float = 80,
+                         node_color: Union[str, Sequence[str]] = '#264f70',
                          node_edge_color: str = "black",
                          node_linewidth: float = 2.5,
-                         edge_color='Grey',
-                         arrow_alpha=1.0,
-                         fig_size=10,
+                         edge_color: Union[str, Sequence[str]] = 'Grey',
+                         arrow_alpha: float = 1.0,
+                         fig_size: Union[float, Tuple[float, float]] = 10,
                          filename: Optional[str] = None,
                          dpi: int = 300,
                          fig: Optional[plt.Figure] = None,
@@ -820,7 +820,7 @@ def plot_assembly_circle(nodes,
                          norm: Optional[Any] = None,
                          colorbar_label: Optional[str] = None,
                          save_kwargs: Optional[Dict[str, Any]] = None
-                         ):
+                         ) -> Tuple[Figure, Axes]:
     """
     Plot nodes arranged on concentric circles according to assembly index and draw directed edges.
 
@@ -1039,14 +1039,14 @@ def plot_assembly_circle(nodes,
     return fig, ax
 
 
-def scatter_plot(x,
-                 y,
-                 xlab='x',
-                 ylab='y',
-                 figsize=(8, 5),
-                 fontsize=16,
-                 alpha=0.5,
-                 ):
+def scatter_plot(x: np.ndarray,
+                 y: np.ndarray,
+                 xlab: str = 'x',
+                 ylab: str = 'y',
+                 figsize: Tuple[float, float] = (8, 5),
+                 fontsize: int = 16,
+                 alpha: float = 0.5,
+                 ) -> Tuple[Figure, Axes]:
     """
     Create a simple scatter plot with customizable styling.
     
@@ -1082,14 +1082,14 @@ def scatter_plot(x,
     return fig, ax
 
 
-def scatter_plot_with_colorbar(x,
-                               y,
-                               xlab='x',
-                               ylab='y',
-                               cmap='viridis',
-                               figsize=(8, 5),
-                               fontsize=16,
-                               ):
+def scatter_plot_with_colorbar(x: np.ndarray,
+                               y: np.ndarray,
+                               xlab: str = 'x',
+                               ylab: str = 'y',
+                               cmap: str = 'viridis',
+                               figsize: Tuple[float, float] = (8, 5),
+                               fontsize: int = 16,
+                               ) -> Tuple[Figure, Axes]:
     """
     Create a density-colored scatter plot using kernel density estimation.
     
@@ -1151,13 +1151,13 @@ def scatter_plot_with_colorbar(x,
     return fig, ax
 
 
-def plot_contourf_full(x,
-                       y,
-                       xlab,
-                       ylab,
-                       c_map="Purples",
-                       figsize=(8, 5),
-                       fontsize=16):
+def plot_contourf_full(x: np.ndarray,
+                       y: np.ndarray,
+                       xlab: str,
+                       ylab: str,
+                       c_map: str = "Purples",
+                       figsize: Tuple[float, float] = (8, 5),
+                       fontsize: int = 16) -> Tuple[Figure, Axes]:
     """
     Create a filled contour plot of the joint density estimated from paired data.
 
@@ -1227,14 +1227,14 @@ def plot_contourf_full(x,
     return fig, ax
 
 
-def plot_heatmap(x,
-                 y,
-                 xlab,
-                 ylab,
-                 c_map='viridis',
-                 nbins=50,
-                 figsize=(8, 5),
-                 fontsize=16):
+def plot_heatmap(x: np.ndarray,
+                 y: np.ndarray,
+                 xlab: str,
+                 ylab: str,
+                 c_map: str = 'viridis',
+                 nbins: int = 50,
+                 figsize: Tuple[float, float] = (8, 5),
+                 fontsize: int = 16) -> Tuple[Figure, Axes]:
     """
     Plot a 2D heatmap (binned density) of paired x, y data using a histogram and imshow.
 
@@ -1304,19 +1304,19 @@ def plot_heatmap(x,
     return fig, ax
 
 
-def scatter_plot_3d_with_colorbar(x,
-                                  y,
-                                  z,
-                                  c=None,
-                                  xlab='x',
-                                  ylab='y',
-                                  zlab='z',
-                                  cmap='viridis',
-                                  figsize=(10, 8),
-                                  fontsize=20,
-                                  alpha=0.8,
-                                  s=50,
-                                  labelpad=20):
+def scatter_plot_3d_with_colorbar(x: np.ndarray,
+                                  y: np.ndarray,
+                                  z: np.ndarray,
+                                  c: Optional[np.ndarray] = None,
+                                  xlab: str = 'x',
+                                  ylab: str = 'y',
+                                  zlab: str = 'z',
+                                  cmap: str = 'viridis',
+                                  figsize: Tuple[float, float] = (10, 8),
+                                  fontsize: int = 20,
+                                  alpha: float = 0.8,
+                                  s: Union[float, np.ndarray] = 50,
+                                  labelpad: float = 20) -> Tuple[Figure, Axes]:
     """
     Create a 3D scatter plot with an optional colorbar driven by provided values or KDE-based density.
 
@@ -1425,15 +1425,15 @@ def scatter_plot_3d_with_colorbar(x,
     return fig, ax
 
 
-def plot_hexbin_scatter(x,
-                        y,
-                        xlab='x',
-                        ylab='y',
-                        guide_line=True,
-                        cmap='viridis',
-                        figsize=(8, 5),
-                        fontsize=16,
-                        bins_scale=None):
+def plot_hexbin_scatter(x: np.ndarray,
+                        y: np.ndarray,
+                        xlab: str = 'x',
+                        ylab: str = 'y',
+                        guide_line: bool = True,
+                        cmap: str = 'viridis',
+                        figsize: Tuple[float, float] = (8, 5),
+                        fontsize: int = 16,
+                        bins_scale: Optional[str] = None) -> Tuple[Figure, Axes]:
     """
     Create a hexbin scatter plot with optional y=x guide line and colorbar.
 
@@ -1528,13 +1528,13 @@ def plot_hexbin_scatter(x,
     return fig, ax
 
 
-def plot_histogram(data,
-                   bins=30,
-                   xlab='Values',
-                   ylab='Frequency',
-                   figsize=(8, 5),
-                   fontsize=16,
-                   ):
+def plot_histogram(data: np.ndarray,
+                   bins: Union[int, Sequence[float]] = 30,
+                   xlab: str = 'Values',
+                   ylab: str = 'Frequency',
+                   figsize: Tuple[float, float] = (8, 5),
+                   fontsize: int = 16,
+                   ) -> Tuple[Figure, Axes]:
     """
     Plot a histogram for a one-dimensional dataset with configurable styling.
 
@@ -1595,11 +1595,11 @@ def plot_histogram(data,
     return fig, ax
 
 
-def plot_histogram_all_x(data,
-                         xlab='Number of Bonds',
-                         ylab='Frequency',
-                         figsize=(8, 5),
-                         fontsize=16):
+def plot_histogram_all_x(data: np.ndarray,
+                         xlab: str = 'Number of Bonds',
+                         ylab: str = 'Frequency',
+                         figsize: Tuple[float, float] = (8, 5),
+                         fontsize: int = 16) -> Tuple[Figure, Axes]:
     """
     Plot a histogram using integer bins spanning the full range of the input data.
 
@@ -1656,16 +1656,16 @@ def plot_histogram_all_x(data,
     return fig, ax
 
 
-def plot_histogram_compare(data1,
-                           data2,
-                           labels,
-                           bins=30,
-                           xlab='Values',
-                           ylab='Frequency',
-                           y_scale='log',
-                           figsize=(8, 5),
-                           fontsize=16,
-                           ):
+def plot_histogram_compare(data1: np.ndarray,
+                           data2: np.ndarray,
+                           labels: Sequence[str],
+                           bins: Union[int, Sequence[float]] = 30,
+                           xlab: str = 'Values',
+                           ylab: str = 'Frequency',
+                           y_scale: Optional[str] = 'log',
+                           figsize: Tuple[float, float] = (8, 5),
+                           fontsize: int = 16,
+                           ) -> Tuple[Figure, Axes]:
     """
     Plot comparative histograms for two datasets with optional logarithmic y-scale.
 
@@ -1735,17 +1735,17 @@ def plot_histogram_compare(data1,
     return fig, ax
 
 
-def plot_kde(data,
-             bandwidth=None,
-             grid_size=1000,
-             y_scale='log',
-             xlab="Value",
-             ylab="Frequency",
-             fig=None,
-             ax=None,
-             fig_size=(8, 5),
-             fontsize=16,
-             ):
+def plot_kde(data: np.ndarray,
+             bandwidth: Optional[float] = None,
+             grid_size: int = 1000,
+             y_scale: Optional[str] = 'log',
+             xlab: str = "Value",
+             ylab: str = "Frequency",
+             fig: Optional[plt.Figure] = None,
+             ax: Optional[plt.Axes] = None,
+             fig_size: Tuple[float, float] = (8, 5),
+             fontsize: int = 16,
+             ) -> Tuple[Figure, Axes]:
     """
     Plot a Kernel Density Estimate (KDE) and convert density to expected counts.
 
@@ -1841,18 +1841,19 @@ def plot_kde(data,
     return fig, ax
 
 
-def multipartite_layout_crossmin(G,
-                                 subset_key="subset",
-                                 align="vertical",
-                                 method="barycenter",
-                                 iterations=100,
-                                 layer_spacing=1.0,
-                                 node_spacing=1.0,
-                                 scale=1.0,
-                                 seed=None,
-                                 weight=None,
-                                 return_order=False,
-                                 ):
+def multipartite_layout_crossmin(G: nx.Graph,
+                                 subset_key: str = "subset",
+                                 align: str = "vertical",
+                                 method: str = "barycenter",
+                                 iterations: int = 100,
+                                 layer_spacing: float = 1.0,
+                                 node_spacing: float = 1.0,
+                                 scale: float = 1.0,
+                                 seed: Optional[int] = None,
+                                 weight: Optional[str] = None,
+                                 return_order: bool = False,
+                                 ) -> Union[
+    Dict[Any, Tuple[float, float]], Tuple[Dict[Any, Tuple[float, float]], Dict[Any, List[Any]]]]:
     """
     Compute a multipartite layout for a graph minimizing inter-layer edge crossings.
 
@@ -2050,22 +2051,22 @@ def multipartite_layout_crossmin(G,
     return pos
 
 
-def multipartite_layout_crossmin_long(G,
-                                      subset_key="subset",
-                                      align="vertical",
-                                      method="barycenter",
-                                      iterations=100,
-                                      layer_spacing=1.0,
-                                      node_spacing=1.0,
-                                      scale=1.0,
-                                      seed=None,
-                                      weight=None,
-                                      insert_dummies=True,
-                                      dummy_prefix="__dummy__",
-                                      return_order=False,
-                                      return_dummies=False,
-                                      return_routes=False,
-                                      ):
+def multipartite_layout_crossmin_long(G: nx.Graph,
+                                      subset_key: str = "subset",
+                                      align: str = "vertical",
+                                      method: str = "barycenter",
+                                      iterations: int = 100,
+                                      layer_spacing: float = 1.0,
+                                      node_spacing: float = 1.0,
+                                      scale: float = 1.0,
+                                      seed: Optional[int] = None,
+                                      weight: Optional[str] = None,
+                                      insert_dummies: bool = True,
+                                      dummy_prefix: str = "__dummy__",
+                                      return_order: bool = False,
+                                      return_dummies: bool = False,
+                                      return_routes: bool = False,
+                                      ) -> Union[Dict[Any, Tuple[float, float]], Tuple[Any, ...]]:
     """
     Compute a multipartite layout minimizing crossings with optional dummy-node routing for long edges.
 
@@ -2433,7 +2434,7 @@ def multipartite_layout_crossmin_long(G,
 class _BIT:
     # Fenwick tree for prefix sums of floats (weights).
 
-    def __init__(self, n):
+    def __init__(self, n: int) -> None:
         """
         Initializes the Fenwick tree.
 
@@ -2443,7 +2444,7 @@ class _BIT:
         self.n = n
         self.t = [0.0] * (n + 1)
 
-    def add(self, i, delta):
+    def add(self, i: int, delta: float) -> None:
         """
         Adds a value to the element at index `i`.
 
@@ -2456,7 +2457,7 @@ class _BIT:
             self.t[i] += delta
             i += i & -i
 
-    def sum_prefix(self, i):
+    def sum_prefix(self, i: int) -> float:
         """
         Computes the prefix sum from index 0 to `i` (inclusive).
 
@@ -2476,7 +2477,9 @@ class _BIT:
         return s
 
 
-def _pair_crossings_weighted(order_left, order_right, edges):
+def _pair_crossings_weighted(order_left: List[Any],
+                             order_right: List[Any],
+                             edges: List[Tuple[Any, Any, float]]) -> float:
     """
     Count weighted crossings between two adjacent layers given their node orders.
 
@@ -2561,26 +2564,26 @@ def _pair_crossings_weighted(order_left, order_right, edges):
     return inv
 
 
-def multipartite_layout_sa(G,
-                           subset_key="subset",
-                           align="vertical",
-                           insert_dummies=True,
-                           dummy_prefix="__dummy__",
-                           node_spacing=1.0,
-                           layer_spacing=1.5,
-                           scale=1.0,
-                           weight=None,
-                           max_proposals=8000,
-                           cooling_rate=0.95,
-                           cooling_interval=200,
-                           adjacent_swap_prob=0.7,
-                           stop_after_no_improve=2000,
-                           T0=None,
-                           seed=None,
-                           return_order=False,
-                           return_dummies=False,
-                           return_routes=False,
-                           ):
+def multipartite_layout_sa(G: nx.Graph,
+                           subset_key: str = "subset",
+                           align: str = "vertical",
+                           insert_dummies: bool = True,
+                           dummy_prefix: str = "__dummy__",
+                           node_spacing: float = 1.0,
+                           layer_spacing: float = 1.5,
+                           scale: float = 1.0,
+                           weight: Optional[str] = None,
+                           max_proposals: int = 8000,
+                           cooling_rate: float = 0.95,
+                           cooling_interval: int = 200,
+                           adjacent_swap_prob: float = 0.7,
+                           stop_after_no_improve: int = 2000,
+                           T0: Optional[float] = None,
+                           seed: Optional[int] = None,
+                           return_order: bool = False,
+                           return_dummies: bool = False,
+                           return_routes: bool = False,
+                           ) -> Union[Dict[Any, Tuple[float, float]], Tuple[Any, ...]]:
     """
     Compute a multipartite layout for a graph using simulated annealing to minimize edge crossings.
 
