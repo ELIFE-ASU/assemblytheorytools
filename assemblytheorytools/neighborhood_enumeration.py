@@ -1,9 +1,10 @@
 import itertools
 import sys
-from typing import List
+from typing import List, Dict, Set, Tuple, Optional, Any, FrozenSet, Union, Iterable
 
 import networkx as nx
 import numpy as np
+from networkx.algorithms.graph_hashing import weisfeiler_lehman_graph_hash
 from rdkit import Chem
 
 from .tools_graph import canonicalize_node_labels
@@ -11,14 +12,13 @@ from .tools_graph import canonicalize_node_labels
 node_match = nx.algorithms.isomorphism.categorical_node_match('color', None)
 edge_match = nx.algorithms.isomorphism.categorical_edge_match('color', None)
 ptable = Chem.GetPeriodicTable()
-from networkx.algorithms.graph_hashing import weisfeiler_lehman_graph_hash
 
 
 def enumerate_neighborhood(graphs: List[nx.Graph],
                            obey_valence: bool = True,
                            allow_dots: bool = True,
-                           debug=False,
-                           custom_valence_table=None):
+                           debug: bool = False,
+                           custom_valence_table: Optional[Dict[str, int]] = None) -> Dict[str, Any]:
     """
     Generate the neighborhood of input graphs in assembly space.
     
@@ -156,7 +156,7 @@ def enumerate_neighborhood(graphs: List[nx.Graph],
     return {"input_graphs": graphs, "N_graphs": N_graphs, "down_jos": down_jos, "up_jos": up_jos}
 
 
-def enumerate_down(graph: nx.Graph, allow_dots: bool = True):
+def enumerate_down(graph: nx.Graph, allow_dots: bool = True) -> List[List[List[Tuple[Any, Any]]]]:
     """
     Enumerate all edge partitions of a graph into two connected subgraphs.
     
@@ -210,7 +210,9 @@ def enumerate_down(graph: nx.Graph, allow_dots: bool = True):
     return partition_pairs
 
 
-def get_valence(atom_symbol: str, ptable: Chem.rdchem.PeriodicTable = ptable, custom_valence_table=None) -> int:
+def get_valence(atom_symbol: str,
+                ptable: Chem.rdchem.PeriodicTable = ptable,
+                custom_valence_table: Optional[Dict[str, int]] = None) -> int:
     """
     Get the default valence of an atom based on its chemical symbol.
     
@@ -249,7 +251,7 @@ def enumerate_up(graph1: nx.Graph,
                  obey_valence: bool = True,
                  allow_dots: bool = True,
                  debug: bool = False,
-                 custom_valence_table=None):
+                 custom_valence_table: Optional[Dict[str, int]] = None) -> List[nx.Graph]:
     """
     Enumerate graphs formed by joining two input graphs.
     
@@ -428,7 +430,9 @@ def enumerate_up(graph1: nx.Graph,
     return output_graphs
 
 
-def map_outer_product(combinations, graph1, graph2):
+def map_outer_product(combinations: Dict[str, Set[FrozenSet[Tuple[int, int]]]],
+                      graph1: nx.Graph,
+                      graph2: nx.Graph) -> List[Set[Tuple[int, int]]]:
     """
     Compute valid vertex identification maps from outer product of color-specific maps.
     
@@ -495,7 +499,9 @@ def map_outer_product(combinations, graph1, graph2):
     return valid_maps
 
 
-def conditional_check_multi_edge_generation(candidate_map, g1_check_edges, g2_check_edges):
+def conditional_check_multi_edge_generation(candidate_map: Union[Set, FrozenSet],
+                                            g1_check_edges: Union[List, Set],
+                                            g2_check_edges: Union[List, Set]) -> bool:
     """
     Check if a vertex identification map would create multi-edges.
     
@@ -538,7 +544,9 @@ def conditional_check_multi_edge_generation(candidate_map, g1_check_edges, g2_ch
     return True
 
 
-def map_application(map, graph1, graph2):
+def map_application(map: Iterable[Tuple[int, int]],
+                    graph1: nx.Graph,
+                    graph2: nx.Graph) -> nx.Graph:
     """
     Apply vertex identification map to join two graphs.
     
