@@ -1,6 +1,7 @@
 import copy
 import json
 import os
+from typing import List, Dict, Tuple, Optional, Any, Union
 
 import networkx as nx
 import numpy as np
@@ -11,7 +12,12 @@ from .tools_graph import bond_order_assout_to_int, bond_order_int_to_rdkit, cano
 from .tools_mol import smi_remove_implicit_hydrogen
 
 
-def transform_array(target_array, comp_array, source_val, target_val, new_val, pairs_list):
+def transform_array(target_array: List[List[int]],
+                    comp_array: List[List[int]],
+                    source_val: int,
+                    target_val: int,
+                    new_val: int,
+                    pairs_list: List[List[int]]) -> List[List[int]]:
     """
     Transforms the target array by replacing specific values based on the comparison array and pairs list.
 
@@ -46,7 +52,7 @@ def transform_array(target_array, comp_array, source_val, target_val, new_val, p
     return target_array
 
 
-def repeated_sizes(repeated):
+def repeated_sizes(repeated: List[Tuple[Any, Any]]) -> List[int]:
     """
     Returns a sorted list of unique sizes of the second element in each tuple in the repeated list.
 
@@ -64,7 +70,7 @@ def repeated_sizes(repeated):
     return rep
 
 
-def equal_list(list_a, list_b):
+def equal_list(list_a: List[List[Any]], list_b: List[List[Any]]) -> bool:
     """
     Compares two lists of lists and checks if they contain the same elements.
 
@@ -88,7 +94,7 @@ def equal_list(list_a, list_b):
     return set_a == set_b
 
 
-def check_edge_in_list(edges, list_in):
+def check_edge_in_list(edges: List[Any], list_in: List[List[Any]]) -> bool:
     """
     Checks if a given list of edges is present in any of the lists within a list of lists.
 
@@ -111,7 +117,7 @@ def check_edge_in_list(edges, list_in):
     return any(equal_list(l, edges) for l in list_in)
 
 
-def equivalence(remnant_pieces, equivalences):
+def equivalence(remnant_pieces: List[List[Any]], equivalences: List[List[int]]) -> List[List[Any]]:
     """
     Applies equivalence transformations to the remnant pieces based on the provided equivalences.
 
@@ -145,7 +151,10 @@ def equivalence(remnant_pieces, equivalences):
     return pieces_copy
 
 
-def fix_repeated_equiv(edge_list, repeated_equiv, equivalences, edge_pairs):
+def fix_repeated_equiv(edge_list: List[Any],
+                       repeated_equiv: List[Any],
+                       equivalences: List[List[int]],
+                       edge_pairs: List[List[int]]) -> Tuple[List[Any], List[Any], List[List[int]]]:
     """
     Fixes repeated equivalences in the edge list by transforming the edges based on the provided equivalences.
 
@@ -225,7 +234,7 @@ def fix_repeated_equiv(edge_list, repeated_equiv, equivalences, edge_pairs):
     return edge_list, repeated_equiv, equivalences
 
 
-def index_set(lists, list_in):
+def index_set(lists: List[List[Any]], list_in: List[Any]) -> Optional[int]:
     """
     Finds the index of a list within a list of lists that matches the given list.
 
@@ -251,7 +260,7 @@ def index_set(lists, list_in):
             return i + 1
 
 
-def select_length(dict_array):
+def select_length(dict_array: Dict[str, Any]) -> Union[int, float]:
     """
     Takes a dictionary and returns the entry for the 'len' key.
 
@@ -268,7 +277,7 @@ def select_length(dict_array):
     return dict_array["len"]
 
 
-def tables_to_mol(tables):
+def tables_to_mol(tables: Tuple[List[Tuple[int, str]], List[Tuple[int, int, int]]]) -> Chem.Mol:
     """
     Converts atom and bond information into an RDKit molecule object.
 
@@ -302,7 +311,7 @@ def tables_to_mol(tables):
     return mol  # reset_mol_charge(mol) # mol  #
 
 
-def tables_to_nx(tables):
+def tables_to_nx(tables: Tuple[List[Tuple[int, str]], List[Tuple[int, int, int]]]) -> nx.Graph:
     """
     Converts atom and bond information into a NetworkX graph object.
 
@@ -336,7 +345,11 @@ def tables_to_nx(tables):
 
 
 class AssemblyConstruction:
-    def __init__(self, data, if_string=False, vo_type="graph", input_graph=None):
+    def __init__(self,
+                 data: Dict[str, Any],
+                 if_string: bool = False,
+                 vo_type: str = "graph",
+                 input_graph: Optional[nx.Graph] = None) -> None:
         """
         Initialize the AssemblyConstruction object with pathway data.
 
@@ -394,7 +407,13 @@ class AssemblyConstruction:
                 self.atoms_list_index.append(atom_list_index)
             self.full_atoms_list.append(atom_list)
 
-    def consistent_join(self, pieces_mod, steps_mod, repeated_mo1_cp, step, digraph, indexes):
+    def consistent_join(self,
+                        pieces_mod: List[List[Any]],
+                        steps_mod: List[List[Any]],
+                        repeated_mo1_cp: List[Any],
+                        step: int,
+                        digraph: List[List[str]],
+                        indexes: List[int]) -> Tuple[List[List[Any]], List[List[Any]], int, List[List[str]]]:
         """
         Attempt to merge overlapping pathway fragments into a consistent transformation step.
 
@@ -434,7 +453,7 @@ class AssemblyConstruction:
         left_sort = [rep[0] for rep in repeated_mo1_cp]
         right_sort = [rep[1] for rep in repeated_mo1_cp]
 
-        def add_digraph_entry(piece, step):
+        def add_digraph_entry(piece: List[Any], step: int) -> None:
             """
             Append an edge to the digraph indicating a dependency between a prior step or 
             virtual object (`piece`) and the current step.
@@ -498,7 +517,12 @@ class AssemblyConstruction:
 
         return pieces_mod, steps_mod, step, digraph
 
-    def repeated_construction(self, pieces_mod, steps_mod, sorted_repeated_mod1, step, digraph):
+    def repeated_construction(self,
+                              pieces_mod: List[List[Any]],
+                              steps_mod: List[List[Any]],
+                              sorted_repeated_mod1: List[Any],
+                              step: int,
+                              digraph: List[List[str]]) -> Tuple[List[List[Any]], List[List[Any]], List[Any], int, List[List[str]], List[int]]:
         """
         Construct the initial pathway by integrating repeated molecular fragments.
 
@@ -576,7 +600,7 @@ class AssemblyConstruction:
 
         return pieces_mod, steps_mod, sorted_repeated_mod1_cp, step, digraph, indexes
 
-    def generate_pathway(self):
+    def generate_pathway(self) -> None:
         """
         Construct the reaction pathway by combining initial fragments and resolving overlaps.
 
@@ -635,7 +659,7 @@ class AssemblyConstruction:
 
         return None
 
-    def generate_vo(self):
+    def generate_vo(self) -> None:
         """
         Generate virtual objects (VOs) and transformation steps based on the specified VO type.
 
@@ -725,7 +749,7 @@ class AssemblyConstruction:
 
         return None
 
-    def get_assembly_digraph(self):
+    def get_assembly_digraph(self) -> Tuple[nx.DiGraph, List[Any]]:
         """
         Creates a directed graph representation of the assembly pathway.
 
@@ -861,7 +885,11 @@ class AssemblyConstruction:
         return "".join(pathway_file)
 
 
-def parse_pathway_file(file, vo_type="smiles", debug=False, log=False, input_graph=None):
+def parse_pathway_file(file: str,
+                       vo_type: str = "smiles",
+                       debug: bool = False,
+                       log: bool = False,
+                       input_graph: Optional[nx.Graph] = None) -> Union[Tuple[nx.DiGraph, List[Any]], Tuple[nx.DiGraph, List[Any], str]]:
     """
     Parse a pathway JSON file and construct an assembly graph.
 
@@ -996,7 +1024,7 @@ def assign_levels(G: nx.DiGraph, inplace: bool = True) -> None | nx.DiGraph:
     return None
 
 
-def immediate_predecessors(data, interval):
+def immediate_predecessors(data: Dict[str, Any], interval: Tuple[int, int]) -> List[str]:
     """
     Extract immediate predecessors in the pathway for a given interval.
     
@@ -1041,7 +1069,7 @@ def immediate_predecessors(data, interval):
     return output
 
 
-def build_str(interval, data, path):
+def build_str(interval: Union[List[int], Tuple[int, int]], data: Dict[str, Any], path: nx.DiGraph) -> nx.DiGraph:
     """
     Builds the string from the pathway data and adds it to the path.
     
@@ -1081,7 +1109,7 @@ def build_str(interval, data, path):
     return path
 
 
-def parse_string_pathway_file(file_path_pathway):
+def parse_string_pathway_file(file_path_pathway: str) -> Tuple[Dict[str, Any], nx.DiGraph]:
     """
     Parses a pathway file and returns the pathway as a list of virtual objects.
     
@@ -1128,7 +1156,7 @@ def parse_string_pathway_file(file_path_pathway):
     return VOs, path
 
 
-def molstr_to_str(molstr, edge_color_dict=None):
+def molstr_to_str(molstr: nx.Graph, edge_color_dict: Optional[Dict[str, str]] = None) -> str:
     """
     Takes a mol string and translates it into the corresponding string.
 

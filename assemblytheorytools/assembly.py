@@ -10,7 +10,7 @@ import time
 import traceback
 from datetime import datetime
 from functools import partial
-from typing import Union, List
+from typing import Union, List, Optional, Tuple, Dict, Any
 
 import networkx as nx
 import numpy as np
@@ -36,7 +36,7 @@ from .tools_string import (prep_joint_string_ai,
                            get_undir_str_molecule)
 
 
-def load_assembly_output(file_path):
+def load_assembly_output(file_path: str) -> int:
     """
     Load the assembly output from a file.
 
@@ -54,11 +54,11 @@ def load_assembly_output(file_path):
         return next(int(line.split(":")[-1].strip().strip('\n')) for line in f if "assembly index" in line)
 
 
-def run_command(command,
-                output_file="output.out",
-                error_file="error.err",
-                timeout=10000.0,
-                verbose=False):
+def run_command(command: List[str],
+                output_file: str = "output.out",
+                error_file: str = "error.err",
+                timeout: float = 10000.0,
+                verbose: bool = False) -> bool:
     """
     Run a command in the subprocess with specified output and error files, and a timeout.
 
@@ -119,7 +119,7 @@ def run_command(command,
         return False
 
 
-def run_command_simple(command):
+def run_command_simple(command: str) -> Optional[bytes]:
     """
     Run a simple command in the subprocess.
 
@@ -145,7 +145,7 @@ def run_command_simple(command):
     return result.stdout
 
 
-def joint_correction(mol, ass_index):
+def joint_correction(mol: Union[nx.Graph, Chem.Mol, str], ass_index: int) -> int:
     """
     Correct the assembly index based on the number of components in the molecule or chemical system.
 
@@ -214,14 +214,14 @@ def _convert_timeout_for_platform(seconds: float) -> int:
     return int(seconds)
 
 
-def calculate_assembly_index(mol,
-                             dir_code=None,
-                             timeout=100.0,
-                             debug=False,
-                             joint_corr=True,
-                             strip_hydrogen=False,
-                             return_log_file=False,
-                             exact=False):
+def calculate_assembly_index(mol: Union[nx.Graph, Chem.Mol, str],
+                             dir_code: Optional[str] = None,
+                             timeout: float = 100.0,
+                             debug: bool = False,
+                             joint_corr: bool = True,
+                             strip_hydrogen: bool = False,
+                             return_log_file: bool = False,
+                             exact: bool = False) -> Union[Tuple[int, Any, Any], Tuple[int, Any, Any, Optional[str]]]:
     """
     Calculate the assembly index for a molecule or molecular graph.
 
@@ -453,7 +453,10 @@ def calculate_assembly_index(mol,
         return (ai, virt_obj, path) if not return_log_file else (ai, virt_obj, path, log_file)
 
 
-def calculate_assembly(graphs: list[nx.Graph], n_i: list[float], settings: dict | None = None, parallel=True) -> float:
+def calculate_assembly(graphs: List[nx.Graph],
+                       n_i: List[float],
+                       settings: Optional[Dict[str, Any]] = None,
+                       parallel: bool = True) -> float:
     """
     Calculate the assembly value for a set of molecular graphs.
 
@@ -492,14 +495,14 @@ def calculate_assembly(graphs: list[nx.Graph], n_i: list[float], settings: dict 
     return sum(np.exp(ai) * ((n - 1) / n_t) for ai, n in zip(ai_list, n_i))
 
 
-def calculate_assembly_semi_metric(graph1,
-                                   graph2,
-                                   dir_code=None,
-                                   timeout=100.0,
-                                   debug=False,
-                                   strip_hydrogen=False,
-                                   exact=False,
-                                   normalise=False):
+def calculate_assembly_semi_metric(graph1: nx.Graph,
+                                   graph2: nx.Graph,
+                                   dir_code: Optional[str] = None,
+                                   timeout: float = 100.0,
+                                   debug: bool = False,
+                                   strip_hydrogen: bool = False,
+                                   exact: bool = False,
+                                   normalise: bool = False) -> Union[float, int]:
     """
     Calculate the semi-metric distance between two molecular graphs.
 
@@ -582,7 +585,7 @@ def calculate_assembly_semi_metric(graph1,
     return semi_metric
 
 
-def add_to_bashrc(export_line, file=".bashrc"):
+def add_to_bashrc(export_line: str, file: str = ".bashrc") -> None:
     """
     Append an export line to the specified bash configuration file.
 
@@ -605,7 +608,9 @@ def add_to_bashrc(export_line, file=".bashrc"):
         f.write(f"\nexport {export_line}\n")
 
 
-def compile_assembly_cpp_script(assembly_tar_path="assemblycpp-main", boost_version="1_86_0", exe_name="asscpp_v5"):
+def compile_assembly_cpp_script(assembly_tar_path: str = "assemblycpp-main",
+                                boost_version: str = "1_86_0",
+                                exe_name: str = "asscpp_v5") -> None:
     """
     Compile a packaged assembly C++ tarball into a local executable and install it for user use.
 
@@ -747,7 +752,7 @@ def compile_assembly_cpp_script(assembly_tar_path="assemblycpp-main", boost_vers
         raise OSError(f"Unsupported operating system: {system}")
 
 
-def compile_assembly_cpp():
+def compile_assembly_cpp() -> None:
     """
     Compile the assemblycpp C++ project and install the produced executable.
 
@@ -863,12 +868,12 @@ def compile_assembly_cpp():
 
 
 def calculate_string_assembly_index(input_data: Union[str, List[str]],
-                                    dir_code=None,
-                                    timeout=100.0,
-                                    debug=False,
-                                    directed=True,
-                                    mode="str",
-                                    return_log_file=False):
+                                    dir_code: Optional[str] = None,
+                                    timeout: float = 100.0,
+                                    debug: bool = False,
+                                    directed: bool = True,
+                                    mode: str = "str",
+                                    return_log_file: bool = False) -> Union[Tuple[int, Any, Any], Tuple[int, Any, Any, Optional[str]]]:
     """
     Calculate the assembly index for a string or a list of strings.
 
@@ -1199,7 +1204,9 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         raise ValueError("Mode must be either 'mol', 'str', or 'cfg'.")
 
 
-def assembly_dry_run(mol, temp_dir=None, strip_hydrogen=False):
+def assembly_dry_run(mol: Union[nx.Graph, Chem.Mol, str],
+                     temp_dir: Optional[str] = None,
+                     strip_hydrogen: bool = False) -> None:
     """
     Prepare input files for an assembly run without invoking the code.
 
@@ -1283,7 +1290,7 @@ def assembly_dry_run(mol, temp_dir=None, strip_hydrogen=False):
         raise ValueError("Input not supported")
 
 
-def add_assembly_to_path(str_mode=False):
+def add_assembly_to_path(str_mode: bool = False) -> str:
     """
     Ensure the assembly executable path is available in the environment and return it.
 
@@ -1353,7 +1360,7 @@ def add_assembly_to_path(str_mode=False):
     return os.environ[key]
 
 
-def get_most_recent_calc():
+def get_most_recent_calc() -> str:
     """
     Locate the most recent assembly calculation directory in the current working directory.
 
@@ -1461,7 +1468,8 @@ def load_assembly_time() -> float:
     return float(time_to_completion) * 1e-6
 
 
-def calculate_assembly_upper_bound(mol, strip_hydrogen=False) -> int:
+def calculate_assembly_upper_bound(mol: Union[nx.Graph, Chem.Mol, str],
+                                   strip_hydrogen: bool = False) -> int:
     """
     Calculate an upper bound for the assembly index of a molecule.
 
@@ -1526,7 +1534,8 @@ def calculate_assembly_upper_bound(mol, strip_hydrogen=False) -> int:
     return n_bonds - 1
 
 
-def calculate_assembly_lower_bound(mol, strip_hydrogen=False) -> int:
+def calculate_assembly_lower_bound(mol: Union[nx.Graph, Chem.Mol, str],
+                                   strip_hydrogen: bool = False) -> int:
     """
     Compute a lower bound for the assembly index of a molecule.
 
@@ -1590,7 +1599,7 @@ def calculate_assembly_lower_bound(mol, strip_hydrogen=False) -> int:
         return int(np.log2(n_bonds))
 
 
-def regularise_ai(ai: int) -> int:
+def regularise_ai(ai: Optional[int]) -> int:
     """
     Regularise the assembly index to a non-negative integer.
 
@@ -1628,7 +1637,8 @@ def regularise_ai(ai: int) -> int:
         return ai
 
 
-def calculate_assembly_parallel(graphs, settings):
+def calculate_assembly_parallel(graphs: List[nx.Graph],
+                                settings: Optional[Dict[str, Any]]) -> List[List[Any]]:
     """
     Calculate assembly indices for multiple graphs in parallel.
 
@@ -1683,7 +1693,9 @@ def calculate_assembly_parallel(graphs, settings):
     return [list(group) for group in zip(*results)]
 
 
-def calculate_sum_assembly(graphs, settings=None, parallel=True) -> int:
+def calculate_sum_assembly(graphs: List[nx.Graph],
+                           settings: Optional[Dict[str, Any]] = None,
+                           parallel: bool = True) -> int:
     """
     Sum assembly indices for a collection of molecular graphs.
 
@@ -1740,7 +1752,10 @@ def calculate_sum_assembly(graphs, settings=None, parallel=True) -> int:
     return int(sum(ai_list))
 
 
-def calculate_assembly_similarity(graphs, settings=None, parallel=True, enforce_exact_mode=True) -> float:
+def calculate_assembly_similarity(graphs: List[nx.Graph],
+                                  settings: Optional[Dict[str, Any]] = None,
+                                  parallel: bool = True,
+                                  enforce_exact_mode: bool = True) -> float:
     """
     Calculate the assembly similarity index for a list of molecular graphs.
 
@@ -1799,7 +1814,7 @@ def calculate_assembly_similarity(graphs, settings=None, parallel=True, enforce_
     return (ai_sum / ai_jai - 1.0) if ai_jai != 0 else 0.0
 
 
-def _parse_pathway_file(data):
+def _parse_pathway_file(data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Normalize and parse a pathway JSON structure into a stable dictionary.
 
@@ -1885,7 +1900,7 @@ def _parse_pathway_file(data):
     return parsed_pathway
 
 
-def calculate_jo_from_pathway(json_file):
+def calculate_jo_from_pathway(json_file: str) -> int:
     """
     Calculate the joining-operations assembly index (JO) from a pathway JSON file.
 
@@ -1987,12 +2002,12 @@ def calculate_jo_from_pathway(json_file):
     return ma + jo_correction
 
 
-def calculate_jo(mol,
-                 dir_code=None,
-                 timeout=100.0,
-                 strip_hydrogen=False,
-                 return_log_file=False,
-                 exact=False):
+def calculate_jo(mol: Union[nx.Graph, Chem.Mol, str],
+                 dir_code: Optional[str] = None,
+                 timeout: float = 100.0,
+                 strip_hydrogen: bool = False,
+                 return_log_file: bool = False,
+                 exact: bool = False) -> Tuple[int, Any, Any]:
     """
     Calculate the joining-operations assembly index (JO) for a molecule.
 
@@ -2094,7 +2109,7 @@ def calculate_jo(mol,
     return jo, vo, pathway
 
 
-def calculate_assembly_ratio(graph: Union[nx.Graph, Chem.Mol], settings: dict) -> float:
+def calculate_assembly_ratio(graph: Union[nx.Graph, Chem.Mol], settings: Dict[str, Any]) -> float:
     """
     Calculate the assembly ratio for a molecular graph.
 
@@ -2156,7 +2171,7 @@ def calculate_assembly_ratio(graph: Union[nx.Graph, Chem.Mol], settings: dict) -
         return n_edges / ai
 
 
-def calculate_jo_assembly_ratio(graph: Union[nx.Graph, Chem.Mol], settings: dict) -> float:
+def calculate_jo_assembly_ratio(graph: Union[nx.Graph, Chem.Mol], settings: Dict[str, Any]) -> float:
     """
     Calculate the joining-operation (JO) assembly ratio for a molecular graph.
 
@@ -2262,7 +2277,7 @@ def _input_helper(mol: Chem.Mol, file_path: str, strip_hydrogen: bool = False) -
 
 
 def calculate_rust_ai(mol: Chem.Mol,
-                      exec_path: str | None = None,
+                      exec_path: Optional[str] = None,
                       timeout: int = 300,
                       strip_hydrogen: bool = False) -> int:
     """
