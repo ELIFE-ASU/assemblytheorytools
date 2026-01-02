@@ -110,7 +110,7 @@ def get_bonding_config(atoms: Atoms) -> List[List[int]]:
     return bond_pairs
 
 
-def find_clusters(atoms, cutoff_smear=1.5):
+def find_clusters(atoms: Atoms, cutoff_smear: float = 1.5) -> Optional[List[int]]:
     """
     Identify disconnected atom clusters in an atomic structure using a neighbor-based graph.
 
@@ -138,20 +138,22 @@ def find_clusters(atoms, cutoff_smear=1.5):
     Uses SciPy's `connected_components` for clustering.
     """
     # Get the natural cutoffs
-    cutoffs = natural_cutoffs(atoms)
+    cutoffs: List[float] = natural_cutoffs(atoms)
     # Apply the smear to the cutoffs
     cutoffs = [cutoff_smear * cutoff for cutoff in cutoffs]
     # Get the neighbour list
-    neighbor_list = NeighborList(cutoffs, self_interaction=False, bothways=True)
+    neighbor_list: NeighborList = NeighborList(cutoffs, self_interaction=False, bothways=True)
     neighbor_list.update(atoms)
     # Get the connectivity matrix
+    n_components: int
+    component_list: np.ndarray
     n_components, component_list = sparse.csgraph.connected_components(neighbor_list.get_connectivity_matrix())
     if n_components == 1:
         return None
     else:
         # Select the atoms in the largest component
-        atoms_in_component = [i for i, c in enumerate(component_list) if c == np.argmax(np.bincount(component_list))]
-        atoms_to_remove = [i for i in range(len(atoms)) if i not in atoms_in_component]
+        atoms_in_component: List[int] = [i for i, c in enumerate(component_list) if c == np.argmax(np.bincount(component_list))]
+        atoms_to_remove: List[int] = [i for i in range(len(atoms)) if i not in atoms_in_component]
         print("Number of clusters:", n_components)
         print("Atoms to remove:", atoms_to_remove)
         return atoms_to_remove
@@ -432,8 +434,8 @@ def guess_bond_orders(
             raise ValueError(f"Node {n} has unknown element symbol: {elem}")
         q = int(data.get(formal_charge_attr, 0)) if (formal_charge_attr and formal_charge_attr in data) else 0
 
-        deg = H.degree[n]  # number of incident bonds to assign
-        tv = choose_target_valence(Z, deg, q)
+        # Ensure degree is an int when passed to choose_target_valence
+        tv = choose_target_valence(Z, int(H.degree[n]), q)
         atomic_num[n] = Z
         charge[n] = q
         target_valence[n] = tv

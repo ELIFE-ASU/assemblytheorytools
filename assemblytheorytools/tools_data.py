@@ -1,11 +1,12 @@
 import numpy as np
 from scipy.stats import gaussian_kde
+from typing import Union, Tuple
 
 
-def random_argmin(arr):
+def random_argmin(arr: np.ndarray) -> int:
     """
     Find the index of the minimum value in the array.
-    
+
     If there are multiple minimum values, return a random index among them.
 
     Parameters
@@ -20,10 +21,10 @@ def random_argmin(arr):
     """
     min_value = np.min(arr)
     min_indices = np.where(arr == min_value)[0]
-    return np.random.choice(min_indices)
+    return int(np.random.choice(min_indices))
 
 
-def get_close_random_index(data, point):
+def get_close_random_index(data: np.ndarray, point: Union[float, np.ndarray]) -> int:
     """
     Find the index of the data point closest to the given point.
     
@@ -44,7 +45,7 @@ def get_close_random_index(data, point):
     return random_argmin(np.abs(np.subtract(data, point)))
 
 
-def sample_boostrapping(data, n_sample):
+def sample_boostrapping(data: np.ndarray, n_sample: int) -> Tuple[np.ndarray, np.ndarray]:
     """
     Perform random sampling with replacement (bootstrapping) on the given dataset.
 
@@ -65,13 +66,13 @@ def sample_boostrapping(data, n_sample):
     sample_indices : numpy.ndarray
         The indices of the sampled values in the original dataset.
     """
-    sample_indices = np.random.choice(len(data), size=n_sample, replace=True)
+    sample_indices: np.ndarray = np.random.choice(len(data), size=n_sample, replace=True)
     # Extract the selected values
-    sample = data[sample_indices]
+    sample: np.ndarray = data[sample_indices]
     return sample, sample_indices
 
 
-def sample_kde_resampling(data, n_sample):
+def sample_kde_resampling(data: np.ndarray, n_sample: int) -> Tuple[np.ndarray, np.ndarray]:
     """
     Perform KDE-based resampling on the given dataset.
     
@@ -99,20 +100,20 @@ def sample_kde_resampling(data, n_sample):
     if data.ndim == 1:
         # 1D data: Use KDE-based resampling
         kde = gaussian_kde(data)
-        sample = kde.resample(n_sample).flatten()
-        sample_indices = [get_close_random_index(data, point) for point in sample]
+        sample: np.ndarray = kde.resample(n_sample).flatten()
+        sample_indices = np.array([get_close_random_index(data, point) for point in sample], dtype=int)
     elif data.ndim == 2:
         # 2D data: Use KDE-based resampling
         kde = gaussian_kde(data.T)
-        sample = kde.resample(n_sample).T
-        sample_indices = [get_close_random_index(data, point) for point in sample]
+        sample: np.ndarray = kde.resample(n_sample).T
+        sample_indices = np.array([get_close_random_index(data, point) for point in sample], dtype=int)
     else:
         raise ValueError("Data must be either 1D or 2D.")
 
     return sample, sample_indices
 
 
-def sample_importance_sampling(data, n_sample, n_bins=50):
+def sample_importance_sampling(data: np.ndarray, n_sample: int, n_bins: int = 50) -> Tuple[np.ndarray, np.ndarray]:
     """
     Perform importance sampling on the given dataset.
 
@@ -139,26 +140,32 @@ def sample_importance_sampling(data, n_sample, n_bins=50):
     """
     if data.ndim == 1:
         # 1D data: Use importance sampling
+        hist_values: np.ndarray
+        bin_edges: np.ndarray
         hist_values, bin_edges = np.histogram(data, bins=n_bins, density=True)
-        bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
-        probabilities = hist_values / hist_values.sum()
-        selected_bin_indices = np.random.choice(len(probabilities), size=n_sample, p=probabilities)
-        sample_indices = [get_close_random_index(data, bin_centers[idx]) for idx in selected_bin_indices]
-        sample = data[sample_indices]
+        bin_centers: np.ndarray = (bin_edges[:-1] + bin_edges[1:]) / 2
+        probabilities: np.ndarray = hist_values / hist_values.sum()
+        selected_bin_indices: np.ndarray = np.random.choice(len(probabilities), size=n_sample, p=probabilities)
+        sample_indices = np.array([get_close_random_index(data, bin_centers[idx]) for idx in selected_bin_indices],
+                                  dtype=int)
+        sample: np.ndarray = data[sample_indices]
     elif data.ndim == 2:
         # 2D data: Use importance sampling
+        hist: np.ndarray
+        x_edges: np.ndarray
+        y_edges: np.ndarray
         hist, x_edges, y_edges = np.histogram2d(data[:, 0], data[:, 1], bins=n_bins, density=True)
-        x_centers = (x_edges[:-1] + x_edges[1:]) / 2
-        y_centers = (y_edges[:-1] + y_edges[1:]) / 2
+        x_centers: np.ndarray = (x_edges[:-1] + x_edges[1:]) / 2
+        y_centers: np.ndarray = (y_edges[:-1] + y_edges[1:]) / 2
         xx, yy = np.meshgrid(x_centers, y_centers)
-        probabilities = hist.flatten()
+        probabilities: np.ndarray = hist.flatten()
         probabilities /= probabilities.sum()
-        selected_indices = np.random.choice(len(probabilities), size=n_sample, p=probabilities)
-        sample_indices = [
+        selected_indices: np.ndarray = np.random.choice(len(probabilities), size=n_sample, p=probabilities)
+        sample_indices = np.array([
             np.argmin(np.linalg.norm(data - np.array([xx.flatten()[idx], yy.flatten()[idx]]), axis=1))
             for idx in selected_indices
-        ]
-        sample = data[sample_indices]
+        ], dtype=int)
+        sample: np.ndarray = data[sample_indices]
     else:
         raise ValueError("Data must be either 1D or 2D.")
 
