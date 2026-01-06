@@ -850,7 +850,7 @@ def plot_assembly_circle(nodes: Sequence[Any],
         hides labels. If a sequence, per-node label strings to render; empty or
         ``None`` entries suppress text for that node.
     node_size : float, optional
-        Marker size for nodes (in points\ ^2). Default is ``1000``.
+        Marker size for nodes. Default is ``1000``.
     arrow_size : float, optional
         Arrowhead size for directed edges. Default is ``80``.
     node_color : str or sequence, optional
@@ -1605,7 +1605,7 @@ def plot_histogram_all_x(data: np.ndarray,
 
     Creates a histogram whose bin edges are chosen to cover every integer value
     present in `data` (from floor(min) to ceil(max)). This is useful for discrete
-    integer-valued data (e.g.\ counts or number of bonds) where each integer value
+    integer-valued data (e.g. counts or number of bonds) where each integer value
     should map to its own bin.
 
     Parameters

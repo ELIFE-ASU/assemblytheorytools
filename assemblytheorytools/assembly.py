@@ -614,7 +614,7 @@ def compile_assembly_cpp_script(assembly_tar_path: str = "assemblycpp-main",
     """
     Compile a packaged assembly C++ tarball into a local executable and install it for user use.
 
-    This helper extracts a tarball containing the assembly C\+\+ source (expected to
+    This helper extracts a tarball containing the assembly C++ source (expected to
     contain a v5 combined source tree), downloads or locates Boost as required,
     compiles the main source into a standalone executable and installs the result
     into the current working directory (or a named path derived from *exe_name*).
@@ -2310,7 +2310,7 @@ def calculate_rust_ai(mol: Chem.Mol,
           `_input_helper` will return False if wildcard atoms are present, in which
           case this function returns -1.
         - The Rust executable is expected to print a number somewhere in its
-          standard output; the first integer matched by the regex `\b\d+\b` is used.
+          standard output; the first integer matched by the regex is used.
         - Standard error and non-zero exit codes are treated as failures and
           cause a return value of -1.
 
