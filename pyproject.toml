@@ -48,7 +48,8 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["assemblytheorytools*"]
+include = ["assemblytheorytools*", "tests*"]
 
 [tool.setuptools.package-data]
 "assemblytheorytools" = ["precompiled/*", "data/*"]
+"tests" = ["*", "**/*"]
