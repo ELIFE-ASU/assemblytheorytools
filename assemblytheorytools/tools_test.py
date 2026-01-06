@@ -144,12 +144,6 @@ def co2_graph() -> nx.Graph:
     return graph
 
 
-# Ensure the path is correct and the file exists
-DATA_PATH = Path(__file__).parent.parent / "tests/data/test_molecule_data.csv"
-if not DATA_PATH.exists():
-    raise FileNotFoundError(f"Data file not found: {DATA_PATH}")
-
-
 @dataclass(frozen=True)
 class Molecule:
     """
@@ -201,7 +195,13 @@ def _load_molecules() -> dict[str, Molecule]:
         If a non-empty ``assembly_index`` field cannot be converted to an integer.
     """
     mols: dict[str, Molecule] = {}
-    with DATA_PATH.open(newline="") as f:
+
+    # Ensure the path is correct and the file exists
+    data_path = Path(__file__).parent.parent / "tests/data/test_molecule_data.csv"
+    if not data_path.exists():
+        raise FileNotFoundError(f"Data file not found: {data_path}")
+
+    with data_path.open(newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
             name = row["name"].strip().lower()
