@@ -370,7 +370,7 @@ def calculate_assembly_index(mol: Union[nx.Graph, Chem.Mol, str],
                      file_path_in,
                      '-memTest=0',
                      '-removeHydrogens=0',
-                     '-compensateDisjoint=0'
+                     '-compensateDisjoint=0',
                      f'-runTime={timeout_flag}'],
                     stdout=log,
                     stderr=log
