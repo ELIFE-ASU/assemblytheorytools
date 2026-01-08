@@ -15,6 +15,8 @@ dependencies:
   - ipython>=8.30.0
   - pyvis>=0.3.2
   - pubchempy>=1.0.5
+  - cairosvg>=2.8.2
   - pip:
       - "CFG @ git+https://github.com/ELIFE-ASU/CFG.git"
+      - "dagviz @ git+https://github.com/ELIFE-ASU/dagviz.git"
       - "assemblytheorytools @ git+https://github.com/ELIFE-ASU/assemblytheorytools.git",
