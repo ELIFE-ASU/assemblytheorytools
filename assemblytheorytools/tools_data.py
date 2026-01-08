@@ -8,8 +8,9 @@ import pubchempy as pcp
 from rdkit import Chem
 from scipy.stats import gaussian_kde
 
-from .tools_mol import smi_to_mol
 from .tools_graph import smi_to_nx
+from .tools_mol import smi_to_mol
+
 
 def random_argmin(arr: np.ndarray) -> int:
     """
@@ -181,29 +182,159 @@ def sample_importance_sampling(data: np.ndarray, n_sample: int, n_bins: int = 50
 
 
 def pubchem_name_to_smi(name: str) -> str:
+    """
+    Retrieve the SMILES string of a compound from PubChem by its name.
+
+    Parameters
+    ----------
+    name : str
+        The name of the compound to search for in PubChem.
+
+    Returns
+    -------
+    str
+        The canonical SMILES string of the compound.
+
+    Raises
+    ------
+    pubchempy.PubChemHTTPError
+        If there is an error communicating with PubChem.
+    IndexError
+        If no compounds match the given name.
+    """
     return pcp.get_compounds(name, "name")[0].smiles
 
 
 def pubchem_name_to_mol(name: str, add_hydrogens: bool = True, sanitize: bool = True) -> Chem.Mol:
+    """
+    Convert a compound name to an RDKit Mol object by querying PubChem.
+
+    Parameters
+    ----------
+    name : str
+        The name of the compound to search for in PubChem.
+    add_hydrogens : bool, optional
+        Whether to add explicit hydrogens to the molecule. Default is True.
+    sanitize : bool, optional
+        Whether to sanitize the molecule. Default is True.
+
+    Returns
+    -------
+    rdkit.Chem.Mol
+        The RDKit Mol object representing the compound.
+
+    Raises
+    ------
+    pubchempy.PubChemHTTPError
+        If the compound with the given name is not found.
+    IndexError
+        If no compounds match the given name.
+    """
     smiles = pubchem_name_to_smi(name)
     return smi_to_mol(smiles, add_hydrogens=add_hydrogens, sanitize=sanitize)
 
 
 def pubchem_name_to_nx(name: str, add_hydrogens: bool = True, sanitize: bool = True) -> nx.Graph:
+    """
+    Convert a compound name to a NetworkX Graph by querying PubChem.
+
+    Parameters
+    ----------
+    name : str
+        The name of the compound to search for in PubChem.
+    add_hydrogens : bool, optional
+        Whether to add explicit hydrogens to the molecule. Default is True.
+    sanitize : bool, optional
+        Whether to sanitize the molecule. Default is True.
+
+    Returns
+    -------
+    networkx.Graph
+        A NetworkX graph representation of the compound's molecular structure.
+
+    Raises
+    ------
+    pubchempy.PubChemHTTPError
+        If the compound with the given name is not found.
+    IndexError
+        If no compounds match the given name.
+    """
     smiles = pubchem_name_to_smi(name)
     return smi_to_nx(smiles, add_hydrogens=add_hydrogens, sanitize=sanitize)
 
 
 def pubchem_id_to_smi(id: int) -> str:
+    """
+    Retrieve the SMILES string of a compound from PubChem by its CID.
+
+    Parameters
+    ----------
+    id : int
+        The PubChem Compound ID (CID) of the compound.
+
+    Returns
+    -------
+    str
+        The canonical SMILES string of the compound.
+
+    Raises
+    ------
+    pubchempy.PubChemHTTPError
+        If the compound with the given CID is not found.
+    """
     return pcp.Compound.from_cid(id).smiles
 
 
 def pubchem_id_to_mol(id: int, add_hydrogens: bool = True, sanitize: bool = True) -> Chem.Mol:
+    """
+    Retrieve an RDKit Mol object of a compound from PubChem by its CID.
+
+    Parameters
+    ----------
+    id : int
+        The PubChem Compound ID (CID) of the compound.
+    add_hydrogens : bool, optional
+        Whether to add explicit hydrogens to the molecule. Default is True.
+    sanitize : bool, optional
+        Whether to sanitize the molecule. Default is True.
+
+    Returns
+    -------
+    rdkit.Chem.Mol
+        The RDKit Mol object representing the compound.
+
+    Raises
+    ------
+    pubchempy.PubChemHTTPError
+        If the compound with the given CID is not found.
+    """
     smiles = pubchem_id_to_smi(id)
     return smi_to_mol(smiles, add_hydrogens=add_hydrogens, sanitize=sanitize)
 
 
 def pubchem_id_to_nx(id: int, add_hydrogens: bool = True, sanitize: bool = True) -> nx.Graph:
+    """
+    Retrieve a NetworkX Graph of a compound from PubChem by its CID.
+
+    Parameters
+    ----------
+    id : int
+        The PubChem Compound ID (CID) of the compound.
+    add_hydrogens : bool, optional
+        Whether to add explicit hydrogens to the molecule. Default is True.
+    sanitize : bool, optional
+        Whether to sanitize the molecule. Default is True.
+
+    Returns
+    -------
+    networkx.Graph
+        A NetworkX graph representation of the compound's molecular structure.
+
+    Raises
+    ------
+    pubchempy.PubChemHTTPError
+        If the compound with the given CID is not found.
+    """
     smiles = pubchem_id_to_smi(id)
     return smi_to_nx(smiles, add_hydrogens=add_hydrogens, sanitize=sanitize)
 
@@ -215,6 +346,40 @@ def sample_random_pubchem(n: int,
                           delay_s: float = 0.2,
                           max_attempts: int = 50_000,
                           ) -> Tuple[List[int], List[str]]:
+    """
+    Sample random molecules from PubChem by randomly selecting CIDs.
+
+    This function queries PubChem for random compound IDs and retrieves their
+    SMILES representations. A delay is introduced between requests to avoid
+    overwhelming the PubChem API.
+
+    Parameters
+    ----------
+    n : int
+        The number of molecules to sample.
+    seed : int, optional
+        Random seed for reproducibility. Default is None.
+    max_cid : int, optional
+        The maximum CID to consider when sampling. Default is 123,431,215.
+    delay_s : float, optional
+        Delay in seconds between PubChem API requests. Default is 0.2.
+    max_attempts : int, optional
+        Maximum number of attempts before raising an error. Default is 50,000.
+
+    Returns
+    -------
+    ids : list of int
+        The PubChem CIDs of the sampled molecules.
+    mols : list of str
+        The SMILES strings of the sampled molecules.
+
+    Raises
+    ------
+    ValueError
+        If n is not a positive integer.
+    RuntimeError
+        If the maximum number of attempts is reached before collecting n molecules.
+    """
     if n <= 0:
         raise ValueError("n must be a positive integer")
 
