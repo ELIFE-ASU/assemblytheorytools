@@ -1,8 +1,15 @@
-from typing import Union, Tuple
+import random
+import time
+from typing import Union, List, Optional, Tuple
 
+import networkx as nx
 import numpy as np
+import pubchempy as pcp
+from rdkit import Chem
 from scipy.stats import gaussian_kde
 
+from .tools_mol import smi_to_mol
+from .tools_graph import smi_to_nx
 
 def random_argmin(arr: np.ndarray) -> int:
     """
@@ -171,3 +178,73 @@ def sample_importance_sampling(data: np.ndarray, n_sample: int, n_bins: int = 50
         raise ValueError("Data must be either 1D or 2D.")
 
     return sample, sample_indices
+
+
+def pubchem_name_to_smi(name: str) -> str:
+    return pcp.get_compounds(name, "name")[0].smiles
+
+
+def pubchem_name_to_mol(name: str, add_hydrogens: bool = True, sanitize: bool = True) -> Chem.Mol:
+    smiles = pubchem_name_to_smi(name)
+    return smi_to_mol(smiles, add_hydrogens=add_hydrogens, sanitize=sanitize)
+
+
+def pubchem_name_to_nx(name: str, add_hydrogens: bool = True, sanitize: bool = True) -> nx.Graph:
+    smiles = pubchem_name_to_smi(name)
+    return smi_to_nx(smiles, add_hydrogens=add_hydrogens, sanitize=sanitize)
+
+
+def pubchem_id_to_smi(id: int) -> str:
+    return pcp.Compound.from_cid(id).smiles
+
+
+def pubchem_id_to_mol(id: int, add_hydrogens: bool = True, sanitize: bool = True) -> Chem.Mol:
+    smiles = pubchem_id_to_smi(id)
+    return smi_to_mol(smiles, add_hydrogens=add_hydrogens, sanitize=sanitize)
+
+
+def pubchem_id_to_nx(id: int, add_hydrogens: bool = True, sanitize: bool = True) -> nx.Graph:
+    smiles = pubchem_id_to_smi(id)
+    return smi_to_nx(smiles, add_hydrogens=add_hydrogens, sanitize=sanitize)
+
+
+def sample_random_pubchem(n: int,
+                          *,
+                          seed: Optional[int] = None,
+                          max_cid: int = 123_431_215,
+                          delay_s: float = 0.2,
+                          max_attempts: int = 50_000,
+                          ) -> Tuple[List[int], List[str]]:
+    if n <= 0:
+        raise ValueError("n must be a positive integer")
+
+    rng = random.Random(seed)
+    mols: List[str] = []
+    seen: set[int] = set()
+    ids: List[int] = []
+
+    attempts = 0
+    while len(mols) < n:
+        attempts += 1
+        if attempts > max_attempts:
+            raise RuntimeError(f"Only collected {len(mols)} valid molecules after {max_attempts} attempts.")
+
+        cid = rng.randint(1, max_cid)
+        if cid in seen:
+            continue
+        seen.add(cid)
+
+        try:
+            c = pcp.Compound.from_cid(cid)
+            mol = getattr(c, "smiles", None)
+            if mol is None:
+                continue
+            mols.append(mol)
+            ids.append(cid)
+
+        except Exception:
+            continue
+        finally:
+            time.sleep(delay_s)
+
+    return ids, mols

@@ -115,7 +115,14 @@ from .tools_cell import (read_cif_file,
                          guess_bond_orders)
 from .tools_data import (sample_boostrapping,
                          sample_kde_resampling,
-                         sample_importance_sampling)
+                         sample_importance_sampling,
+                         pubchem_name_to_smi,
+                         pubchem_name_to_mol,
+                         pubchem_name_to_nx,
+                         pubchem_id_to_smi,
+                         pubchem_id_to_mol,
+                         pubchem_id_to_nx,
+                         sample_random_pubchem)
 from .tools_file import (file_list,
                          file_list_all,
                          filter_files,
