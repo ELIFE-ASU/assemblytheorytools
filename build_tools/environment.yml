@@ -14,6 +14,7 @@ dependencies:
   - rdkit>=2024.03.5
   - ipython>=8.30.0
   - pyvis>=0.3.2
+  - pubchempy>=1.0.5
   - pip:
       - "CFG @ git+https://github.com/ELIFE-ASU/CFG.git"
       - "assemblytheorytools @ git+https://github.com/ELIFE-ASU/assemblytheorytools.git",

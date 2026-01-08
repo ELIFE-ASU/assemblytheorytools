@@ -17,5 +17,6 @@ dependencies:
   - pytest
   - sphinx
   - sphinx-rtd-theme
+  - pubchempy
   - pip:
       - "CFG @ git+https://github.com/ELIFE-ASU/CFG.git"
