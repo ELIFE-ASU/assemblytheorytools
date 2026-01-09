@@ -129,7 +129,8 @@ from .tools_file import (file_list,
                          write_to_shared_file,
                          remove_files,
                          wipe_dir,
-                         list_subdirs)
+                         list_subdirs,
+                         remove_file_pattern)
 from .tools_graph import (nx_to_mol,
                           mol_to_nx,
                           write_ass_graph_file,

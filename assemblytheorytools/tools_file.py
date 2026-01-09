@@ -1,4 +1,5 @@
 import fcntl
+import glob
 import json
 import os
 import re
@@ -214,3 +215,24 @@ def edge_colours_replacer(match: Match[str]) -> str:
         else:
             fixed_items.append(val)
     return '"EdgeColours": [' + ', '.join(fixed_items) + ']'
+
+
+def remove_file_pattern(pattern: str):
+    """
+    Remove all files matching a specific glob pattern.
+
+    Parameters
+    ----------
+    pattern : str
+        The glob pattern to match files (e.g., "*.txt" for all text files).
+
+    Returns
+    -------
+    None
+        This function does not return a value.
+    """
+    for path in glob.glob(pattern):
+        try:
+            os.remove(path)
+        except OSError:
+            pass
