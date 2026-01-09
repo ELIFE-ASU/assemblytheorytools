@@ -480,10 +480,10 @@ def cp2k_calc_preset(cp2k_command: Optional[str] = None,
 def orca_calc_preset(orca_path: Optional[str] = None,
                      directory: Optional[str] = None,
                      calc_type: str = 'DFT',
-                     xc: str = 'wB97X',
+                     xc: str = 'r2SCAN-3c',
                      charge: int = 0,
                      multiplicity: int = 1,
-                     basis_set: str = 'def2-SVP',
+                     basis_set: str = 'def2-mTZVPP',
                      n_procs: int = 10,
                      f_solv: Union[bool, str] = False,
                      f_disp: Union[bool, str] = False,
@@ -503,13 +503,13 @@ def orca_calc_preset(orca_path: Optional[str] = None,
     calc_type : str, optional
         Type of calculation to perform (e.g., 'DFT', 'MP2', 'CCSD', 'QM/XTB2'). Default is 'DFT'.
     xc : str, optional
-        Exchange-correlation functional to use. Default is 'wB97X'.
+        Exchange-correlation functional to use. Default is 'r2SCAN-3c'.
     charge : int, optional
         Total charge of the system. Default is 0.
     multiplicity : int, optional
         Spin multiplicity of the system. Default is 1.
     basis_set : str, optional
-        Basis set to use for the calculation. Default is 'def2-SVP'.
+        Basis set to use for the calculation. Default is 'def2-mTZVPP'.
     n_procs : int, optional
         Number of processors to use. Default is 10.
     f_solv : bool or str, optional
@@ -624,7 +624,7 @@ def optimise_atoms(atoms: Atoms,
                    multiplicity: int = 1,
                    orca_path: Optional[str] = None,
                    xc: str = 'r2SCAN-3c',
-                   basis_set: str = 'def2-QZVP',
+                   basis_set: str = 'def2-mTZVPP',
                    tight_opt: bool = False,
                    tight_scf: bool = False,
                    f_solv: Union[bool, str] = False,
@@ -651,7 +651,7 @@ def optimise_atoms(atoms: Atoms,
     xc : str, optional
         Exchange-correlation functional to use. Default is 'r2SCAN-3c'.
     basis_set : str, optional
-        Basis set to use for the calculation. Default is 'def2-QZVP'.
+        Basis set to use for the calculation. Default is 'def2-mTZVPP'.
     tight_opt : bool, optional
         Whether to use tight optimization parameters. Default is False.
     tight_scf : bool, optional
@@ -866,7 +866,7 @@ def calculate_free_energy(atoms: Atoms,
                           pressure: Optional[float] = None,
                           orca_path: Optional[str] = None,
                           xc: str = 'r2SCAN-3c',
-                          basis_set: str = 'def2-QZVP',
+                          basis_set: str = 'def2-mTZVPP',
                           tight_opt: bool = False,
                           tight_scf: bool = False,
                           f_solv: bool = False,
@@ -898,7 +898,7 @@ def calculate_free_energy(atoms: Atoms,
     xc : str, optional
         Exchange-correlation functional to use. Default is 'r2SCAN-3c'.
     basis_set : str, optional
-        Basis set to use for the calculation. Default is 'def2-QZVP'.
+        Basis set to use for the calculation. Default is 'def2-mTZVPP'.
     tight_opt : bool, optional
         Whether to use tight geometry optimization. Default is False.
     tight_scf : bool, optional
@@ -1035,7 +1035,7 @@ def calculate_hessian(atoms: Atoms,
                       multiplicity: int = 1,
                       orca_path: Optional[str] = None,
                       xc: str = 'r2SCAN-3c',
-                      basis_set: str = 'def2-QZVP',
+                      basis_set: str = 'def2-mTZVPP',
                       tight_opt: bool = False,
                       tight_scf: bool = False,
                       f_solv: Union[bool, str] = False,
@@ -1060,7 +1060,7 @@ def calculate_hessian(atoms: Atoms,
     xc : str, optional
         Exchange-correlation functional to use. Default is 'r2SCAN-3c'.
     basis_set : str, optional
-        Basis set to use for the calculation. Default is 'def2-QZVP'.
+        Basis set to use for the calculation. Default is 'def2-mTZVPP'.
     tight_opt : bool, optional
         Whether to use tight optimization parameters. Default is False.
     tight_scf : bool, optional
@@ -1296,8 +1296,8 @@ def calculate_goat(atoms: Atoms,
 
 def get_virtual_objects_energy(mol_list: List[Mol],
                                orca_path: Optional[str] = None,
-                               xc: str = 'wB97X',
-                               basis_set: str = 'def2-SVP',
+                               xc: str = 'r2SCAN-3c',
+                               basis_set: str = 'def2-mTZVPP',
                                f_solv: bool = False,
                                f_disp: bool = False,
                                n_procs: int = 10,
@@ -1317,7 +1317,7 @@ def get_virtual_objects_energy(mol_list: List[Mol],
     xc : str, optional
         Exchange-correlation functional to use. Default is 'wB97X'.
     basis_set : str, optional
-        Basis set to use for calculations. Default is 'def2-SVP'.
+        Basis set to use for calculations. Default is 'def2-mTZVPP'.
     f_solv : bool, optional
         Whether to include solvent effects. Default is False.
     f_disp : bool, optional
