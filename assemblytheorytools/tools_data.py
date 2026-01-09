@@ -343,7 +343,7 @@ def sample_random_pubchem(n: int,
                           *,
                           seed: Optional[int] = None,
                           max_cid: int = 123_431_215,
-                          delay_s: float = 0.2,
+                          delay_s: float = 0.1,
                           max_attempts: int = 50_000,
                           ) -> Tuple[List[int], List[str]]:
     """

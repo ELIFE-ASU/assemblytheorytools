@@ -751,3 +751,37 @@ def test_mp_calc_star():
     expected_results = [3, 7, 11, 15]
     results = att.mp_calc_star(_add, args)
     assert results == expected_results
+
+
+def test_pubchem():
+    id_str = 'Aspirin'
+    id = 2244
+
+    print(flush=True)
+    smi = att.pubchem_name_to_smi(id_str)
+    print(smi, flush=True)
+    assert smi == 'CC(=O)OC1=CC=CC=C1C(=O)O'
+    mol = att.pubchem_name_to_mol(id_str, add_hydrogens=True)
+    smi_out = Chem.MolToSmiles(mol)
+    print(smi_out, flush=True)
+    assert smi_out == '[H]OC(=O)c1c([H])c([H])c([H])c([H])c1OC(=O)C([H])([H])[H]'
+    graph = att.pubchem_name_to_nx(id_str, add_hydrogens=True)
+    smi_out = att.nx_to_smi(graph)
+    print(smi_out, flush=True)
+    assert smi_out == '[H]OC(=O)C1=C([H])C([H])=C([H])C([H])=C1OC(=O)C([H])([H])[H]'
+
+    smi = att.pubchem_id_to_smi(id)
+    print(smi, flush=True)
+    assert smi == 'CC(=O)OC1=CC=CC=C1C(=O)O'
+    mol = att.pubchem_id_to_mol(id, add_hydrogens=True)
+    smi_out = Chem.MolToSmiles(mol)
+    print(smi_out, flush=True)
+    assert smi_out == '[H]OC(=O)c1c([H])c([H])c([H])c([H])c1OC(=O)C([H])([H])[H]'
+    graph = att.pubchem_id_to_nx(id, add_hydrogens=True)
+    smi_out = att.nx_to_smi(graph)
+    print(smi_out, flush=True)
+    assert smi_out == '[H]OC(=O)C1=C([H])C([H])=C([H])C([H])=C1OC(=O)C([H])([H])[H]'
+
+    _, smi_out = att.sample_random_pubchem(3)
+    print(smi_out, flush=True)
+    assert len(smi_out) == 3
