@@ -345,12 +345,54 @@ def sample_random_pubchem(
         seed: Optional[int] = None,
         max_cid: int = 123_431_215,
         delay_s: float = 0.01,
-        max_attempts: int = 50_000,
+        max_attempts: int = 500_000,
         max_bonds: int = 100,
-        batch_size: int = 200,
+        batch_size: Optional[int] = None,
 ) -> Tuple[List[int], List[str]]:
+    """
+    Sample random valid molecules from PubChem by randomly selecting compound IDs.
+
+    Parameters
+    ----------
+    n : int
+        The number of valid molecules to sample.
+    seed : int, optional
+        Random seed for reproducibility. Default is None.
+    max_cid : int, optional
+        Maximum PubChem Compound ID to sample from. Default is 123,431,215.
+    delay_s : float, optional
+        Delay in seconds between batch requests to avoid rate limiting. Default is 0.01.
+    max_attempts : int, optional
+        Maximum number of CID sampling attempts before raising an error. Default is 500,000.
+    max_bonds : int, optional
+        Maximum number of bonds allowed in a valid molecule. Default is 100.
+    batch_size : int, optional
+        Number of CIDs to query per batch. Defaults to n if not specified.
+
+    Returns
+    -------
+    ids : List[int]
+        List of PubChem CIDs for the sampled molecules.
+    smi_list : List[str]
+        List of canonical SMILES strings for the sampled molecules.
+
+    Raises
+    ------
+    ValueError
+        If batch_size is <= 0.
+    RuntimeError
+        If unable to collect n valid molecules within max_attempts.
+
+    Notes
+    -----
+    - Molecules containing disconnected fragments (indicated by "." in SMILES) are excluded.
+    - Each CID is only attempted once (no duplicates).
+    """
     if n <= 0:
         return [], []
+    if batch_size is None:
+        batch_size = n
+
     if batch_size <= 0:
         raise ValueError("batch_size must be > 0")
 
@@ -372,10 +414,7 @@ def sample_random_pubchem(
 
     while len(smi_list) < n:
         remaining = n - len(smi_list)
-
-        # Generate a batch of fresh random CIDs (deduped).
-        # Cap how many we generate to avoid huge over-fetch when remaining is small.
-        target_gen = min(batch_size, max(remaining * 5, remaining))  # heuristic oversample
+        target_gen = min(batch_size, max(remaining * 5, remaining))
         cids_batch: List[int] = []
         while len(cids_batch) < target_gen:
             attempts += 1
@@ -390,13 +429,11 @@ def sample_random_pubchem(
             seen.add(cid)
             cids_batch.append(cid)
 
-        # Batch fetch from PubChem. PubChemPy may return fewer compounds than requested.
         try:
-            compounds = pcp.get_compounds(cids_batch, "cid")  # list[Compound]
+            compounds = pcp.get_compounds(cids_batch, "cid")
         except Exception:
             compounds = []
 
-        # Validate/filter returned compounds; keep collecting until we hit n.
         for c in compounds:
             if len(smi_list) >= n:
                 break
@@ -413,7 +450,6 @@ def sample_random_pubchem(
             except Exception:
                 continue
 
-        # Be nice to PubChem: delay per request (batch), not per CID.
         if delay_s:
             time.sleep(delay_s)
 
