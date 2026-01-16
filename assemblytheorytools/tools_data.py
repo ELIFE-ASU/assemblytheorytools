@@ -1,6 +1,6 @@
 import random
 import time
-from typing import Union, List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 import networkx as nx
 import numpy as np
@@ -339,77 +339,82 @@ def pubchem_id_to_nx(id: int, add_hydrogens: bool = True, sanitize: bool = True)
     return smi_to_nx(smiles, add_hydrogens=add_hydrogens, sanitize=sanitize)
 
 
-def sample_random_pubchem(n: int,
-                          *,
-                          seed: Optional[int] = None,
-                          max_cid: int = 123_431_215,
-                          delay_s: float = 0.1,
-                          max_attempts: int = 50_000,
-                          ) -> Tuple[List[int], List[str]]:
-    """
-    Sample random molecules from PubChem by randomly selecting CIDs.
-
-    This function queries PubChem for random compound IDs and retrieves their
-    SMILES representations. A delay is introduced between requests to avoid
-    overwhelming the PubChem API.
-
-    Parameters
-    ----------
-    n : int
-        The number of molecules to sample.
-    seed : int, optional
-        Random seed for reproducibility. Default is None.
-    max_cid : int, optional
-        The maximum CID to consider when sampling. Default is 123,431,215.
-    delay_s : float, optional
-        Delay in seconds between PubChem API requests. Default is 0.2.
-    max_attempts : int, optional
-        Maximum number of attempts before raising an error. Default is 50,000.
-
-    Returns
-    -------
-    ids : list of int
-        The PubChem CIDs of the sampled molecules.
-    mols : list of str
-        The SMILES strings of the sampled molecules.
-
-    Raises
-    ------
-    ValueError
-        If n is not a positive integer.
-    RuntimeError
-        If the maximum number of attempts is reached before collecting n molecules.
-    """
+def sample_random_pubchem(
+        n: int,
+        *,
+        seed: Optional[int] = None,
+        max_cid: int = 123_431_215,
+        delay_s: float = 0.01,
+        max_attempts: int = 50_000,
+        max_bonds: int = 100,
+        batch_size: int = 200,
+) -> Tuple[List[int], List[str]]:
     if n <= 0:
-        raise ValueError("n must be a positive integer")
+        return [], []
+    if batch_size <= 0:
+        raise ValueError("batch_size must be > 0")
 
     rng = random.Random(seed)
-    mols: List[str] = []
-    seen: set[int] = set()
+
+    smi_list: List[str] = []
     ids: List[int] = []
+    seen: set[int] = set()
 
     attempts = 0
-    while len(mols) < n:
-        attempts += 1
-        if attempts > max_attempts:
-            raise RuntimeError(f"Only collected {len(mols)} valid molecules after {max_attempts} attempts.")
 
-        cid = rng.randint(1, max_cid)
-        if cid in seen:
-            continue
-        seen.add(cid)
+    def _is_valid_smiles(smi: str) -> bool:
+        if not smi or "." in smi:
+            return False
+        mol = smi_to_mol(smi, sanitize=True, add_hydrogens=True)
+        if mol is None:
+            return False
+        return mol.GetNumBonds() <= max_bonds
 
-        try:
-            c = pcp.Compound.from_cid(cid)
-            mol = getattr(c, "smiles", None)
-            if mol is None:
+    while len(smi_list) < n:
+        remaining = n - len(smi_list)
+
+        # Generate a batch of fresh random CIDs (deduped).
+        # Cap how many we generate to avoid huge over-fetch when remaining is small.
+        target_gen = min(batch_size, max(remaining * 5, remaining))  # heuristic oversample
+        cids_batch: List[int] = []
+        while len(cids_batch) < target_gen:
+            attempts += 1
+            if attempts > max_attempts:
+                raise RuntimeError(
+                    f"Only collected {len(smi_list)} valid molecules after {max_attempts} attempts."
+                )
+
+            cid = rng.randint(1, max_cid)
+            if cid in seen:
                 continue
-            mols.append(mol)
-            ids.append(cid)
+            seen.add(cid)
+            cids_batch.append(cid)
 
+        # Batch fetch from PubChem. PubChemPy may return fewer compounds than requested.
+        try:
+            compounds = pcp.get_compounds(cids_batch, "cid")  # list[Compound]
         except Exception:
-            continue
-        finally:
+            compounds = []
+
+        # Validate/filter returned compounds; keep collecting until we hit n.
+        for c in compounds:
+            if len(smi_list) >= n:
+                break
+
+            cid = getattr(c, "cid", None)
+            smi = getattr(c, "smiles", None)
+            if cid is None or smi is None:
+                continue
+
+            try:
+                if _is_valid_smiles(smi):
+                    ids.append(int(cid))
+                    smi_list.append(smi)
+            except Exception:
+                continue
+
+        # Be nice to PubChem: delay per request (batch), not per CID.
+        if delay_s:
             time.sleep(delay_s)
 
-    return ids, mols
+    return ids, smi_list
