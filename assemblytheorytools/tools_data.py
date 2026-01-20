@@ -13,7 +13,7 @@ from rdkit import Chem
 from scipy.stats import gaussian_kde
 
 from .tools_graph import smi_to_nx
-from .tools_mol import smi_to_mol
+from .tools_mol import smi_to_mol, standardize_mol
 
 
 def random_argmin(arr: np.ndarray) -> int:
@@ -643,6 +643,7 @@ def sample_pubchem_cid_smiles_gz(
         gz_path: str = 'CID-SMILES.gz',
         seed: int = 0,
         sep: str = "\t",
+        max_bonds: int = 100,
 ) -> Tuple[List[int], List[str]]:
     """
     Sample random CID-SMILES pairs from a downloaded PubChem gzip file.
@@ -657,6 +658,8 @@ def sample_pubchem_cid_smiles_gz(
         Random seed for reproducibility. Default is 0.
     sep : str, optional
         Column separator in the file. Default is tab character.
+    max_bonds : int, optional
+        Maximum number of bonds allowed in a valid molecule. Default is 100.
 
     Returns
     -------
@@ -667,8 +670,9 @@ def sample_pubchem_cid_smiles_gz(
 
     Notes
     -----
-    If n exceeds the number of rows in the file, all available rows are returned.
+    If n exceeds the number of valid rows in the file, all available valid rows are returned.
     Bad lines in the file are skipped during parsing.
+    Molecules containing disconnected fragments (indicated by "." in SMILES) are excluded.
     """
     df = pd.read_csv(
         gz_path,
@@ -679,5 +683,28 @@ def sample_pubchem_cid_smiles_gz(
         dtype={"cid": "int64", "smiles": "string"},
         on_bad_lines="skip",
     )
-    data = df.sample(n=min(n, len(df)), random_state=seed).reset_index(drop=True)
-    return data['cid'].tolist(), data['smiles'].tolist()
+
+    # Filter out SMILES with disconnected fragments
+    df = df[~df['smiles'].str.contains(r'\.', na=True, regex=True)]
+
+    # Sample more than needed to account for invalid molecules
+    sample_size = min(n * 3, len(df))
+    sampled = df.sample(n=sample_size, random_state=seed).reset_index(drop=True)
+
+    cids: List[int] = []
+    smiles_list: List[str] = []
+
+    for _, row in sampled.iterrows():
+        if len(cids) >= n:
+            break
+        smi = row['smiles']
+        try:
+            mol = smi_to_mol(smi)
+            mol = standardize_mol(mol)
+            if mol is not None and mol.GetNumBonds() <= max_bonds:
+                cids.append(int(row['cid']))
+                smiles_list.append(smi)
+        except Exception:
+            continue
+
+    return cids, smiles_list
