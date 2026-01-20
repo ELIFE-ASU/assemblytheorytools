@@ -454,3 +454,85 @@ def sample_random_pubchem(
             time.sleep(delay_s)
 
     return ids, smi_list
+
+
+def sample_first_pubchem(
+        n: int,
+        *,
+        start_cid: int = 1,
+        max_cid: int = 123_431_215,
+        delay_s: float = 0.01,
+        max_attempts: int = 500_000,
+        max_bonds: int = 100,
+        batch_size: Optional[int] = None,
+) -> Tuple[List[int], List[str]]:
+    if n <= 0:
+        return [], []
+
+    if batch_size is None:
+        batch_size = n
+    if batch_size <= 0:
+        raise ValueError("batch_size must be > 0")
+
+    if start_cid < 1 or start_cid > max_cid:
+        raise ValueError("start_cid must be in [1, max_cid]")
+
+    smi_list: List[str] = []
+    ids: List[int] = []
+
+    attempts = 0
+    next_cid = start_cid
+
+    def _is_valid_smiles(smi: str) -> bool:
+        if not smi or "." in smi:
+            return False
+        mol = smi_to_mol(smi, sanitize=True, add_hydrogens=True)
+        if mol is None:
+            return False
+        return mol.GetNumBonds() <= max_bonds
+
+    while len(smi_list) < n:
+        if attempts >= max_attempts:
+            raise RuntimeError(
+                f"Only collected {len(smi_list)} valid molecules after {max_attempts} attempts."
+            )
+        if next_cid > max_cid:
+            raise RuntimeError(
+                f"Reached max_cid={max_cid} after {attempts} attempts; collected {len(smi_list)} valid molecules."
+            )
+
+        remaining = n - len(smi_list)
+        # Query enough sequential CIDs to have a decent chance of finding `remaining` valid ones.
+        target = min(batch_size, max_cid - next_cid + 1)
+        # Optional: you can be more aggressive like in the random sampler:
+        # target = min(batch_size, max(remaining * 5, remaining), max_cid - next_cid + 1)
+
+        cids_batch = list(range(next_cid, next_cid + target))
+        next_cid += target
+        attempts += len(cids_batch)
+
+        try:
+            compounds = pcp.get_compounds(cids_batch, "cid")
+        except Exception:
+            compounds = []
+
+        for c in compounds:
+            if len(smi_list) >= n:
+                break
+
+            cid = getattr(c, "cid", None)
+            smi = getattr(c, "smiles", None)
+            if cid is None or smi is None:
+                continue
+
+            try:
+                if _is_valid_smiles(smi):
+                    ids.append(int(cid))
+                    smi_list.append(smi)
+            except Exception:
+                continue
+
+        if delay_s:
+            time.sleep(delay_s)
+
+    return ids, smi_list

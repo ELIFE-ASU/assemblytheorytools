@@ -785,3 +785,7 @@ def test_pubchem():
     _, smi_out = att.sample_random_pubchem(3)
     print(smi_out, flush=True)
     assert len(smi_out) == 3
+
+    _, smi_out = att.sample_first_pubchem(3)
+    print(smi_out, flush=True)
+    assert len(smi_out) == 3

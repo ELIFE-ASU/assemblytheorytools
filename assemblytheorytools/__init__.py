@@ -122,7 +122,8 @@ from .tools_data import (sample_boostrapping,
                          pubchem_id_to_smi,
                          pubchem_id_to_mol,
                          pubchem_id_to_nx,
-                         sample_random_pubchem)
+                         sample_random_pubchem,
+                         sample_first_pubchem)
 from .tools_file import (file_list,
                          file_list_all,
                          filter_files,
