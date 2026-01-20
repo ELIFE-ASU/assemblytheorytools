@@ -125,8 +125,7 @@ from .tools_data import (sample_boostrapping,
                          sample_random_pubchem,
                          sample_first_pubchem,
                          download_pubchem_cid_smiles_gz,
-                         sample_pubchem_smiles,
-                         sample_pubchem_smiles_streaming)
+                         sample_pubchem_cid_smiles_gz)
 from .tools_file import (file_list,
                          file_list_all,
                          filter_files,

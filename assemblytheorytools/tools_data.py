@@ -542,18 +542,16 @@ def sample_first_pubchem(
     return ids, smi_list
 
 
-PUBCHEM_CID_SMILES_GZ_URL = (
-    "https://ftp.ncbi.nlm.nih.gov/pubchem/Compound/Extras/CID-SMILES.gz"
-)
-
-
 def download_pubchem_cid_smiles_gz(
         target_dir: str | os.PathLike = ".",
-        url: str = PUBCHEM_CID_SMILES_GZ_URL,
+        url: str | None = None,
         filename: str = "CID-SMILES.gz",
         chunk_size: int = 1024 * 1024,
         overwrite: bool = False,
 ) -> Path:
+    if url is None:
+        url = "https://ftp.ncbi.nlm.nih.gov/pubchem/Compound/Extras/CID-SMILES.gz"
+
     target_dir = Path(target_dir)
     target_dir.mkdir(parents=True, exist_ok=True)
     out_path = target_dir / filename
@@ -574,12 +572,12 @@ def download_pubchem_cid_smiles_gz(
     return out_path
 
 
-def sample_pubchem_smiles(
+def sample_pubchem_cid_smiles_gz(
         n: int,
         gz_path: str = 'CID-SMILES.gz',
         seed: int = 0,
         sep: str = "\t",
-) -> pd.DataFrame:
+) -> Tuple[List[int], List[str]]:
     df = pd.read_csv(
         gz_path,
         compression="gzip",
@@ -589,4 +587,5 @@ def sample_pubchem_smiles(
         dtype={"cid": "int64", "smiles": "string"},
         on_bad_lines="skip",
     )
-    return df.sample(n=min(n, len(df)), random_state=seed).reset_index(drop=True)
+    data = df.sample(n=min(n, len(df)), random_state=seed).reset_index(drop=True)
+    return data['cid'].tolist(), data['smiles'].tolist()

@@ -756,6 +756,7 @@ def test_mp_calc_star():
 def test_pubchem():
     id_str = 'Aspirin'
     id = 2244
+    n_sample = 3
 
     print(flush=True)
     smi = att.pubchem_name_to_smi(id_str)
@@ -782,14 +783,16 @@ def test_pubchem():
     print(smi_out, flush=True)
     assert smi_out == '[H]OC(=O)C1=C([H])C([H])=C([H])C([H])=C1OC(=O)C([H])([H])[H]'
 
-    _, smi_out = att.sample_random_pubchem(3)
+    _, smi_out = att.sample_random_pubchem(n_sample)
     print(smi_out, flush=True)
-    assert len(smi_out) == 3
+    assert len(smi_out) == n_sample
 
-    _, smi_out = att.sample_first_pubchem(3)
+    _, smi_out = att.sample_first_pubchem(n_sample)
     print(smi_out, flush=True)
-    assert len(smi_out) == 3
+    assert len(smi_out) == n_sample
 
     att.download_pubchem_cid_smiles_gz()
     assert os.path.exists('CID-SMILES.gz')
-    print(att.sample_pubchem_smiles(3))
+    id_out, smi_out = att.sample_pubchem_cid_smiles_gz(n_sample)
+    print(id_out, smi_out, flush=True)
+    assert len(smi_out) == n_sample
