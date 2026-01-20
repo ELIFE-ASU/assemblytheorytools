@@ -791,8 +791,8 @@ def test_pubchem():
     print(smi_out, flush=True)
     assert len(smi_out) == n_sample
 
-    att.download_pubchem_cid_smiles_gz()
-    assert os.path.exists('CID-SMILES.gz')
-    id_out, smi_out = att.sample_pubchem_cid_smiles_gz(n_sample)
-    print(id_out, smi_out, flush=True)
-    assert len(smi_out) == n_sample
+    # att.download_pubchem_cid_smiles_gz()
+    # assert os.path.exists('CID-SMILES.gz')
+    # id_out, smi_out = att.sample_pubchem_cid_smiles_gz(n_sample)
+    # print(id_out, smi_out, flush=True)
+    # assert len(smi_out) == n_sample

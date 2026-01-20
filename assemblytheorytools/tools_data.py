@@ -470,6 +470,45 @@ def sample_first_pubchem(
         max_bonds: int = 100,
         batch_size: Optional[int] = None,
 ) -> Tuple[List[int], List[str]]:
+    """
+    Sample the first n valid molecules from PubChem starting from a given CID.
+
+    Parameters
+    ----------
+    n : int
+        The number of valid molecules to sample.
+    start_cid : int, optional
+        The PubChem Compound ID to start sampling from. Default is 1.
+    max_cid : int, optional
+        Maximum PubChem Compound ID to sample up to. Default is 123,431,215.
+    delay_s : float, optional
+        Delay in seconds between batch requests to avoid rate limiting. Default is 0.01.
+    max_attempts : int, optional
+        Maximum number of CID attempts before raising an error. Default is 500,000.
+    max_bonds : int, optional
+        Maximum number of bonds allowed in a valid molecule. Default is 100.
+    batch_size : int, optional
+        Number of CIDs to query per batch. Defaults to n if not specified.
+
+    Returns
+    -------
+    ids : List[int]
+        List of PubChem CIDs for the sampled molecules.
+    smi_list : List[str]
+        List of canonical SMILES strings for the sampled molecules.
+
+    Raises
+    ------
+    ValueError
+        If batch_size is <= 0 or start_cid is outside [1, max_cid].
+    RuntimeError
+        If unable to collect n valid molecules within max_attempts or max_cid is reached.
+
+    Notes
+    -----
+    - Molecules containing disconnected fragments (indicated by "." in SMILES) are excluded.
+    - CIDs are queried sequentially starting from start_cid.
+    """
     if n <= 0:
         return [], []
 
@@ -549,6 +588,32 @@ def download_pubchem_cid_smiles_gz(
         chunk_size: int = 1024 * 1024,
         overwrite: bool = False,
 ) -> Path:
+    """
+    Download the PubChem CID-SMILES mapping file.
+
+    Parameters
+    ----------
+    target_dir : str or os.PathLike, optional
+        Directory to save the downloaded file. Default is current directory.
+    url : str or None, optional
+        URL to download from. Default is the official PubChem FTP URL.
+    filename : str, optional
+        Name of the output file. Default is "CID-SMILES.gz".
+    chunk_size : int, optional
+        Size of chunks to read during download in bytes. Default is 1MB.
+    overwrite : bool, optional
+        Whether to overwrite existing file. Default is False.
+
+    Returns
+    -------
+    Path
+        Path to the downloaded file.
+
+    Notes
+    -----
+    The default URL points to the PubChem FTP server containing all
+    compound IDs mapped to their canonical SMILES strings.
+    """
     if url is None:
         url = "https://ftp.ncbi.nlm.nih.gov/pubchem/Compound/Extras/CID-SMILES.gz"
 
@@ -574,10 +639,37 @@ def download_pubchem_cid_smiles_gz(
 
 def sample_pubchem_cid_smiles_gz(
         n: int,
+        *,
         gz_path: str = 'CID-SMILES.gz',
         seed: int = 0,
         sep: str = "\t",
 ) -> Tuple[List[int], List[str]]:
+    """
+    Sample random CID-SMILES pairs from a downloaded PubChem gzip file.
+
+    Parameters
+    ----------
+    n : int
+        Number of samples to draw from the file.
+    gz_path : str, optional
+        Path to the gzipped CID-SMILES file. Default is "CID-SMILES.gz".
+    seed : int, optional
+        Random seed for reproducibility. Default is 0.
+    sep : str, optional
+        Column separator in the file. Default is tab character.
+
+    Returns
+    -------
+    cids : List[int]
+        List of PubChem Compound IDs.
+    smiles : List[str]
+        List of corresponding SMILES strings.
+
+    Notes
+    -----
+    If n exceeds the number of rows in the file, all available rows are returned.
+    Bad lines in the file are skipped during parsing.
+    """
     df = pd.read_csv(
         gz_path,
         compression="gzip",
