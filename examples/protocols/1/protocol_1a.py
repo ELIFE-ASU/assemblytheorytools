@@ -15,11 +15,15 @@ if __name__ == "__main__":
     # Print the calculated assembly index to the console
     print(f"Assembly index: {ai}", flush=True)
 
-    # Print the virtual objects to the console
-    print(f"virt_obj: {virt_obj}", flush=True)
+    # Convert the graphs in the pathway to smi, so I can use 'mol' plot type
+    for node in pathway.nodes():
+        node_graph = pathway.nodes[node]['vo']
+        node_smi = att.nx_to_smi(node_graph, add_hydrogens=False)
+        # print(f"Node {node}: {node_smi}")
+        pathway.nodes[node]['vo'] = node_smi
 
-    att.plot_pathway(pathway, show_icons=False, frame_on=True, plot_type='graph')
+    att.plot_pathway(pathway, show_icons=True, frame_on=False, plot_type='mol', fig_size=(14, 7), layout_style='crossmin_long')
     plt.savefig("mol_pathway_example.svg")
     plt.show()
 
-    att.plot_digraph_metro(pathway, filename="metro_pathway_example")
+    #att.plot_digraph_metro(pathway, filename="metro_pathway_example")
