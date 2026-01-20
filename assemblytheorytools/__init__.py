@@ -178,8 +178,7 @@ from .tools_string import (load_fasta,
                            get_unique_char,
                            generate_random_strings,
                            get_dir_str_molecule,
-                           get_undir_str_molecule,
-                           decode_string_from_graph)
+                           get_undir_str_molecule)
 from .tools_test import (check_elements,
                          print_graph_details,
                          water_graph,

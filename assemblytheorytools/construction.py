@@ -1178,9 +1178,9 @@ def molstr_to_str(molstr: nx.Graph, edge_color_dict: Optional[Dict[str, str]] = 
 
     out_str = ""
     if edge_color_dict is None:  # Directed
-        for n_idx, node in enumerate(molstr.nodes(data=True)):  # Loop over nodes in molstr with odd indices
-            # print(f"Node {n_idx}: {node}")
-            if n_idx % 2 == 1:
+        odd = int(molstr.nodes(data=True)[0]['color'] == 'null') # True if encoding was respected
+        for n_idx, node in enumerate(molstr.nodes(data=True)):  # Loop over nodes in molstr with odd indices (even if fragment broke the encoding scheme)
+            if n_idx % 2 == odd:
                 out_str += node[1]['color']
     else:  # Undirected
         # Prep the edge_color_dict

@@ -166,6 +166,6 @@ def test_string_graph_conversion():
 
     for _ in range(50):
         s = att.generate_random_strings(1, 20)[0]
-        assert s == att.decode_string_from_graph(att.get_dir_str_molecule(s))
+        assert s == att.molstr_to_str(att.get_dir_str_molecule(s))
         graph, edge_color_dict = att.get_undir_str_molecule(s)
-        assert s == att.decode_string_from_graph(graph, edge_color_dict = edge_color_dict)
+        assert s == att.molstr_to_str(graph, edge_color_dict = edge_color_dict)
