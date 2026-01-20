@@ -1227,8 +1227,8 @@ def plot_contourf_full(x: np.ndarray,
     return fig, ax
 
 
-def plot_heatmap(x: np.ndarray,
-                 y: np.ndarray,
+def plot_heatmap(x: np.ndarray | List,
+                 y: np.ndarray | List,
                  xlab: str,
                  ylab: str,
                  c_map: str = 'viridis',
@@ -1299,7 +1299,7 @@ def plot_heatmap(x: np.ndarray,
                    extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]])
     # Add colour bar
     cbar = plt.colorbar(im, ax=ax)
-    cbar.set_label('Point Density', fontsize=fontsize)
+    cbar.set_label('Count', fontsize=fontsize)
     ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
     return fig, ax
 
