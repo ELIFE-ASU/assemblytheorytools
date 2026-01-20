@@ -306,7 +306,12 @@ def decode_string_from_graph(graph: nx.Graph, edge_color_dict: dict = None) -> s
             edge_data = graph.get_edge_data(i, i + 1)
             decoded_string += decoding_dict[str(edge_data['color'])]
     else: # mode == 'dir'
+        if graph.nodes[0]['color'] == 'null':
+            offset = 1
+        else:
+            offset = 0 # Fragments might not always respect the encoding scheme.
+
         for i in range(len(graph.edges) // 2):
-            decoded_string += str(graph.nodes[2 * i + 1]['color'])
+            decoded_string += str(graph.nodes[2 * i + offset]['color'])
     
     return decoded_string
