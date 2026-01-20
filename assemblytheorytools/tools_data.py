@@ -1,9 +1,13 @@
+import os
 import random
 import time
+from pathlib import Path
 from typing import List, Optional, Tuple, Union
+from urllib.request import Request, urlopen
 
 import networkx as nx
 import numpy as np
+import pandas as pd
 import pubchempy as pcp
 from rdkit import Chem
 from scipy.stats import gaussian_kde
@@ -536,3 +540,53 @@ def sample_first_pubchem(
             time.sleep(delay_s)
 
     return ids, smi_list
+
+
+PUBCHEM_CID_SMILES_GZ_URL = (
+    "https://ftp.ncbi.nlm.nih.gov/pubchem/Compound/Extras/CID-SMILES.gz"
+)
+
+
+def download_pubchem_cid_smiles_gz(
+        target_dir: str | os.PathLike = ".",
+        url: str = PUBCHEM_CID_SMILES_GZ_URL,
+        filename: str = "CID-SMILES.gz",
+        chunk_size: int = 1024 * 1024,
+        overwrite: bool = False,
+) -> Path:
+    target_dir = Path(target_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    out_path = target_dir / filename
+
+    if out_path.exists() and not overwrite:
+        print(f"File already exists: {out_path}", flush=True)
+        return out_path
+
+    req = Request(url, headers={"User-Agent": "python-download/1.0"})
+
+    with urlopen(req) as resp, open(out_path, "wb") as f:
+        while True:
+            chunk = resp.read(chunk_size)
+            if not chunk:
+                break
+            f.write(chunk)
+
+    return out_path
+
+
+def sample_pubchem_smiles(
+        n: int,
+        gz_path: str = 'CID-SMILES.gz',
+        seed: int = 0,
+        sep: str = "\t",
+) -> pd.DataFrame:
+    df = pd.read_csv(
+        gz_path,
+        compression="gzip",
+        sep=sep,
+        header=None,
+        names=["cid", "smiles"],
+        dtype={"cid": "int64", "smiles": "string"},
+        on_bad_lines="skip",
+    )
+    return df.sample(n=min(n, len(df)), random_state=seed).reset_index(drop=True)

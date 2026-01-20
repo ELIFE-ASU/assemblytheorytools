@@ -789,3 +789,7 @@ def test_pubchem():
     _, smi_out = att.sample_first_pubchem(3)
     print(smi_out, flush=True)
     assert len(smi_out) == 3
+
+    att.download_pubchem_cid_smiles_gz()
+    assert os.path.exists('CID-SMILES.gz')
+    print(att.sample_pubchem_smiles(3))
