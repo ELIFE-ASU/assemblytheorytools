@@ -592,8 +592,18 @@ def plot_pathway(graph: nx.DiGraph,
                 imagebox = OffsetImage(img, zoom=0.02)
                 ab = AnnotationBbox(imagebox, (pos[node][0], pos[node][1]), frameon=frame_on)
                 ax.add_artist(ab)
+        elif plot_type == "string":
+            for node in graph.nodes:
+                s = graph.nodes[node]["vo"]
+                ax.text(pos[node][0], pos[node][1], s, fontsize=11, ha='center', va='center', bbox=dict(boxstyle='round,pad=0.5', facecolor='white', edgecolor='white', linewidth=1))
+
     fig.tight_layout()
     ax.axis('off')
+    # scatter the positions to fix the view
+    ax.scatter([pos[node][0] for node in graph.nodes()],
+               [pos[node][1] for node in graph.nodes()],
+               s=10, color='red')
+
     return fig, ax
 
 
