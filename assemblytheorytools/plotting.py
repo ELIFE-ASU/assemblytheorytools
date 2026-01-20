@@ -427,7 +427,8 @@ def plot_pathway(graph: nx.DiGraph,
                  plot_type: str = 'mol',
                  arrow_style: str = '1',
                  layout_style: str = 'crossmin_long',
-                 frame_on: bool = True) -> tuple[Figure, Axes]:
+                 frame_on: bool = True,
+                 font_size: int = 11) -> tuple[Figure, Axes]:
     """
     Visualize a directed acyclic graph as a pathway with customizable layout.
     
@@ -455,6 +456,8 @@ def plot_pathway(graph: nx.DiGraph,
         multipartite, by default 'crossmin_long'.
     frame_on : bool, optional
         If True, displays axis frame, by default True.
+    font_size : int, optional
+        Font size for string assembly paths, by default 11.
     
     Returns
     -------
@@ -595,7 +598,7 @@ def plot_pathway(graph: nx.DiGraph,
         elif plot_type == "string":
             for node in graph.nodes:
                 s = graph.nodes[node]["vo"]
-                ax.text(pos[node][0], pos[node][1], s, fontsize=11, ha='center', va='center', bbox=dict(boxstyle='round,pad=0.5', facecolor='white', edgecolor='white', linewidth=1))
+                ax.text(pos[node][0], pos[node][1], s, fontsize=font_size, ha='center', va='center', bbox=dict(boxstyle='round,pad=0.5', facecolor='white', edgecolor='white', linewidth=1))
 
     fig.tight_layout()
     ax.axis('off')
