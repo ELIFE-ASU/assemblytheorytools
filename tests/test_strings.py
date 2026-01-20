@@ -157,3 +157,12 @@ def test_bug_08222025():
     """
     ai, vo, path = att.calculate_string_assembly_index('yydpetgtwy', mode='mol', directed=False, debug=True)
     assert path
+
+
+def test_string_graph_conversion():
+
+    for _ in range(50):
+        s = att.generate_random_strings(1, 20)[0]
+        assert s == att.decode_string_from_graph(att.get_dir_str_molecule(s))
+        graph, edge_color_dict = att.get_undir_str_molecule(s)
+        assert s == att.decode_string_from_graph(graph, edge_color_dict = edge_color_dict)

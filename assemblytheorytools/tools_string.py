@@ -274,3 +274,39 @@ def generate_random_strings(n_pool: int, n_length: int) -> list[str]:
 
     # Generate a list of random strings using the specified character set
     return [''.join(random.choices(chars, k=n_length)) for _ in range(n_pool)]
+
+
+def decode_string_from_graph(graph: nx.Graph, edge_color_dict: dict = None) -> str:
+    """
+    Decode the original string from a molecular graph representation.
+
+    Parameters
+    ----------
+    graph : nx.Graph
+        The molecular graph representation of the string.
+    edge_color_dict : dict, optional
+        A dictionary mapping edge IDs to their colors.
+
+    Returns
+    -------
+    str
+        The decoded original string.
+    """
+    if edge_color_dict == None: # Infer the encoding method
+        mode = 'dir'
+    else:
+        mode = 'undir'
+        # invert the dict
+        decoding_dict = {v: k for k, v in edge_color_dict.items()}
+    
+    decoded_string = ""
+
+    if mode == 'undir':
+        for i in range(len(graph.edges)):
+            edge_data = graph.get_edge_data(i, i + 1)
+            decoded_string += decoding_dict[str(edge_data['color'])]
+    else: # mode == 'dir'
+        for i in range(len(graph.edges) // 2):
+            decoded_string += str(graph.nodes[2 * i + 1]['color'])
+    
+    return decoded_string
