@@ -1,4 +1,5 @@
 import assemblytheorytools as att
+import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
     # Define a single input string for analysis
@@ -17,4 +18,7 @@ if __name__ == "__main__":
     print(f"virt_obj: {virt_obj}", flush=True)
     print(f"path: {pathway}", flush=True)
 
-    att.plot_digraph_metro(pathway, filename="metro_pathway_example")
+
+    att.plot_pathway(pathway, show_icons=True, frame_on=True, fig_size=(14, 7), plot_type='string', layout_style = 'crossmin', node_color='white') #'crossmin', 'crossmin_long', 'sa'
+    plt.savefig("str_pathway_example.svg")
+    plt.show()
