@@ -1035,6 +1035,8 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
 
         # Parse the virtual object and path
         virt_obj = [molstr_to_str(item, edge_color_dict=edge_color_dict) for item in graph_virtual_obj]
+        for node in graph_path.nodes(data=True):
+            node[1]["vo"] = molstr_to_str(node[1]["vo"], edge_color_dict=edge_color_dict)
         path = graph_path
 
         # Convert to (joint) assembly index of directed strings.
@@ -1044,7 +1046,6 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
             return ai, virt_obj, path
 
     elif mode == "str":  # Use the string assembly cpp calculator
-        # raise NotImplementedError("String assembly cpp calculator not yet supported.")
 
         # Initialize variables
         ai = -1
