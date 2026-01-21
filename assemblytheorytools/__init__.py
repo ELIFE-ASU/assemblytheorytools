@@ -48,7 +48,8 @@ from .complexity_scores import (count_unique_bonds,
                                 bottcher,
                                 proudfoot,
                                 mc1,
-                                mc2)
+                                mc2,
+                                shannon_entropy)
 from .construction import (parse_pathway_file,
                            assign_levels,
                            parse_string_pathway_file,
