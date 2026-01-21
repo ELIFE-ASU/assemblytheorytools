@@ -469,6 +469,18 @@ def plot_pathway(graph: nx.DiGraph,
     ValueError
         If arrow_style is not '1' or '2'.
     """
+
+    # If the input is a graph check if it contains molecule graphs and convert to smiles
+    if plot_type == 'mol':
+        for node in graph.nodes:
+            node_graph = graph.nodes[node]['vo']
+            if isinstance(node_graph, nx.Graph):
+                try:
+                    smi = nx_to_smi(node_graph, add_hydrogens=False, sanitize=False)
+                    graph.nodes[node]['vo'] = smi
+                except:
+                    plot_type = 'graph'
+
     fig, ax = plt.subplots(figsize=fig_size)
 
     for layer, nodes in enumerate(nx.topological_generations(graph)):
