@@ -24,6 +24,8 @@ from .assembly import (calculate_assembly_index,
                        calculate_rust_ai,
                        integer_chain)
 from .complexity_scores import (count_unique_bonds,
+                                count_bonds,
+                                count_non_h_bonds,
                                 molecular_weight,
                                 bertz_complexity,
                                 wiener_index,
@@ -125,7 +127,8 @@ from .tools_data import (sample_boostrapping,
                          sample_random_pubchem,
                          sample_first_pubchem,
                          download_pubchem_cid_smiles_gz,
-                         sample_pubchem_cid_smiles_gz)
+                         sample_pubchem_cid_smiles_gz,
+                         sample_pubchem_cid_smiles_gz_mw)
 from .tools_file import (file_list,
                          file_list_all,
                          filter_files,

@@ -4,7 +4,7 @@ import lzma
 import math
 import traceback
 import zlib
-from collections import defaultdict
+from collections import Counter, defaultdict
 from typing import Dict, Any, Optional
 
 import networkx as nx
@@ -54,6 +54,53 @@ def count_unique_bonds(mol: Mol) -> int:
         unique_bonds.add((atom_types, bond_type))
     # Return the count of unique bonds
     return len(unique_bonds)
+
+
+def count_bonds(mol: Mol) -> int:
+    """
+    Counts the total number of bonds in a molecule.
+
+    This function simply returns the total number of bonds present
+    in the given RDKit molecule object.
+
+    Parameters:
+    -----------
+    mol : rdkit.Chem.rdchem.Mol
+        The RDKit molecule object whose bonds are to be counted.
+
+    Returns:
+    --------
+    int
+        The total number of bonds in the molecule.
+    """
+    return mol.GetNumBonds()
+
+
+def count_non_h_bonds(mol: Mol) -> int:
+    """
+    Counts the number of bonds in a molecule that do not involve hydrogen atoms.
+
+    This function iterates over all the bonds in the given RDKit molecule object,
+    checks if either of the bonded atoms is a hydrogen atom, and counts only those
+    bonds where neither atom is hydrogen.
+
+    Parameters:
+    -----------
+    mol : rdkit.Chem.rdchem.Mol
+        The RDKit molecule object whose non-hydrogen bonds are to be counted.
+
+    Returns:
+    --------
+    int
+        The number of bonds in the molecule that do not involve hydrogen atoms.
+    """
+    non_h_bond_count = 0
+    for bond in mol.GetBonds():
+        begin_atom = bond.GetBeginAtom()
+        end_atom = bond.GetEndAtom()
+        if begin_atom.GetSymbol() != 'H' and end_atom.GetSymbol() != 'H':
+            non_h_bond_count += 1
+    return non_h_bond_count
 
 
 def molecular_weight(mol: Mol) -> float:
@@ -1147,3 +1194,33 @@ def mc2(mol: Mol) -> int:
 
     # Count non-divalent atoms not in C=O-X double bonds
     return sum(1 for atom in mol.GetAtoms() if atom.GetDegree() != 2 and atom.GetIdx() not in double_bond_set)
+
+
+def shannon_entropy(s: str) -> float:
+    """
+    Compute Shannon entropy H(X) of a string.
+
+    Shannon entropy is calculated as:
+    H(X) = - sum_{x in distinct letters} p(x) * log2(p(x))
+    where p(x) = count(x) / n and n = len(s).
+
+    Parameters
+    ----------
+    s : str
+        The input string for which to calculate entropy.
+
+    Returns
+    -------
+    float
+        Entropy in bits. Returns 0.0 for empty strings.
+    """
+    n = len(s)
+    if n == 0:
+        return 0.0
+
+    counts = Counter(s)
+    entropy = 0.0
+    for c in counts.values():
+        p = c / n
+        entropy -= p * math.log2(p)
+    return entropy
