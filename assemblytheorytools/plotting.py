@@ -1245,7 +1245,7 @@ def plot_heatmap(x: np.ndarray | List,
                  xlab: str,
                  ylab: str,
                  c_map: str = 'viridis',
-                 nbins: int = 50,
+                 nbins: int | Tuple[int, int] = 50,
                  figsize: Tuple[float, float] = (8, 5),
                  fontsize: int = 16) -> Tuple[Figure, Axes]:
     """
@@ -1304,7 +1304,7 @@ def plot_heatmap(x: np.ndarray | List,
     """
     fig, ax = plt.subplots(figsize=figsize)
     # Create a 2D histogram of the data
-    heatmap_data, xedges, yedges = np.histogram2d(x, y, bins=(nbins, nbins))
+    heatmap_data, xedges, yedges = np.histogram2d(x, y, bins=nbins)
     im = ax.imshow(heatmap_data.T,
                    origin='lower',
                    cmap=c_map,
