@@ -1200,6 +1200,8 @@ def shannon_entropy(s: str) -> float:
     """
     Compute Shannon entropy H(X) of a string.
 
+    Usage example: https://www.science.org/doi/10.1126/sciadv.abj2465
+
     Shannon entropy is calculated as:
     H(X) = - sum_{x in distinct letters} p(x) * log2(p(x))
     where p(x) = count(x) / n and n = len(s).

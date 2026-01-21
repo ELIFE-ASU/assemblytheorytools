@@ -469,6 +469,8 @@ def test_shannon_entropy():
     3. Prints the computed entropy value.
     4. Asserts that the computed entropy is approximately equal to 3.251
        (with a tolerance of 0.001).
+
+    Example see https://www.science.org/doi/10.1126/sciadv.abj2465
     """
     print(flush=True)  # Ensure output is flushed immediately
     smi = "CG_TTG_A1_GAC1G_3CTC4_1T5CAG42342543"  # Input sequence for entropy calculation
