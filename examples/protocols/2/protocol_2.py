@@ -7,9 +7,9 @@ import assemblytheorytools as att
 
 if __name__ == "__main__":
     t_0 = t.time()
-    n_sample = 10_000
+    n_sample = 20_000
     max_mw = 600.0
-    max_bonds = 90
+    max_bonds = 80
 
     att.download_pubchem_cid_smiles_gz()
     sample = att.sample_pubchem_cid_smiles_gz_mw(n_sample, max_mw=max_mw, max_bonds=max_bonds)

@@ -729,6 +729,7 @@ def _valid_mol(smi: str) -> float:
     try:
         mol = smi_to_mol(smi)
         Chem.SanitizeMol(mol)
+        Chem.Kekulize(mol)
         return Chem.Descriptors.MolWt(mol)
     except Exception:
         return 0.0
@@ -761,15 +762,17 @@ def sample_pubchem_cid_smiles_gz_mw(
         print(f"Total number of molecules in PubChem: {len(df)}", flush=True)
         df = df.sample(n=min(n * 3, len(df)), random_state=seed).reset_index(drop=True)
         # Remove rows with invalid SMILES
+        print("Filtering invalid SMILES...", flush=True)
         df = df[mp_calc(_valid_smi, df['smiles'])]
         # Calculate molecular weights
+        print('Filtering mols', flush=True)
         df['mw'] = mp_calc(_valid_mol, df['smiles'])
+        # Filter out the SMILES with mw > max_mw
+        df = df[(df['mw'] <= max_mw) & (df['mw'] > 0.0)]
         # Calculate number of bonds
         df['n_bonds'] = mp_calc(count_non_h_bonds, mp_calc(smi_to_mol, df['smiles']))
         # Filter out the SMILES with too many bonds
         df = df[df['n_bonds'] <= max_bonds]
-        # Filter out the SMILES with mw > max_mw
-        df = df[(df['mw'] <= max_mw) & (df['mw'] > 0.0)]
         # Sample n rows
         sampled = df.sample(n=n, random_state=seed).reset_index(drop=True)
         print(f"Total number of molecules in PubChem: {len(sampled)}", flush=True)
