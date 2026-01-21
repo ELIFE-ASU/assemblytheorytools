@@ -12,8 +12,10 @@ import pubchempy as pcp
 from rdkit import Chem
 from scipy.stats import gaussian_kde
 
+from .complexity_scores import count_non_h_bonds
 from .tools_graph import smi_to_nx
 from .tools_mol import smi_to_mol, standardize_mol
+from .tools_mp import mp_calc
 
 
 def random_argmin(arr: np.ndarray) -> int:
@@ -708,3 +710,68 @@ def sample_pubchem_cid_smiles_gz(
             continue
 
     return cids, smiles_list
+
+
+def _valid(s):
+    try:
+        mol = smi_to_mol(s)
+        standardize_mol(mol)
+    except Exception:
+        return False
+    return True
+
+
+def _valid_smi(smi: str) -> bool:
+    return bool(smi) and all(x not in smi for x in [".", "*", "->", "$"])
+
+
+def _valid_mol(smi: str) -> float:
+    try:
+        mol = smi_to_mol(smi)
+        Chem.SanitizeMol(mol)
+        return Chem.Descriptors.MolWt(mol)
+    except Exception:
+        return 0.0
+
+
+def sample_pubchem_cid_smiles_gz_mw(
+        n: int,
+        *,
+        gz_path: str = 'CID-SMILES.gz',
+        out_file: str = 'sampled_cid_smiles_mw.csv.gz',
+        seed: int = 0,
+        sep: str = "\t",
+        max_mw: float = 600.0,
+        max_bonds: int = 100,
+) -> pd.DataFrame:
+    if os.path.exists(out_file):
+        print(f"Loading existing sampled file: {out_file}", flush=True)
+        return pd.read_csv(out_file, compression="gzip")
+    else:
+        print(f"Creating sampled file: {out_file}", flush=True)
+        df = pd.read_csv(
+            gz_path,
+            compression="gzip",
+            sep=sep,
+            header=None,
+            names=["cid", "smiles"],
+            dtype={"cid": "int64", "smiles": "string"},
+            on_bad_lines="skip",
+        )
+        print(f"Total number of molecules in PubChem: {len(df)}", flush=True)
+        df = df.sample(n=min(n * 3, len(df)), random_state=seed).reset_index(drop=True)
+        # Remove rows with invalid SMILES
+        df = df[mp_calc(_valid_smi, df['smiles'])]
+        # Calculate molecular weights
+        df['mw'] = mp_calc(_valid_mol, df['smiles'])
+        # Calculate number of bonds
+        df['n_bonds'] = mp_calc(count_non_h_bonds, mp_calc(smi_to_mol, df['smiles']))
+        # Filter out the SMILES with too many bonds
+        df = df[df['n_bonds'] <= max_bonds]
+        # Filter out the SMILES with mw > max_mw
+        df = df[(df['mw'] <= max_mw) & (df['mw'] > 0.0)]
+        # Sample n rows
+        sampled = df.sample(n=n, random_state=seed).reset_index(drop=True)
+        print(f"Total number of molecules in PubChem: {len(sampled)}", flush=True)
+        sampled.to_csv(out_file, index=False, compression='gzip')
+        return sampled
