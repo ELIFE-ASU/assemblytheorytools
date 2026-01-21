@@ -796,3 +796,30 @@ def test_pubchem():
     # id_out, smi_out = att.sample_pubchem_cid_smiles_gz(n_sample)
     # print(id_out, smi_out, flush=True)
     # assert len(smi_out) == n_sample
+
+
+def test_convert_digraph_vo_to_target():
+    smi = att.pubchem_name_to_smi('diethyl phthalate')
+    print(f"SMILES: {smi}", flush=True)
+    graph = att.smi_to_nx(smi, sanitize=True, add_hydrogens=True)
+
+    pathway = att.calculate_assembly_index(graph, strip_hydrogen=True)[2]
+    pathway = att.convert_digraph_vo_to_target(pathway)
+    smis = []
+    for node in pathway.nodes():
+        smis.append(pathway.nodes[node]['vo'])
+    print(smis, flush=True)
+    ref_smi = ['CC',
+               'CCO',
+               'CO',
+               'C=O',
+               'CC(=O)O',
+               'C=CC(=O)O',
+               'C=C',
+               'CC=CC(=O)O',
+               'CC=CC(=O)OCC',
+               'CC=C(C)C(=O)OCC',
+               'C=CC=C(C)C(=O)OCC',
+               'CCOC(=O)C1=C(C(=O)OCC)C=CC=C1']
+
+    assert att.check_elements(smis, ref_smi)

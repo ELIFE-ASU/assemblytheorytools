@@ -8,7 +8,12 @@ import numpy as np
 from rdkit import Chem
 from rdkit.Chem.rdchem import RWMol
 
-from .tools_graph import bond_order_assout_to_int, bond_order_int_to_rdkit, canonicalize_node_labels
+from .tools_graph import (bond_order_assout_to_int,
+                          bond_order_int_to_rdkit,
+                          canonicalize_node_labels,
+                          nx_to_smi,
+                          nx_to_inchi,
+                          nx_to_mol)
 from .tools_mol import smi_remove_implicit_hydrogen
 
 
@@ -1178,8 +1183,9 @@ def molstr_to_str(molstr: nx.Graph, edge_color_dict: Optional[Dict[str, str]] = 
 
     out_str = ""
     if edge_color_dict is None:  # Directed
-        odd = int(molstr.nodes(data=True)[0]['color'] == 'null') # True if encoding was respected
-        for n_idx, node in enumerate(molstr.nodes(data=True)):  # Loop over nodes in molstr with odd indices (even if fragment broke the encoding scheme)
+        odd = int(molstr.nodes(data=True)[0]['color'] == 'null')  # True if encoding was respected
+        for n_idx, node in enumerate(molstr.nodes(
+                data=True)):  # Loop over nodes in molstr with odd indices (even if fragment broke the encoding scheme)
             if n_idx % 2 == odd:
                 out_str += node[1]['color']
     else:  # Undirected
@@ -1199,3 +1205,50 @@ def molstr_to_str(molstr: nx.Graph, edge_color_dict: Optional[Dict[str, str]] = 
             out_str += edge_color_dict[str(data.get('color'))]
 
     return out_str
+
+
+def convert_digraph_vo_to_target(graph: nx.DiGraph, target='smi') -> nx.DiGraph:
+    """
+    Converts the virtual object (VO) representation of nodes in a directed graph
+    to a specified target format.
+
+    Parameters
+    ----------
+    graph : nx.DiGraph
+        A NetworkX directed graph where each node contains a 'vo' attribute
+        representing the virtual object.
+    target : str, optional
+        The target format for the virtual object. Must be one of:
+        - 'smi': Convert to SMILES format.
+        - 'inchi': Convert to InChI format.
+        - 'mol': Convert to RDKit Mol object.
+        Default is 'smi'.
+
+    Returns
+    -------
+    nx.DiGraph
+        The updated directed graph with the 'vo' attribute of each node
+        converted to the specified target format.
+
+    Raises
+    ------
+    ValueError
+        If the specified target format is not one of 'smi', 'inchi', or 'mol'.
+
+    Notes
+    -----
+    - The conversion functions `nx_to_smi`, `nx_to_inchi`, and `nx_to_mol`
+      are used to perform the conversions.
+    - The `add_hydrogens` parameter is set to False for all conversions.
+    """
+    for node in graph.nodes():
+        node_graph = graph.nodes[node]['vo']
+        if target == 'smi':
+            graph.nodes[node]['vo'] = nx_to_smi(node_graph, add_hydrogens=False)
+        elif target == 'inchi':
+            graph.nodes[node]['vo'] = nx_to_inchi(node_graph, add_hydrogens=False)
+        elif target == 'mol':
+            graph.nodes[node]['vo'] = nx_to_mol(node_graph, add_hydrogens=False)
+        else:
+            raise ValueError("Target must be 'smi', 'inchi', or 'mol'")
+    return graph
