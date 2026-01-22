@@ -193,6 +193,31 @@ def filter_by_n_bonds(df: pd.DataFrame,
                       max_bonds: int = 100,
                       c_smiles: str = 'smiles',
                       c_bonds: str = 'n_bonds') -> pd.DataFrame:
+    """
+    Filter a DataFrame of molecules based on the number of bonds.
+
+    This function calculates the number of bonds for each molecule in the DataFrame
+    and filters the rows to include only those within the specified range.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The input DataFrame containing molecular data.
+    min_bonds : int, optional
+        The minimum number of bonds to include. Default is 0.
+    max_bonds : int, optional
+        The maximum number of bonds to include. Default is 100.
+    c_smiles : str, optional
+        The column name in the DataFrame containing SMILES strings. Default is 'smiles'.
+    c_bonds : str, optional
+        The column name to store the calculated number of bonds. Default is 'n_bonds'.
+
+    Returns
+    -------
+    pandas.DataFrame
+        A filtered DataFrame containing only rows with the number of bonds
+        within the specified range.
+    """
     df[c_bonds] = mp_calc(count_bonds, mp_calc(smi_to_mol, df[c_smiles]))
     return df[(df[c_bonds] >= min_bonds) & (df[c_bonds] <= max_bonds)].reset_index(drop=True)
 
@@ -238,6 +263,31 @@ def filter_by_mw(df: pd.DataFrame,
                  max_mw: float = 1000.0,
                  c_smiles: str = 'smiles',
                  c_mw: str = 'mw') -> pd.DataFrame:
+    """
+    Filter a DataFrame of molecules based on their molecular weight.
+
+    This function calculates the molecular weight for each molecule in the DataFrame
+    and filters the rows to include only those within the specified range.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The input DataFrame containing molecular data.
+    min_mw : float, optional
+        The minimum molecular weight to include. Default is 0.0.
+    max_mw : float, optional
+        The maximum molecular weight to include. Default is 1000.0.
+    c_smiles : str, optional
+        The column name in the DataFrame containing SMILES strings. Default is 'smiles'.
+    c_mw : str, optional
+        The column name to store the calculated molecular weight. Default is 'mw'.
+
+    Returns
+    -------
+    pandas.DataFrame
+        A filtered DataFrame containing only rows with molecular weights
+        within the specified range.
+    """
     df[c_mw] = mp_calc(molecular_weight, mp_calc(smi_to_mol, df[c_smiles]))
     return df[(df[c_mw] >= min_mw) & (df[c_mw] <= max_mw)].reset_index(drop=True)
 
