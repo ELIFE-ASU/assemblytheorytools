@@ -10,7 +10,7 @@ def test_filter_by_n_bonds():
             'Nc1ccc(cc1)c1cc2ccc1CCc1ccc(CC2)cc1',
             'Nc1ccc(cc1)c1cc2ccc1CCc1ccc(CC2)cc1Nc1ccc(cc1)c1cc2ccc1CCc1ccc(CC2)cc1']
     df = pd.DataFrame({'smiles': smis})
-    filtered_smis = att.filter_by_n_bonds(df, min_bonds=1, max_bonds=50)
+    filtered_smis = att.filter_by_bonds(df, min_bonds=1, max_bonds=50)
     assert len(filtered_smis) == 2
 
 

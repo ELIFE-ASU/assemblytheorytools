@@ -187,7 +187,7 @@ def sample_importance_sampling(data: np.ndarray, n_sample: int, n_bins: int = 50
     return sample, sample_indices
 
 
-def filter_by_n_bonds(df: pd.DataFrame,
+def filter_by_bonds(df: pd.DataFrame,
                       *,
                       min_bonds: int = 0,
                       max_bonds: int = 100,
