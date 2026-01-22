@@ -1,6 +1,5 @@
 import json
 import os
-import re
 import tarfile
 from typing import List, Optional
 
@@ -9,192 +8,6 @@ import numpy as np
 import pandas as pd
 
 import assemblytheorytools as att
-
-
-def load_ir_jcamp_data(path: str) -> np.ndarray:
-    xfactor = 1.0
-    yfactor = 1.0
-    firstx: Optional[float] = None
-    lastx: Optional[float] = None
-    deltax: Optional[float] = None
-    npoints: Optional[int] = None
-    in_data = False
-    data_mode: Optional[str] = None
-    frequencies = []
-    intensities = []
-
-    keyval_re = re.compile(r"^##\s*([^=]+)\s*=\s*(.*)\s*$")
-    float_re = re.compile(r"[-+]?\d*\.?\d+(?:[Ee][-+]?\d+)?")
-    int_re = re.compile(r"[-+]?\d+")
-
-    def _extract_numbers(line: str):
-        line = line.replace(",", " ").replace(";", " ")
-        return [float(x) for x in float_re.findall(line)]
-
-    def _parse_float(s: str) -> Optional[float]:
-        m = float_re.search(s)
-        return float(m.group(0)) if m else None
-
-    def _parse_int(s: str) -> Optional[int]:
-        m = int_re.search(s)
-        return int(m.group(0)) if m else None
-
-    data_keys = {"XYDATA", "XYPOINTS", "DATA TABLE", "DATATABLE"}
-
-    with open(path, "r", encoding="utf-8", errors="replace") as f:
-        for raw in f:
-            line = raw.strip()
-            if not line:
-                continue
-
-            if line.startswith("$$"):
-                continue
-
-            if line.upper().startswith("##END"):
-                break
-
-            if line.startswith("##"):
-                m = keyval_re.match(line)
-                if not m:
-                    continue
-
-                key = m.group(1).strip().upper()
-                val = m.group(2).strip()
-
-                if key in data_keys:
-                    in_data = True
-                    uval = val.upper()
-                    data_mode = "xpp_ylist" if "X++" in uval else "xy_pairs"
-                    continue
-
-                if in_data:
-                    in_data = False
-                    data_mode = None
-
-                if key == "XFACTOR":
-                    v = _parse_float(val)
-                    if v is not None:
-                        xfactor = v
-                elif key == "YFACTOR":
-                    v = _parse_float(val)
-                    if v is not None:
-                        yfactor = v
-                elif key == "FIRSTX":
-                    firstx = _parse_float(val)
-                elif key == "LASTX":
-                    lastx = _parse_float(val)
-                elif key == "DELTAX":
-                    deltax = _parse_float(val)
-                elif key in ("NPOINTS", "POINTS"):
-                    npoints = _parse_int(val)
-                continue
-
-            if not in_data or data_mode is None:
-                continue
-
-            nums = _extract_numbers(line)
-            if not nums:
-                continue
-
-            if data_mode == "xy_pairs":
-                if len(nums) % 2 == 1:
-                    nums = nums[:-1]
-                for i in range(0, len(nums), 2):
-                    frequencies.append(nums[i] * xfactor)
-                    intensities.append(nums[i + 1] * yfactor)
-
-            elif data_mode == "xpp_ylist":
-                x0 = nums[0]
-                yvals = nums[1:]
-                if not yvals:
-                    continue
-
-                dx = deltax
-                if dx is None and firstx is not None and lastx is not None and npoints and npoints > 1:
-                    dx = (lastx - firstx) / (npoints - 1)
-
-                if dx is None:
-                    raise ValueError("X++(Y..Y) data encountered but DELTAX is missing.")
-
-                for j, y in enumerate(yvals):
-                    frequencies.append((x0 + j * dx) * xfactor)
-                    intensities.append(y * yfactor)
-
-    if not frequencies:
-        raise ValueError("No XY data block found (expected ##XYDATA= or ##XYPOINTS=).")
-
-    if npoints is not None and len(frequencies) > npoints:
-        frequencies = frequencies[:npoints]
-        intensities = intensities[:npoints]
-
-    # Return Nx2 array: [frequency, intensity]
-    return np.column_stack((np.asarray(frequencies, dtype=float),
-                            np.asarray(intensities, dtype=float)))
-
-
-def find_peak_indices_in_range(
-        xy: np.ndarray,
-        f_min: float,
-        f_max: float,
-        *,
-        prominence: Optional[float] = None,
-        min_distance: Optional[float] = None,
-) -> List[int]:
-    xy = np.asarray(xy)
-    if xy.ndim != 2 or xy.shape[1] != 2:
-        raise ValueError("xy must be a 2D array of shape (N, 2): [freq, intensity].")
-
-    n = xy.shape[0]
-    if n < 3:
-        return []
-
-    freqs = xy[:, 0]
-    intens = xy[:, 1]
-
-    lo, hi = (f_min, f_max) if f_min <= f_max else (f_max, f_min)
-
-    candidates: List[int] = []
-    for i in range(1, n - 1):
-        f = freqs[i]
-        if f < lo or f > hi:
-            continue
-
-        y0, y1, y2 = intens[i - 1], intens[i], intens[i + 1]
-        if not (y1 > y0 and y1 >= y2):
-            continue
-
-        if prominence is not None and (y1 - max(y0, y2) < prominence):
-            continue
-
-        candidates.append(i)
-
-    if not candidates:
-        return []
-
-    # Optional: minimum distance filtering (by frequency spacing)
-    if min_distance is not None and min_distance > 0:
-        by_height = sorted(candidates, key=lambda i: intens[i], reverse=True)
-        kept: List[int] = []
-        for i in by_height:
-            fi = freqs[i]
-            if all(abs(fi - freqs[j]) >= min_distance for j in kept):
-                kept.append(i)
-        return sorted(kept)
-
-    return candidates
-
-
-def calc_n_peaks_in_range(data: np.ndarray,
-                          f_min: float = 500,
-                          f_max: float = 1500,
-                          prominence: Optional[float] = None,
-                          min_distance: Optional[float] = None) -> int:
-    locs = find_peak_indices_in_range(data,
-                                      f_min=f_min,
-                                      f_max=f_max,
-                                      prominence=prominence,
-                                      min_distance=min_distance)
-    return len(locs)
 
 
 def _calc_ai(smi: str, settings: Optional[dict] = None) -> int:
@@ -267,7 +80,7 @@ def _process_chemotion_ir_section(extract_dir: str, meta_data: pd.DataFrame) -> 
 
     # Create a DataFrame with filenames and their corresponding spectra
     ir_data = pd.DataFrame({'name': filenames})
-    ir_data['spectrum'] = att.mp_calc(load_ir_jcamp_data, ir_files)
+    ir_data['spectrum'] = att.mp_calc(att.load_ir_jcamp_data, ir_files)
     return ir_data
 
 
@@ -307,7 +120,7 @@ if __name__ == "__main__":
     df = att.filter_by_nh_bonds(df, max_bonds=max_bonds)
 
     # calculate number of peaks
-    df['n_peaks'] = att.mp_calc(calc_n_peaks_in_range, df['spectrum'])
+    df['n_peaks'] = att.mp_calc(att.calc_n_peaks_in_range, df['spectrum'])
 
     # only keep rows with n_peaks > 0
     df = df[df['n_peaks'] > 0].reset_index(drop=True)

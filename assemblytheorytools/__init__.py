@@ -133,7 +133,10 @@ from .tools_data import (sample_boostrapping,
                          sample_first_pubchem,
                          download_pubchem_cid_smiles_gz,
                          sample_pubchem_cid_smiles_gz,
-                         sample_pubchem_cid_smiles_gz_mw)
+                         sample_pubchem_cid_smiles_gz_mw,
+                         load_ir_jcamp_data,
+                         find_peak_indices_in_range,
+                         calc_n_peaks_in_range)
 from .tools_file import (file_list,
                          file_list_all,
                          filter_files,

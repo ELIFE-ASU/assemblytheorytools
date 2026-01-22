@@ -1,5 +1,6 @@
 import os
 import random
+import re
 import time
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
@@ -188,11 +189,11 @@ def sample_importance_sampling(data: np.ndarray, n_sample: int, n_bins: int = 50
 
 
 def filter_by_bonds(df: pd.DataFrame,
-                      *,
-                      min_bonds: int = 0,
-                      max_bonds: int = 100,
-                      c_smiles: str = 'smiles',
-                      c_bonds: str = 'n_bonds') -> pd.DataFrame:
+                    *,
+                    min_bonds: int = 0,
+                    max_bonds: int = 100,
+                    c_smiles: str = 'smiles',
+                    c_bonds: str = 'n_bonds') -> pd.DataFrame:
     """
     Filter a DataFrame of molecules based on the number of bonds.
 
@@ -883,3 +884,341 @@ def sample_pubchem_cid_smiles_gz_mw(
         print(f"Total number of molecules in PubChem: {len(sampled)}", flush=True)
         sampled.to_csv(out_file, index=False, compression='gzip')
         return sampled
+
+
+def load_ir_jcamp_data(path: str) -> np.ndarray:
+    """
+    Parse IR JCAMP-DX data from a file and return it as a NumPy array.
+
+    This function reads a JCAMP-DX file containing infrared (IR) spectroscopy data,
+    extracts the frequency and intensity values, and returns them as a 2D NumPy array.
+
+    Parameters
+    ----------
+    path : str
+        The file path to the JCAMP-DX file.
+
+    Returns
+    -------
+    np.ndarray
+        A 2D NumPy array of shape (N, 2), where each row contains a frequency and its
+        corresponding intensity.
+
+    Raises
+    ------
+    ValueError
+        If no valid XY data block is found or if required metadata (e.g., DELTAX) is missing.
+
+    Notes
+    -----
+    - The function supports two data modes: "xy_pairs" and "xpp_ylist".
+    - Frequencies and intensities are scaled by XFACTOR and YFACTOR, respectively.
+    - If the number of points (NPOINTS) is specified, the output is truncated to that length.
+    """
+    xfactor = 1.0  # Scaling factor for frequencies
+    yfactor = 1.0  # Scaling factor for intensities
+    firstx: Optional[float] = None  # First frequency value
+    lastx: Optional[float] = None  # Last frequency value
+    deltax: Optional[float] = None  # Frequency step size
+    npoints: Optional[int] = None  # Number of data points
+    in_data = False  # Flag to indicate if data parsing is active
+    data_mode: Optional[str] = None  # Mode of data representation
+    frequencies = []  # List to store frequency values
+    intensities = []  # List to store intensity values
+
+    # Regular expressions for parsing metadata and numerical values
+    keyval_re = re.compile(r"^##\s*([^=]+)\s*=\s*(.*)\s*$")
+    float_re = re.compile(r"[-+]?\d*\.?\d+(?:[Ee][-+]?\d+)?")
+    int_re = re.compile(r"[-+]?\d+")
+
+    def _extract_numbers(line: str):
+        """
+        Extract numerical values from a line of text.
+
+        Parameters
+        ----------
+        line : str
+            The input line of text.
+
+        Returns
+        -------
+        List[float]
+            A list of extracted floating-point numbers.
+        """
+        line = line.replace(",", " ").replace(";", " ")
+        return [float(x) for x in float_re.findall(line)]
+
+    def _parse_float(s: str) -> Optional[float]:
+        """
+        Parse a floating-point number from a string.
+
+        Parameters
+        ----------
+        s : str
+            The input string.
+
+        Returns
+        -------
+        Optional[float]
+            The parsed floating-point number, or None if parsing fails.
+        """
+        m = float_re.search(s)
+        return float(m.group(0)) if m else None
+
+    def _parse_int(s: str) -> Optional[int]:
+        """
+        Parse an integer from a string.
+
+        Parameters
+        ----------
+        s : str
+            The input string.
+
+        Returns
+        -------
+        Optional[int]
+            The parsed integer, or None if parsing fails.
+        """
+        m = int_re.search(s)
+        return int(m.group(0)) if m else None
+
+    # Keys indicating the start of data blocks
+    data_keys = {"XYDATA", "XYPOINTS", "DATA TABLE", "DATATABLE"}
+
+    # Open the JCAMP-DX file and parse its contents
+    with open(path, "r", encoding="utf-8", errors="replace") as f:
+        for raw in f:
+            line = raw.strip()
+            if not line:
+                continue
+
+            # Skip comment lines
+            if line.startswith("$$"):
+                continue
+
+            # End of the file
+            if line.upper().startswith("##END"):
+                break
+
+            # Metadata lines
+            if line.startswith("##"):
+                m = keyval_re.match(line)
+                if not m:
+                    continue
+
+                key = m.group(1).strip().upper()
+                val = m.group(2).strip()
+
+                # Check if the line starts a data block
+                if key in data_keys:
+                    in_data = True
+                    uval = val.upper()
+                    data_mode = "xpp_ylist" if "X++" in uval else "xy_pairs"
+                    continue
+
+                # End of a data block
+                if in_data:
+                    in_data = False
+                    data_mode = None
+
+                # Parse metadata values
+                if key == "XFACTOR":
+                    v = _parse_float(val)
+                    if v is not None:
+                        xfactor = v
+                elif key == "YFACTOR":
+                    v = _parse_float(val)
+                    if v is not None:
+                        yfactor = v
+                elif key == "FIRSTX":
+                    firstx = _parse_float(val)
+                elif key == "LASTX":
+                    lastx = _parse_float(val)
+                elif key == "DELTAX":
+                    deltax = _parse_float(val)
+                elif key in ("NPOINTS", "POINTS"):
+                    npoints = _parse_int(val)
+                continue
+
+            # Skip lines outside data blocks
+            if not in_data or data_mode is None:
+                continue
+
+            # Extract numerical data
+            nums = _extract_numbers(line)
+            if not nums:
+                continue
+
+            # Parse data based on the mode
+            if data_mode == "xy_pairs":
+                # Data is in (x, y) pairs
+                if len(nums) % 2 == 1:
+                    nums = nums[:-1]
+                for i in range(0, len(nums), 2):
+                    frequencies.append(nums[i] * xfactor)
+                    intensities.append(nums[i + 1] * yfactor)
+
+            elif data_mode == "xpp_ylist":
+                # Data is in x++(y..y) format
+                x0 = nums[0]
+                yvals = nums[1:]
+                if not yvals:
+                    continue
+
+                dx = deltax
+                if dx is None and firstx is not None and lastx is not None and npoints and npoints > 1:
+                    dx = (lastx - firstx) / (npoints - 1)
+
+                if dx is None:
+                    raise ValueError("X++(Y..Y) data encountered but DELTAX is missing.")
+
+                for j, y in enumerate(yvals):
+                    frequencies.append((x0 + j * dx) * xfactor)
+                    intensities.append(y * yfactor)
+
+    # Raise an error if no data was found
+    if not frequencies:
+        raise ValueError("No XY data block found (expected ##XYDATA= or ##XYPOINTS=).")
+
+    # Truncate data to the specified number of points
+    if npoints is not None and len(frequencies) > npoints:
+        frequencies = frequencies[:npoints]
+        intensities = intensities[:npoints]
+
+    # Return Nx2 array: [frequency, intensity]
+    return np.column_stack((np.asarray(frequencies, dtype=float),
+                            np.asarray(intensities, dtype=float)))
+
+
+def find_peak_indices_in_range(
+        xy: np.ndarray,
+        f_min: float,
+        f_max: float,
+        *,
+        prominence: Optional[float] = None,
+        min_distance: Optional[float] = None,
+) -> List[int]:
+    """
+    Identify the indices of peaks within a specified frequency range in a 2D array.
+
+    This function analyzes a 2D array of frequency and intensity data to find peaks
+    within a given frequency range. Peaks are defined as local maxima that satisfy
+    optional prominence and minimum distance criteria.
+
+    Parameters
+    ----------
+    xy : np.ndarray
+        A 2D NumPy array of shape (N, 2), where each row contains a frequency and its
+        corresponding intensity.
+    f_min : float
+        The lower bound of the frequency range to search for peaks.
+    f_max : float
+        The upper bound of the frequency range to search for peaks.
+    prominence : float, optional
+        The minimum required prominence of a peak. Peaks with prominence less than this
+        value are ignored. Default is None.
+    min_distance : float, optional
+        The minimum required distance (in frequency units) between peaks. Peaks closer
+        than this distance are filtered, keeping the most prominent ones. Default is None.
+
+    Returns
+    -------
+    List[int]
+        A list of indices corresponding to the peaks that satisfy the criteria.
+
+    Raises
+    ------
+    ValueError
+        If the input array `xy` is not a 2D array of shape (N, 2).
+
+    Notes
+    -----
+    - A peak is defined as a point where the intensity is greater than the intensity
+      of its immediate neighbors.
+    - If `prominence` is specified, only peaks with sufficient prominence are included.
+    - If `min_distance` is specified, peaks are filtered to ensure a minimum spacing
+      between them, with the most prominent peaks retained.
+    """
+    xy = np.asarray(xy)
+    if xy.ndim != 2 or xy.shape[1] != 2:
+        raise ValueError("xy must be a 2D array of shape (N, 2): [freq, intensity].")
+
+    n = xy.shape[0]
+    if n < 3:
+        return []
+
+    freqs = xy[:, 0]
+    intens = xy[:, 1]
+
+    lo, hi = (f_min, f_max) if f_min <= f_max else (f_max, f_min)
+
+    candidates: List[int] = []
+    for i in range(1, n - 1):
+        f = freqs[i]
+        if f < lo or f > hi:
+            continue
+
+        y0, y1, y2 = intens[i - 1], intens[i], intens[i + 1]
+        if not (y1 > y0 and y1 >= y2):
+            continue
+
+        if prominence is not None and (y1 - max(y0, y2) < prominence):
+            continue
+
+        candidates.append(i)
+
+    if not candidates:
+        return []
+
+    # Optional: minimum distance filtering (by frequency spacing)
+    if min_distance is not None and min_distance > 0:
+        by_height = sorted(candidates, key=lambda i: intens[i], reverse=True)
+        kept: List[int] = []
+        for i in by_height:
+            fi = freqs[i]
+            if all(abs(fi - freqs[j]) >= min_distance for j in kept):
+                kept.append(i)
+        return sorted(kept)
+
+    return candidates
+
+
+def calc_n_peaks_in_range(data: np.ndarray,
+                          f_min: float = 500,
+                          f_max: float = 1500,
+                          prominence: Optional[float] = None,
+                          min_distance: Optional[float] = None) -> int:
+    """
+    Calculate the number of peaks within a specified frequency range in a 2D array.
+
+    This function identifies peaks in the given frequency-intensity data within the
+    specified frequency range and returns the count of such peaks. Peaks can be filtered
+    based on optional prominence and minimum distance criteria.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        A 2D NumPy array of shape (N, 2), where each row contains a frequency and its
+        corresponding intensity.
+    f_min : float, optional
+        The lower bound of the frequency range to search for peaks. Default is 500.
+    f_max : float, optional
+        The upper bound of the frequency range to search for peaks. Default is 1500.
+    prominence : float, optional
+        The minimum required prominence of a peak. Peaks with prominence less than this
+        value are ignored. Default is None.
+    min_distance : float, optional
+        The minimum required distance (in frequency units) between peaks. Peaks closer
+        than this distance are filtered, keeping the most prominent ones. Default is None.
+
+    Returns
+    -------
+    int
+        The number of peaks that satisfy the specified criteria.
+    """
+    locs = find_peak_indices_in_range(data,
+                                      f_min=f_min,
+                                      f_max=f_max,
+                                      prominence=prominence,
+                                      min_distance=min_distance)
+    return len(locs)
