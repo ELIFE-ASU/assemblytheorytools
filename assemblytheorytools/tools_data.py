@@ -186,6 +186,40 @@ def sample_importance_sampling(data: np.ndarray, n_sample: int, n_bins: int = 50
 
     return sample, sample_indices
 
+def filter_by_nh_bonds(df: pd.DataFrame,
+                       *,
+                       min_bonds: int = 0,
+                       max_bonds: int = 100,
+                       c_smiles: str = 'smiles',
+                       c_bonds: str = 'n_bonds') -> pd.DataFrame:
+    """
+    Filter a DataFrame of molecules based on the number of non-hydrogen bonds.
+
+    This function calculates the number of non-hydrogen bonds for each molecule
+    in the DataFrame and filters the rows to include only those within the specified range.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The input DataFrame containing molecular data.
+    min_bonds : int, optional
+        The minimum number of non-hydrogen bonds to include. Default is 0.
+    max_bonds : int, optional
+        The maximum number of non-hydrogen bonds to include. Default is 100.
+    c_smiles : str, optional
+        The column name in the DataFrame containing SMILES strings. Default is 'smiles'.
+    c_bonds : str, optional
+        The column name to store the calculated number of non-hydrogen bonds. Default is 'n_bonds'.
+
+    Returns
+    -------
+    pandas.DataFrame
+        A filtered DataFrame containing only rows with the number of non-hydrogen bonds
+        within the specified range.
+    """
+    df[c_bonds] = mp_calc(count_non_h_bonds, mp_calc(smi_to_mol, df[c_smiles]))
+    return df[(df[c_bonds] >= min_bonds) & (df[c_bonds] <= max_bonds)].reset_index(drop=True)
+
 
 def pubchem_name_to_smi(name: str) -> str:
     """
@@ -778,3 +812,6 @@ def sample_pubchem_cid_smiles_gz_mw(
         print(f"Total number of molecules in PubChem: {len(sampled)}", flush=True)
         sampled.to_csv(out_file, index=False, compression='gzip')
         return sampled
+
+
+
