@@ -12,7 +12,7 @@ import pubchempy as pcp
 from rdkit import Chem
 from scipy.stats import gaussian_kde
 
-from .complexity_scores import count_non_h_bonds
+from .complexity_scores import count_bonds, count_non_h_bonds, molecular_weight
 from .tools_graph import smi_to_nx
 from .tools_mol import smi_to_mol, standardize_mol
 from .tools_mp import mp_calc
@@ -187,6 +187,16 @@ def sample_importance_sampling(data: np.ndarray, n_sample: int, n_bins: int = 50
     return sample, sample_indices
 
 
+def filter_by_n_bonds(df: pd.DataFrame,
+                      *,
+                      min_bonds: int = 0,
+                      max_bonds: int = 100,
+                      c_smiles: str = 'smiles',
+                      c_bonds: str = 'n_bonds') -> pd.DataFrame:
+    df[c_bonds] = mp_calc(count_bonds, mp_calc(smi_to_mol, df[c_smiles]))
+    return df[(df[c_bonds] >= min_bonds) & (df[c_bonds] <= max_bonds)].reset_index(drop=True)
+
+
 def filter_by_nh_bonds(df: pd.DataFrame,
                        *,
                        min_bonds: int = 0,
@@ -220,6 +230,16 @@ def filter_by_nh_bonds(df: pd.DataFrame,
     """
     df[c_bonds] = mp_calc(count_non_h_bonds, mp_calc(smi_to_mol, df[c_smiles]))
     return df[(df[c_bonds] >= min_bonds) & (df[c_bonds] <= max_bonds)].reset_index(drop=True)
+
+
+def filter_by_mw(df: pd.DataFrame,
+                 *,
+                 min_mw: float = 0.0,
+                 max_mw: float = 1000.0,
+                 c_smiles: str = 'smiles',
+                 c_mw: str = 'mw') -> pd.DataFrame:
+    df[c_mw] = mp_calc(molecular_weight, mp_calc(smi_to_mol, df[c_smiles]))
+    return df[(df[c_mw] >= min_mw) & (df[c_mw] <= max_mw)].reset_index(drop=True)
 
 
 def pubchem_name_to_smi(name: str) -> str:
