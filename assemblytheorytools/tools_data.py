@@ -1087,7 +1087,7 @@ def load_ir_jcamp_data(path: str) -> np.ndarray:
 
     # Return Nx2 array: [frequency, intensity]
     return np.column_stack((np.asarray(frequencies, dtype=float),
-                            np.asarray(intensities, dtype=float)))
+                            1.0-np.asarray(intensities, dtype=float)))
 
 
 def find_peak_indices_in_range(
