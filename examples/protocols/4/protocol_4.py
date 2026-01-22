@@ -4,6 +4,8 @@ import re
 import tarfile
 from typing import List, Tuple, Optional, Sequence
 
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
 import assemblytheorytools as att
@@ -197,15 +199,41 @@ def peak_indices_in_range(
     return candidates
 
 
-def process_meta_data_name(entry):
+def calculate_peaks(row):
+    freqs = row['freq']
+    intensities = row['intensity']
+    locs = peak_indices_in_range(freqs,
+                                 intensities,
+                                 f_min=500,
+                                 f_max=1500,
+                                 prominence=None,
+                                 min_distance=None)
+    return len(locs)
+
+
+def _calc_ai(smi: str) -> int:
+    try:
+        ai = att.calculate_assembly_index(att.smi_to_nx(smi),
+                                          strip_hydrogen=True,
+                                          timeout=300.0)[0]
+        return ai
+    except Exception:
+        return -1
+
+
+def _process_meta_data_name(entry):
     entries = entry[0]['attacments']
     for e in entries:
         if not e['filename'].endswith('.peak.jdx'):
-            return e['identifier'][2:]
+            return e['identifier'].split('/')[-1]
     return None
 
 
-def process_meta_data(extract_dir):
+def _valid_smi(smi: str) -> bool:
+    return bool(smi) and all(x not in smi for x in [".", "*", "->", "$"])
+
+
+def _process_meta_data(extract_dir):
     dir_files = att.file_list_all(extract_dir)
 
     # find the metadata file 'meta_data.json'
@@ -219,14 +247,19 @@ def process_meta_data(extract_dir):
     # convert to pandas dataframe
     df = pd.DataFrame(meta_data)
     df_selected = df[['cano_smiles', 'datasets']]
-    df_selected['name'] = att.mp_calc(process_meta_data_name, df_selected['datasets'])
+    # rename 'cano_smiles' to 'smiles'
+    df_selected = df_selected.rename(columns={'cano_smiles': 'smiles'})
+    # drop entries with invalid smiles
+    df_selected = df_selected[att.mp_calc(_valid_smi, df_selected['smiles'])]
+    # process 'datasets' to get 'name'
+    df_selected['name'] = att.mp_calc(_process_meta_data_name, df_selected['datasets'])
     # drop entries with name as None
     df_selected = df_selected[df_selected['name'].notna()]
     df_selected = df_selected.drop(columns=['datasets'])
     return df_selected
 
 
-def process_ir_data(extract_dir):
+def process_ir_data(extract_dir, meta_data):
     dir_files = att.file_list_all(extract_dir)
     ir_file = [f for f in dir_files if f.endswith("IR_data.tar.xz")][0]
     if not ir_file:
@@ -238,7 +271,6 @@ def process_ir_data(extract_dir):
             tar.extractall(path=ir_extract_dir)
 
     ir_files = att.file_list_all(ir_extract_dir)
-    # only select files that match with meta_data names
     ir_files = [f for f in ir_files if any(name in f for name in meta_data['name'].tolist())]
     filenames = [os.path.basename(f) for f in ir_files]
     ir_data = pd.DataFrame(filenames, columns=['name'])
@@ -248,50 +280,56 @@ def process_ir_data(extract_dir):
     return ir_data
 
 
-if __name__ == "__main__":
-    # x, y = load_jcamp_xy_lists("651c9779-e75d-4c7c-ad41-1ce312a9e281")
-    #
-    # # sort the data by x values
-    # xy_sorted = sorted(zip(x, y), key=lambda pair: pair[0])
-    # x, y = zip(*xy_sorted)
-    #
-    # plt.plot(x, y)
-    # # limit x axis to 0-4000
-    # plt.xlim(500, 1500)
-    #
-    # plt.xlabel("Freq. 1/cm")
-    # plt.ylabel("Intensity")
-    #
-    #
-    # locs = peak_indices_in_range(x, y, f_min=500, f_max=1500, prominence=None, min_distance=None)
-    # print(f"Number of peaks between 500 and 1500 cm^-1: {len(locs)}", flush=True)
-    # print("Peak locations (1/cm):", flush=True)
-    # for loc in locs:
-    #     print(f"{x[loc]:.2f}", flush=True)
-    #
-    # plt.scatter([x[i] for i in locs], [y[i] for i in locs], color='red')
-    # plt.show()
+def process_chemotion_ir_data(target_file):
+    extract_dir = os.path.join(os.path.dirname(target_file), "chemotion_ir_data")
+    out_file = "chemotion_ir_data.csv.gz"
 
+    if os.path.exists(out_file):
+        print(f"{out_file} already exists. Skipping processing.", flush=True)
+        return pd.read_csv(out_file)
+    else:
+
+        # Check if the extract_dir exists, if not create it
+        if not os.path.exists(extract_dir):
+            with tarfile.open(target_file, "r") as tar:
+                tar.extractall(path=extract_dir)
+            print(f"Extracted data to {extract_dir}", flush=True)
+
+        meta_data = _process_meta_data(extract_dir)
+        ir_data = process_ir_data(extract_dir, meta_data)
+
+        # Merge meta_data and ir_data on name
+        merged_data = pd.merge(meta_data, ir_data, on='name')
+        # Drop rows with any NaN values
+        merged_data = merged_data.dropna()
+        # Save to csv
+        merged_data.to_csv(out_file, index=False)
+        return merged_data
+
+
+if __name__ == "__main__":
     # Download the file
     # https://radar4chem.radar-service.eu/radar/en/dataset/OGoEQGlsZGElrgst#
     target_file = "/home/louie/Downloads/10.22000-OGoEQGlsZGElrgst.tar"
-    extract_dir = os.path.join(os.path.dirname(target_file), "radar_data")
+    df = process_chemotion_ir_data(target_file)
 
-    # check if the extract_dir exists, if not create it
-    if not os.path.exists(extract_dir):
-        with tarfile.open(target_file, "r") as tar:
-            tar.extractall(path=extract_dir)
-        print(f"Extracted data to {extract_dir}", flush=True)
+    # sample molecules for testing
+    df = df.sample(n=100, random_state=42).reset_index(drop=True)
 
-    meta_data = process_meta_data(extract_dir)
+    # calculate number of peaks
+    df['n_peaks'] = att.mp_calc(calculate_peaks, [row for _, row in df.iterrows()])
 
-    ir_data = process_ir_data(extract_dir)
+    # calculate assembly index
+    df['ai'] = att.mp_calc(_calc_ai, df['smiles'].tolist())
 
-    # merge meta_data and ir_data on name
-    merged_data = pd.merge(meta_data, ir_data, on='name')
-    # drop rows with any NaN values
-    merged_data = merged_data.dropna()
-    print(len(merged_data))
-    print(merged_data.head(), flush=True)
-    # save to csv
-    merged_data.to_csv("radar_ir_data.csv", index=False)
+    n_x_bins = len(set(df['ai']))
+    n_y_bins = len(set(df['n_peaks']))
+
+    fig, ax = att.plot_heatmap(np.array(df['ai']),
+                               np.array(df['n_peaks']),
+                               "Molecular Weight",
+                               "Assembly Index",
+                               nbins=(n_x_bins, n_y_bins),
+                               c_map='inferno',
+                               )
+    plt.show()
