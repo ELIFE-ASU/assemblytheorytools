@@ -167,3 +167,6 @@ cython_debug/
 
 # assembly files
 memUsage
+*.csv.gz
+*.tar
+*.gz
