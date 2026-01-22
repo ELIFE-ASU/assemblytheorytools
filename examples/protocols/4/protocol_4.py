@@ -2,7 +2,7 @@ import json
 import os
 import re
 import tarfile
-from typing import List, Tuple, Optional, Sequence
+from typing import List, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -11,7 +11,7 @@ import pandas as pd
 import assemblytheorytools as att
 
 
-def load_ir_jcamp_data(path: str) -> Tuple[List[float], List[float]]:
+def load_ir_jcamp_data(path: str) -> np.ndarray:
     xfactor = 1.0
     yfactor = 1.0
     firstx: Optional[float] = None
@@ -20,14 +20,14 @@ def load_ir_jcamp_data(path: str) -> Tuple[List[float], List[float]]:
     npoints: Optional[int] = None
     in_data = False
     data_mode: Optional[str] = None
-    frequencies: List[float] = []
-    intensities: List[float] = []
+    frequencies = []
+    intensities = []
 
     keyval_re = re.compile(r"^##\s*([^=]+)\s*=\s*(.*)\s*$")
     float_re = re.compile(r"[-+]?\d*\.?\d+(?:[Ee][-+]?\d+)?")
     int_re = re.compile(r"[-+]?\d+")
 
-    def _extract_numbers(line: str) -> List[float]:
+    def _extract_numbers(line: str):
         line = line.replace(",", " ").replace(";", " ")
         return [float(x) for x in float_re.findall(line)]
 
@@ -127,26 +127,32 @@ def load_ir_jcamp_data(path: str) -> Tuple[List[float], List[float]]:
         frequencies = frequencies[:npoints]
         intensities = intensities[:npoints]
 
-    return frequencies, intensities
+    # Return Nx2 array: [frequency, intensity]
+    return np.column_stack((np.asarray(frequencies, dtype=float),
+                            np.asarray(intensities, dtype=float)))
 
 
 def find_peak_indices_in_range(
-        freqs: Sequence[float],
-        intens: Sequence[float],
+        xy: np.ndarray,
         f_min: float,
         f_max: float,
         *,
         prominence: Optional[float] = None,
         min_distance: Optional[float] = None,
 ) -> List[int]:
-    if len(freqs) != len(intens):
-        raise ValueError("freqs and intens must be the same length.")
-    n = len(freqs)
+    xy = np.asarray(xy)
+    if xy.ndim != 2 or xy.shape[1] != 2:
+        raise ValueError("xy must be a 2D array of shape (N, 2): [freq, intensity].")
 
+    n = xy.shape[0]
     if n < 3:
         return []
 
+    freqs = xy[:, 0]
+    intens = xy[:, 1]
+
     lo, hi = (f_min, f_max) if f_min <= f_max else (f_max, f_min)
+
     candidates: List[int] = []
     for i in range(1, n - 1):
         f = freqs[i]
@@ -165,9 +171,8 @@ def find_peak_indices_in_range(
     if not candidates:
         return []
 
-    # Optional: minimum distance filtering
+    # Optional: minimum distance filtering (by frequency spacing)
     if min_distance is not None and min_distance > 0:
-        # Sort by height (desc), keep far-enough peaks, then return sorted by index
         by_height = sorted(candidates, key=lambda i: intens[i], reverse=True)
         kept: List[int] = []
         for i in by_height:
@@ -179,11 +184,8 @@ def find_peak_indices_in_range(
     return candidates
 
 
-def _calculate_peaks(row):
-    freqs = row['freq']
-    intensities = row['intensity']
-    locs = find_peak_indices_in_range(freqs,
-                                      intensities,
+def _calculate_peaks(data):
+    locs = find_peak_indices_in_range(data,
                                       f_min=500,
                                       f_max=1500,
                                       prominence=None,
@@ -254,9 +256,7 @@ def _process_chemotion_ir_section(extract_dir, meta_data):
     ir_files = [f for f in ir_files if any(name in f for name in meta_data['name'].tolist())]
     filenames = [os.path.basename(f) for f in ir_files]
     ir_data = pd.DataFrame(filenames, columns=['name'])
-    ir_xy = att.mp_calc(load_ir_jcamp_data, ir_files)
-    ir_data['freq'] = [xy[0] for xy in ir_xy]
-    ir_data['intensity'] = [xy[1] for xy in ir_xy]
+    ir_data['spectrum'] = att.mp_calc(load_ir_jcamp_data, ir_files)
     return ir_data
 
 
@@ -268,8 +268,6 @@ def process_chemotion_ir_data(target_file):
         print(f"{out_file} already exists. Skipping processing.", flush=True)
         return pd.read_csv(out_file)
     else:
-
-        # Check if the extract_dir exists, if not create it
         if not os.path.exists(extract_dir):
             with tarfile.open(target_file, "r") as tar:
                 tar.extractall(path=extract_dir)
@@ -291,17 +289,17 @@ if __name__ == "__main__":
     # Download the file
     # https://radar4chem.radar-service.eu/radar/en/dataset/OGoEQGlsZGElrgst#
     target_file = "/home/louie/Downloads/10.22000-OGoEQGlsZGElrgst.tar"
+    os.remove('chemotion_ir_data.csv.gz') if os.path.exists('chemotion_ir_data.csv.gz') else None
     df = process_chemotion_ir_data(target_file)
 
-    max_bonds = 100
+    max_bonds = 20
     df = att.filter_by_nh_bonds(df, max_bonds=max_bonds)
 
-
     # sample molecules for testing
-    #df = df.sample(n=300, random_state=42).reset_index(drop=True)
+    # df = df.sample(n=300, random_state=42).reset_index(drop=True)
 
     # calculate number of peaks
-    df['n_peaks'] = att.mp_calc(_calculate_peaks, [row for _, row in df.iterrows()])
+    df['n_peaks'] = att.mp_calc(_calculate_peaks, df['spectrum'])
 
     # only keep rows with n_peaks > 0
     df = df[df['n_peaks'] > 0].reset_index(drop=True)
