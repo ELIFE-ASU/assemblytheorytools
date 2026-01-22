@@ -822,6 +822,23 @@ def sample_pubchem_cid_smiles_gz(
 
 
 def _valid(s):
+    """
+    Validate a SMILES string by attempting to convert and standardize it.
+
+    This function checks if a given SMILES string can be successfully converted
+    into an RDKit Mol object and standardized. If any step fails, the SMILES
+    string is considered invalid.
+
+    Parameters
+    ----------
+    s : str
+        The SMILES string to validate.
+
+    Returns
+    -------
+    bool
+        True if the SMILES string is valid and can be standardized, otherwise False.
+    """
     try:
         mol = smi_to_mol(s)
         standardize_mol(mol)
@@ -831,10 +848,43 @@ def _valid(s):
 
 
 def _valid_smi(smi: str) -> bool:
+    """
+    Validate a SMILES string.
+
+    This function checks if the given SMILES string is non-empty and does not contain
+    any invalid characters such as ".", "*", "->", or "$".
+
+    Parameters
+    ----------
+    smi : str
+        The SMILES string to validate.
+
+    Returns
+    -------
+    bool
+        True if the SMILES string is valid, otherwise False.
+    """
     return bool(smi) and all(x not in smi for x in [".", "*", "->", "$"])
 
 
 def _valid_mol(smi: str) -> float:
+    """
+    Validate a SMILES string and calculate its molecular weight.
+
+    This function converts a SMILES string into an RDKit Mol object, sanitizes it,
+    kekulizes it, and calculates its molecular weight. If any step fails, the function
+    returns 0.0.
+
+    Parameters
+    ----------
+    smi : str
+        The SMILES string representing the molecule.
+
+    Returns
+    -------
+    float
+        The molecular weight of the molecule if valid, otherwise 0.0.
+    """
     try:
         mol = smi_to_mol(smi)
         Chem.SanitizeMol(mol)
@@ -854,6 +904,40 @@ def sample_pubchem_cid_smiles_gz_mw(
         max_mw: float = 600.0,
         max_bonds: int = 100,
 ) -> pd.DataFrame:
+    """
+    Sample random CID-SMILES pairs from a PubChem gzip file and filter them by molecular weight and bond count.
+
+    This function reads a gzipped file containing CID-SMILES mappings, filters the molecules based on their
+    molecular weight and number of bonds, and saves the sampled data to a compressed CSV file.
+
+    Parameters
+    ----------
+    n : int
+        Number of samples to draw from the file.
+    gz_path : str, optional
+        Path to the gzipped CID-SMILES file. Default is 'CID-SMILES.gz'.
+    out_file : str, optional
+        Path to save the sampled data as a compressed CSV file. Default is 'sampled_cid_smiles_mw.csv.gz'.
+    seed : int, optional
+        Random seed for reproducibility. Default is 0.
+    sep : str, optional
+        Column separator in the file. Default is tab character.
+    max_mw : float, optional
+        Maximum molecular weight allowed for a molecule. Default is 600.0.
+    max_bonds : int, optional
+        Maximum number of bonds allowed for a molecule. Default is 100.
+
+    Returns
+    -------
+    pd.DataFrame
+        A pandas DataFrame containing the sampled and filtered CID-SMILES pairs.
+
+    Notes
+    -----
+    - If the output file already exists, the function loads and returns its contents.
+    - Invalid SMILES strings and molecules exceeding the specified molecular weight or bond count are excluded.
+    - The function samples more rows than required to account for filtering, ensuring the desired number of valid samples.
+    """
     if os.path.exists(out_file):
         print(f"Loading existing sampled file: {out_file}", flush=True)
         return pd.read_csv(out_file, compression="gzip")
@@ -1228,6 +1312,30 @@ def calc_n_peaks_in_range(data: np.ndarray,
 
 
 def _process_meta_data_name(entry: List[dict]) -> Optional[str]:
+    """
+    Extract the name identifier from the metadata entry.
+
+    This function processes a list of metadata dictionaries to locate the first
+    entry that does not correspond to a '.peak.jdx' file and extracts the identifier
+    from its path.
+
+    Parameters
+    ----------
+    entry : List[dict]
+        A list of dictionaries representing metadata entries. Each dictionary is
+        expected to contain an 'attacments' key, which is a list of dictionaries
+        with 'filename' and 'identifier' keys.
+
+    Returns
+    -------
+    Optional[str]
+        The extracted name identifier if found, otherwise None.
+
+    Raises
+    ------
+    IndexError, KeyError, TypeError
+        If the structure of the input data does not match the expected format.
+    """
     try:
         entries = entry[0]['attacments']
         for e in entries:
@@ -1239,22 +1347,47 @@ def _process_meta_data_name(entry: List[dict]) -> Optional[str]:
 
 
 def _process_chemotion_meta_section(extract_dir: str) -> pd.DataFrame:
+    """
+    Process the metadata section from the extracted Chemotion data.
+
+    This function locates the metadata file in the specified extraction directory,
+    reads its contents, and processes the data to extract relevant information.
+    The resulting DataFrame contains SMILES strings and corresponding names.
+
+    Parameters
+    ----------
+    extract_dir : str
+        The directory where the Chemotion data has been extracted.
+
+    Returns
+    -------
+    pd.DataFrame
+        A pandas DataFrame with the following columns:
+        - 'smiles': The canonical SMILES strings of the molecules.
+        - 'name': The processed names extracted from the metadata.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the metadata file ('meta_data.json') is not found in the extraction directory.
+    """
     # Locate the metadata file
     meta_file = next((f for f in file_list_all(extract_dir) if f.endswith("meta_data.json")), None)
     if not meta_file:
         raise FileNotFoundError("No meta_data.json file found in extracted data.")
 
+    # Read the metadata file
     with open(meta_file, "r") as f:
         meta_data = json.load(f)
 
-    # Convert to pandas dataframe and select columns
+    # Convert to pandas DataFrame and select relevant columns
     df = pd.DataFrame(meta_data)[['cano_smiles', 'datasets']]
     df = df.rename(columns={'cano_smiles': 'smiles'})
 
-    # Drop entries with invalid smiles
+    # Drop entries with invalid SMILES strings
     df = df[mp_calc(_valid_smi, df['smiles'])]
 
-    # Process 'datasets' to get 'name' and clean up
+    # Process 'datasets' to extract 'name' and clean up the DataFrame
     df['name'] = mp_calc(_process_meta_data_name, df['datasets'])
     df = df.dropna(subset=['name']).drop(columns=['datasets'])
 
@@ -1262,6 +1395,34 @@ def _process_chemotion_meta_section(extract_dir: str) -> pd.DataFrame:
 
 
 def _process_chemotion_ir_section(extract_dir: str, meta_data: pd.DataFrame) -> pd.DataFrame:
+    """
+    Process the IR data section from the extracted Chemotion data.
+
+    This function locates the IR data archive within the specified extraction directory,
+    extracts the IR data if not already extracted, filters the IR files based on the
+    metadata names, and creates a DataFrame containing the filenames and their corresponding
+    spectra.
+
+    Parameters
+    ----------
+    extract_dir : str
+        The directory where the Chemotion data has been extracted.
+    meta_data : pd.DataFrame
+        A pandas DataFrame containing metadata, including a 'name' column used to filter
+        the IR files.
+
+    Returns
+    -------
+    pd.DataFrame
+        A pandas DataFrame with two columns:
+        - 'name': The filenames of the IR data files.
+        - 'spectrum': The corresponding spectra loaded from the IR files.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the IR data archive ('IR_data.tar.xz') is not found in the extraction directory.
+    """
     # Locate the IR data archive
     ir_file = next((f for f in file_list_all(extract_dir) if f.endswith("IR_data.tar.xz")), None)
     if not ir_file:
@@ -1288,25 +1449,53 @@ def _process_chemotion_ir_section(extract_dir: str, meta_data: pd.DataFrame) -> 
 
 
 def process_chemotion_ir_data(target_file: str) -> pd.DataFrame:
+    """
+    Process Chemotion IR data from a tar file and return it as a pandas DataFrame.
+
+    This function extracts metadata and IR spectra from a Chemotion tar file, processes
+    the data, and merges the metadata with the corresponding IR spectra. The resulting
+    DataFrame is saved to a compressed CSV file for future use.
+
+    Parameters
+    ----------
+    target_file : str
+        Path to the Chemotion tar file containing the IR data and metadata.
+
+    Returns
+    -------
+    pd.DataFrame
+        A pandas DataFrame containing the merged metadata and IR spectra.
+
+    Notes
+    -----
+    - If the processed data file (`chemotion_ir_data.csv.gz`) already exists, the function
+      skips processing and loads the data directly from the file.
+    - The function extracts the tar file to a directory named `chemotion_ir_data` in the
+      same location as the `target_file`.
+    - Rows with any missing values are dropped from the final DataFrame.
+    """
     extract_dir = os.path.join(os.path.dirname(target_file), "chemotion_ir_data")
     out_file = "chemotion_ir_data.csv.gz"
 
+    # Check if the processed data file already exists
     if os.path.exists(out_file):
         print(f"{out_file} already exists. Skipping processing.", flush=True)
         return pd.read_csv(out_file)
 
+    # Extract the tar file if the extraction directory does not exist
     if not os.path.exists(extract_dir):
         with tarfile.open(target_file, "r") as tar:
             tar.extractall(path=extract_dir)
         print(f"Extracted data to {extract_dir}", flush=True)
 
+    # Process metadata and IR data sections
     meta_data = _process_chemotion_meta_section(extract_dir)
     ir_data = _process_chemotion_ir_section(extract_dir, meta_data)
 
-    # Merge meta_data and ir_data on name
+    # Merge metadata and IR data on the 'name' column
     merged_data = pd.merge(meta_data, ir_data, on='name')
     # Drop rows with any NaN values
     merged_data = merged_data.dropna()
-    # Save to csv
+    # Save the merged data to a compressed CSV file
     merged_data.to_csv(out_file, index=False)
     return merged_data

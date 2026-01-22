@@ -1,23 +1,13 @@
 import os
-from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
 
 import assemblytheorytools as att
 
-
-def calc_ai(smi: str, settings: Optional[dict] = None) -> int:
-    if settings is None:
-        settings = {}
-    try:
-        ai = att.calculate_assembly_index(att.smi_to_nx(smi), **settings)[0]
-        return int(ai)
-    except Exception:
-        return -1
-
-
 if __name__ == "__main__":
+    timeout = 5.0 * 60.0
+
     # Download the file
     # https://radar4chem.radar-service.eu/radar/en/dataset/OGoEQGlsZGElrgst#
     target_file = "/home/louie/Downloads/10.22000-OGoEQGlsZGElrgst.tar"
@@ -36,7 +26,9 @@ if __name__ == "__main__":
     df = df[df['n_peaks'] <= 60].reset_index(drop=True)
 
     # calculate assembly index
-    df['ai'] = att.mp_calc(calc_ai, df['smiles'].tolist())
+    graphs = att.mp_calc(att.smi_to_nx, df['smiles'].tolist())
+    df['ai'] = att.calculate_assembly_parallel(graphs, settings={'strip_hydrogen': True,
+                                                                 'timeout': timeout})[0]
 
     n_x_bins = len(set(df['ai']))
     n_y_bins = len(set(df['n_peaks']))
