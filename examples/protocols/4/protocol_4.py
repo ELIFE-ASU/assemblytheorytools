@@ -11,42 +11,35 @@ import pandas as pd
 import assemblytheorytools as att
 
 
-def load_jcamp_xy_lists(path: str) -> Tuple[List[float], List[float]]:
-    # Metadata defaults
+def load_ir_jcamp_data(path: str) -> Tuple[List[float], List[float]]:
     xfactor = 1.0
     yfactor = 1.0
     firstx: Optional[float] = None
     lastx: Optional[float] = None
     deltax: Optional[float] = None
     npoints: Optional[int] = None
-
-    # State
     in_data = False
-    data_mode: Optional[str] = None  # "xy_pairs" or "xpp_ylist"
-
+    data_mode: Optional[str] = None
     frequencies: List[float] = []
     intensities: List[float] = []
 
-    # Regex helpers
     keyval_re = re.compile(r"^##\s*([^=]+)\s*=\s*(.*)\s*$")
     float_re = re.compile(r"[-+]?\d*\.?\d+(?:[Ee][-+]?\d+)?")
     int_re = re.compile(r"[-+]?\d+")
 
-    def extract_numbers(line: str) -> List[float]:
-        # JCAMP often uses commas; normalize commas/semicolons to spaces.
+    def _extract_numbers(line: str) -> List[float]:
         line = line.replace(",", " ").replace(";", " ")
         return [float(x) for x in float_re.findall(line)]
 
-    def parse_float(s: str) -> Optional[float]:
+    def _parse_float(s: str) -> Optional[float]:
         m = float_re.search(s)
         return float(m.group(0)) if m else None
 
-    def parse_int(s: str) -> Optional[int]:
+    def _parse_int(s: str) -> Optional[int]:
         m = int_re.search(s)
         return int(m.group(0)) if m else None
 
-    # Keys that may introduce a data block in the wild
-    DATA_KEYS = {"XYDATA", "XYPOINTS", "DATA TABLE", "DATATABLE"}
+    data_keys = {"XYDATA", "XYPOINTS", "DATA TABLE", "DATATABLE"}
 
     with open(path, "r", encoding="utf-8", errors="replace") as f:
         for raw in f:
@@ -54,15 +47,12 @@ def load_jcamp_xy_lists(path: str) -> Tuple[List[float], List[float]]:
             if not line:
                 continue
 
-            # Ignore JCAMP comment lines
             if line.startswith("$$"):
                 continue
 
-            # Any ##END... ends parsing
             if line.upper().startswith("##END"):
                 break
 
-            # Header line
             if line.startswith("##"):
                 m = keyval_re.match(line)
                 if not m:
@@ -71,58 +61,49 @@ def load_jcamp_xy_lists(path: str) -> Tuple[List[float], List[float]]:
                 key = m.group(1).strip().upper()
                 val = m.group(2).strip()
 
-                # Start of a data block
-                if key in DATA_KEYS:
+                if key in data_keys:
                     in_data = True
                     uval = val.upper()
                     data_mode = "xpp_ylist" if "X++" in uval else "xy_pairs"
                     continue
 
-                # If we were in a data block and we hit another header, data block is over
                 if in_data:
                     in_data = False
                     data_mode = None
-                    # continue on to parse metadata from this header too
 
-                # Metadata parsing (same as your original)
                 if key == "XFACTOR":
-                    v = parse_float(val)
+                    v = _parse_float(val)
                     if v is not None:
                         xfactor = v
                 elif key == "YFACTOR":
-                    v = parse_float(val)
+                    v = _parse_float(val)
                     if v is not None:
                         yfactor = v
                 elif key == "FIRSTX":
-                    firstx = parse_float(val)
+                    firstx = _parse_float(val)
                 elif key == "LASTX":
-                    lastx = parse_float(val)
+                    lastx = _parse_float(val)
                 elif key == "DELTAX":
-                    deltax = parse_float(val)
+                    deltax = _parse_float(val)
                 elif key in ("NPOINTS", "POINTS"):
-                    npoints = parse_int(val)
-
+                    npoints = _parse_int(val)
                 continue
 
-            # Non-header lines: only parse if inside a data block
             if not in_data or data_mode is None:
                 continue
 
-            nums = extract_numbers(line)
+            nums = _extract_numbers(line)
             if not nums:
                 continue
 
             if data_mode == "xy_pairs":
-                # x y x y ... (your file is 1 pair per line, comma separated)
                 if len(nums) % 2 == 1:
                     nums = nums[:-1]
-
                 for i in range(0, len(nums), 2):
                     frequencies.append(nums[i] * xfactor)
                     intensities.append(nums[i + 1] * yfactor)
 
             elif data_mode == "xpp_ylist":
-                # x0 y1 y2 y3 ...
                 x0 = nums[0]
                 yvals = nums[1:]
                 if not yvals:
@@ -149,7 +130,7 @@ def load_jcamp_xy_lists(path: str) -> Tuple[List[float], List[float]]:
     return frequencies, intensities
 
 
-def peak_indices_in_range(
+def find_peak_indices_in_range(
         freqs: Sequence[float],
         intens: Sequence[float],
         f_min: float,
@@ -161,12 +142,11 @@ def peak_indices_in_range(
     if len(freqs) != len(intens):
         raise ValueError("freqs and intens must be the same length.")
     n = len(freqs)
+
     if n < 3:
         return []
 
     lo, hi = (f_min, f_max) if f_min <= f_max else (f_max, f_min)
-
-    # Candidate peaks
     candidates: List[int] = []
     for i in range(1, n - 1):
         f = freqs[i]
@@ -199,15 +179,15 @@ def peak_indices_in_range(
     return candidates
 
 
-def calculate_peaks(row):
+def _calculate_peaks(row):
     freqs = row['freq']
     intensities = row['intensity']
-    locs = peak_indices_in_range(freqs,
-                                 intensities,
-                                 f_min=500,
-                                 f_max=1500,
-                                 prominence=None,
-                                 min_distance=None)
+    locs = find_peak_indices_in_range(freqs,
+                                      intensities,
+                                      f_min=500,
+                                      f_max=1500,
+                                      prominence=None,
+                                      min_distance=None)
     return len(locs)
 
 
@@ -233,7 +213,7 @@ def _valid_smi(smi: str) -> bool:
     return bool(smi) and all(x not in smi for x in [".", "*", "->", "$"])
 
 
-def _process_meta_data(extract_dir):
+def _process_chemotion_meta_section(extract_dir):
     dir_files = att.file_list_all(extract_dir)
 
     # find the metadata file 'meta_data.json'
@@ -259,7 +239,7 @@ def _process_meta_data(extract_dir):
     return df_selected
 
 
-def process_ir_data(extract_dir, meta_data):
+def _process_chemotion_ir_section(extract_dir, meta_data):
     dir_files = att.file_list_all(extract_dir)
     ir_file = [f for f in dir_files if f.endswith("IR_data.tar.xz")][0]
     if not ir_file:
@@ -274,7 +254,7 @@ def process_ir_data(extract_dir, meta_data):
     ir_files = [f for f in ir_files if any(name in f for name in meta_data['name'].tolist())]
     filenames = [os.path.basename(f) for f in ir_files]
     ir_data = pd.DataFrame(filenames, columns=['name'])
-    ir_xy = att.mp_calc(load_jcamp_xy_lists, ir_files)
+    ir_xy = att.mp_calc(load_ir_jcamp_data, ir_files)
     ir_data['freq'] = [xy[0] for xy in ir_xy]
     ir_data['intensity'] = [xy[1] for xy in ir_xy]
     return ir_data
@@ -295,8 +275,8 @@ def process_chemotion_ir_data(target_file):
                 tar.extractall(path=extract_dir)
             print(f"Extracted data to {extract_dir}", flush=True)
 
-        meta_data = _process_meta_data(extract_dir)
-        ir_data = process_ir_data(extract_dir, meta_data)
+        meta_data = _process_chemotion_meta_section(extract_dir)
+        ir_data = _process_chemotion_ir_section(extract_dir, meta_data)
 
         # Merge meta_data and ir_data on name
         merged_data = pd.merge(meta_data, ir_data, on='name')
@@ -313,11 +293,20 @@ if __name__ == "__main__":
     target_file = "/home/louie/Downloads/10.22000-OGoEQGlsZGElrgst.tar"
     df = process_chemotion_ir_data(target_file)
 
+    max_bonds = 100
+    df = att.filter_by_nh_bonds(df, max_bonds=max_bonds)
+
+
     # sample molecules for testing
-    df = df.sample(n=100, random_state=42).reset_index(drop=True)
+    #df = df.sample(n=300, random_state=42).reset_index(drop=True)
 
     # calculate number of peaks
-    df['n_peaks'] = att.mp_calc(calculate_peaks, [row for _, row in df.iterrows()])
+    df['n_peaks'] = att.mp_calc(_calculate_peaks, [row for _, row in df.iterrows()])
+
+    # only keep rows with n_peaks > 0
+    df = df[df['n_peaks'] > 0].reset_index(drop=True)
+    # only keep rows with n_peaks <= 20
+    df = df[df['n_peaks'] <= 60].reset_index(drop=True)
 
     # calculate assembly index
     df['ai'] = att.mp_calc(_calc_ai, df['smiles'].tolist())
@@ -327,9 +316,8 @@ if __name__ == "__main__":
 
     fig, ax = att.plot_heatmap(np.array(df['ai']),
                                np.array(df['n_peaks']),
-                               "Molecular Weight",
                                "Assembly Index",
+                               "Number of Peaks",
                                nbins=(n_x_bins, n_y_bins),
-                               c_map='inferno',
                                )
     plt.show()
