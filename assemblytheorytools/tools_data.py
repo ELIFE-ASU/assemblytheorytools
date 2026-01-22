@@ -186,6 +186,7 @@ def sample_importance_sampling(data: np.ndarray, n_sample: int, n_bins: int = 50
 
     return sample, sample_indices
 
+
 def filter_by_nh_bonds(df: pd.DataFrame,
                        *,
                        min_bonds: int = 0,
@@ -812,6 +813,3 @@ def sample_pubchem_cid_smiles_gz_mw(
         print(f"Total number of molecules in PubChem: {len(sampled)}", flush=True)
         sampled.to_csv(out_file, index=False, compression='gzip')
         return sampled
-
-
-
