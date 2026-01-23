@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import pubchempy as pcp
 from rdkit import Chem
+from scipy.signal import savgol_filter
 from scipy.stats import gaussian_kde
 
 from .complexity_scores import count_bonds, count_non_h_bonds, molecular_weight
@@ -1499,3 +1500,7 @@ def process_chemotion_ir_data(target_file: str) -> pd.DataFrame:
     # Save the merged data to a compressed CSV file
     merged_data.to_csv(out_file, index=False)
     return merged_data
+
+
+def apply_sg_filter(data, window_length=11, polyorder=3):
+    return savgol_filter(data, window_length=window_length, polyorder=polyorder)
