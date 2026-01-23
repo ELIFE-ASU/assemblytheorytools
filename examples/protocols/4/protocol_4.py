@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import assemblytheorytools as att
-
+from scipy.signal import savgol_filter
 
 def fit_line_2d(points: np.ndarray, return_stats: bool = True):
     pts = np.asarray(points, dtype=float)
@@ -44,6 +44,8 @@ def fit_line_2d(points: np.ndarray, return_stats: bool = True):
     stats = {"r2": r2, "rmse": rmse, "residuals": residuals}
     return m, b, stats
 
+def apply_filter(data, window_length=11, polyorder=3):
+    return savgol_filter(data, window_length=window_length, polyorder=polyorder)
 
 if __name__ == "__main__":
     timeout = 5.0 * 60.0
