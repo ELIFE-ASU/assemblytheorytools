@@ -428,7 +428,9 @@ def plot_pathway(graph: nx.DiGraph,
                  arrow_style: str = '1',
                  layout_style: str = 'crossmin_long',
                  frame_on: bool = True,
-                 font_size: int = 12) -> tuple[Figure, Axes]:
+                 font_size: int = 11,
+                 arrow_color: str = '#264f70',
+                 plt_arrow_style = '->') -> tuple[Figure, Axes]:
     """
     Visualize a directed acyclic graph as a pathway with customizable layout.
     
@@ -457,8 +459,12 @@ def plot_pathway(graph: nx.DiGraph,
     frame_on : bool, optional
         If True, displays axis frame, by default True.
     font_size : int, optional
-        Font size for string assembly paths, by default 12.
-    
+        Font size for string assembly paths, by default 11.
+    arrow_color : str, optional
+        Color for arrows in hex format, by default '#264f70'.
+    plt_arrow_style : str or ArrowStyle object from matplotlib.patches, optional
+        Style of the arrowheads in the plot, by default '->'.
+
     Returns
     -------
     tuple of (matplotlib.figure.Figure, matplotlib.axes.Axes)
@@ -500,7 +506,7 @@ def plot_pathway(graph: nx.DiGraph,
         pos = nx.multipartite_layout(graph, subset_key="layer")
 
     if arrow_style == '1':
-        edge_color = 'white'
+        edge_color = arrow_color
     elif arrow_style == '2':
         edge_color = 'grey'
     else:
@@ -520,7 +526,7 @@ def plot_pathway(graph: nx.DiGraph,
 
     if arrow_style == '1':
         if show_icons:
-            arrow_margin = 50
+            arrow_margin = 70
         else:
             arrow_margin = 20
 
@@ -550,9 +556,9 @@ def plot_pathway(graph: nx.DiGraph,
                 edgelist=[edge],
                 ax=ax,
                 arrows=True,
-                arrowstyle="->",
+                arrowstyle=plt_arrow_style,
                 width=2.5,
-                edge_color="grey",
+                edge_color=edge_color,
                 connectionstyle=f"arc3,rad={rad}",
                 min_target_margin=arrow_margin,
             )
