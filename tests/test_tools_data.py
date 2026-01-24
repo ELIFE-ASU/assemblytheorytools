@@ -54,12 +54,11 @@ def test_find_peak_indices_in_range():
     print(flush=True)
     ir_file = 'tests/data/ir_jcamp'
     spectrum = att.load_ir_jcamp_data(ir_file)
-    freq = spectrum.T[0]
-    intensity = spectrum.T[1]
-    intensity = att.apply_sg_filter(intensity, window_length=35, polyorder=3)
-    spectrum = np.column_stack((np.asarray(freq, dtype=float), np.asarray(intensity, dtype=float)))
+    spectrum = att.apply_sg_filter(spectrum, window_length=35, polyorder=3)
     peaks = att.find_peak_indices_in_range(spectrum, 500, 1500, prominence=0.00001)
     print(len(peaks))
+    freq = spectrum.T[0]
+    intensity = spectrum.T[1]
 
     plt.plot(freq, intensity)
     plt.scatter(freq[peaks], intensity[peaks], color='red')

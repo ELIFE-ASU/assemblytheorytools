@@ -1502,5 +1502,30 @@ def process_chemotion_ir_data(target_file: str) -> pd.DataFrame:
     return merged_data
 
 
-def apply_sg_filter(data, window_length=11, polyorder=3):
-    return savgol_filter(data, window_length=window_length, polyorder=polyorder)
+def apply_sg_filter(spectrum, window_length=11, polyorder=3):
+    """
+    Apply a Savitzky-Golay filter to smooth the intensity values of a spectrum.
+
+    This function takes a 2D array representing a spectrum, applies a Savitzky-Golay
+    filter to the intensity values, and returns the smoothed spectrum.
+
+    Parameters
+    ----------
+    spectrum : array-like
+        A 2D array where the first column represents the x-values (e.g., frequencies)
+        and the second column represents the y-values (e.g., intensities).
+    window_length : int, optional
+        The length of the filter window (number of coefficients). Must be a positive odd integer.
+        Default is 11.
+    polyorder : int, optional
+        The order of the polynomial used to fit the samples. Must be less than `window_length`.
+        Default is 3.
+
+    Returns
+    -------
+    np.ndarray
+        A 2D NumPy array with the same shape as the input, where the first column contains
+        the original x-values and the second column contains the smoothed intensity values.
+    """
+    intensity = savgol_filter(spectrum.T[1], window_length=window_length, polyorder=polyorder)
+    return np.column_stack((np.asarray(spectrum.T[0], dtype=float), np.asarray(intensity, dtype=float)))
