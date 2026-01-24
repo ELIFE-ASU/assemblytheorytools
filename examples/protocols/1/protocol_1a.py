@@ -13,7 +13,7 @@ if __name__ == "__main__":
     print(f"Virtual objects in pathway: {virt_obj}", flush=True)
 
     att.plot_pathway(pathway,
-                     frame_on=False,
+                     frame_on=True,
                      plot_type='mol', fig_size=(14, 7), layout_style='crossmin_long')
     plt.savefig("mol_pathway_example.svg")
     plt.savefig("mol_pathway_example.png", dpi=300)

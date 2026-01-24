@@ -47,7 +47,7 @@ def fit_line_2d(points: np.ndarray, return_stats: bool = True):
 
 
 if __name__ == "__main__":
-    timeout = 5.0 * 60.0
+    timeout = 2.0 * 60.0
 
     # Download the file
     # https://radar4chem.radar-service.eu/radar/en/dataset/OGoEQGlsZGElrgst#
@@ -59,9 +59,7 @@ if __name__ == "__main__":
     df = att.filter_by_nh_bonds(df, max_bonds=max_bonds)
 
     # preprocess spectra by applying a Savitzky-Golay filter
-    df['spectrum'] = att.mp_calc(apply_filter, df['spectrum'])
-
-
+    df['spectrum'] = att.mp_calc(att.apply_sg_filter, df['spectrum'])
 
     # calculate number of peaks
     df['n_peaks'] = att.mp_calc(att.calc_n_peaks_in_range, df['spectrum'])

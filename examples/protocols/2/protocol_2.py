@@ -8,8 +8,8 @@ import assemblytheorytools as att
 if __name__ == "__main__":
     t_0 = t.time()
     n_sample = 20_000
-    max_mw = 600.0
-    max_bonds = 80
+    max_mw = 550.0
+    max_bonds = 50
 
     att.download_pubchem_cid_smiles_gz()
     sample = att.sample_pubchem_cid_smiles_gz_mw(n_sample, max_mw=max_mw, max_bonds=max_bonds)
@@ -23,8 +23,8 @@ if __name__ == "__main__":
     mols = att.mp_calc(att.smi_to_mol, smis)
 
     # Calculate the assembly index for the list of molecules
-    ai, _, _ = att.calculate_assembly_parallel(mols, settings={'strip_hydrogen': True,
-                                                               'timeout': 120.0})
+    ai = att.calculate_assembly_parallel(mols, settings={'strip_hydrogen': True,
+                                                               'timeout': 120.0})[0]
     t_3 = t.time()
     print(f"Time to calculate assembly indices for molecules: {t_3 - t_2:.1f} seconds", flush=True)
 
@@ -42,6 +42,5 @@ if __name__ == "__main__":
                                "Molecular Weight",
                                "Assembly Index",
                                nbins=(n_x_bins, n_y_bins),
-                               c_map='inferno',
                                )
     plt.show()
