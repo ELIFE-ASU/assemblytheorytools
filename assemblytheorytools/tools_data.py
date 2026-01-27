@@ -1178,106 +1178,6 @@ def load_ir_jcamp_data(path: str) -> np.ndarray:
                             1.0 - np.asarray(intensities, dtype=float)))
 
 
-def find_peak_indices_in_range(
-        xy: np.ndarray,
-        f_min: float,
-        f_max: float,
-        *,
-        prominence: Optional[float] = None,
-        min_distance: Optional[float] = None,
-) -> List[int]:
-    """
-    Identify the indices of peaks within a specified frequency range in a 2D array.
-
-    This function analyzes a 2D array of frequency and intensity data to find peaks
-    within a given frequency range. Peaks are defined as local maxima that satisfy
-    optional prominence and minimum distance criteria.
-
-    Parameters
-    ----------
-    xy : np.ndarray
-        A 2D NumPy array of shape (N, 2), where each row contains a frequency and its
-        corresponding intensity.
-    f_min : float
-        The lower bound of the frequency range to search for peaks.
-    f_max : float
-        The upper bound of the frequency range to search for peaks.
-    prominence : float, optional
-        The minimum required prominence of a peak. Peaks with prominence less than this
-        value are ignored. Default is None.
-    min_distance : float, optional
-        The minimum required distance (in frequency units) between peaks. Peaks closer
-        than this distance are filtered, keeping the most prominent ones. Default is None.
-
-    Returns
-    -------
-    List[int]
-        A list of indices corresponding to the peaks that satisfy the criteria.
-
-    Raises
-    ------
-    ValueError
-        If the input array `xy` is not a 2D array of shape (N, 2).
-
-    Notes
-    -----
-    - A peak is defined as a point where the intensity is greater than the intensity
-      of its immediate neighbors.
-    - If `prominence` is specified, only peaks with sufficient prominence are included.
-    - If `min_distance` is specified, peaks are filtered to ensure a minimum spacing
-      between them, with the most prominent peaks retained.
-    """
-    xy = np.asarray(xy)
-    if xy.ndim != 2 or xy.shape[1] != 2:
-        raise ValueError("xy must be a 2D array of shape (N, 2): [freq, intensity].")
-
-    peaks = find_peaks(xy.T[1], prominence=prominence, distance=min_distance)[0]
-    # filter peaks to be within range
-    peaks = [i for i in peaks if f_min <= xy.T[0][i] <= f_max]
-    return peaks
-
-
-def calc_n_peaks_in_range(data: np.ndarray,
-                          f_min: float = 500,
-                          f_max: float = 1500,
-                          prominence: Optional[float] = 0.05,
-                          min_distance: Optional[float] = 5) -> int:
-    """
-    Calculate the number of peaks within a specified frequency range in a 2D array.
-
-    This function identifies peaks in the given frequency-intensity data within the
-    specified frequency range and returns the count of such peaks. Peaks can be filtered
-    based on optional prominence and minimum distance criteria.
-
-    Parameters
-    ----------
-    data : np.ndarray
-        A 2D NumPy array of shape (N, 2), where each row contains a frequency and its
-        corresponding intensity.
-    f_min : float, optional
-        The lower bound of the frequency range to search for peaks. Default is 500.
-    f_max : float, optional
-        The upper bound of the frequency range to search for peaks. Default is 1500.
-    prominence : float, optional
-        The minimum required prominence of a peak. Peaks with prominence less than this
-        value are ignored. Default is None.
-    min_distance : float, optional
-        The minimum required distance (in frequency units) between peaks. Peaks closer
-        than this distance are filtered, keeping the most prominent ones. Default is None.
-
-    Returns
-    -------
-    int
-        The number of peaks that satisfy the specified criteria.
-    """
-    locs = find_peak_indices_in_range(data,
-                                      f_min=f_min,
-                                      f_max=f_max,
-                                      prominence=prominence,
-                                      min_distance=min_distance)
-    return len(locs)
-
-
 def _process_meta_data_name(entry: List[dict]) -> Optional[str]:
     """
     Extract the name identifier from the metadata entry.
@@ -1466,6 +1366,106 @@ def process_chemotion_ir_data(target_file: str) -> pd.DataFrame:
     # Save the merged data to a compressed CSV file
     merged_data.to_csv(out_file, index=False)
     return merged_data
+
+
+def find_peak_indices_in_range(
+        xy: np.ndarray,
+        f_min: float,
+        f_max: float,
+        *,
+        prominence: Optional[float] = None,
+        min_distance: Optional[float] = None,
+) -> List[int]:
+    """
+    Identify the indices of peaks within a specified frequency range in a 2D array.
+
+    This function analyzes a 2D array of frequency and intensity data to find peaks
+    within a given frequency range. Peaks are defined as local maxima that satisfy
+    optional prominence and minimum distance criteria.
+
+    Parameters
+    ----------
+    xy : np.ndarray
+        A 2D NumPy array of shape (N, 2), where each row contains a frequency and its
+        corresponding intensity.
+    f_min : float
+        The lower bound of the frequency range to search for peaks.
+    f_max : float
+        The upper bound of the frequency range to search for peaks.
+    prominence : float, optional
+        The minimum required prominence of a peak. Peaks with prominence less than this
+        value are ignored. Default is None.
+    min_distance : float, optional
+        The minimum required distance (in frequency units) between peaks. Peaks closer
+        than this distance are filtered, keeping the most prominent ones. Default is None.
+
+    Returns
+    -------
+    List[int]
+        A list of indices corresponding to the peaks that satisfy the criteria.
+
+    Raises
+    ------
+    ValueError
+        If the input array `xy` is not a 2D array of shape (N, 2).
+
+    Notes
+    -----
+    - A peak is defined as a point where the intensity is greater than the intensity
+      of its immediate neighbors.
+    - If `prominence` is specified, only peaks with sufficient prominence are included.
+    - If `min_distance` is specified, peaks are filtered to ensure a minimum spacing
+      between them, with the most prominent peaks retained.
+    """
+    xy = np.asarray(xy)
+    if xy.ndim != 2 or xy.shape[1] != 2:
+        raise ValueError("xy must be a 2D array of shape (N, 2): [freq, intensity].")
+
+    peaks = find_peaks(xy.T[1], prominence=prominence, distance=min_distance)[0]
+    # filter peaks to be within range
+    peaks = [i for i in peaks if f_min <= xy.T[0][i] <= f_max]
+    return peaks
+
+
+def calc_n_peaks_in_range(data: np.ndarray,
+                          f_min: float = 500,
+                          f_max: float = 1500,
+                          prominence: Optional[float] = 0.05,
+                          min_distance: Optional[float] = 5) -> int:
+    """
+    Calculate the number of peaks within a specified frequency range in a 2D array.
+
+    This function identifies peaks in the given frequency-intensity data within the
+    specified frequency range and returns the count of such peaks. Peaks can be filtered
+    based on optional prominence and minimum distance criteria.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        A 2D NumPy array of shape (N, 2), where each row contains a frequency and its
+        corresponding intensity.
+    f_min : float, optional
+        The lower bound of the frequency range to search for peaks. Default is 500.
+    f_max : float, optional
+        The upper bound of the frequency range to search for peaks. Default is 1500.
+    prominence : float, optional
+        The minimum required prominence of a peak. Peaks with prominence less than this
+        value are ignored. Default is None.
+    min_distance : float, optional
+        The minimum required distance (in frequency units) between peaks. Peaks closer
+        than this distance are filtered, keeping the most prominent ones. Default is None.
+
+    Returns
+    -------
+    int
+        The number of peaks that satisfy the specified criteria.
+    """
+    locs = find_peak_indices_in_range(data,
+                                      f_min=f_min,
+                                      f_max=f_max,
+                                      prominence=prominence,
+                                      min_distance=min_distance)
+    return len(locs)
 
 
 def apply_sg_filter(spectrum, window_length=11, polyorder=3):
