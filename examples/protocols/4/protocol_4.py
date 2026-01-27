@@ -45,7 +45,6 @@ def fit_line_2d(points: np.ndarray, return_stats: bool = True):
     return m, b, stats
 
 
-
 if __name__ == "__main__":
     timeout = 2.0 * 60.0
 
@@ -55,7 +54,7 @@ if __name__ == "__main__":
     os.remove('chemotion_ir_data.csv.gz') if os.path.exists('chemotion_ir_data.csv.gz') else None
     df = att.process_chemotion_ir_data(target_file)
 
-    max_bonds = 50
+    max_bonds = 30
     df = att.filter_by_nh_bonds(df, max_bonds=max_bonds)
 
     # preprocess spectra by applying a Savitzky-Golay filter
@@ -66,42 +65,55 @@ if __name__ == "__main__":
 
     # only keep rows with n_peaks > 0
     df = df[df['n_peaks'] > 0].reset_index(drop=True)
-    # only keep rows with n_peaks <= 20
-    df = df[df['n_peaks'] <= 60].reset_index(drop=True)
+    df = df[df['n_peaks'] <= 40].reset_index(drop=True)
 
     # calculate assembly index
     graphs = att.mp_calc(att.smi_to_nx, df['smiles'].tolist())
     df['ai'] = att.calculate_assembly_parallel(graphs, settings={'strip_hydrogen': True,
                                                                  'timeout': timeout})[0]
 
-    n_x_bins = len(set(df['ai']))
-    n_y_bins = len(set(df['n_peaks']))
-
-    fig, ax = att.plot_heatmap(np.array(df['ai']),
-                               np.array(df['n_peaks']),
-                               "Assembly Index",
-                               "Number of Peaks",
-                               nbins=(n_x_bins, n_y_bins),
-                               )
-    plt.show()
-
     m, b, stats = fit_line_2d(np.array(df[['ai', 'n_peaks']]))
 
-    y = np.array(m * np.array(df['ai']) + b, dtype=int)
+    print(f'Fitted line: n_peaks = {m:.3f} * ai + {b:.3f}')
+    print(f'R^2: {stats["r2"]:.3f}, RMSE: {stats["rmse"]:.3f}')
+
+    mock_x = np.linspace(min(df['ai']), max(df['ai']), 100)
+    fitted_y = m * mock_x + b
+
+    # fig, ax = att.plot_heatmap(np.array(df['ai']),
+    #                            np.array(df['n_peaks']),
+    #                            "Assembly Index",
+    #                            "Number of Peaks",
+    #                            nbins=(len(set(df['ai'])),
+    #                                   len(set(df['n_peaks']))),
+    #                            )
+    # plt.plot(mock_x, fitted_y, color='red')
+    #
+    # plt.show()
+
+    # Use the fitted line to generate predicted y values
+    ai_predicted = np.array([(m * n + b) * 0.2 for n in df['n_peaks'].tolist()], dtype=float)
+    print(np.array(df['ai']))
+    print(ai_predicted)
+
     plt.scatter(df['ai'], df['n_peaks'], alpha=0.5)
-    plt.plot(df['ai'], y, color='red')
+    plt.plot(mock_x, fitted_y, color='red')
     plt.xlabel('Assembly Index')
     plt.ylabel('Number of Peaks')
     plt.title('Number of Peaks vs Assembly Index with Fitted Line')
     plt.show()
 
     n_x_bins = len(set(df['ai']))
-    n_y_bins = len(set(y))
+    n_y_bins = len(set(ai_predicted))
+    print(n_x_bins, n_y_bins)
 
     fig, ax = att.plot_heatmap(np.array(df['ai']),
-                               y,
+                               np.array(ai_predicted),
                                "Assembly Index",
                                "Predicted Assembly Index",
-                               # nbins=(n_x_bins, n_y_bins),
+                               nbins=(n_x_bins, 30),
                                )
     plt.show()
+
+    # plt.scatter(df['ai'], ai_predicted, alpha=0.5)
+    # plt.show()
