@@ -55,12 +55,7 @@ def test_find_peak_indices_in_range():
     ir_file = 'tests/data/ir_jcamp'
     spectrum = att.load_ir_jcamp_data(ir_file)
     spectrum = att.apply_sg_filter(spectrum, window_length=35, polyorder=3)
-    peaks = att.find_peak_indices_in_range(spectrum,
-                                           f_min=500,
-                                           f_max=1500,
-                                           prominence=0.01,
-                                           min_distance=5,
-                                           )
+    peaks = att.find_peak_indices_in_range(spectrum, min_x=500, max_x=1500, prominence=0.01, distance=5)
 
     print(len(peaks))
     freq = spectrum.T[0]
