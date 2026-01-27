@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import pubchempy as pcp
 from rdkit import Chem
+from scipy.optimize import minimize
 from scipy.signal import savgol_filter, find_peaks
 from scipy.stats import gaussian_kde
 
@@ -1402,6 +1403,7 @@ def find_n_peak_indices_in_range(
     )
     return len(peak_indices)
 
+
 def apply_sg_filter(spectrum, window_length=11, polyorder=3):
     """
     Apply a Savitzky-Golay filter to smooth the intensity values of a spectrum.
@@ -1429,3 +1431,179 @@ def apply_sg_filter(spectrum, window_length=11, polyorder=3):
     """
     intensity = savgol_filter(spectrum.T[1], window_length=window_length, polyorder=polyorder)
     return np.column_stack((np.asarray(spectrum.T[0], dtype=float), np.asarray(intensity, dtype=float)))
+
+
+def linear_func(x, m, b):
+    """
+    Linear function to model a straight line.
+
+    Parameters:
+    -----------
+    x : float or array-like
+        The independent variable.
+    m : float
+        The slope of the line.
+    b : float
+        The y-intercept of the line.
+
+    Returns:
+    --------
+    float or array-like
+        The dependent variable calculated as m * x + b.
+    """
+    return m * x + b
+
+
+def quadratic_func(x, a, b, c):
+    """
+    Quadratic function to model a parabola.
+
+    Parameters:
+    -----------
+    x : float or array-like
+        The independent variable.
+    a : float
+        The coefficient for the quadratic term (x^2).
+    b : float
+        The coefficient for the linear term (x).
+    c : float
+        The constant term.
+
+    Returns:
+    --------
+    float or array-like
+        The dependent variable calculated as a * x^2 + b * x + c.
+    """
+    return a * x ** 2 + b * x + c
+
+
+def cubic_func(x, a, b, c, d):
+    """
+    Cubic function to model a polynomial of degree 3.
+
+    Parameters:
+    -----------
+    x : float or array-like
+        The independent variable.
+    a : float
+        The coefficient for the cubic term (x^3).
+    b : float
+        The coefficient for the quadratic term (x^2).
+    c : float
+        The coefficient for the linear term (x).
+    d : float
+        The constant term.
+
+    Returns:
+    --------
+    float or array-like
+        The dependent variable calculated as a * x^3 + b * x^2 + c * x + d.
+    """
+    return a * x ** 3 + b * x ** 2 + c * x + d
+
+
+def quartic_func(x, a, b, c, d, e):
+    """
+    Quartic function to model a polynomial of degree 4.
+
+    Parameters:
+    -----------
+    x : float or array-like
+        The independent variable.
+    a : float
+        The coefficient for the quartic term (x^4).
+    b : float
+        The coefficient for the cubic term (x^3).
+    c : float
+        The coefficient for the quadratic term (x^2).
+    d : float
+        The coefficient for the linear term (x).
+    e : float
+        The constant term.
+
+    Returns:
+    --------
+    float or array-like
+        The dependent variable calculated as a * x^4 + b * x^3 + c * x^2 + d * x + e.
+    """
+    return a * x ** 4 + b * x ** 3 + c * x ** 2 + d * x + e
+
+
+def quintic_func(x, a, b, c, d, e):
+    """
+    Quintic function to model a polynomial of degree 5.
+
+    Parameters:
+    -----------
+    x : float or array-like
+        The independent variable.
+    a : float
+        The coefficient for the quintic term (x^5).
+    b : float
+        The coefficient for the quartic term (x^4).
+    c : float
+        The coefficient for the cubic term (x^3).
+    d : float
+        The coefficient for the quadratic term (x^2).
+    e : float
+        The coefficient for the linear term (x).
+
+    Returns:
+    --------
+    float or array-like
+        The dependent variable calculated as a * x^5 + b * x^4 + c * x^3 + d * x^2 + e * x.
+    """
+    return a * x ** 5 + b * x ** 4 + c * x ** 3 + d * x ** 2 + e * x
+
+
+def get_r(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    y_true = np.asarray(y_true, dtype=float).ravel()
+    y_pred = np.asarray(y_pred, dtype=float).ravel()
+    yt = y_true - np.mean(y_true)
+    yp = y_pred - np.mean(y_pred)
+    denom = np.sqrt(np.sum(yt ** 2) * np.sum(yp ** 2))
+    if np.isclose(denom, 0.0):
+        return np.nan
+    return float(np.sum(yt * yp) / denom)
+
+
+def get_r2(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    y_true = np.asarray(y_true, dtype=float).ravel()
+    y_pred = np.asarray(y_pred, dtype=float).ravel()
+    ss_res = np.sum((y_true - y_pred) ** 2)
+    ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)
+    # Handle the degenerate case
+    if np.isclose(ss_tot, 0.0):
+        return 1.0 if np.isclose(ss_res, 0.0) else 0.0
+    return 1.0 - (ss_res / ss_tot)
+
+
+def get_rmsd(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    y_true = np.asarray(y_true, dtype=float).ravel()
+    y_pred = np.asarray(y_pred, dtype=float).ravel()
+    return float(np.sqrt(np.mean((y_true - y_pred) ** 2)))
+
+
+def _peaks_to_ai(n_peaks, model, params):
+    return int(model(n_peaks, *params))
+
+
+def _func_min_helper(x, *args):
+    n_peaks, obs, model_fit = args
+    pred = np.array([_peaks_to_ai(n, model_fit, x) for n in n_peaks], dtype=int)
+    return get_rmsd(obs, pred)
+
+
+def estimate_ai_from_ir_peaks(peaks_data,
+                              ai_obs,
+                              model,
+                              params_0):
+    res = minimize(_func_min_helper,
+                   np.array(params_0),
+                   args=(peaks_data,
+                         ai_obs,
+                         model),
+                   method='Nelder-Mead',
+                   tol=1e-6)
+    data_pred = [_peaks_to_ai(x_i, model, res.x) for x_i in peaks_data]
+    return res.x, np.array(data_pred, dtype=int)
