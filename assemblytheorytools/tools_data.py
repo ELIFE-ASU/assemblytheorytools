@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import pubchempy as pcp
 from rdkit import Chem
-from scipy.signal import savgol_filter
+from scipy.signal import savgol_filter, find_peaks
 from scipy.stats import gaussian_kde
 
 from .complexity_scores import count_bonds, count_non_h_bonds, molecular_weight
@@ -1231,51 +1231,17 @@ def find_peak_indices_in_range(
     if xy.ndim != 2 or xy.shape[1] != 2:
         raise ValueError("xy must be a 2D array of shape (N, 2): [freq, intensity].")
 
-    n = xy.shape[0]
-    if n < 3:
-        return []
-
-    freqs = xy[:, 0]
-    intens = xy[:, 1]
-
-    lo, hi = (f_min, f_max) if f_min <= f_max else (f_max, f_min)
-
-    candidates: List[int] = []
-    for i in range(1, n - 1):
-        f = freqs[i]
-        if f < lo or f > hi:
-            continue
-
-        y0, y1, y2 = intens[i - 1], intens[i], intens[i + 1]
-        if not (y1 > y0 and y1 >= y2):
-            continue
-
-        if prominence is not None and (y1 - max(y0, y2) < prominence):
-            continue
-
-        candidates.append(i)
-
-    if not candidates:
-        return []
-
-    # Optional: minimum distance filtering (by frequency spacing)
-    if min_distance is not None and min_distance > 0:
-        by_height = sorted(candidates, key=lambda i: intens[i], reverse=True)
-        kept: List[int] = []
-        for i in by_height:
-            fi = freqs[i]
-            if all(abs(fi - freqs[j]) >= min_distance for j in kept):
-                kept.append(i)
-        return sorted(kept)
-
-    return candidates
+    peaks = find_peaks(xy.T[1], prominence=prominence, distance=min_distance)[0]
+    # filter peaks to be within range
+    peaks = [i for i in peaks if f_min <= xy.T[0][i] <= f_max]
+    return peaks
 
 
 def calc_n_peaks_in_range(data: np.ndarray,
                           f_min: float = 500,
                           f_max: float = 1500,
-                          prominence: Optional[float] = None,
-                          min_distance: Optional[float] = None) -> int:
+                          prominence: Optional[float] = 0.05,
+                          min_distance: Optional[float] = 5) -> int:
     """
     Calculate the number of peaks within a specified frequency range in a 2D array.
 

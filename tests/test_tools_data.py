@@ -1,8 +1,8 @@
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
 import assemblytheorytools as att
-import numpy as np
-import matplotlib.pyplot as plt
 
 
 def test_filter_by_n_bonds():
@@ -55,10 +55,19 @@ def test_find_peak_indices_in_range():
     ir_file = 'tests/data/ir_jcamp'
     spectrum = att.load_ir_jcamp_data(ir_file)
     spectrum = att.apply_sg_filter(spectrum, window_length=35, polyorder=3)
-    peaks = att.find_peak_indices_in_range(spectrum, 500, 1500, prominence=0.00001)
+    peaks = att.find_peak_indices_in_range(spectrum,
+                                           f_min=500,
+                                           f_max=1500,
+                                           prominence=0.01,
+                                           min_distance=5,
+                                           )
+
     print(len(peaks))
     freq = spectrum.T[0]
     intensity = spectrum.T[1]
+
+    df = abs(freq[1] - freq[0])
+    print(f"Delta freq: {df}")
 
     plt.plot(freq, intensity)
     plt.scatter(freq[peaks], intensity[peaks], color='red')
