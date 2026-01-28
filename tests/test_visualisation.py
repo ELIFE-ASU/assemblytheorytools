@@ -190,3 +190,67 @@ def test_show_common_bonds():
     img = att.show_common_bonds(*smis, legends=mols_str)
     assert img is not None, "Failed to generate the image."
     img.show()
+
+
+from typing import List, Optional, Sequence, Union
+
+from rdkit import Chem
+from rdkit.Chem import Draw
+
+
+def draw_mol_grid(
+        mols: Sequence[Union[Chem.Mol, str]],
+        legends: Optional[Sequence[str]] = None,
+        n_cols: int = 4,
+        sub_img_size: tuple = (200, 200),
+        max_mols: Optional[int] = None,
+        use_svg: bool = False,
+):
+    if n_cols <= 0:
+        raise ValueError("n_cols must be a positive integer")
+
+    # Convert inputs to RDKit Mol objects
+    rdkit_mols: List[Chem.Mol] = []
+    for i, m in enumerate(mols):
+        if isinstance(m, Chem.Mol):
+            mol_obj = m
+        elif isinstance(m, str):
+            mol_obj = Chem.MolFromSmiles(m)
+        else:
+            raise TypeError(f"Item {i} is neither an RDKit Mol nor a SMILES string: {type(m)}")
+
+        if mol_obj is None:
+            mol_obj = Chem.MolFromSmiles("")
+        rdkit_mols.append(mol_obj)
+
+    if max_mols is not None:
+        rdkit_mols = rdkit_mols[: int(max_mols)]
+
+    # Legends
+    if legends is None:
+        legends_list = [""] * len(rdkit_mols)
+    else:
+        if len(legends) != len(rdkit_mols):
+            raise ValueError("legends must be the same length as mols")
+        legends_list = list(legends)
+
+    # Draw
+    img = Draw.MolsToGridImage(
+        mols=rdkit_mols,
+        molsPerRow=n_cols,
+        subImgSize=sub_img_size,
+        legends=legends_list,
+        useSVG=use_svg,
+    )
+
+    return img
+
+
+def test_draw_mol_grid():
+    print(flush=True)
+
+    mols_str = ["CCO", "CCN", "CCC", "CCCl", "CCBr", "CCI", "CCF", "CC=O"]
+
+    img = draw_mol_grid(mols_str, legends=mols_str)
+    assert img is not None, "Failed to generate the image."
+    img.show()
