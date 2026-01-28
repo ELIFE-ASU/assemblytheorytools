@@ -1377,12 +1377,55 @@ def find_peak_indices_in_range(
         prominence: Optional[float] = None,
         distance: Optional[float] = None,
 ) -> np.ndarray:
+    """
+    Find the indices of peaks within a specified x-range in a 2D spectrum.
+
+    This function identifies peaks in the intensity values of a 2D array
+    representing a spectrum and filters them to include only those within
+    the specified x-range.
+
+    Parameters
+    ----------
+    xy : np.ndarray
+        A 2D NumPy array of shape (N, 2), where the first column represents
+        the x-values (e.g., frequencies) and the second column represents
+        the y-values (e.g., intensities).
+    min_x : float
+        The minimum x-value of the range to include peaks.
+    max_x : float
+        The maximum x-value of the range to include peaks.
+    prominence : float, optional
+        The required prominence of peaks. This parameter is passed to
+        `scipy.signal.find_peaks`. Default is None.
+    distance : float, optional
+        The required minimum horizontal distance (in number of samples)
+        between neighboring peaks. This parameter is passed to
+        `scipy.signal.find_peaks`. Default is None.
+
+    Returns
+    -------
+    np.ndarray
+        A 1D NumPy array containing the indices of the peaks that fall
+        within the specified x-range.
+
+    Raises
+    ------
+    ValueError
+        If the input `xy` is not a 2D array of shape (N, 2).
+
+    Notes
+    -----
+    - The function uses `scipy.signal.find_peaks` to detect peaks in the
+      intensity values (second column of `xy`).
+    - The x-values of the detected peaks are filtered to include only those
+      within the range [min_x, max_x].
+    """
     xy = np.asarray(xy)
     if xy.ndim != 2 or xy.shape[1] != 2:
         raise ValueError("xy must be a 2D array of shape (N, 2): [freq, intensity].")
 
     peaks = find_peaks(xy.T[1], prominence=prominence, distance=distance)[0]
-    # filter peaks to be within range using boolean indexing
+    # Filter peaks to be within the specified x-range using boolean indexing
     return peaks[(xy[peaks, 0] >= min_x) & (xy[peaks, 0] <= max_x)]
 
 
@@ -1394,6 +1437,41 @@ def find_n_peak_indices_in_range(
         prominence: Optional[float] = None,
         distance: Optional[float] = None,
 ) -> int:
+    """
+    Count the number of peaks within a specified x-range in a 2D spectrum.
+
+    This function identifies peaks in the intensity values of a 2D array
+    representing a spectrum, filters them to include only those within
+    the specified x-range, and returns the count of such peaks.
+
+    Parameters
+    ----------
+    xy : np.ndarray
+        A 2D NumPy array of shape (N, 2), where the first column represents
+        the x-values (e.g., frequencies) and the second column represents
+        the y-values (e.g., intensities).
+    min_x : float
+        The minimum x-value of the range to include peaks.
+    max_x : float
+        The maximum x-value of the range to include peaks.
+    prominence : float, optional
+        The required prominence of peaks. This parameter is passed to
+        `scipy.signal.find_peaks`. Default is None.
+    distance : float, optional
+        The required minimum horizontal distance (in number of samples)
+        between neighboring peaks. This parameter is passed to
+        `scipy.signal.find_peaks`. Default is None.
+
+    Returns
+    -------
+    int
+        The number of peaks that fall within the specified x-range.
+
+    Notes
+    -----
+    - This function uses `find_peak_indices_in_range` to identify the indices
+      of peaks within the specified range and then calculates their count.
+    """
     peak_indices = find_peak_indices_in_range(
         xy,
         min_x,
@@ -1557,6 +1635,33 @@ def quintic_func(x, a, b, c, d, e):
 
 
 def get_r(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    """
+    Calculate the Pearson correlation coefficient (r) between two arrays.
+
+    This function computes the Pearson correlation coefficient, which measures
+    the linear relationship between two datasets. The result is a value between
+    -1 and 1, where 1 indicates a perfect positive linear relationship, -1 indicates
+    a perfect negative linear relationship, and 0 indicates no linear relationship.
+
+    Parameters
+    ----------
+    y_true : np.ndarray
+        The ground truth (true) values as a NumPy array.
+    y_pred : np.ndarray
+        The predicted values as a NumPy array.
+
+    Returns
+    -------
+    float
+        The Pearson correlation coefficient. If the denominator is zero (e.g., when
+        the variance of one or both arrays is zero), the function returns NaN.
+
+    Notes
+    -----
+    - The input arrays are flattened to 1D before computation.
+    - The function handles cases where the denominator is close to zero to avoid
+      division by zero errors.
+    """
     y_true = np.asarray(y_true, dtype=float).ravel()
     y_pred = np.asarray(y_pred, dtype=float).ravel()
     yt = y_true - np.mean(y_true)
@@ -1568,6 +1673,34 @@ def get_r(y_true: np.ndarray, y_pred: np.ndarray) -> float:
 
 
 def get_r2(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    """
+    Calculate the coefficient of determination (R^2) between two arrays.
+
+    This function computes the R^2 score, which measures how well the predicted
+    values approximate the true values. The R^2 score is defined as:
+    R^2 = 1 - (SS_res / SS_tot), where:
+    - SS_res is the sum of squared residuals.
+    - SS_tot is the total sum of squares.
+
+    Parameters
+    ----------
+    y_true : np.ndarray
+        The ground truth (true) values as a NumPy array.
+    y_pred : np.ndarray
+        The predicted values as a NumPy array.
+
+    Returns
+    -------
+    float
+        The R^2 score. A value of 1.0 indicates a perfect fit, 0.0 indicates
+        that the model does not explain any of the variance, and negative values
+        indicate that the model performs worse than a horizontal line.
+
+    Notes
+    -----
+    - The input arrays are flattened to 1D before computation.
+    - Handles degenerate cases where the total variance (SS_tot) is zero.
+    """
     y_true = np.asarray(y_true, dtype=float).ravel()
     y_pred = np.asarray(y_pred, dtype=float).ravel()
     ss_res = np.sum((y_true - y_pred) ** 2)
@@ -1579,16 +1712,87 @@ def get_r2(y_true: np.ndarray, y_pred: np.ndarray) -> float:
 
 
 def get_rmsd(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    """
+    Calculate the Root Mean Square Deviation (RMSD) between two arrays.
+
+    This function computes the RMSD, which is a measure of the differences
+    between values predicted by a model and the values actually observed.
+    It is commonly used to evaluate the accuracy of predictions.
+
+    Parameters
+    ----------
+    y_true : np.ndarray
+        The ground truth (true) values as a NumPy array.
+    y_pred : np.ndarray
+        The predicted values as a NumPy array.
+
+    Returns
+    -------
+    float
+        The RMSD value, which is a non-negative float. A lower value indicates
+        better agreement between the true and predicted values.
+
+    Notes
+    -----
+    - The input arrays are flattened to 1D before computation.
+    - The RMSD is calculated as the square root of the mean of the squared differences.
+    """
     y_true = np.asarray(y_true, dtype=float).ravel()
     y_pred = np.asarray(y_pred, dtype=float).ravel()
     return float(np.sqrt(np.mean((y_true - y_pred) ** 2)))
 
 
 def _peaks_to_ai(n_peaks, model, params):
+    """
+    Convert the number of peaks to an assembly index (AI) using a given model.
+
+    This function applies a mathematical model to the number of peaks and
+    model parameters to calculate the corresponding assembly index.
+
+    Parameters
+    ----------
+    n_peaks : int
+        The number of peaks in the spectrum.
+    model : callable
+        A mathematical model function that takes the number of peaks and
+        model parameters as input and returns a predicted value.
+    params : list or tuple
+        The parameters to be passed to the model function.
+
+    Returns
+    -------
+    int
+        The calculated assembly index (AI) as an integer.
+    """
     return int(model(n_peaks, *params))
 
 
 def _func_min_helper(x, *args):
+    """
+    Helper function for minimizing the root mean square deviation (RMSD).
+
+    This function calculates the RMSD between observed assembly indices and
+    predicted assembly indices based on a given model and parameters. It is
+    used as the objective function in optimization routines.
+
+    Parameters
+    ----------
+    x : array-like
+        The parameters to be optimized for the model.
+    *args : tuple
+        Additional arguments passed to the function:
+        - n_peaks : array-like
+            The number of peaks in the spectrum.
+        - obs : array-like
+            The observed assembly indices.
+        - model_fit : callable
+            The model function used to predict assembly indices.
+
+    Returns
+    -------
+    float
+        The RMSD between the observed and predicted assembly indices.
+    """
     n_peaks, obs, model_fit = args
     pred = np.array([_peaks_to_ai(n, model_fit, x) for n in n_peaks], dtype=int)
     return get_rmsd(obs, pred)
@@ -1598,6 +1802,39 @@ def estimate_ai_from_ir_peaks(peaks_data,
                               ai_obs,
                               model,
                               params_0):
+    """
+    Estimate assembly indices (AI) from IR peaks using a given model.
+
+    This function optimizes the parameters of a model to minimize the root mean square
+    deviation (RMSD) between observed assembly indices and predicted assembly indices.
+    The optimized parameters and the predicted assembly indices are returned.
+
+    Parameters
+    ----------
+    peaks_data : array-like
+        The input data representing the number of peaks in the spectrum.
+    ai_obs : array-like
+        The observed assembly indices corresponding to the input data.
+    model : callable
+        A mathematical model function that predicts assembly indices based on the
+        number of peaks and model parameters.
+    params_0 : array-like
+        The initial guess for the model parameters.
+
+    Returns
+    -------
+    tuple
+        A tuple containing:
+        - res.x : numpy.ndarray
+            The optimized model parameters.
+        - data_pred : numpy.ndarray
+            The predicted assembly indices as integers.
+
+    Notes
+    -----
+    - The optimization is performed using the Nelder-Mead method.
+    - The tolerance for the optimization is set to 1e-6.
+    """
     res = minimize(_func_min_helper,
                    np.array(params_0),
                    args=(peaks_data,

@@ -15,6 +15,7 @@ if __name__ == "__main__":
     df = att.process_chemotion_ir_data(target_file)
 
     max_bonds = 30
+    n_peaks_range = (1, 40)
     df = att.filter_by_nh_bonds(df, max_bonds=max_bonds)
 
     # Preprocess spectra by applying a Savitzky-Golay filter
@@ -30,7 +31,7 @@ if __name__ == "__main__":
     df['n_peaks'] = np.array(att.mp_calc(func_peaks, df['spectrum']), dtype=int)
 
     # Only keep rows with n_peaks that make sense
-    df = df[df['n_peaks'].between(1, 40)].reset_index(drop=True)
+    df = df[df['n_peaks'].between(*n_peaks_range)].reset_index(drop=True)
 
     # Calculate assembly index
     graphs = att.mp_calc(att.smi_to_nx, df['smiles'].tolist())
