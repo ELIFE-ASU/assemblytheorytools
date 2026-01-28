@@ -80,7 +80,8 @@ from .plotting import (n_plot,
                        multipartite_layout_crossmin,
                        multipartite_layout_crossmin_long,
                        multipartite_layout_sa,
-                       show_common_bonds)
+                       show_common_bonds,
+                       draw_mol_grid)
 from .reassembler import (assemble,
                           origami,
                           get_num_atom,
