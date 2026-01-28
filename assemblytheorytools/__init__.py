@@ -79,7 +79,8 @@ from .plotting import (n_plot,
                        plot_kde,
                        multipartite_layout_crossmin,
                        multipartite_layout_crossmin_long,
-                       multipartite_layout_sa)
+                       multipartite_layout_sa,
+                       show_common_bonds)
 from .reassembler import (assemble,
                           origami,
                           get_num_atom,
