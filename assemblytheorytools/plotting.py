@@ -3069,6 +3069,51 @@ def show_common_bonds(
         ring_matches_ring_only: bool = True,
         complete_rings_only: bool = True,
 ):
+    """
+    Visualize the maximum common substructure (MCS) between two molecules.
+
+    This function takes two SMILES strings, computes their MCS, and highlights
+    the common atoms and bonds in the resulting visualization. The output is
+    an image showing the two molecules side by side with the MCS highlighted.
+
+    Parameters
+    ----------
+    smiles_a : str
+        SMILES string of the first molecule.
+    smiles_b : str
+        SMILES string of the second molecule.
+    legends : List[str] or None, optional
+        Legends for the two molecules. Defaults to ["A", "B"] if None.
+    common_bond_color : Tuple[float, float, float], optional
+        RGB color for highlighting common bonds. Defaults to (0.1, 0.8, 0.1).
+    common_atom_color : Tuple[float, float, float], optional
+        RGB color for highlighting common atoms. Defaults to (0.1, 0.8, 0.1).
+    size : Tuple[int, int], optional
+        Size of the output image in pixels (width, height). Defaults to (700, 350).
+    timeout_s : int, optional
+        Timeout in seconds for the MCS computation. Defaults to 5.
+    ring_matches_ring_only : bool, optional
+        If True, only matches rings to rings. Defaults to True.
+    complete_rings_only : bool, optional
+        If True, only matches complete rings. Defaults to True.
+
+    Returns
+    -------
+    PIL.Image.Image
+        An image showing the two molecules with the MCS highlighted. If no MCS
+        is found, the molecules are displayed without highlights.
+
+    Raises
+    ------
+    ValueError
+        If one or both SMILES strings cannot be parsed by RDKit.
+
+    Notes
+    -----
+    - The function uses RDKit to compute the MCS and visualize the molecules.
+    - If no MCS is found, the molecules are displayed without any highlights.
+    - The function supports customization of colors, image size, and MCS parameters.
+    """
     if legends is None:
         legends = ["A", "B"]
     mol_a = Chem.MolFromSmiles(smiles_a)
@@ -3076,7 +3121,7 @@ def show_common_bonds(
     if mol_a is None or mol_b is None:
         raise ValueError("One or both SMILES strings could not be parsed by RDKit.")
 
-    # standardize molecule layouts for better visualization
+    # Standardize molecule layouts for better visualization
     mol_a = standardize_mol(mol_a, add_hydrogens=False)
     mol_b = standardize_mol(mol_b, add_hydrogens=False)
 
@@ -3120,7 +3165,22 @@ def show_common_bonds(
         )
 
     # Map MCS bonds to bond indices in each molecule
-    def mcs_bond_indices(parent_mol, match: Tuple[int, ...]) -> List[int]:
+    def _mcs_bond_indices(parent_mol, match: Tuple[int, ...]) -> List[int]:
+        """
+        Map the bonds in the MCS to their indices in the parent molecule.
+
+        Parameters
+        ----------
+        parent_mol : rdkit.Chem.Mol
+            The parent molecule.
+        match : Tuple[int, ...]
+            Atom indices in the parent molecule that match the MCS.
+
+        Returns
+        -------
+        List[int]
+            List of bond indices in the parent molecule that are part of the MCS.
+        """
         bond_idxs = []
         for b in mcs_mol.GetBonds():
             a1 = match[b.GetBeginAtomIdx()]
@@ -3130,8 +3190,8 @@ def show_common_bonds(
                 bond_idxs.append(pb.GetIdx())
         return bond_idxs
 
-    common_bonds_a = mcs_bond_indices(mol_a, match_a)
-    common_bonds_b = mcs_bond_indices(mol_b, match_b)
+    common_bonds_a = _mcs_bond_indices(mol_a, match_a)
+    common_bonds_b = _mcs_bond_indices(mol_b, match_b)
 
     common_atoms_a = list(match_a)
     common_atoms_b = list(match_b)
@@ -3142,6 +3202,7 @@ def show_common_bonds(
     atom_colors_a: Dict[int, Tuple[float, float, float]] = {i: common_atom_color for i in common_atoms_a}
     atom_colors_b: Dict[int, Tuple[float, float, float]] = {i: common_atom_color for i in common_atoms_b}
 
+    # Generate the image with highlighted atoms and bonds
     img = Draw.MolsToGridImage(
         [mol_a, mol_b],
         molsPerRow=2,
@@ -3151,6 +3212,6 @@ def show_common_bonds(
         highlightBondColors=[bond_colors_a, bond_colors_b],
         highlightAtomLists=[common_atoms_a, common_atoms_b],
         highlightAtomColors=[atom_colors_a, atom_colors_b],
-        useSVG=False,  # set True if you prefer SVG output
+        useSVG=False,  # Set True if you prefer SVG output
     )
     return img
