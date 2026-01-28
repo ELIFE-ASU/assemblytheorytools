@@ -506,9 +506,11 @@ def plot_pathway(graph: nx.DiGraph,
         pos = nx.multipartite_layout(graph, subset_key="layer")
 
     if arrow_style == '1':
+        edge_color1 = 'white'
         edge_color = arrow_color
     elif arrow_style == '2':
-        edge_color = 'grey'
+        edge_color1 = 'grey'
+        edge_color = 'grey' # Unused
     else:
         raise ValueError("Invalid arrow style. Use '1' or '2'.")
 
@@ -519,7 +521,7 @@ def plot_pathway(graph: nx.DiGraph,
                      node_size=1000,
                      node_color=node_color,
                      connectionstyle="arc3,rad=0.1",
-                     edge_color=edge_color,
+                     edge_color=edge_color1,
                      arrows=True,
                      arrowstyle="->",
                      width=2.0)
