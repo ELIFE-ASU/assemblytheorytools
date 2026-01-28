@@ -1,5 +1,4 @@
 import os
-from functools import partial
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -19,16 +18,18 @@ if __name__ == "__main__":
     df = att.filter_by_nh_bonds(df, max_bonds=max_bonds)
 
     # Preprocess spectra by applying a Savitzky-Golay filter
-    func_filter = partial(att.apply_sg_filter, window_length=9, polyorder=3)
-    df['spectrum'] = att.mp_calc(func_filter, df['spectrum'])
+    df['spectrum'] = att.mp_calc(att.apply_sg_filter,
+                                 df['spectrum'],
+                                 window_length=9,
+                                 polyorder=3)
 
     # Calculate number of peaks
-    func_peaks = partial(att.find_n_peak_indices_in_range,
-                         min_x=400.0,
-                         max_x=1500.0,
-                         prominence=0.02,
-                         distance=10)
-    df['n_peaks'] = np.array(att.mp_calc(func_peaks, df['spectrum']), dtype=int)
+    df['n_peaks'] = np.array(att.mp_calc(att.find_n_peak_indices_in_range,
+                                         df['spectrum'],
+                                         min_x=400.0,
+                                         max_x=1500.0,
+                                         prominence=0.02,
+                                         distance=10), dtype=int)
 
     # Only keep rows with n_peaks that make sense
     df = df[df['n_peaks'].between(*n_peaks_range)].reset_index(drop=True)
