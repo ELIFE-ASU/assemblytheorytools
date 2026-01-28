@@ -10,12 +10,15 @@ if __name__ == "__main__":
                 "fentanyl"]
 
     mols_str = ["codeine",
-                "diamorphine"]
+                "morphine"]
 
     timeout = 5.0 * 60.0
 
     # Use the pubchem api to convert names to SMILES
     smis = [att.pubchem_name_to_smi(name) for name in mols_str]
+
+    img = att.show_common_bonds(*smis, legends=mols_str)
+    img.show()
 
     print(f"SMILES strings: {smis}", flush=True)
 
