@@ -1912,3 +1912,23 @@ def get_github_file(
 
     tmp_path.replace(out_path)
     return out_path
+
+
+def sample_cbrdb(n_samples: int,
+                 max_mw: float = 550.0,
+                 c_select: List[str] | None = None, ) -> pd.DataFrame:
+    repo_url = "https://raw.githubusercontent.com/ELIFE-ASU/CBRdb/refs/heads/main"
+    target_file = "CBRdb_C.csv.zip"
+    if c_select is None:
+        c_select = ['compound_id', 'smiles', 'molecular_weight', 'n_heavy_atoms']
+    path = get_github_file(target_file, repo_url)
+    df = pd.read_csv(path, low_memory=False)
+    os.remove(path)
+    df = df[c_select]
+    df = df.dropna(subset=['smiles'])
+    df = df[mp_calc(_valid_smi, df['smiles'])]
+    # filter by max molecular weight
+    df = df[df['molecular_weight'] <= max_mw]
+    # Randomly sample n_samples entries
+    df = df.sample(n=n_samples, random_state=42)
+    return df.reset_index(drop=True)

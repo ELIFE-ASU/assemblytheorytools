@@ -86,3 +86,11 @@ def test_get_github_file():
 
     assert path is not None
     os.remove(path)
+
+
+def test_sample_cbrdb():
+    print(flush=True)
+    n_sample = 100
+    df = att.sample_cbrdb(n_sample)
+    assert df is not None
+    assert len(df) == n_sample
