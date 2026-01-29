@@ -81,7 +81,8 @@ from .plotting import (n_plot,
                        multipartite_layout_crossmin_long,
                        multipartite_layout_sa,
                        show_common_bonds,
-                       draw_mol_grid)
+                       draw_mol_grid,
+                       draw_mol_grid_box)
 from .reassembler import (assemble,
                           origami,
                           get_num_atom,
