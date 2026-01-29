@@ -7,6 +7,13 @@ import pandas as pd
 import assemblytheorytools as att
 
 
+def test_pubchem_smi_to_name():
+    print(flush=True)
+    smi = 'CCN(CC)CC(=O)NC1=C(C=CC=C1C)C'
+    name = att.pubchem_smi_to_name(smi)
+    assert name == 'lidocaine'
+
+
 def test_filter_by_n_bonds():
     print(flush=True)
     smis = ['[Fe]',

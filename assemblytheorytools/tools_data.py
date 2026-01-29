@@ -457,6 +457,125 @@ def pubchem_id_to_nx(id: int, add_hydrogens: bool = True, sanitize: bool = True)
     return smi_to_nx(smiles, add_hydrogens=add_hydrogens, sanitize=sanitize)
 
 
+def pubchem_smi_to_name(
+            smiles: str,
+            prefer: Tuple[str, ...] = ("synonym", "iupac_name", "title"),
+            timeout: int = 20,
+    ) -> Optional[str]:
+        """
+        Retrieve the name of a compound from PubChem using its SMILES string.
+
+        This function queries the PubChem database with a given SMILES string and attempts
+        to retrieve a human-readable name for the compound. The name is selected based on
+        a preference order of fields such as synonyms, IUPAC name, or title.
+
+        Parameters
+        ----------
+        smiles : str
+            The SMILES string of the compound to search for.
+        prefer : Tuple[str, ...], optional
+            A tuple specifying the preferred fields to retrieve the name from, in order of priority.
+            Default is ("synonym", "iupac_name", "title").
+        timeout : int, optional
+            The timeout in seconds for the PubChem query. Default is 20.
+
+        Returns
+        -------
+        Optional[str]
+            The name of the compound if found, otherwise None.
+
+        Notes
+        -----
+        - The function uses the `pubchempy` library to query the PubChem database.
+        - If the SMILES string is invalid or no matching compound is found, the function returns None.
+        - The function includes a scoring mechanism to select the most appropriate synonym
+          if multiple options are available.
+
+        Raises
+        ------
+        Exception
+            If there is an error during the PubChem query, the function handles it and returns None.
+        """
+        smiles = (smiles or "").strip()
+        if not smiles:
+            return None
+        try:
+            comps = pcp.get_compounds(smiles, namespace="smiles", timeout=timeout)
+        except Exception:
+            return None
+
+        if not comps:
+            return None
+
+        c = comps[0]
+
+        # Helper to decide if something looks like a "nice" synonym
+        def _synonym_score(name: str) -> int:
+            """
+            Calculate a score for a synonym to determine its suitability.
+
+            Parameters
+            ----------
+            name : str
+                The synonym to evaluate.
+
+            Returns
+            -------
+            int
+                A score indicating the quality of the synonym. Higher scores are better.
+            """
+            n = name.strip()
+            if not n:
+                return -10
+
+            # Penalize very long names or names that look like systematic strings
+            score = 0
+            if len(n) <= 30:
+                score += 5
+            elif len(n) <= 60:
+                score += 1
+            else:
+                score -= 5
+
+            # Prefer names with letters and spaces; penalize lots of punctuation/digits
+            if re.search(r"[A-Za-z]", n):
+                score += 2
+            if re.search(r"\d", n):
+                score -= 1
+            if re.search(r"[{}[\]=#@]", n):  # SMILES-ish / formula-ish characters
+                score -= 4
+            if "," in n or ";" in n:
+                score -= 2
+
+            # Penalize names that look like full IUPAC (lots of hyphens/parentheses)
+            if n.count("-") >= 3 or n.count("(") >= 2:
+                score -= 2
+
+            return score
+
+        # Try preferred fields
+        for field in prefer:
+            if field == "iupac_name":
+                v = getattr(c, "iupac_name", None)
+                if v:
+                    return v.strip()
+
+            elif field == "title":
+                v = getattr(c, "title", None)
+                if v:
+                    return v.strip()
+
+            elif field == "synonym":
+                syns = getattr(c, "synonyms", None) or []
+                if syns:
+                    # pick the best-looking synonym
+                    best = max(syns, key=_synonym_score)
+                    if _synonym_score(best) > 0:
+                        return best.strip()
+
+        return None
+
+
 def sample_random_pubchem(
         n: int,
         *,
