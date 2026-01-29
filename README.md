@@ -177,6 +177,8 @@ Gage Siebert, string assembly index calculations and CFG integration.
 
 Keith Patarroyo, assembly path reconstruction and visualisation.
 
+Amit Kahana, recursive MA integration
+
 Ian Seet, joining operations index calculations.
 
 Sebastian Pagel, reassembly calculations and visualisation.
