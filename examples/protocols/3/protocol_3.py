@@ -50,4 +50,4 @@ if __name__ == "__main__":
                      plot_type='mol', fig_size=(14, 7), layout_style='sa')
     plt.show()
 
-    att.plot_digraph_metro(pathway, filename="metro_pathway_example")
+    att.plot_digraph_metro(pathway, filename="metro_pathway_example", vo_names=True)

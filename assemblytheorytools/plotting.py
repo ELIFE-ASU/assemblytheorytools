@@ -25,6 +25,7 @@ from scipy.stats import gaussian_kde
 from .tools_atoms import mol_to_atoms
 from .tools_graph import relabel_digraph, nx_to_smi
 from .tools_mol import smi_to_mol, standardize_mol
+from .tools_data import pubchem_smi_to_name
 
 # set the plot axis
 plt.rcParams['axes.linewidth'] = 2.0
@@ -353,37 +354,47 @@ def plot_interactive_graph(graph: nx.Graph,
 def plot_digraph_metro(digraph: nx.DiGraph,
                        filename: str = 'metro',
                        steps: bool = False,
-                       vo_str: bool = True) -> None:
+                       vo_str: bool = True,
+                       vo_names: bool = False) -> None:
     """
-    Visualize a directed graph in metro/subway map style using dagviz.
-    
-    Creates a hierarchical visualization of a directed graph resembling a
-    metro/subway map. Optionally labels nodes with topological steps or
-    SMILES strings for molecular graphs.
-    
+    Render a directed acyclic graph (DAG) in a metro-style layout and save as SVG and PNG.
+
+    This function visualizes a directed acyclic graph (DAG) using the `dagviz` library's
+    metro-style layout. The graph can be optionally relabeled with topological steps or
+    virtual object (VO) labels. The output is saved as both an SVG and a PNG file.
+
     Parameters
     ----------
     digraph : networkx.DiGraph
-        Directed graph to visualize.
+        The directed acyclic graph to be visualized.
     filename : str, optional
-        Output filename (without extension) for the SVG and PNG files,
-        by default 'metro'.
+        The base name for the output files (without extension). Defaults to 'metro'.
     steps : bool, optional
-        If True, relabels nodes with their topological generation step,
-        by default False.
+        If True, relabel the graph nodes with their topological step. Defaults to False.
     vo_str : bool, optional
-        If True, labels nodes with string from 'vo' attribute,
-        by default True.
-    
-    Returns
-    -------
-    None
-        Saves visualization to SVG and PNG files.
-    
+        If True, convert the 'vo' attribute of nodes to string labels. Defaults to True.
+    vo_names : bool, optional
+        If True, attempt to retrieve human-readable names for virtual objects using
+        `pubchem_smi_to_name`. Defaults to False.
+
     Raises
     ------
     ImportError
-        If dagviz or cairosvg packages are not installed.
+        If the required `dagviz` or `cairosvg` libraries are not installed.
+    ValueError
+        If a node's 'vo' attribute is of an unsupported type.
+
+    Notes
+    -----
+    - The `dagviz` library is used for rendering the graph in a metro-style layout.
+    - The `cairosvg` library is used to convert the SVG output to PNG format.
+    - Node labels are determined based on the 'vo' attribute, which can be a string,
+      a NetworkX graph, or an RDKit molecule object.
+
+    Returns
+    -------
+    None
+        The function saves the graph visualization to files and does not return any value.
     """
     try:
         import cairosvg
@@ -403,16 +414,19 @@ def plot_digraph_metro(digraph: nx.DiGraph,
             for node in digraph.nodes:
                 d_type = type(digraph.nodes[node]['vo'])
                 if d_type == str:
-                    # set the node label to the smiles
-                    digraph.nodes[node]['label'] = digraph.nodes[node]['vo']
+                    lab = digraph.nodes[node]['vo']
                 elif d_type == nx.Graph:
-                    # set the node label to the smiles
-                    digraph.nodes[node]['label'] = nx_to_smi(digraph.nodes[node]['vo'],
-                                                             add_hydrogens=False,
-                                                             sanitize=False)
+                    lab = nx_to_smi(digraph.nodes[node]['vo'],
+                                    add_hydrogens=False,
+                                    sanitize=False)
+                elif d_type == Chem.Mol:
+                    lab = Chem.MolToSmiles(digraph.nodes[node]['vo'])
                 else:
+                    raise ValueError(f"Unsupported virtual object type: {d_type}")
 
-                    digraph.nodes[node]['label'] = Chem.MolToSmiles(digraph.nodes[node]['vo'])
+                if vo_names:
+                    lab = pubchem_smi_to_name(lab, prefer=("iupac_name",))
+                digraph.nodes[node]['label'] = lab
         except:
             pass
 
