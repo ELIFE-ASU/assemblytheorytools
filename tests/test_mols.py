@@ -555,7 +555,7 @@ def test_construction_pathway_joint():
     assert att.check_elements(virt_obj, vo_list_ref)
 
 
-def test_calculate_assembly_parallel():
+def test_calculate_assembly_index_parallel():
     """
     Test the parallel calculation of assembly indices for a list of molecular graphs.
 
@@ -582,7 +582,7 @@ def test_calculate_assembly_parallel():
     # Define settings for the assembly index calculation
     settings = {'strip_hydrogen': True}
     # Calculate assembly indices in parallel
-    ai = att.calculate_assembly_parallel(graphs, settings)[0]
+    ai = att.calculate_assembly_index_parallel(graphs, settings)[0]
     # Print the calculated assembly indices
     print(ai, flush=True)
     # Define the reference list of expected assembly indices

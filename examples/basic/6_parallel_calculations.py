@@ -28,7 +28,7 @@ if __name__ == "__main__":
 
     # Compute the assembly index, virtual objects, and pathways in parallel for all molecules.
     # The `strip_hydrogen` parameter specifies whether hydrogen atoms are removed during calculations.
-    ai, vo, pathway = att.calculate_assembly_parallel(graphs, dict(strip_hydrogen=True))
+    ai, vo, pathway = att.calculate_assembly_index_parallel(graphs, dict(strip_hydrogen=True))
 
     # Display the results for each molecule.
     # For each SMILES string, print the corresponding assembly index, virtual objects, and pathway.

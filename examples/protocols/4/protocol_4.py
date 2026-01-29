@@ -36,7 +36,7 @@ if __name__ == "__main__":
 
     # Calculate assembly index
     graphs = att.mp_calc(att.smi_to_nx, df['smiles'].tolist())
-    df['ai'] = att.calculate_assembly_parallel(graphs, settings={'strip_hydrogen': True,
+    df['ai'] = att.calculate_assembly_index_parallel(graphs, settings={'strip_hydrogen': True,
                                                                  'timeout': timeout})[0]
     n_peaks = np.array(df['n_peaks'], dtype=int)
     ai_obs = np.array(df['ai'], dtype=int)

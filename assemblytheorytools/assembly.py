@@ -483,7 +483,7 @@ def calculate_assembly(graphs: List[nx.Graph],
 
     if parallel:
         # Calculate assembly indices in parallel
-        ai_list, _, _ = calculate_assembly_parallel(graphs, settings)
+        ai_list, _, _ = calculate_assembly_index_parallel(graphs, settings)
     else:
         # Calculate assembly indices sequentially
         ai_list = [calculate_assembly_index(graph, **settings)[0] for graph in graphs]

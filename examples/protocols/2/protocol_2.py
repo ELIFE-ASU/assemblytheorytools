@@ -10,7 +10,7 @@ if __name__ == "__main__":
     sample = att.sample_cbrdb(n_sample, max_mw=max_mw, max_bonds=max_bonds)
 
     graphs = att.mp_calc(att.smi_to_nx, sample['smiles'])
-    sample['assembly_index'] = att.calculate_assembly_parallel(graphs,
+    sample['assembly_index'] = att.calculate_assembly_index_parallel(graphs,
                                                                settings={'strip_hydrogen': True,
                                                                          'timeout': 120.0})[0]
     sample = sample[sample['assembly_index'] >= 1].reset_index(drop=True)

@@ -22,7 +22,7 @@ if __name__ == "__main__":
     print(f"SMILES strings: {smis}", flush=True)
 
     graphs = [att.smi_to_nx(smi) for smi in smis]
-    ai_i = att.calculate_assembly_parallel(graphs, settings={'strip_hydrogen': True,
+    ai_i = att.calculate_assembly_index_parallel(graphs, settings={'strip_hydrogen': True,
                                                              'timeout': timeout})[0]
     print(f"Individual assembly indices:", flush=True)
     for i, name in enumerate(mols_str):
