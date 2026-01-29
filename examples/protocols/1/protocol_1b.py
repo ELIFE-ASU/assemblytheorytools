@@ -6,7 +6,7 @@ if __name__ == "__main__":
 
     ai, virt_obj, pathway = att.calculate_string_assembly_index(
         s_inpt,
-        directed=False,  # Treat as undirected assembly
+        directed=False,
         mode='mol'
     )
     print(f"Assembly index: {ai}", flush=True)

@@ -21,7 +21,7 @@ if __name__ == "__main__":
     t_2 = t.time()
     # Convert SMILES strings to RDKit molecule objects
     mols = att.mp_calc(att.smi_to_mol, smis)
-    
+
     # Visualize the first 16 molecules in a grid
     img = att.draw_mol_grid(smis[:16], legends=smis[:16], n_cols=4)
     img.show()
