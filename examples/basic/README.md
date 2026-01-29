@@ -79,7 +79,7 @@ This illustrates joint assembly and reuse of substructures across multiple strin
 
 Defines a list of SMILES strings (e.g. glycine, alanine, ethane, with some duplicates).
 Converts each SMILES to a graph with att.smi_to_nx.
-Runs att.calculate_assembly_parallel over all graphs with strip_hydrogen=True.
+Runs att.calculate_assembly_index_parallel over all graphs with strip_hydrogen=True.
 This demonstrates parallel batch calculation of assembly indices.
 
 ## 7_pathway_vis.py
