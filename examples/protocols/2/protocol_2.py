@@ -1,11 +1,8 @@
-import time as t
-
 import matplotlib.pyplot as plt
 
 import assemblytheorytools as att
 
 if __name__ == "__main__":
-    t_0 = t.time()
     n_sample = 10_000
     max_mw = 300.0
     max_bonds = 30

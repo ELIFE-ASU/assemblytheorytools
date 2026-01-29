@@ -7,9 +7,8 @@ if __name__ == "__main__":
     print(f"SMILES: {smi}", flush=True)
     graph = att.smi_to_nx(smi, sanitize=True, add_hydrogens=True)
     ai, virt_obj, pathway = att.calculate_assembly_index(graph, strip_hydrogen=True)
-    print(f"Assembly index: {ai}", flush=True)
-
     virt_obj = [att.nx_to_smi(vo, add_hydrogens=False) for vo in virt_obj]
+    print(f"Assembly index: {ai}", flush=True)
     print(f"Virtual objects in pathway: {virt_obj}", flush=True)
 
     att.plot_pathway(pathway,

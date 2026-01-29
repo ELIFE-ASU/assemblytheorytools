@@ -14,7 +14,6 @@ if __name__ == "__main__":
 
     timeout = 5.0 * 60.0
 
-    # Use the pubchem api to convert names to SMILES
     smis = [att.pubchem_name_to_smi(name) for name in mols_str]
 
     img = att.show_common_bonds(*smis, legends=mols_str)
@@ -22,9 +21,7 @@ if __name__ == "__main__":
 
     print(f"SMILES strings: {smis}", flush=True)
 
-    # Convert the SMILES strings to molecular graphs
     graphs = [att.smi_to_nx(smi) for smi in smis]
-
     ai_i = att.calculate_assembly_parallel(graphs, settings={'strip_hydrogen': True,
                                                              'timeout': timeout})[0]
     print(f"Individual assembly indices:", flush=True)

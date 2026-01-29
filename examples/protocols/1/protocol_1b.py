@@ -1,5 +1,4 @@
 import assemblytheorytools as att
-import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
     s_inpt = "gggfhhhvg"
@@ -11,12 +10,4 @@ if __name__ == "__main__":
     )
     print(f"Assembly index: {ai}", flush=True)
     print(f"Virtual objects in pathway: {virt_obj}", flush=True)
-
-    att.plot_pathway(pathway,
-                     plot_type='string',
-                     layout_style='crossmin')
-    plt.savefig("str_pathway_example.svg")
-    plt.savefig("str_pathway_example.png", dpi=300)
-    plt.show()
-
     att.plot_digraph_metro(pathway, filename="metro_pathway_example")
