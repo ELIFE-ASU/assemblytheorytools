@@ -27,11 +27,11 @@ if __name__ == "__main__":
                                "Assembly Index, (AI)",
                                nbins=(n_x_bins, n_y_bins),
                                )
+    plt.savefig("assembly_index_heatmap.png", dpi=300)
     plt.show()
-
 
     labs = [f"Name: {sample['nickname'][i]}, AI: {sample['assembly_index'][i]}" for i in range(n_show)]
     smis = [sample['smiles'][i] for i in range(n_show)]
-
-    img = att.draw_mol_grid(smis, legends=labs, n_cols=3)
+    img = att.draw_mol_grid_box(smis, legends=labs, n_cols=3)
+    img.save("molecule_grid.png")
     img.show()
