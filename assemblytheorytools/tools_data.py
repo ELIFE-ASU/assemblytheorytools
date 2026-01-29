@@ -824,7 +824,7 @@ def sample_pubchem_cid_smiles_gz(
     return cids, smiles_list
 
 
-def _valid(s):
+def _valid_mol(s):
     """
     Validate a SMILES string by attempting to convert and standardize it.
 
@@ -845,6 +845,8 @@ def _valid(s):
     try:
         mol = smi_to_mol(s)
         standardize_mol(mol)
+        Chem.SanitizeMol(mol)
+        Chem.Kekulize(mol)
     except Exception:
         return False
     return True
@@ -870,7 +872,7 @@ def _valid_smi(smi: str) -> bool:
     return bool(smi) and all(x not in smi for x in [".", "*", "->", "$"])
 
 
-def _valid_mol(smi: str) -> float:
+def _valid_mol_mw(smi: str) -> float:
     """
     Validate a SMILES string and calculate its molecular weight.
 
@@ -962,7 +964,7 @@ def sample_pubchem_cid_smiles_gz_mw(
         df = df[mp_calc(_valid_smi, df['smiles'])]
         # Calculate molecular weights
         print('Filtering mols', flush=True)
-        df['molecular_weight'] = mp_calc(_valid_mol, df['smiles'])
+        df['molecular_weight'] = mp_calc(_valid_mol_mw, df['smiles'])
         # Filter out the SMILES with mw > max_mw
         df = df[(df['molecular_weight'] <= max_mw) & (df['molecular_weight'] > 0.0)]
         # Calculate number of bonds
@@ -1928,6 +1930,7 @@ def sample_cbrdb(n_samples: int,
     df = df[c_select]
     df = df.dropna(subset=['smiles'])
     df = df[mp_calc(_valid_smi, df['smiles'])]
+    df = df[mp_calc(_valid_mol, df['smiles'])]
     # Filter by max molecular weight
     df = df[df['molecular_weight'] <= max_mw]
     # Calculate number of bonds
