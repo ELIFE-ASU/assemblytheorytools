@@ -1639,7 +1639,7 @@ def regularise_ai(ai: Optional[int]) -> int:
         return ai
 
 
-def calculate_assembly_parallel(graphs: List[nx.Graph],
+def calculate_assembly_index_parallel(graphs: List[nx.Graph],
                                 settings: Optional[Dict[str, Any]]) -> List[List[Any]]:
     """
     Calculate assembly indices for multiple graphs in parallel.
@@ -1743,7 +1743,7 @@ def calculate_sum_assembly(graphs: List[nx.Graph],
 
     if parallel:
         # calculate_assembly_parallel returns transposed results; first element is ai list
-        ai_list = calculate_assembly_parallel(graphs, settings)[0]
+        ai_list = calculate_assembly_index_parallel(graphs, settings)[0]
     else:
         ai_list = [calculate_assembly_index(graph, **settings)[0] for graph in graphs]
 
