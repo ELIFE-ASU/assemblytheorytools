@@ -1916,6 +1916,7 @@ def get_github_file(
 
 def sample_cbrdb(n_samples: int,
                  max_mw: float = 550.0,
+                 max_bonds: float = 50,
                  c_select: List[str] | None = None, ) -> pd.DataFrame:
     repo_url = "https://raw.githubusercontent.com/ELIFE-ASU/CBRdb/refs/heads/main"
     target_file = "CBRdb_C.csv.zip"
@@ -1927,8 +1928,15 @@ def sample_cbrdb(n_samples: int,
     df = df[c_select]
     df = df.dropna(subset=['smiles'])
     df = df[mp_calc(_valid_smi, df['smiles'])]
-    # filter by max molecular weight
+    # Filter by max molecular weight
     df = df[df['molecular_weight'] <= max_mw]
+    # Calculate number of bonds
+    df['n_bonds'] = mp_calc(count_non_h_bonds, mp_calc(smi_to_mol, df['smiles']))
+    # Filter out the SMILES with too many bonds
+    df = df[df['n_bonds'] <= max_bonds]
     # Randomly sample n_samples entries
-    df = df.sample(n=n_samples, random_state=42)
+    if n_samples < len(df):
+        df = df.sample(n=n_samples, random_state=42)
+    else:
+        print(f"Requested {n_samples} samples, but only {len(df)} available after filtering.")
     return df.reset_index(drop=True)
