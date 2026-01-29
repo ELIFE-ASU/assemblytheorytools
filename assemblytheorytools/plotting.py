@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 from IPython.display import HTML
+from PIL import Image
 from ase.visualize.plot import plot_atoms
 from matplotlib import colormaps, colors
 from matplotlib.axes import Axes
@@ -18,7 +19,7 @@ from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from matplotlib.patches import Circle
 from pyvis.network import Network
 from rdkit import Chem
-from rdkit.Chem import rdFMCS, Draw
+from rdkit.Chem import Draw, rdFMCS
 from scipy.stats import gaussian_kde
 
 from .tools_atoms import mol_to_atoms
@@ -3225,56 +3226,21 @@ def show_common_bonds(
     return img
 
 
-def draw_mol_grid(
+def draw_mol_grid_box(
         mols: Sequence[Union[Chem.Mol, str]],
         legends: Optional[Sequence[str]] = None,
         n_cols: int = 4,
-        sub_img_size: tuple = (200, 200),
+        sub_img_size: Tuple[int, int] = (200, 200),
         max_mols: Optional[int] = None,
-        use_svg: bool = False,
+        box_bg: str = "#E6E6E6",
+        gap: int = 12,
+        outer_margin: int = 12,
+        inner_pad: int = 10,
 ):
-    """
-    Generate a grid image of molecular structures.
-
-    This function takes a sequence of RDKit `Mol` objects or SMILES strings,
-    converts them to RDKit `Mol` objects if necessary, and arranges them in a
-    grid layout. Optionally, legends can be added below each molecule, and the
-    output can be rendered as an SVG image.
-
-    Parameters
-    ----------
-    mols : Sequence[Union[Chem.Mol, str]]
-        A sequence of RDKit `Mol` objects or SMILES strings representing the molecules to be drawn.
-    legends : Optional[Sequence[str]], optional
-        A sequence of legend strings to display below each molecule. If `None`, no legends are added.
-    n_cols : int, optional
-        The number of columns in the grid. Must be a positive integer. Defaults to 4.
-    sub_img_size : tuple, optional
-        The size of each sub-image in the grid, specified as (width, height). Defaults to (200, 200).
-    max_mols : Optional[int], optional
-        The maximum number of molecules to include in the grid. If `None`, all molecules are included. Defaults to `None`.
-    use_svg : bool, optional
-        If `True`, the output is rendered as an SVG image. Otherwise, a raster image is generated. Defaults to `False`.
-
-    Returns
-    -------
-    PIL.Image.Image or str
-        The generated grid image. If `use_svg` is `True`, an SVG string is returned. Otherwise, a PIL image is returned.
-
-    Raises
-    ------
-    ValueError
-        If `n_cols` is not a positive integer or if the length of `legends` does not match the number of molecules.
-    TypeError
-        If an item in `mols` is neither an RDKit `Mol` object nor a SMILES string.
-
-    Notes
-    -----
-    - If a SMILES string cannot be converted to an RDKit `Mol` object, an empty molecule is used as a placeholder.
-    - The function uses RDKit's `MolsToGridImage` for rendering the grid.
-    """
     if n_cols <= 0:
         raise ValueError("n_cols must be a positive integer")
+    if gap < 0 or outer_margin < 0 or inner_pad < 0:
+        raise ValueError("gap/outer_margin/inner_pad must be >= 0")
 
     # Convert inputs to RDKit Mol objects
     rdkit_mols: List[Chem.Mol] = []
@@ -3301,13 +3267,37 @@ def draw_mol_grid(
             raise ValueError("legends must be the same length as mols")
         legends_list = list(legends)
 
-    # Draw
-    img = Draw.MolsToGridImage(
-        mols=rdkit_mols,
-        molsPerRow=n_cols,
-        subImgSize=sub_img_size,
-        legends=legends_list,
-        useSVG=use_svg,
-    )
+    n_mols = len(rdkit_mols)
+    if n_mols == 0:
+        # Return a tiny blank image rather than erroring
+        return Image.new("RGB", (outer_margin * 2 + 1, outer_margin * 2 + 1), "white")
 
-    return img
+    n_rows = math.ceil(n_mols / n_cols)
+    box_w, box_h = sub_img_size
+
+    # Size available for the RDKit drawing inside the grey tile
+    inner_w = max(1, box_w - 2 * inner_pad)
+    inner_h = max(1, box_h - 2 * inner_pad)
+
+    # Final canvas (white background = the "whitespace" between tiles)
+    canvas_w = outer_margin * 2 + n_cols * box_w + (n_cols - 1) * gap
+    canvas_h = outer_margin * 2 + n_rows * box_h + (n_rows - 1) * gap
+    canvas = Image.new("RGB", (canvas_w, canvas_h), "white")
+
+    # Render each molecule into its own grey tile, then paste into canvas
+    for idx, (mol, legend) in enumerate(zip(rdkit_mols, legends_list)):
+        r = idx // n_cols
+        c = idx % n_cols
+
+        # RDKit per-mol image (PIL). Legend is drawn within this image.
+        mol_img = Draw.MolToImage(mol, size=(inner_w, inner_h), legend=legend)
+
+        # Make the grey box and paste the mol drawing with padding
+        tile = Image.new("RGB", (box_w, box_h), box_bg)
+        tile.paste(mol_img, (inner_pad, inner_pad))
+
+        x = outer_margin + c * (box_w + gap)
+        y = outer_margin + r * (box_h + gap)
+        canvas.paste(tile, (x, y))
+
+    return canvas
