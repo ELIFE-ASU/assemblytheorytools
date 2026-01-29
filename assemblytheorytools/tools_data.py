@@ -1923,7 +1923,7 @@ def sample_cbrdb(n_samples: int,
     repo_url = "https://raw.githubusercontent.com/ELIFE-ASU/CBRdb/refs/heads/main"
     target_file = "CBRdb_C.csv.zip"
     if c_select is None:
-        c_select = ['compound_id', 'smiles', 'molecular_weight', 'n_heavy_atoms']
+        c_select = ['compound_id', 'nickname', 'smiles', 'molecular_weight', 'n_heavy_atoms']
     path = get_github_file(target_file, repo_url)
     df = pd.read_csv(path, low_memory=False)
     os.remove(path)
