@@ -1919,27 +1919,68 @@ def get_github_file(
 def sample_cbrdb(n_samples: int,
                  max_mw: float = 550.0,
                  max_bonds: float = 50,
-                 c_select: List[str] | None = None, ) -> pd.DataFrame:
+                 c_select: List[str] | None = None) -> pd.DataFrame:
+    """
+    Sample a subset of compounds from the CBRdb dataset.
+
+    This function downloads the CBRdb dataset, filters the compounds based on
+    molecular weight, bond count, and other criteria, and returns a random sample
+    of the filtered compounds.
+
+    Parameters
+    ----------
+    n_samples : int
+        The number of samples to return.
+    max_mw : float, optional
+        The maximum molecular weight allowed for the compounds. Default is 550.0.
+    max_bonds : float, optional
+        The maximum number of bonds allowed for the compounds. Default is 50.
+    c_select : List[str] or None, optional
+        The columns to select from the dataset. If None, defaults to
+        ['compound_id', 'nickname', 'smiles', 'molecular_weight', 'n_heavy_atoms'].
+
+    Returns
+    -------
+    pd.DataFrame
+        A pandas DataFrame containing the sampled compounds.
+
+    Notes
+    -----
+    - The function downloads the dataset from the CBRdb GitHub repository.
+    - Invalid SMILES strings and molecules exceeding the specified molecular weight
+      or bond count are excluded.
+    - If the requested number of samples exceeds the available filtered compounds,
+      all available compounds are returned.
+    """
     repo_url = "https://raw.githubusercontent.com/ELIFE-ASU/CBRdb/refs/heads/main"
     target_file = "CBRdb_C.csv.zip"
+    # Set default columns to select if not provided
     if c_select is None:
         c_select = ['compound_id', 'nickname', 'smiles', 'molecular_weight', 'n_heavy_atoms']
+    # Download the dataset file
     path = get_github_file(target_file, repo_url)
+    # Load the dataset into a DataFrame
     df = pd.read_csv(path, low_memory=False)
+    # Remove the downloaded file after loading
     os.remove(path)
+    # Select the specified columns
     df = df[c_select]
+    # Drop rows with missing SMILES strings
     df = df.dropna(subset=['smiles'])
+    # Filter out invalid SMILES strings
     df = df[mp_calc(_valid_smi, df['smiles'])]
+    # Filter out invalid molecules
     df = df[mp_calc(_valid_mol, df['smiles'])]
-    # Filter by max molecular weight
+    # Filter by maximum molecular weight
     df = df[df['molecular_weight'] <= max_mw]
-    # Calculate number of bonds
+    # Calculate the number of bonds for each molecule
     df['n_bonds'] = mp_calc(count_non_h_bonds, mp_calc(smi_to_mol, df['smiles']))
-    # Filter out the SMILES with too many bonds
+    # Filter out molecules with too many bonds
     df = df[df['n_bonds'] <= max_bonds]
-    # Randomly sample n_samples entries
+    # Randomly sample the requested number of entries
     if n_samples < len(df):
         df = df.sample(n=n_samples, random_state=42)
     else:
         print(f"Requested {n_samples} samples, but only {len(df)} available after filtering.")
+    # Return the sampled DataFrame
     return df.reset_index(drop=True)
