@@ -1,6 +1,6 @@
 # Protocol 3: Joint Assembly Calculation
 
-This script (`protocol_3.py`) demonstrates how to calculate the assembly index for a collection of molecules simultaneously. This technique is used to identify shared sub-structures and determine the "joint" complexity of a set of compounds, comparing it against their individual complexities.
+This script (`protocol_3.py`) demonstrates how to calculate the assembly index for a collection of molecules simultaneously. This technique is used to identify shared sub-structures and determine the "joint" complexity of a set of compounds, comparing it against their individual complexities. This is akin to Figure 6 of Liu et al. (2021) 10.1126/sciadv.abj2465
 
 It illustrates how to:
 1.  **Data Preparation**: Convert common molecule names (e.g., "codeine", "diamorphine") to SMILES strings using the PubChem API and transform them into molecular graphs.

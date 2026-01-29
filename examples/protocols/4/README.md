@@ -1,6 +1,6 @@
 # Protocol 4: Correlating Assembly with IR Spectroscopy
 
-This script (`protocol_4.py`) investigates the relationship between a physical observable—Infrared (IR) spectroscopy—and the theoretical Molecular Assembly Index. It demonstrates how to approximate assembly complexity using experimental data features.
+This script (`protocol_4.py`) investigates the relationship between a physical observable—Infrared (IR) spectroscopy—and the theoretical Molecular Assembly Index. It demonstrates how to approximate assembly complexity using experimental data features. This is akin to Figure 3c of Jirasek et al. (2024) https://doi.org/10.1021/acscentsci.4c00120
 
 It illustrates how to:
 1.  **Data Processing & Filtering**: Load and process a Chemotion IR dataset, filtering molecules based on bond constraints and cleaning spectral data using Savitzky-Golay filters.

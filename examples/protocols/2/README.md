@@ -1,6 +1,6 @@
 # Protocol 2: Large-Scale Molecular Assembly Analysis
 
-This script (`protocol_2.py`) demonstrates an end-to-end workflow for analyzing the relationship between Molecular Weight (MW) and Molecular Assembly (MA) on a large scale.
+This script (`protocol_2.py`) demonstrates an end-to-end workflow for analyzing the relationship between Molecular Weight (MW) and Molecular Assembly (MA) on a large scale. This is akin to Figure 2b of Marshall et al. (2021) 10.1038/s41467-021-23258-x
 
 It illustrates how to:
 1.  **Data Acquisition**: Download and sample a large dataset (e.g., 20,000 molecules) from PubChem, filtering by criteria such as molecular weight limits and maximum bond counts.
