@@ -149,7 +149,8 @@ from .tools_data import (sample_boostrapping,
                          get_r,
                          get_r2,
                          get_rmsd,
-                         estimate_ai_from_ir_peaks)
+                         estimate_ai_from_ir_peaks,
+                         get_github_file)
 from .tools_file import (file_list,
                          file_list_all,
                          filter_files,

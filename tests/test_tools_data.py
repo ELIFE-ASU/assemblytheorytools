@@ -1,3 +1,5 @@
+import os
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -77,40 +79,10 @@ def test_calc_n_peaks_in_range():
     assert n_peaks == 32
 
 
-from pathlib import Path
-from urllib.request import urlopen, Request
-import shutil
-
-
-def get_github_file(
-        filename: str,
-        repo_url: str = "https://raw.githubusercontent.com/ELIFE-ASU/CBRdb/refs/heads/main",
-        dest_dir: str | Path = Path.cwd(),
-        overwrite: bool = False,
-        timeout: int = 30,
-) -> Path:
-    dest_dir = Path(dest_dir).expanduser().resolve()
-    dest_dir.mkdir(parents=True, exist_ok=True)
-
-    out_path = dest_dir / filename
-    url = f"{repo_url.rstrip('/')}/{filename}"
-
-    if out_path.exists() and not overwrite:
-        print(f"File already exists, skipping download: {out_path}")
-        return out_path
-
-    tmp_path = out_path.with_suffix(out_path.suffix + ".part")
-
-    # Some servers like having a User-Agent set
-    req = Request(url, headers={"User-Agent": "python-download/1.0"})
-
-    print(f"Downloading {url} -> {out_path}", flush=True)
-    with urlopen(req, timeout=timeout) as r, open(tmp_path, "wb") as f:
-        shutil.copyfileobj(r, f)
-
-    tmp_path.replace(out_path)
-    return out_path
-
-
 def test_get_github_file():
-    path = get_github_file("CBRdb_C.csv.zip", dest_dir=Path.cwd())
+    print(flush=True)
+    repo_url = "https://raw.githubusercontent.com/ELIFE-ASU/CBRdb/refs/heads/main"
+    path = att.get_github_file("CBRdb_C.csv.zip", repo_url)
+
+    assert path is not None
+    os.remove(path)

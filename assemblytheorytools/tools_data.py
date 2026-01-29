@@ -2,6 +2,7 @@ import json
 import os
 import random
 import re
+import shutil
 import tarfile
 import time
 from pathlib import Path
@@ -1844,3 +1845,70 @@ def estimate_ai_from_ir_peaks(peaks_data,
                    tol=1e-6)
     data_pred = [_peaks_to_ai(x_i, model, res.x) for x_i in peaks_data]
     return res.x, np.array(data_pred, dtype=int)
+
+
+def get_github_file(
+        filename: str,
+        repo_url: str,
+        dest_dir: str | Path = Path.cwd(),
+        overwrite: bool = False,
+        timeout: int = 30,
+) -> Path:
+    """
+    Download a file from a GitHub repository and save it to a specified directory.
+
+    This function downloads a file from a given GitHub repository URL and saves it
+    to the specified destination directory. If the file already exists, it can be
+    skipped unless the `overwrite` parameter is set to True.
+
+    Parameters
+    ----------
+    filename : str
+        The name of the file to download.
+    repo_url : str
+        The URL of the GitHub repository (e.g., "https://raw.githubusercontent.com/user/repo/branch").
+    dest_dir : str | Path, optional
+        The directory where the file will be saved. Defaults to the current working directory.
+    overwrite : bool, optional
+        Whether to overwrite the file if it already exists. Defaults to False.
+    timeout : int, optional
+        The timeout in seconds for the download request. Defaults to 30.
+
+    Returns
+    -------
+    Path
+        The path to the downloaded file.
+
+    Notes
+    -----
+    - If the file already exists and `overwrite` is False, the function skips the download.
+    - The function creates the destination directory if it does not exist.
+    - A temporary file with a ".part" suffix is used during the download process to ensure
+      atomicity.
+
+    Raises
+    ------
+    urllib.error.URLError
+        If there is an issue with the download request.
+    """
+    dest_dir = Path(dest_dir).expanduser().resolve()
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    out_path = dest_dir / filename
+    url = f"{repo_url.rstrip('/')}/{filename}"
+
+    if out_path.exists() and not overwrite:
+        print(f"File already exists, skipping download: {out_path}")
+        return out_path
+
+    tmp_path = out_path.with_suffix(out_path.suffix + ".part")
+
+    # Some servers like having a User-Agent set
+    req = Request(url, headers={"User-Agent": "python-download/1.0"})
+
+    print(f"Downloading {url} -> {out_path}", flush=True)
+    with urlopen(req, timeout=timeout) as r, open(tmp_path, "wb") as f:
+        shutil.copyfileobj(r, f)
+
+    tmp_path.replace(out_path)
+    return out_path
