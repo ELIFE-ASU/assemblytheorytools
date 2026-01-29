@@ -962,9 +962,9 @@ def sample_pubchem_cid_smiles_gz_mw(
         df = df[mp_calc(_valid_smi, df['smiles'])]
         # Calculate molecular weights
         print('Filtering mols', flush=True)
-        df['mw'] = mp_calc(_valid_mol, df['smiles'])
+        df['molecular_weight'] = mp_calc(_valid_mol, df['smiles'])
         # Filter out the SMILES with mw > max_mw
-        df = df[(df['mw'] <= max_mw) & (df['mw'] > 0.0)]
+        df = df[(df['molecular_weight'] <= max_mw) & (df['molecular_weight'] > 0.0)]
         # Calculate number of bonds
         df['n_bonds'] = mp_calc(count_non_h_bonds, mp_calc(smi_to_mol, df['smiles']))
         # Filter out the SMILES with too many bonds

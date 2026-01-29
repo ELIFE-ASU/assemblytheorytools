@@ -13,7 +13,7 @@ if __name__ == "__main__":
 
     att.download_pubchem_cid_smiles_gz()
     sample = att.sample_pubchem_cid_smiles_gz_mw(n_sample, max_mw=max_mw, max_bonds=max_bonds)
-    mw = sample['mw'].tolist()
+    mw = sample['molecular_weight'].tolist()
     smis = sample['smiles'].tolist()
     t_1 = t.time()
     print(f"Time to sample {n_sample} molecules: {t_1 - t_0:.1f} seconds", flush=True)
