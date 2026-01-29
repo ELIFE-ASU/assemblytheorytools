@@ -1710,7 +1710,7 @@ def calculate_sum_assembly(graphs: List[nx.Graph],
         If ``None`` an empty settings dictionary is used.
     parallel : bool, optional
         If True (default) compute assembly indices in parallel using
-        :func:`calculate_assembly_parallel`. If False compute them sequentially.
+        :func:`calculate_assembly_index_parallel`. If False compute them sequentially.
 
     Returns
     -------
@@ -1726,7 +1726,7 @@ def calculate_sum_assembly(graphs: List[nx.Graph],
 
     Notes
     -----
-    - Parallel mode expects :func:`calculate_assembly_parallel` to return a sequence
+    - Parallel mode expects :func:`calculate_assembly_index_parallel` to return a sequence
       whose first element is the list of assembly indices.
     - Negative assembly indices are treated as failures and cause this function to
       return ``-1`` rather than a partial sum.
@@ -1742,7 +1742,7 @@ def calculate_sum_assembly(graphs: List[nx.Graph],
     settings = settings or {}
 
     if parallel:
-        # calculate_assembly_parallel returns transposed results; first element is ai list
+        # calculate_assembly_index_parallel returns transposed results; first element is ai list
         ai_list = calculate_assembly_index_parallel(graphs, settings)[0]
     else:
         ai_list = [calculate_assembly_index(graph, **settings)[0] for graph in graphs]
