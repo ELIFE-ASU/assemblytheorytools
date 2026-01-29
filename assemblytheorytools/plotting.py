@@ -426,6 +426,8 @@ def plot_digraph_metro(digraph: nx.DiGraph,
 
                 if vo_names:
                     lab = pubchem_smi_to_name(lab, prefer=("iupac_name",))
+                    if lab is None:
+                        lab = ""
                 digraph.nodes[node]['label'] = lab
         except:
             pass
