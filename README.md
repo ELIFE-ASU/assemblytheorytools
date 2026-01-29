@@ -183,7 +183,11 @@ Sebastian Pagel, reassembly calculations and visualisation.
 
 Veronica Mierzejewski, integration of reassembly calculations.
 
+Stuart Marshall, debugging and optimization
+
 Marina Fernandez-Ruz, visualisation and circle plots.
+
+Abhishek Sharma, administrative support
 
 Mohammadreza Shahjahan, branding, development.
 
