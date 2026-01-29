@@ -18,3 +18,5 @@ if __name__ == "__main__":
     plt.savefig("str_pathway_example.svg")
     plt.savefig("str_pathway_example.png", dpi=300)
     plt.show()
+
+    att.plot_digraph_metro(pathway, filename="metro_pathway_example")

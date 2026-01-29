@@ -352,7 +352,7 @@ def plot_interactive_graph(graph: nx.Graph,
 def plot_digraph_metro(digraph: nx.DiGraph,
                        filename: str = 'metro',
                        steps: bool = False,
-                       vo_smiles: bool = True) -> None:
+                       vo_str: bool = True) -> None:
     """
     Visualize a directed graph in metro/subway map style using dagviz.
     
@@ -370,8 +370,8 @@ def plot_digraph_metro(digraph: nx.DiGraph,
     steps : bool, optional
         If True, relabels nodes with their topological generation step,
         by default False.
-    vo_smiles : bool, optional
-        If True, labels nodes with SMILES representations from 'vo' attribute,
+    vo_str : bool, optional
+        If True, labels nodes with string from 'vo' attribute,
         by default True.
     
     Returns
@@ -397,13 +397,21 @@ def plot_digraph_metro(digraph: nx.DiGraph,
         # Relabel the graph nodes with their topological step if requested
         digraph = relabel_digraph(digraph)
 
-    if vo_smiles:
+    if vo_str:
         try:
             for node in digraph.nodes:
-                # set the node label to the smiles
-                digraph.nodes[node]['label'] = nx_to_smi(digraph.nodes[node]['vo'],
-                                                         add_hydrogens=False,
-                                                         sanitize=False)
+                d_type = type(digraph.nodes[node]['vo'])
+                if d_type == str:
+                    # set the node label to the smiles
+                    digraph.nodes[node]['label'] = digraph.nodes[node]['vo']
+                elif d_type == nx.Graph:
+                    # set the node label to the smiles
+                    digraph.nodes[node]['label'] = nx_to_smi(digraph.nodes[node]['vo'],
+                                                             add_hydrogens=False,
+                                                             sanitize=False)
+                else:
+
+                    digraph.nodes[node]['label'] = Chem.MolToSmiles(digraph.nodes[node]['vo'])
         except:
             pass
 
