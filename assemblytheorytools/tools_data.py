@@ -2262,6 +2262,7 @@ def sample_cbrdb(n_samples: int,
     # Return the sampled DataFrame
     return df.reset_index(drop=True)
 
+
 def enumerate_stereoisomers_shortest(
         mol: Chem.Mol,
         *,
@@ -2269,6 +2270,39 @@ def enumerate_stereoisomers_shortest(
         only_unassigned: bool = False,
         try_embedding: bool = False,
 ):
+    """
+    Enumerate stereoisomers of a molecule and return the SMILES string of the isomer
+    with the shortest name.
+
+    This function generates all possible stereoisomers of the given molecule, retrieves
+    their names from PubChem, and returns the SMILES string of the isomer with the
+    shortest name. If no valid names are found, the canonical SMILES of the input
+    molecule is returned.
+
+    Parameters
+    ----------
+    mol : rdkit.Chem.Mol
+        The input RDKit molecule object for which stereoisomers are to be enumerated.
+    max_isomers : int, optional
+        The maximum number of stereoisomers to generate. Default is 30.
+    only_unassigned : bool, optional
+        If True, only enumerate stereoisomers for unassigned stereocenters. Default is False.
+    try_embedding : bool, optional
+        If True, attempt to embed the stereoisomers in 3D space. Default is False.
+
+    Returns
+    -------
+    str
+        The SMILES string of the stereoisomer with the shortest name, or the canonical
+        SMILES of the input molecule if no valid names are found.
+
+    Notes
+    -----
+    - The function uses RDKit for stereoisomer enumeration and PubChem for retrieving
+      compound names.
+    - If no stereoisomers are generated, the canonical SMILES of the input molecule is returned.
+    - Names that are None are filtered out before determining the shortest name.
+    """
     base = Chem.Mol(mol)
     Chem.AssignStereochemistry(base, cleanIt=True, force=True)
 

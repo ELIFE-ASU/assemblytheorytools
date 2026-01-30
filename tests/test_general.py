@@ -830,5 +830,5 @@ def test_enumerate_stereoisomers_shortest():
     smi = 'COC1=C2OC3C(O)C=CC4C5CC(=C2C43CCN5C)C=C1'
     mol = Chem.MolFromSmiles(smi)
     smi_out = att.enumerate_stereoisomers_shortest(mol)
-
-    print(att.pubchem_smi_to_name(smi_out, prefer="synonym"))
+    name_out = att.pubchem_smi_to_name(smi_out, prefer="synonym")
+    assert name_out == 'Codeine'
