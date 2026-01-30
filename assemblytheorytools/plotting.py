@@ -25,7 +25,7 @@ from scipy.stats import gaussian_kde
 from .tools_atoms import mol_to_atoms
 from .tools_graph import relabel_digraph, nx_to_smi
 from .tools_mol import smi_to_mol, standardize_mol
-from .tools_data import pubchem_smi_to_name
+from .tools_data import pubchem_smi_to_name, enumerate_stereoisomers_shortest
 
 # set the plot axis
 plt.rcParams['axes.linewidth'] = 2.0
@@ -425,6 +425,7 @@ def plot_digraph_metro(digraph: nx.DiGraph,
                     raise ValueError(f"Unsupported virtual object type: {d_type}")
 
                 if vo_names:
+                    lab = enumerate_stereoisomers_shortest(Chem.MolFromSmiles(lab))
                     lab = pubchem_smi_to_name(lab, prefer=vo_names)
                     if lab is None:
                         lab = ""

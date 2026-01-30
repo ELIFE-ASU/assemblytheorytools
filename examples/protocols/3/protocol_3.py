@@ -25,7 +25,7 @@ if __name__ == "__main__":
 
     # Combine the graphs into a single graph for joint assembly calculation
     combined_graph = att.join_graphs(graphs)
-    ai, virt_obj, pathway = att.calculate_assembly_index(combined_graph,
+    ai, virt_obj, pathway = att.calculate_assembly_index(graphs[0],
                                                          strip_hydrogen=True,
                                                          timeout=timeout)
     virt_obj = [att.nx_to_smi(vo, add_hydrogens=False) for vo in virt_obj]
