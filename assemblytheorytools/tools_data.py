@@ -1653,54 +1653,47 @@ def process_chemotion_ir_data(target_file: str) -> pd.DataFrame:
 
 def find_peak_indices_in_range(
         xy: np.ndarray,
-        min_x: float,
-        max_x: float,
         *,
-        prominence: Optional[float] = None,
-        distance: Optional[float] = None,
+        min_x: float = 400.0,
+        max_x: float = 1500.0,
+        prominence: Optional[float] = 0.02,
+        distance: Optional[int] = 10,
 ) -> np.ndarray:
     """
-    Find the indices of peaks within a specified x-range in a 2D spectrum.
+    Identify the indices of peaks within a specified x-range in a 2D array.
 
-    This function identifies peaks in the intensity values of a 2D array
-    representing a spectrum and filters them to include only those within
-    the specified x-range.
+    This function takes a 2D NumPy array representing x and y values, detects peaks
+    in the y-values, and filters the peaks to include only those within the specified
+    x-range.
 
     Parameters
     ----------
     xy : np.ndarray
-        A 2D NumPy array of shape (N, 2), where the first column represents
-        the x-values (e.g., frequencies) and the second column represents
-        the y-values (e.g., intensities).
-    min_x : float
-        The minimum x-value of the range to include peaks.
-    max_x : float
-        The maximum x-value of the range to include peaks.
+        A 2D NumPy array of shape (N, 2), where the first column represents x-values
+        (e.g., frequencies) and the second column represents y-values (e.g., intensities).
+    min_x : float, optional
+        The minimum x-value of the range to consider. Default is 400.0.
+    max_x : float, optional
+        The maximum x-value of the range to consider. Default is 1500.0.
     prominence : float, optional
-        The required prominence of peaks. This parameter is passed to
-        `scipy.signal.find_peaks`. Default is None.
-    distance : float, optional
-        The required minimum horizontal distance (in number of samples)
-        between neighboring peaks. This parameter is passed to
-        `scipy.signal.find_peaks`. Default is None.
+        The required prominence of peaks. Default is 0.02.
+    distance : int, optional
+        The minimum distance between adjacent peaks. Default is 10.
 
     Returns
     -------
     np.ndarray
-        A 1D NumPy array containing the indices of the peaks that fall
-        within the specified x-range.
+        An array of indices corresponding to the peaks within the specified x-range.
 
     Raises
     ------
     ValueError
-        If the input `xy` is not a 2D array of shape (N, 2).
+        If the input array `xy` is not a 2D array with shape (N, 2).
 
     Notes
     -----
-    - The function uses `scipy.signal.find_peaks` to detect peaks in the
-      intensity values (second column of `xy`).
-    - The x-values of the detected peaks are filtered to include only those
-      within the range [min_x, max_x].
+    - The `find_peaks` function from `scipy.signal` is used to detect peaks in the y-values.
+    - Peaks are filtered to ensure their corresponding x-values fall within the specified range.
     """
     xy = np.asarray(xy)
     if xy.ndim != 2 or xy.shape[1] != 2:
@@ -1713,58 +1706,58 @@ def find_peak_indices_in_range(
 
 def find_n_peak_indices_in_range(
         xy: np.ndarray,
-        min_x: float,
-        max_x: float,
         *,
-        prominence: Optional[float] = None,
-        distance: Optional[float] = None,
+        min_x: float = 400.0,
+        max_x: float = 1500.0,
+        prominence: Optional[float] = 0.02,
+        distance: Optional[int] = 10,
 ) -> int:
     """
-    Count the number of peaks within a specified x-range in a 2D spectrum.
+    Count the number of peaks within a specified x-range in a 2D array.
 
-    This function identifies peaks in the intensity values of a 2D array
-    representing a spectrum, filters them to include only those within
-    the specified x-range, and returns the count of such peaks.
+    This function takes a 2D NumPy array representing x and y values, detects peaks
+    in the y-values, and counts the number of peaks that fall within the specified
+    x-range.
 
     Parameters
     ----------
     xy : np.ndarray
-        A 2D NumPy array of shape (N, 2), where the first column represents
-        the x-values (e.g., frequencies) and the second column represents
-        the y-values (e.g., intensities).
-    min_x : float
-        The minimum x-value of the range to include peaks.
-    max_x : float
-        The maximum x-value of the range to include peaks.
+        A 2D NumPy array of shape (N, 2), where the first column represents x-values
+        (e.g., frequencies) and the second column represents y-values (e.g., intensities).
+    min_x : float, optional
+        The minimum x-value of the range to consider. Default is 400.0.
+    max_x : float, optional
+        The maximum x-value of the range to consider. Default is 1500.0.
     prominence : float, optional
-        The required prominence of peaks. This parameter is passed to
-        `scipy.signal.find_peaks`. Default is None.
-    distance : float, optional
-        The required minimum horizontal distance (in number of samples)
-        between neighboring peaks. This parameter is passed to
-        `scipy.signal.find_peaks`. Default is None.
+        The required prominence of peaks. Default is 0.02.
+    distance : int, optional
+        The minimum distance between adjacent peaks. Default is 10.
 
     Returns
     -------
     int
-        The number of peaks that fall within the specified x-range.
+        The number of peaks within the specified x-range.
 
     Notes
     -----
-    - This function uses `find_peak_indices_in_range` to identify the indices
-      of peaks within the specified range and then calculates their count.
+    - This function uses `find_peak_indices_in_range` to identify the peaks and
+      then calculates their count.
+    - The `prominence` parameter controls the minimum height difference between
+      a peak and its neighboring values.
+    - The `distance` parameter ensures that peaks are separated by at least the
+      specified number of data points.
     """
     peak_indices = find_peak_indices_in_range(
         xy,
-        min_x,
-        max_x,
+        min_x=min_x,
+        max_x=max_x,
         prominence=prominence,
         distance=distance,
     )
     return len(peak_indices)
 
 
-def apply_sg_filter(spectrum, window_length=11, polyorder=3):
+def apply_sg_filter(spectrum, window_length=9, polyorder=3):
     """
     Apply a Savitzky-Golay filter to smooth the intensity values of a spectrum.
 
@@ -1778,7 +1771,7 @@ def apply_sg_filter(spectrum, window_length=11, polyorder=3):
         and the second column represents the y-values (e.g., intensities).
     window_length : int, optional
         The length of the filter window (number of coefficients). Must be a positive odd integer.
-        Default is 11.
+        Default is 9.
     polyorder : int, optional
         The order of the polynomial used to fit the samples. Must be less than `window_length`.
         Default is 3.
