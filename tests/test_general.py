@@ -823,3 +823,12 @@ def test_convert_digraph_vo_to_target():
                'CCOC(=O)C1=C(C(=O)OCC)C=CC=C1']
 
     assert att.check_elements(smis, ref_smi)
+
+
+def test_enumerate_stereoisomers_shortest():
+    print(flush=True)
+    smi = 'COC1=C2OC3C(O)C=CC4C5CC(=C2C43CCN5C)C=C1'
+    mol = Chem.MolFromSmiles(smi)
+    smi_out = att.enumerate_stereoisomers_shortest(mol)
+
+    print(att.pubchem_smi_to_name(smi_out, prefer="synonym"))

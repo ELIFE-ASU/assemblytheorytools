@@ -14,6 +14,8 @@ import numpy as np
 import pandas as pd
 import pubchempy as pcp
 from rdkit import Chem
+from rdkit.Chem import AllChem as Chem
+from rdkit.Chem.EnumerateStereoisomers import EnumerateStereoisomers, StereoEnumerationOptions
 from scipy.optimize import minimize
 from scipy.signal import savgol_filter, find_peaks
 from scipy.stats import gaussian_kde
@@ -2259,3 +2261,37 @@ def sample_cbrdb(n_samples: int,
         print(f"Requested {n_samples} samples, but only {len(df)} available after filtering.")
     # Return the sampled DataFrame
     return df.reset_index(drop=True)
+
+def enumerate_stereoisomers_shortest(
+        mol: Chem.Mol,
+        *,
+        max_isomers: int = 30,
+        only_unassigned: bool = False,
+        try_embedding: bool = False,
+):
+    base = Chem.Mol(mol)
+    Chem.AssignStereochemistry(base, cleanIt=True, force=True)
+
+    # Set options for stereo enumeration
+    opts = StereoEnumerationOptions(
+        unique=True,
+        onlyUnassigned=only_unassigned,
+        tryEmbedding=try_embedding,
+        maxIsomers=max_isomers,
+    )
+
+    # Enumerate stereoisomers
+    isomers = list(EnumerateStereoisomers(base, options=opts))
+    if not isomers:
+        return Chem.MolToSmiles(mol, isomericSmiles=True, canonical=True)
+
+    # Generate SMILES and names for isomers
+    smis = [Chem.MolToSmiles(iso, isomericSmiles=True, canonical=True) for iso in isomers]
+    names = [pubchem_smi_to_name(smi, prefer="synonym") for smi in smis]
+
+    # remove any names that are None
+    filtered = [(smi, name) for smi, name in zip(smis, names) if name is not None]
+    if not filtered:
+        return Chem.MolToSmiles(mol, isomericSmiles=True, canonical=True)
+    smis, names = zip(*filtered)
+    return smis[names.index(min(names, key=len))]

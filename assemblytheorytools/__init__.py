@@ -154,7 +154,8 @@ from .tools_data import (sample_boostrapping,
                          get_rmsd,
                          estimate_ai_from_ir_peaks,
                          get_github_file,
-                         sample_cbrdb)
+                         sample_cbrdb,
+                         enumerate_stereoisomers_shortest)
 from .tools_file import (file_list,
                          file_list_all,
                          filter_files,
