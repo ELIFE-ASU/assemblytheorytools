@@ -457,123 +457,279 @@ def pubchem_id_to_nx(id: int, add_hydrogens: bool = True, sanitize: bool = True)
     return smi_to_nx(smiles, add_hydrogens=add_hydrogens, sanitize=sanitize)
 
 
-def pubchem_smi_to_name(
-            smiles: str,
-            prefer: Tuple[str, ...] = ("synonym", "iupac_name", "title"),
-            timeout: int = 20,
-    ) -> Optional[str]:
-        """
-        Retrieve the name of a compound from PubChem using its SMILES string.
+_ELEMENT_SYMBOLS = {
+    "H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne", "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar", "K", "Ca",
+    "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn", "Ga", "Ge", "As", "Se", "Br", "Kr", "Rb", "Sr", "Y",
+    "Zr", "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd", "In", "Sn", "Sb", "Te", "I", "Xe", "Cs", "Ba", "La", "Ce",
+    "Pr", "Nd", "Pm", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb", "Lu", "Hf", "Ta", "W", "Re", "Os", "Ir",
+    "Pt", "Au", "Hg", "Tl", "Pb", "Bi", "Po", "At", "Rn", "Fr", "Ra", "Ac", "Th", "Pa", "U", "Np", "Pu", "Am", "Cm",
+    "Bk", "Cf", "Es", "Fm", "Md", "No", "Lr", "Rf", "Db", "Sg", "Bh", "Hs", "Mt", "Ds", "Rg", "Cn", "Nh", "Fl", "Mc",
+    "Lv", "Ts", "Og"
+}
 
-        This function queries the PubChem database with a given SMILES string and attempts
-        to retrieve a human-readable name for the compound. The name is selected based on
-        a preference order of fields such as synonyms, IUPAC name, or title.
+# Common chemistry "prefix words" you usually want lowercase
+_LOWER_PREFIXES = {
+    "n", "sec", "tert", "t", "iso", "neo",
+    "cis", "trans", "meso", "rac",
+    "d", "l", "dl",
+    "alpha", "beta", "gamma", "delta",
+    "n-", "o-", "s-", "p-", "m-",  # N-/O-/S-/P-/M- locants
+}
+
+_ROMAN_RE = re.compile(r"^(?=[MDCLXVI])M{0,4}(CM|CD|D?C{0,3})"
+                       r"(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$", re.I)
+
+
+def _standardize_common_name(name: Optional[str]) -> Optional[str]:
+    if name is None:
+        return None
+    s = str(name).strip().lower()
+    if not s:
+        return None
+
+    # Normalize whitespace
+    s = re.sub(r"\s+", " ", s)
+
+    # Normalize spacing around commas/semicolons/parentheses
+    s = re.sub(r"\s*,\s*", ", ", s)
+    s = re.sub(r"\s*;\s*", "; ", s)
+    s = re.sub(r"\(\s+", "(", s)
+    s = re.sub(r"\s+\)", ")", s)
+    s = re.sub(r"\s*-\s*", "-", s)  # tighten hyphens
+
+    tokens = s.split(" ")
+
+    def _fix_token(tok: str) -> str:
+        if not tok:
+            return tok
+
+        # Preserve leading/trailing punctuation but case the core.
+        m = re.match(r"^([\"'(\[]?)(.*?)([\"')\].,:;!?]?)$", tok)
+        lead, core, tail = m.groups() if m else ("", tok, "")
+
+        # If core is already all-caps short acronym, keep it.
+        if core.isupper() and 2 <= len(core) <= 6:
+            return lead + core + tail
+
+        # Roman numerals (often in parentheses): uppercase them
+        if _ROMAN_RE.match(core):
+            return lead + core.upper() + tail
+
+        # Handle hyphenated cores piecewise (e.g. "N-acetyl-L-cysteine")
+        parts = core.split("-")
+        fixed_parts = []
+        for p in parts:
+            if not p:
+                fixed_parts.append(p)
+                continue
+
+            pl = p.lower()
+
+            # Locants/prefixes like N, O, S at start: keep uppercase single-letter locant
+            # Example: "n" as prefix is usually lowercase "n-"; but "N-" locant is uppercase "N"
+            if pl in {"n", "o", "s", "p", "m"} and len(p) == 1:
+                fixed_parts.append(p.upper())
+                continue
+
+            # Keep known lower prefixes as lowercase (sec, tert, cis, trans, etc.)
+            if pl in _LOWER_PREFIXES:
+                fixed_parts.append(pl)
+                continue
+
+            # Element symbols: normalize to correct case (Na, Cl, Fe)
+            if pl.capitalize() in _ELEMENT_SYMBOLS and len(p) <= 2:
+                fixed_parts.append(pl.capitalize())
+                continue
+
+            # If it's something like "HCl" or "NaCl" (mixed), leave as-is
+            if re.search(r"[A-Z].*[a-z]", p) or re.search(r"[a-z].*[A-Z]", p):
+                fixed_parts.append(p)
+                continue
+
+            # Default: Title-case the part
+            fixed_parts.append(pl.capitalize())
+
+        core_fixed = "-".join(fixed_parts)
+        return lead + core_fixed + tail
+
+    standardized = " ".join(_fix_token(t) for t in tokens)
+
+    # Final small cleanup: don't end up with double spaces after our punctuation rules
+    standardized = re.sub(r"\s+", " ", standardized).strip()
+
+    return standardized
+
+
+def pubchem_smi_to_name_complex(
+        smiles: str,
+        prefer: Tuple[str, ...] = ("synonym", "iupac_name", "title"),
+        timeout: int = 20,
+) -> Optional[str]:
+    """
+    Retrieve the name of a compound from PubChem using its SMILES string.
+
+    This function queries the PubChem database with a given SMILES string and attempts
+    to retrieve a human-readable name for the compound. The name is selected based on
+    a preference order of fields such as synonyms, IUPAC name, or title.
+
+    Parameters
+    ----------
+    smiles : str
+        The SMILES string of the compound to search for.
+    prefer : Tuple[str, ...], optional
+        A tuple specifying the preferred fields to retrieve the name from, in order of priority.
+        Default is ("synonym", "iupac_name", "title").
+    timeout : int, optional
+        The timeout in seconds for the PubChem query. Default is 20.
+
+    Returns
+    -------
+    Optional[str]
+        The name of the compound if found, otherwise None.
+
+    Notes
+    -----
+    - The function uses the `pubchempy` library to query the PubChem database.
+    - If the SMILES string is invalid or no matching compound is found, the function returns None.
+    - The function includes a scoring mechanism to select the most appropriate synonym
+      if multiple options are available.
+
+    Raises
+    ------
+    Exception
+        If there is an error during the PubChem query, the function handles it and returns None.
+    """
+    smiles = (smiles or "").strip()
+    if not smiles:
+        return None
+    try:
+        comps = pcp.get_compounds(smiles, namespace="smiles", timeout=timeout)
+    except Exception:
+        return None
+
+    if not comps:
+        return None
+
+    c = comps[0]
+
+    # Helper to decide if something looks like a "nice" synonym
+    def _synonym_score(name: str) -> int:
+        """
+        Calculate a score for a synonym to determine its suitability.
 
         Parameters
         ----------
-        smiles : str
-            The SMILES string of the compound to search for.
-        prefer : Tuple[str, ...], optional
-            A tuple specifying the preferred fields to retrieve the name from, in order of priority.
-            Default is ("synonym", "iupac_name", "title").
-        timeout : int, optional
-            The timeout in seconds for the PubChem query. Default is 20.
+        name : str
+            The synonym to evaluate.
 
         Returns
         -------
-        Optional[str]
-            The name of the compound if found, otherwise None.
-
-        Notes
-        -----
-        - The function uses the `pubchempy` library to query the PubChem database.
-        - If the SMILES string is invalid or no matching compound is found, the function returns None.
-        - The function includes a scoring mechanism to select the most appropriate synonym
-          if multiple options are available.
-
-        Raises
-        ------
-        Exception
-            If there is an error during the PubChem query, the function handles it and returns None.
+        int
+            A score indicating the quality of the synonym. Higher scores are better.
         """
-        smiles = (smiles or "").strip()
-        if not smiles:
-            return None
-        try:
-            comps = pcp.get_compounds(smiles, namespace="smiles", timeout=timeout)
-        except Exception:
-            return None
+        n = name.strip()
+        if not n:
+            return -10
 
-        if not comps:
-            return None
+        # Penalize very long names or names that look like systematic strings
+        score = 0
+        if len(n) <= 15:
+            score += 5
+        elif len(n) <= 30:
+            score += 1
+        else:
+            score -= 5
 
-        c = comps[0]
+        # Prefer names with letters and spaces; penalize lots of punctuation/digits
+        if re.search(r"[A-Za-z]", n):
+            score += 2
+        if re.search(r"\d", n):
+            score -= 1
+        if re.search(r"[{}[\]=#@]", n):  # SMILES-ish / formula-ish characters
+            score -= 4
+        if "," in n or ";" in n:
+            score -= 2
 
-        # Helper to decide if something looks like a "nice" synonym
-        def _synonym_score(name: str) -> int:
-            """
-            Calculate a score for a synonym to determine its suitability.
+        # Penalize names that look like full IUPAC (lots of hyphens/parentheses)
+        if n.count("-") >= 3 or n.count("(") >= 2:
+            score -= 2
 
-            Parameters
-            ----------
-            name : str
-                The synonym to evaluate.
+        return score
 
-            Returns
-            -------
-            int
-                A score indicating the quality of the synonym. Higher scores are better.
-            """
-            n = name.strip()
-            if not n:
-                return -10
+    # Try preferred fields
+    for field in prefer:
+        if field == "iupac_name":
+            v = getattr(c, "iupac_name", None)
+            if v:
+                return _standardize_common_name(v.strip())
 
-            # Penalize very long names or names that look like systematic strings
-            score = 0
-            if len(n) <= 30:
-                score += 5
-            elif len(n) <= 60:
-                score += 1
-            else:
-                score -= 5
+        elif field == "title":
+            v = getattr(c, "title", None)
+            if v:
+                return _standardize_common_name(v.strip())
 
-            # Prefer names with letters and spaces; penalize lots of punctuation/digits
-            if re.search(r"[A-Za-z]", n):
-                score += 2
-            if re.search(r"\d", n):
-                score -= 1
-            if re.search(r"[{}[\]=#@]", n):  # SMILES-ish / formula-ish characters
-                score -= 4
-            if "," in n or ";" in n:
-                score -= 2
+        elif field == "synonym":
+            syns = getattr(c, "synonyms", None) or []
+            if syns:
+                # pick the best-looking synonym
+                best = max(syns, key=_synonym_score)
+                if _synonym_score(best) > 0:
+                    return _standardize_common_name(best.strip())
 
-            # Penalize names that look like full IUPAC (lots of hyphens/parentheses)
-            if n.count("-") >= 3 or n.count("(") >= 2:
-                score -= 2
+    return None
 
-            return score
 
-        # Try preferred fields
-        for field in prefer:
-            if field == "iupac_name":
-                v = getattr(c, "iupac_name", None)
-                if v:
-                    return v.strip()
+def pubchem_smi_to_name(smiles: str,
+                        prefer: str = "synonym",
+                        timeout: int = 20) -> Optional[str]:
+    """
+    Retrieve the name of a compound from PubChem using its SMILES string.
 
-            elif field == "title":
-                v = getattr(c, "title", None)
-                if v:
-                    return v.strip()
+    This function queries the PubChem database with a given SMILES string and attempts
+    to retrieve a human-readable name for the compound. The name is selected based on
+    the specified preference (e.g., synonym or IUPAC name).
 
-            elif field == "synonym":
-                syns = getattr(c, "synonyms", None) or []
-                if syns:
-                    # pick the best-looking synonym
-                    best = max(syns, key=_synonym_score)
-                    if _synonym_score(best) > 0:
-                        return best.strip()
+    Parameters
+    ----------
+    smiles : str
+        The SMILES string of the compound to search for.
+    prefer : str, optional
+        The preferred field to retrieve the name from. Options are "synonym" or "iupac_name".
+        Default is "synonym".
+    timeout : int, optional
+        The timeout in seconds for the PubChem query. Default is 20.
 
+    Returns
+    -------
+    Optional[str]
+        The name of the compound if found, otherwise None.
+
+    Raises
+    ------
+    ValueError
+        If the `prefer` parameter is not "synonym" or "iupac_name".
+
+    Notes
+    -----
+    - The function uses the `pubchempy` library to query the PubChem database.
+    - If the SMILES string is invalid or no matching compound is found, the function returns None.
+    - The `_standardize_common_name` function is used to clean up the retrieved name.
+    """
+    if not smiles:
         return None
+
+    try:
+        c = pcp.get_compounds(smiles, namespace="smiles", timeout=timeout)[0]
+    except Exception:
+        return None
+
+    if prefer == "iupac_name":
+        return _standardize_common_name(getattr(c, "iupac_name", "").strip() or None)
+    elif prefer == "synonym":
+        syns = getattr(c, "synonyms", [])
+        return _standardize_common_name(syns[0]) if syns else None
+    else:
+        raise ValueError(f"Unknown prefer option: {prefer}")
 
 
 def sample_random_pubchem(
