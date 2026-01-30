@@ -25,7 +25,9 @@ if __name__ == "__main__":
     plt.show()  # Display the plot
 
     # Convert the SMILES string of the selected molecule to atomic coordinates
-    atoms = att.smiles_to_atoms(df['smiles'].iloc[view_idx])
+    smi= df['smiles'].iloc[view_idx]
+    print(f"SMILES: {smi}", flush=True)
+    atoms = att.smiles_to_atoms(smi)
 
     # Plot the 3D atomic structure and save it as a PNG file
     att.plot_ase_atoms(atoms, 'example_atoms.png', rotation='30x,30y,0z')

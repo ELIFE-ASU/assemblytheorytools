@@ -5,13 +5,14 @@ if __name__ == "__main__":
     mols_str = ["codeine",
                 "morphine"]
     # Set the timeout duration for assembly index calculations (in seconds)
-    timeout = 5.0 * 60.0
+    timeout = 10.0 * 60.0
 
     # Convert molecule names to their corresponding SMILES strings using PubChem
     smis = [att.pubchem_name_to_smi(name) for name in mols_str]
 
     # Visualize the common bonds between the molecules and display the image
     img = att.show_common_bonds(*smis, legends=mols_str)
+    img.save("common_bonds.png")
     img.show()
 
     # Print the SMILES strings of the input molecules
