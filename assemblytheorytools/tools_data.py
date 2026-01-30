@@ -1598,7 +1598,7 @@ def _process_chemotion_ir_section(extract_dir: str, meta_data: pd.DataFrame) -> 
     return ir_data
 
 
-def process_chemotion_ir_data(target_file: str) -> pd.DataFrame:
+def process_chemotion_ir_data(target_file: str, save: bool = False) -> pd.DataFrame:
     """
     Process Chemotion IR data from a tar file and return it as a pandas DataFrame.
 
@@ -1610,6 +1610,8 @@ def process_chemotion_ir_data(target_file: str) -> pd.DataFrame:
     ----------
     target_file : str
         Path to the Chemotion tar file containing the IR data and metadata.
+    save : bool, optional
+        Whether to save the processed DataFrame to a compressed CSV file. Default is False.
 
     Returns
     -------
@@ -1646,8 +1648,9 @@ def process_chemotion_ir_data(target_file: str) -> pd.DataFrame:
     merged_data = pd.merge(meta_data, ir_data, on='name')
     # Drop rows with any NaN values
     merged_data = merged_data.dropna()
-    # Save the merged data to a compressed CSV file
-    merged_data.to_csv(out_file, index=False)
+    if save:
+        # Save the merged data to a compressed CSV file
+        merged_data.to_csv(out_file, index=False)
     return merged_data
 
 
@@ -2188,9 +2191,9 @@ def get_github_file(
     return out_path
 
 
-def sample_cbrdb(n_samples: int,
-                 max_mw: float = 550.0,
-                 max_bonds: float = 50,
+def sample_cbrdb(n_samples: int = 10_000,
+                 max_mw: float = 300.0,
+                 max_bonds: float = 30,
                  c_select: List[str] | None = None) -> pd.DataFrame:
     """
     Sample a subset of compounds from the CBRdb dataset.
@@ -2202,11 +2205,11 @@ def sample_cbrdb(n_samples: int,
     Parameters
     ----------
     n_samples : int
-        The number of samples to return.
+        The number of samples to return. Default is 10,000.
     max_mw : float, optional
-        The maximum molecular weight allowed for the compounds. Default is 550.0.
+        The maximum molecular weight allowed for the compounds. Default is 300.0.
     max_bonds : float, optional
-        The maximum number of bonds allowed for the compounds. Default is 50.
+        The maximum number of bonds allowed for the compounds. Default is 30.
     c_select : List[str] or None, optional
         The columns to select from the dataset. If None, defaults to
         ['compound_id', 'nickname', 'smiles', 'molecular_weight', 'n_heavy_atoms'].

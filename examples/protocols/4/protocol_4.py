@@ -1,22 +1,15 @@
-import os
-
 import matplotlib.pyplot as plt
 import numpy as np
 
 import assemblytheorytools as att
 
 if __name__ == "__main__":
-    timeout = 2.0 * 60.0
-    max_bonds = 30
-    n_peaks_range = (1, 40)
     view_idx = 5
     # https://radar4chem.radar-service.eu/radar/en/dataset/OGoEQGlsZGElrgst#
     df = att.process_chemotion_ir_data('/home/louie/Downloads/10.22000-OGoEQGlsZGElrgst.tar')
+    df = att.filter_by_nh_bonds(df, max_bonds=30)
 
-    df = att.filter_by_nh_bonds(df, max_bonds=max_bonds)
-
-    df['spectrum'] = att.mp_calc(att.apply_sg_filter,
-                                 df['spectrum'])
+    df['spectrum'] = att.mp_calc(att.apply_sg_filter, df['spectrum'])
 
     peaks = att.find_peak_indices_in_range(df['spectrum'].iloc[view_idx])
     att.plot_ir_spectrum(df['spectrum'].iloc[view_idx], peaks=peaks)
@@ -31,15 +24,17 @@ if __name__ == "__main__":
     # Calculate number of peaks
     df['n_peaks'] = np.array(att.mp_calc(att.find_n_peak_indices_in_range,
                                          df['spectrum']), dtype=int)
-    df = df[df['n_peaks'].between(*n_peaks_range)].reset_index(drop=True)
+    df = df[df['n_peaks'].between(*(1, 40))].reset_index(drop=True)
 
     graphs = att.mp_calc(att.smi_to_nx, df['smiles'].tolist())
-    df['ai'] = att.calculate_assembly_index_parallel(graphs, settings={'strip_hydrogen': True,
-                                                                       'timeout': timeout})[0]
+    df['ai'] = att.calculate_assembly_index_parallel(graphs, settings={'strip_hydrogen': True})[0]
     n_peaks = df['n_peaks'].to_numpy()
     ai_obs = df['ai'].to_numpy()
 
-    params, ai_pred = att.estimate_ai_from_ir_peaks(n_peaks, ai_obs, att.linear_func, [0.5, 0.0])
+    params, ai_pred = att.estimate_ai_from_ir_peaks(n_peaks,
+                                                    ai_obs,
+                                                    att.linear_func,
+                                                    params_0=[0.5, 0.0])
 
     print(f'Number of data points: {len(ai_obs)}', flush=True)
     print('Linear Fit:', flush=True)

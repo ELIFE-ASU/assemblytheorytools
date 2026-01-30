@@ -4,7 +4,7 @@ import assemblytheorytools as att
 
 if __name__ == "__main__":
     smi = att.pubchem_name_to_smi('diethyl phthalate')
-    print(f"SMILES: {smi}", flush=True)
+    print(f"Input SMILES: {smi}", flush=True)
     graph = att.smi_to_nx(smi, sanitize=True, add_hydrogens=True)
     ai, virt_obj, pathway = att.calculate_assembly_index(graph, strip_hydrogen=True)
     virt_obj = [att.nx_to_smi(vo, add_hydrogens=False) for vo in virt_obj]

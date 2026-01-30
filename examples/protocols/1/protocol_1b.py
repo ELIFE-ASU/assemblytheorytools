@@ -10,4 +10,4 @@ if __name__ == "__main__":
     )
     print(f"Assembly index: {ai}", flush=True)
     print(f"Virtual objects in pathway: {virt_obj}", flush=True)
-    att.plot_digraph_metro(pathway, filename="metro_pathway_example")
+    att.plot_digraph_metro(pathway)

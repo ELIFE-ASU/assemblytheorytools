@@ -1,11 +1,8 @@
-import matplotlib.pyplot as plt
-
 import assemblytheorytools as att
 
 if __name__ == "__main__":
     mols_str = ["codeine",
                 "morphine"]
-
     timeout = 5.0 * 60.0
 
     smis = [att.pubchem_name_to_smi(name) for name in mols_str]
@@ -13,7 +10,7 @@ if __name__ == "__main__":
     img = att.show_common_bonds(*smis, legends=mols_str)
     img.show()
 
-    print(f"SMILES strings: {smis}", flush=True)
+    print(f"Input SMILES strings: {smis}", flush=True)
 
     graphs = [att.smi_to_nx(smi) for smi in smis]
     ai_i = att.calculate_assembly_index_parallel(graphs,
@@ -30,21 +27,4 @@ if __name__ == "__main__":
     virt_obj = [att.nx_to_smi(vo, add_hydrogens=False) for vo in virt_obj]
     print(f"Joint assembly index: {ai}", flush=True)
     print(f"Virtual objects in pathway: {virt_obj}", flush=True)
-
-    att.plot_pathway(pathway,
-                     frame_on=False,
-                     plot_type='mol',
-                     fig_size=(14, 7),
-                     layout_style='crossmin_long')
-    plt.savefig("mol_pathway_example.svg")
-    plt.savefig("mol_pathway_example.png", dpi=300)
-    plt.show()
-
-    att.plot_pathway(pathway,
-                     frame_on=False,
-                     plot_type='mol',
-                     fig_size=(14, 7),
-                     layout_style='sa')
-    plt.show()
-
-    att.plot_digraph_metro(pathway, steps=True, vo_names='synonym')
+    att.plot_digraph_metro(pathway, vo_names='synonym')
