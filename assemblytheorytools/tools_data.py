@@ -722,16 +722,18 @@ def pubchem_smi_to_name(smiles: str,
 
     try:
         c = pcp.get_compounds(smiles, namespace="smiles", timeout=timeout)[0]
-    except Exception:
-        return None
 
-    if prefer == "iupac_name":
-        return _standardize_common_name(getattr(c, "iupac_name", "").strip() or None)
-    elif prefer == "synonym":
-        syns = getattr(c, "synonyms", [])
-        return _standardize_common_name(syns[0]) if syns else None
-    else:
-        raise ValueError(f"Unknown prefer option: {prefer}")
+        if prefer == "iupac_name":
+            return _standardize_common_name(getattr(c, "iupac_name", "").strip() or None)
+        elif prefer == "synonym":
+            syns = getattr(c, "synonyms", [])
+            return _standardize_common_name(syns[0]) if syns else None
+        else:
+            raise ValueError(f"Unknown prefer option: {prefer}")
+
+    except Exception as e:
+        print(f'Error retrieving name for SMILES "{smiles}": {e}')
+        return None
 
 
 def sample_random_pubchem(
@@ -2269,6 +2271,7 @@ def enumerate_stereoisomers_shortest(
         max_isomers: int = 30,
         only_unassigned: bool = False,
         try_embedding: bool = False,
+        prefer: str = "synonym",
 ):
     """
     Enumerate stereoisomers of a molecule and return the SMILES string of the isomer
@@ -2289,6 +2292,8 @@ def enumerate_stereoisomers_shortest(
         If True, only enumerate stereoisomers for unassigned stereocenters. Default is False.
     try_embedding : bool, optional
         If True, attempt to embed the stereoisomers in 3D space. Default is False.
+    prefer : str, optional
+        The preferred type of name to retrieve from PubChem ('synonym' or 'iupac'). Default is 'synonym'.
 
     Returns
     -------
@@ -2321,7 +2326,7 @@ def enumerate_stereoisomers_shortest(
 
     # Generate SMILES and names for isomers
     smis = [Chem.MolToSmiles(iso, isomericSmiles=True, canonical=True) for iso in isomers]
-    names = [pubchem_smi_to_name(smi, prefer="synonym") for smi in smis]
+    names = [pubchem_smi_to_name(smi, prefer=prefer) for smi in smis]
 
     # remove any names that are None
     filtered = [(smi, name) for smi, name in zip(smis, names) if name is not None]

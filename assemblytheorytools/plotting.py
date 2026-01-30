@@ -410,28 +410,25 @@ def plot_digraph_metro(digraph: nx.DiGraph,
         digraph = relabel_digraph(digraph)
 
     if vo_str:
-        try:
-            for node in digraph.nodes:
-                d_type = type(digraph.nodes[node]['vo'])
-                if d_type == str:
-                    lab = digraph.nodes[node]['vo']
-                elif d_type == nx.Graph:
-                    lab = nx_to_smi(digraph.nodes[node]['vo'],
-                                    add_hydrogens=False,
-                                    sanitize=True)
-                elif d_type == Chem.Mol:
-                    lab = Chem.MolToSmiles(digraph.nodes[node]['vo'])
-                else:
-                    raise ValueError(f"Unsupported virtual object type: {d_type}")
+        for node in digraph.nodes:
+            d_type = type(digraph.nodes[node]['vo'])
+            if d_type == str:
+                lab = digraph.nodes[node]['vo']
+            elif d_type == nx.Graph:
+                lab = nx_to_smi(digraph.nodes[node]['vo'],
+                                add_hydrogens=False,
+                                sanitize=True)
+            elif d_type == Chem.Mol:
+                lab = Chem.MolToSmiles(digraph.nodes[node]['vo'])
+            else:
+                raise ValueError(f"Unsupported virtual object type: {d_type}")
 
-                if vo_names:
-                    lab = enumerate_stereoisomers_shortest(Chem.MolFromSmiles(lab))
-                    lab = pubchem_smi_to_name(lab, prefer=vo_names)
-                    if lab is None:
-                        lab = ""
-                digraph.nodes[node]['label'] = lab
-        except:
-            pass
+            if vo_names:
+                lab = enumerate_stereoisomers_shortest(Chem.MolFromSmiles(lab), prefer=vo_names)
+                lab = pubchem_smi_to_name(lab, prefer=vo_names)
+                if lab is None:
+                    lab = ""
+            digraph.nodes[node]['label'] = lab
 
     # Configure the metro-style rendering backend
     backend = dagviz.style.metro.svg_renderer(dagviz.style.metro.StyleConfig(node_stroke="black"))
