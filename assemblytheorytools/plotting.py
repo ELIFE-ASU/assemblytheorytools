@@ -10,6 +10,7 @@ import networkx as nx
 import numpy as np
 from IPython.display import HTML
 from PIL import Image
+from ase import Atoms
 from ase.visualize.plot import plot_atoms
 from matplotlib import colormaps, colors
 from matplotlib.axes import Axes
@@ -23,9 +24,9 @@ from rdkit.Chem import Draw, rdFMCS
 from scipy.stats import gaussian_kde
 
 from .tools_atoms import mol_to_atoms
+from .tools_data import pubchem_smi_to_name, enumerate_stereoisomers_shortest
 from .tools_graph import relabel_digraph, nx_to_smi
 from .tools_mol import smi_to_mol, standardize_mol
-from .tools_data import pubchem_smi_to_name, enumerate_stereoisomers_shortest
 
 # set the plot axis
 plt.rcParams['axes.linewidth'] = 2.0
@@ -3494,4 +3495,68 @@ def plot_ir_spectrum(spectrum: np.ndarray,
         plt.scatter(freq[peaks], intensity[peaks], color='red')
 
     ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
+    return fig, ax
+
+
+def plot_ase_atoms(
+        atoms: Atoms,
+        outfile: Optional[str] = None,
+        *,
+        rotation: str = "0x,0y,0z",
+        show_unit_cell: int = 0,
+        radii: float = 0.6,
+        fig_size: Tuple[float, float] = (6, 6),
+        dpi: int = 300,
+        transparent: bool = False,
+):
+    """
+    Visualize an ASE Atoms object using Matplotlib.
+
+    This function generates a 2D visualization of an ASE `Atoms` object and optionally
+    saves the plot to a file. The visualization can be customized with rotation, unit
+    cell display, atomic radii, and figure properties.
+
+    Parameters
+    ----------
+    atoms : ase.Atoms
+        The ASE `Atoms` object to visualize.
+    outfile : str, optional
+        The file path to save the plot. If `None`, the plot is not saved.
+    rotation : str, optional
+        The rotation to apply to the visualization, specified as a string (e.g., "0x,0y,0z").
+        Defaults to "0x,0y,0z".
+    show_unit_cell : int, optional
+        Whether to display the unit cell. Defaults to 0 (do not show).
+    radii : float, optional
+        The scaling factor for atomic radii. Defaults to 0.6.
+    fig_size : tuple of float, optional
+        The size of the figure in inches, specified as (width, height). Defaults to (6, 6).
+    dpi : int, optional
+        The resolution of the saved figure in dots per inch. Defaults to 300.
+    transparent : bool, optional
+        Whether the background of the saved figure should be transparent. Defaults to False.
+
+    Returns
+    -------
+    tuple
+        A tuple containing the Matplotlib `Figure` and `Axes` objects.
+    """
+    # Create a Matplotlib figure and axis with the specified size
+    fig, ax = plt.subplots(figsize=fig_size)
+
+    # Plot the ASE Atoms object with the specified parameters
+    plot_atoms(atoms, ax=ax, rotation=rotation, show_unit_cell=show_unit_cell, radii=radii)
+
+    # Turn off the axis for a cleaner visualization
+    ax.axis("off")
+
+    # Save the figure to the specified file if `outfile` is provided
+    if outfile:
+        fig.savefig(outfile,
+                    dpi=dpi,
+                    transparent=transparent,
+                    bbox_inches="tight",
+                    pad_inches=0)
+
+    # Return the Matplotlib figure and axis
     return fig, ax

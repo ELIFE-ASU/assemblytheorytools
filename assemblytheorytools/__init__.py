@@ -83,7 +83,8 @@ from .plotting import (n_plot,
                        show_common_bonds,
                        draw_mol_grid,
                        draw_mol_grid_box,
-                       plot_ir_spectrum)
+                       plot_ir_spectrum,
+                       plot_ase_atoms)
 from .reassembler import (assemble,
                           origami,
                           get_num_atom,
