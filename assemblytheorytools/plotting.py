@@ -3504,7 +3504,6 @@ def plot_ase_atoms(
         *,
         rotation: str = "0x,0y,0z",
         show_unit_cell: int = 0,
-        radii: float = 0.6,
         fig_size: Tuple[float, float] = (6, 6),
         dpi: int = 300,
         transparent: bool = False,
@@ -3512,40 +3511,44 @@ def plot_ase_atoms(
     """
     Visualize an ASE Atoms object using Matplotlib.
 
-    This function generates a 2D visualization of an ASE `Atoms` object and optionally
-    saves the plot to a file. The visualization can be customized with rotation, unit
-    cell display, atomic radii, and figure properties.
+    This function generates a 2D visualization of an ASE Atoms object and optionally
+    saves the plot to a file. The visualization can be customized with rotation,
+    unit cell display, figure size, and transparency settings.
 
     Parameters
     ----------
     atoms : ase.Atoms
-        The ASE `Atoms` object to visualize.
-    outfile : str, optional
-        The file path to save the plot. If `None`, the plot is not saved.
+        The ASE Atoms object to visualize.
+    outfile : str or None, optional
+        The file path to save the plot. If None, the plot is not saved. Defaults to None.
     rotation : str, optional
-        The rotation to apply to the visualization, specified as a string (e.g., "0x,0y,0z").
+        The rotation to apply to the Atoms object, specified as a string (e.g., "90x,0y,0z").
         Defaults to "0x,0y,0z".
     show_unit_cell : int, optional
-        Whether to display the unit cell. Defaults to 0 (do not show).
-    radii : float, optional
-        The scaling factor for atomic radii. Defaults to 0.6.
+        Whether to display the unit cell. Set to 1 to show the unit cell, 0 to hide it.
+        Defaults to 0.
     fig_size : tuple of float, optional
-        The size of the figure in inches, specified as (width, height). Defaults to (6, 6).
+        The size of the figure in inches (width, height). Defaults to (6, 6).
     dpi : int, optional
-        The resolution of the saved figure in dots per inch. Defaults to 300.
+        The resolution of the figure in dots per inch. Defaults to 300.
     transparent : bool, optional
-        Whether the background of the saved figure should be transparent. Defaults to False.
+        Whether to make the background of the saved figure transparent. Defaults to False.
 
     Returns
     -------
     tuple
-        A tuple containing the Matplotlib `Figure` and `Axes` objects.
+        A tuple containing the Matplotlib Figure and Axes objects.
+
+    Notes
+    -----
+    - The axis is turned off for a cleaner visualization.
+    - If `outfile` is provided, the figure is saved with tight bounding and no padding.
     """
     # Create a Matplotlib figure and axis with the specified size
     fig, ax = plt.subplots(figsize=fig_size)
 
     # Plot the ASE Atoms object with the specified parameters
-    plot_atoms(atoms, ax=ax, rotation=rotation, show_unit_cell=show_unit_cell, radii=radii)
+    plot_atoms(atoms, ax=ax, rotation=rotation, show_unit_cell=show_unit_cell)
 
     # Turn off the axis for a cleaner visualization
     ax.axis("off")
