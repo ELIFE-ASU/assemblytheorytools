@@ -5,14 +5,9 @@ import assemblytheorytools as att
 if __name__ == "__main__":
     # List of molecule names to convert to SMILES
     mols_str = ["codeine",
-                "morphine",
-                "diamorphine",
-                "fentanyl"]
-
-    mols_str = ["codeine",
                 "morphine"]
 
-    timeout = 5.0 * 60.0
+    timeout = 1.0 * 60.0
 
     smis = [att.pubchem_name_to_smi(name) for name in mols_str]
 
@@ -33,9 +28,8 @@ if __name__ == "__main__":
     ai, virt_obj, pathway = att.calculate_assembly_index(combined_graph,
                                                          strip_hydrogen=True,
                                                          timeout=timeout)
-    print(f"Joint assembly index: {ai}", flush=True)
-
     virt_obj = [att.nx_to_smi(vo, add_hydrogens=False) for vo in virt_obj]
+    print(f"Joint assembly index: {ai}", flush=True)
     print(f"Virtual objects in pathway: {virt_obj}", flush=True)
 
     att.plot_pathway(pathway,
@@ -50,4 +44,4 @@ if __name__ == "__main__":
                      plot_type='mol', fig_size=(14, 7), layout_style='sa')
     plt.show()
 
-    att.plot_digraph_metro(pathway, filename="metro_pathway_example", vo_names=True)
+    att.plot_digraph_metro(pathway, filename="metro_pathway_example", vo_names='synonym')

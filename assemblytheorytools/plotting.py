@@ -355,7 +355,7 @@ def plot_digraph_metro(digraph: nx.DiGraph,
                        filename: str = 'metro',
                        steps: bool = False,
                        vo_str: bool = True,
-                       vo_names: bool = False) -> None:
+                       vo_names: str | None = None) -> None:
     """
     Render a directed acyclic graph (DAG) in a metro-style layout and save as SVG and PNG.
 
@@ -373,9 +373,9 @@ def plot_digraph_metro(digraph: nx.DiGraph,
         If True, relabel the graph nodes with their topological step. Defaults to False.
     vo_str : bool, optional
         If True, convert the 'vo' attribute of nodes to string labels. Defaults to True.
-    vo_names : bool, optional
+    vo_names : str, optional
         If True, attempt to retrieve human-readable names for virtual objects using
-        `pubchem_smi_to_name`. Defaults to False.
+        `pubchem_smi_to_name`. Defaults to None.
 
     Raises
     ------
@@ -418,14 +418,14 @@ def plot_digraph_metro(digraph: nx.DiGraph,
                 elif d_type == nx.Graph:
                     lab = nx_to_smi(digraph.nodes[node]['vo'],
                                     add_hydrogens=False,
-                                    sanitize=False)
+                                    sanitize=True)
                 elif d_type == Chem.Mol:
                     lab = Chem.MolToSmiles(digraph.nodes[node]['vo'])
                 else:
                     raise ValueError(f"Unsupported virtual object type: {d_type}")
 
                 if vo_names:
-                    lab = pubchem_smi_to_name(lab, prefer=("iupac_name",))
+                    lab = pubchem_smi_to_name(lab, prefer=vo_names)
                     if lab is None:
                         lab = ""
                 digraph.nodes[node]['label'] = lab
