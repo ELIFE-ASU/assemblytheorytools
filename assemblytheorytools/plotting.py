@@ -3456,9 +3456,9 @@ def plot_ir_spectrum(spectrum: np.ndarray,
                      peaks: np.ndarray | None = None,
                      xlab: str = 'Wavenumber (cm⁻¹)',
                      ylab: str = 'Intensity',
+                     flip_x: bool = True,
                      figsize: Tuple[float, float] = (8, 5),
-                     fontsize: int = 16,
-                     ) -> Tuple[Figure, Axes]:
+                     fontsize: int = 16) -> Tuple[Figure, Axes]:
     """
     Plots an infrared (IR) spectrum with optional peak annotations.
 
@@ -3474,6 +3474,9 @@ def plot_ir_spectrum(spectrum: np.ndarray,
         Label for the x-axis. Defaults to 'Wavenumber (cm⁻¹)'.
     ylab : str, optional
         Label for the y-axis. Defaults to 'Intensity'.
+    flip_x : bool, optional
+        Whether to invert the x-axis (common for IR spectra where higher wavenumbers are on the left).
+        Defaults to True.
     figsize : Tuple[float, float], optional
         Size of the figure in inches. Defaults to (8, 5).
     fontsize : int, optional
@@ -3494,7 +3497,13 @@ def plot_ir_spectrum(spectrum: np.ndarray,
     if peaks is not None:
         plt.scatter(freq[peaks], intensity[peaks], color='red')
 
+    # Apply standard styling
     ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
+
+    # Invert x-axis if requested (standard for IR)
+    if flip_x:
+        ax.invert_xaxis()
+
     return fig, ax
 
 
