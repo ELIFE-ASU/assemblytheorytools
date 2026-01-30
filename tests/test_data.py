@@ -66,13 +66,7 @@ def test_find_peak_indices_in_range():
     spectrum = att.apply_sg_filter(spectrum, window_length=35, polyorder=3)
     peaks = att.find_peak_indices_in_range(spectrum, min_x=500, max_x=1500, prominence=0.01, distance=5)
 
-    freq = spectrum.T[0]
-    intensity = spectrum.T[1]
-
-    plt.plot(freq, intensity)
-    plt.scatter(freq[peaks], intensity[peaks], color='red')
-    plt.xlabel('Wavenumber (cm⁻¹)')
-    plt.ylabel('Intensity')
+    att.plot_ir_spectrum(spectrum, peaks=peaks)
     plt.show()
 
     assert len(peaks) == 12

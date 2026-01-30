@@ -3452,3 +3452,49 @@ def draw_mol_grid_box(
         canvas.paste(tile, (x, y))
 
     return canvas
+
+
+def plot_ir_spectrum(spectrum: np.ndarray,
+                     peaks: np.ndarray | None = None,
+                     xlab: str = 'Wavenumber (cm⁻¹)',
+                     ylab: str = 'Intensity',
+                     figsize: Tuple[float, float] = (8, 5),
+                     fontsize: int = 16,
+                     ) -> Tuple[Figure, Axes]:
+    """
+    Plots an infrared (IR) spectrum with optional peak annotations.
+
+    Parameters:
+    -----------
+    spectrum : np.ndarray
+        A 2D array where the first column represents the wavenumber (frequency)
+        and the second column represents the intensity.
+    peaks : np.ndarray or None, optional
+        Indices of the peaks to highlight in the spectrum. If None, no peaks are highlighted.
+        Defaults to None.
+    xlab : str, optional
+        Label for the x-axis. Defaults to 'Wavenumber (cm⁻¹)'.
+    ylab : str, optional
+        Label for the y-axis. Defaults to 'Intensity'.
+    figsize : Tuple[float, float], optional
+        Size of the figure in inches. Defaults to (8, 5).
+    fontsize : int, optional
+        Font size for axis labels. Defaults to 16.
+
+    Returns:
+    --------
+    Tuple[Figure, Axes]
+        The matplotlib Figure and Axes objects for the plot.
+
+    """
+    freq = spectrum.T[0]
+    intensity = spectrum.T[1]
+    # Create a figure and axis
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.plot(freq, intensity, linewidth=2, color='black')
+
+    if peaks is not None:
+        plt.scatter(freq[peaks], intensity[peaks], color='red')
+
+    ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
+    return fig, ax
