@@ -36,6 +36,7 @@ if __name__ == "__main__":
 
     # Save the heatmap as a PNG file
     plt.savefig("assembly_index_heatmap.png", dpi=300)
+    plt.savefig("assembly_index_heatmap.svg", dpi=300)
 
     # Display the heatmap
     plt.show()

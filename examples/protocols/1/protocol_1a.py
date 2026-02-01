@@ -9,7 +9,7 @@ if __name__ == "__main__":
     print(f"Input SMILES: {smi}", flush=True)
 
     # Convert the SMILES string to a NetworkX graph representation
-    graph = att.smi_to_nx(smi, sanitize=True, add_hydrogens=True)
+    graph = att.smi_to_nx(smi)
 
     # Calculate the assembly index, virtual objects, and pathway for the graph
     ai, virt_obj, pathway = att.calculate_assembly_index(graph, strip_hydrogen=True)

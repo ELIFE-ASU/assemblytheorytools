@@ -7,11 +7,9 @@ if __name__ == "__main__":
     # Calculate the assembly index, virtual objects, and pathway for the input string
     # Parameters:
     # - directed: Whether the graph is directed (False for undirected)
-    # - mode: The mode of calculation ('mol' for molecular assembly)
     ai, virt_obj, pathway = att.calculate_string_assembly_index(
         s_inpt,
         directed=False,
-        mode='mol'
     )
 
     # Print the calculated assembly index
