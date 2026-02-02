@@ -156,6 +156,25 @@ def test_plot_assembly_circle():
     adj_matrix[1, 6] = 1  # a -> baa (branch)
     adj_matrix[3, 5] = 1  # c -> dc (branch)
 
+    # Build DiGraph from adjacency and compute assembly indices (depths)
+    G = nx.DiGraph()
+    G.add_nodes_from(nodes)
+    for i in range(n):
+        for j in range(n):
+            if adj_matrix[i, j] != 0:
+                G.add_edge(nodes[i], nodes[j])
+
+    # Topologically propagate depths: sources -> 0, others -> max(parent_depth)+1
+    depth = {}
+    for node in nx.topological_sort(G):
+        preds = list(G.predecessors(node))
+        if not preds:
+            depth[node] = 0
+        else:
+            depth[node] = max(depth[p] for p in preds) + 1
+
+    assembly_indices = [depth[node] for node in nodes]
+
     labels = nodes
     node_size = 1000
     arrow_size = 50
@@ -167,6 +186,7 @@ def test_plot_assembly_circle():
     fig, ax = att.plot_assembly_circle(
         nodes=nodes,
         adj_matrix=adj_matrix,
+        assembly_indices=assembly_indices,
         labels=labels,
         node_size=node_size,
         arrow_size=arrow_size,
