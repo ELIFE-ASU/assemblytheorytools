@@ -219,4 +219,4 @@ from .tools_test import (check_elements,
                          co2_graph,
                          test_mols)
 
-__version__ = "1.9.0"
+__version__ = "1.10.0"
