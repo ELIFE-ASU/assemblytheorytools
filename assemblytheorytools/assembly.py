@@ -25,6 +25,7 @@ from .tools_file import prep_json
 from .tools_graph import (write_ass_graph_file,
                           remove_hydrogen_from_graph,
                           nx_to_mol,
+                          mol_to_nx,
                           canonicalize_node_labels,
                           join_graphs)
 from .tools_mol import (write_v2k_mol_file,
@@ -282,82 +283,49 @@ def calculate_assembly(graphs: List[Union[nx.Graph, Chem.Mol]],
     return sum(np.exp(ai) * ((n - 1) / n_t) for ai, n in zip(ai_list, n_i))
 
 
-def calculate_assembly_semi_metric(graph1: nx.Graph,
-                                   graph2: nx.Graph,
-                                   dir_code: Optional[str] = None,
-                                   timeout: float = 100.0,
+def calculate_assembly_semi_metric(graph1: Union[nx.Graph, Chem.Mol],
+                                   graph2: Union[nx.Graph, Chem.Mol],
+                                   settings: Optional[Dict[str, Any]] = None,
                                    debug: bool = False,
-                                   strip_hydrogen: bool = False,
-                                   exact: bool = False,
-                                   normalise: bool = False) -> Union[float, int]:
-    """
-    Calculate the semi-metric distance between two molecular graphs.
+                                   normalise: bool = False) -> Union[float]:
+    settings = settings or {}
 
-    This function computes the semi-metric distance between two molecular graphs
-    based on their assembly indices. The semi-metric distance is calculated as:
-    `2 * Joint Assembly Index - Sum of Individual Assembly Indices`.
+    if type(graph1) != type(graph2):
+        raise ValueError("Input graphs must be of the same type")
 
-    Args:
-        graph1 (nx.Graph): The first molecular graph.
-        graph2 (nx.Graph): The second molecular graph.
-        dir_code (str, optional): Path to the assembly tool executable. Defaults to None.
-        timeout (float, optional): Maximum time allowed for assembly index calculation. Defaults to 100.0 seconds.
-        debug (bool, optional): If True, prints debug information. Defaults to False.
-        strip_hydrogen (bool, optional): If True, removes hydrogen atoms from the graphs before processing. Defaults to False.
-        exact (bool, optional): If True, calculates the exact assembly index. Defaults to False.
-        normalise (bool, optional): If True, normalizes the semi-metric distance by the sum of individual assembly indices. Defaults to False.
-
-    Returns:
-        float: The semi-metric distance between the two graphs. If `normalise` is True, returns the normalized distance.
-        int: Returns 0 if the graphs are isomorphic, or -1 if the joint assembly index calculation fails.
-
-    Raises:
-        AssertionError: If the inputs are not NetworkX graphs or are not connected graphs.
-    """
-    # Make input type checks
-    assert isinstance(graph1, nx.Graph), "Input must be a NetworkX graph"
-    assert isinstance(graph2, nx.Graph), "Input must be a NetworkX graph"
-    assert (dir_code is None) or isinstance(dir_code, str), "Directory code must be a string"
-    assert isinstance(timeout, (int, float)), "Timeout must be an integer or float"
-    assert isinstance(debug, bool), "Debug must be a boolean"
-    assert isinstance(strip_hydrogen, bool), "Strip hydrogen must be a boolean"
-    assert isinstance(normalise, bool), "Normalise must be a boolean"
-
-    # Ensure the inputs are connected graphs
-    assert nx.is_connected(graph1), "Input graph must be connected"
-    assert nx.is_connected(graph2), "Input graph must be connected"
+    if type(graph1) == Chem.Mol:
+        # Convert RDKit Mol to NetworkX graph
+        graph1 = mol_to_nx(graph1)
+        graph2 = mol_to_nx(graph2)
 
     # Check if the inputs are isomorphic
     # in which case the semi-metric distance is 0 and the user may not intend to compare these mols
     if nx.is_isomorphic(graph1, graph2):
         print("Input graphs are isomorphic.", flush=True)
-        return 0
+        return 0.0
 
     # Combine the graphs into a single molecular object with 2 disjoint components
-    mols = [nx_to_mol(graph1), nx_to_mol(graph2)]
-    combined_mol = combine_mols(mols)
+    combined_mol = combine_mols([nx_to_mol(graph1), nx_to_mol(graph2)])
 
     # Calculate the joint assembly index
-    jai, _, _ = calculate_assembly_index(combined_mol, dir_code=dir_code, timeout=timeout, debug=debug,
-                                         strip_hydrogen=strip_hydrogen, exact=exact)
+    jai = calculate_assembly_index(combined_mol, **settings)[0]
     if jai <= -1:
         print("No minimum JAI found before timeout.", flush=True)
-        return -1
+        return -1.0
 
     if debug:
         print(f"Joint Assembly Index: {jai}", flush=True)
 
     # Calculate the assembly index for each subgraph
-    result = 0
+    result = 0.0
     for subgraph in [graph1, graph2]:
-        ai, _, _ = calculate_assembly_index(subgraph, dir_code=dir_code, timeout=timeout, debug=debug,
-                                            strip_hydrogen=strip_hydrogen, exact=exact)
+        ai = calculate_assembly_index(subgraph, **settings)[0]
         if debug:
             print(f"Assembly Index: {ai}", flush=True)
         result += ai
 
     # Calculate the semi-metric distance
-    semi_metric = 2 * jai - result
+    semi_metric = 2.0 * jai - result
     if normalise:
         return semi_metric / result
 

@@ -427,13 +427,11 @@ def test_semi_metric():
     mols = [att.smi_to_mol(smile) for smile in molecules]
     # Convert the system into graphs
     graphs = [att.mol_to_nx(mol) for mol in mols]
-
+    settings = {'strip_hydrogen': True,
+                'timeout': 100.0,}
     distance = att.calculate_assembly_semi_metric(graphs[0],
                                                   graphs[1],
-                                                  dir_code=None,
-                                                  timeout=100.0,
-                                                  debug=False,
-                                                  strip_hydrogen=True)
+                                                  settings)
     assert distance == 1
 
 
