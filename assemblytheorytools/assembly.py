@@ -286,8 +286,7 @@ def calculate_assembly(graphs: List[Union[nx.Graph, Chem.Mol]],
 def calculate_assembly_semi_metric(graph1: Union[nx.Graph, Chem.Mol],
                                    graph2: Union[nx.Graph, Chem.Mol],
                                    settings: Optional[Dict[str, Any]] = None,
-                                   debug: bool = False,
-                                   normalise: bool = False) -> Union[float]:
+                                   normalise: bool = False) -> float:
     settings = settings or {}
 
     if type(graph1) != type(graph2):
@@ -304,30 +303,19 @@ def calculate_assembly_semi_metric(graph1: Union[nx.Graph, Chem.Mol],
         print("Input graphs are isomorphic.", flush=True)
         return 0.0
 
-    # Combine the graphs into a single molecular object with 2 disjoint components
-    combined_mol = combine_mols([nx_to_mol(graph1), nx_to_mol(graph2)])
-
     # Calculate the joint assembly index
-    jai = calculate_assembly_index(combined_mol, **settings)[0]
+    jai = calculate_assembly_index(join_graphs([graph1, graph2]), **settings)[0]
     if jai <= -1:
         print("No minimum JAI found before timeout.", flush=True)
         return -1.0
 
-    if debug:
-        print(f"Joint Assembly Index: {jai}", flush=True)
-
     # Calculate the assembly index for each subgraph
-    result = 0.0
-    for subgraph in [graph1, graph2]:
-        ai = calculate_assembly_index(subgraph, **settings)[0]
-        if debug:
-            print(f"Assembly Index: {ai}", flush=True)
-        result += ai
+    sum_ai = calculate_sum_assembly([graph1, graph2], settings)
 
     # Calculate the semi-metric distance
-    semi_metric = 2.0 * jai - result
+    semi_metric = 2.0 * jai - sum_ai
     if normalise:
-        return semi_metric / result
+        return semi_metric / sum_ai
 
     return semi_metric
 
