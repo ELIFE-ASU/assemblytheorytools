@@ -383,11 +383,11 @@ def test_calculate_assembly_ratio():
     smi = "C1=CC=C(C=C1)C(=O)O"  # SMILES for benzoic acid
     mol = att.smi_to_mol(smi)  # Convert the SMILES string to a molecule object
     graph = att.mol_to_nx(mol, add_hydrogens=True)
-    ratio = att.calculate_assembly_ratio(graph, settings={'strip_hydrogen': True})
+    ratio = att.calculate_assembly_index_ratio(graph, settings={'strip_hydrogen': True})
     print(f"Compression ratio: {ratio:.2f}", flush=True)
     assert np.allclose(ratio, 2.50, atol=0.01)
 
-    ratio = att.calculate_assembly_ratio(graph, settings={'strip_hydrogen': False})
+    ratio = att.calculate_assembly_index_ratio(graph, settings={'strip_hydrogen': False})
     print(f"Compression ratio: {ratio:.2f}", flush=True)
     assert np.allclose(ratio, 1.50, atol=0.01)
 
@@ -397,11 +397,11 @@ def test_calculate_jo_assembly_ratio():
     smi = "C1=CC=C(C=C1)C(=O)O"  # SMILES for benzoic acid
     mol = att.smi_to_mol(smi)  # Convert the SMILES string to a molecule object
     graph = att.mol_to_nx(mol, add_hydrogens=True)
-    ratio = att.calculate_jo_assembly_ratio(graph, settings={'strip_hydrogen': True})
+    ratio = att.calculate_assembly_index_jo_ratio(graph, settings={'strip_hydrogen': True})
     print(f"Compression ratio: {ratio:.2f}", flush=True)
     assert np.allclose(ratio, 2.14, atol=0.01)
 
-    ratio = att.calculate_jo_assembly_ratio(graph, settings={'strip_hydrogen': False})
+    ratio = att.calculate_assembly_index_jo_ratio(graph, settings={'strip_hydrogen': False})
     print(f"Compression ratio: {ratio:.2f}", flush=True)
     assert np.allclose(ratio, 1.29, atol=0.01)
 

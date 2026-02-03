@@ -429,9 +429,7 @@ def test_semi_metric():
     graphs = [att.mol_to_nx(mol) for mol in mols]
     settings = {'strip_hydrogen': True,
                 'timeout': 100.0, }
-    distance = att.calculate_assembly_semi_metric(graphs[0],
-                                                  graphs[1],
-                                                  settings)
+    distance = att.calculate_assembly_index_semi_metric(graphs[0], graphs[1], settings)
     assert distance == 1
 
 
@@ -580,10 +578,10 @@ def test_calculate_sum_assembly():
     # Define settings for the assembly index calculation
     settings = {'strip_hydrogen': True}
     # Calculate the sum of assembly indices in parallel mode
-    ai_sum = att.calculate_sum_assembly(graphs, settings, parallel=True)
+    ai_sum = att.calculate_sum_assembly_index(graphs, settings, parallel=True)
     assert ai_sum == 7
     # Calculate the sum of assembly indices in sequential mode
-    ai_sum = att.calculate_sum_assembly(graphs, settings, parallel=False)
+    ai_sum = att.calculate_sum_assembly_index(graphs, settings, parallel=False)
     assert ai_sum == 7
 
 
@@ -652,10 +650,8 @@ def test_calculate_assembly_similarity(smiles_list,
     """
 
     graphs = [att.smi_to_nx(smi) for smi in smiles_list]
-    similarity = att.calculate_assembly_similarity(graphs,
-                                                   settings=settings,
-                                                   parallel=parallel,
-                                                   enforce_exact_mode=enforce_exact_mode)
+    similarity = att.calculate_assembly_index_similarity(graphs, settings=settings, parallel=parallel,
+                                                         enforce_exact_mode=enforce_exact_mode)
     if expected == -1.0:
         assert similarity == -1.0
     else:
@@ -756,13 +752,13 @@ def test_calculate_assembly_upper_bound():
     # Convert the SMILES string to a molecule object
     mol = att.smi_to_mol(smi_in)
     # Test strip hydrogen flag
-    ai_upper_bound = att.calculate_assembly_upper_bound(mol, strip_hydrogen=True)
+    ai_upper_bound = att.calculate_assembly_index_upper_bound(mol, strip_hydrogen=True)
     assert ai_upper_bound == 0  # Assert the upper bound with hydrogen stripping
     # Test without stripping hydrogen
-    ai_upper_bound = att.calculate_assembly_upper_bound(mol, strip_hydrogen=False)
+    ai_upper_bound = att.calculate_assembly_index_upper_bound(mol, strip_hydrogen=False)
     assert ai_upper_bound == 2  # Assert the upper bound without hydrogen stripping
     # Convert the molecule object to a NetworkX graph
-    ai_upper_bound_graph = att.calculate_assembly_upper_bound(att.mol_to_nx(mol), strip_hydrogen=False)
+    ai_upper_bound_graph = att.calculate_assembly_index_upper_bound(att.mol_to_nx(mol), strip_hydrogen=False)
     assert ai_upper_bound_graph == 2  # Assert the upper bound for the graph without hydrogen stripping
 
 
@@ -791,13 +787,13 @@ def test_calculate_assembly_lower_bound():
     # Convert the SMILES string to a molecule object
     mol = att.smi_to_mol(smi_in)
     # Test strip hydrogen flag
-    ai_lower_bound = att.calculate_assembly_lower_bound(mol, strip_hydrogen=True)
+    ai_lower_bound = att.calculate_assembly_index_lower_bound(mol, strip_hydrogen=True)
     assert ai_lower_bound == 0  # Assert the lower bound with hydrogen stripping
     # Test without stripping hydrogen
-    ai_lower_bound = att.calculate_assembly_lower_bound(mol, strip_hydrogen=False)
+    ai_lower_bound = att.calculate_assembly_index_lower_bound(mol, strip_hydrogen=False)
     assert ai_lower_bound == 2  # Assert the lower bound without hydrogen stripping
     # Convert the molecule object to a NetworkX graph
-    ai_lower_bound_graph = att.calculate_assembly_lower_bound(att.mol_to_nx(mol), strip_hydrogen=False)
+    ai_lower_bound_graph = att.calculate_assembly_index_lower_bound(att.mol_to_nx(mol), strip_hydrogen=False)
     assert ai_lower_bound_graph == 2  # Assert the lower bound for the graph without hydrogen stripping
 
 
@@ -817,7 +813,7 @@ def test_calculate_jo():
     print(flush=True)
     smi = "C1=CC=CC=C1"  # Benzene
     graph = att.smi_to_nx(smi)
-    jo = att.calculate_jo(graph)[0]
+    jo = att.calculate_assembly_index_jo(graph)[0]
     assert jo == 6, f"Expected JO to be 6, but got {jo}"
 
 

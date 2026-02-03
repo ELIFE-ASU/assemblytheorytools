@@ -29,7 +29,6 @@ from .tools_graph import (write_ass_graph_file,
                           canonicalize_node_labels,
                           join_graphs)
 from .tools_mol import (write_v2k_mol_file,
-                        combine_mols,
                         safe_standardize_mol)
 from .tools_mp import mp_calc
 from .tools_string import (prep_joint_string_ai,
@@ -632,7 +631,7 @@ def calculate_assembly(graphs: List[Union[nx.Graph, Chem.Mol]],
         ai_list = [calculate_assembly_index(graph, **settings)[0] for graph in graphs]
 
     # Regularize the assembly indices to ensure non-negative values
-    ai_list = [regularise_ai(ai) for ai in ai_list]
+    ai_list = [regularise_assembly_index(ai) for ai in ai_list]
     n_t = sum(n_i)  # Total weight of all graphs
     # Compute the weighted sum of the exponential of the assembly indices
     return sum(np.exp(ai) * ((n - 1) / n_t) for ai, n in zip(ai_list, n_i))
@@ -968,7 +967,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         raise ValueError("Mode must be either 'mol', 'str', or 'cfg'.")
 
 
-def regularise_ai(ai: Optional[int]) -> int:
+def regularise_assembly_index(ai: Optional[int]) -> int:
     """
     Regularise the assembly index to a non-negative integer.
 
@@ -1161,11 +1160,11 @@ def load_assembly_time() -> float:
     return float(time_to_completion) * 1e-6
 
 
-def calculate_assembly_semi_metric(graph1: Union[nx.Graph, Chem.Mol],
-                                   graph2: Union[nx.Graph, Chem.Mol],
-                                   settings: Optional[Dict[str, Any]] = None,
-                                   parallel: bool = True,
-                                   normalise: bool = False) -> float:
+def calculate_assembly_index_semi_metric(graph1: Union[nx.Graph, Chem.Mol],
+                                         graph2: Union[nx.Graph, Chem.Mol],
+                                         settings: Optional[Dict[str, Any]] = None,
+                                         parallel: bool = True,
+                                         normalise: bool = False) -> float:
     settings = settings or {}
 
     if type(graph1) != type(graph2):
@@ -1189,7 +1188,7 @@ def calculate_assembly_semi_metric(graph1: Union[nx.Graph, Chem.Mol],
         return -1.0
 
     # Calculate the assembly index for each subgraph
-    sum_ai = calculate_sum_assembly([graph1, graph2], settings, parallel=parallel)
+    sum_ai = calculate_sum_assembly_index([graph1, graph2], settings, parallel=parallel)
 
     # Calculate the semi-metric distance
     semi_metric = 2.0 * jai - sum_ai
@@ -1199,8 +1198,8 @@ def calculate_assembly_semi_metric(graph1: Union[nx.Graph, Chem.Mol],
     return semi_metric
 
 
-def calculate_assembly_upper_bound(mol: Union[nx.Graph, Chem.Mol],
-                                   strip_hydrogen: bool = False) -> int:
+def calculate_assembly_index_upper_bound(mol: Union[nx.Graph, Chem.Mol],
+                                         strip_hydrogen: bool = False) -> int:
     # Check if the input is a NetworkX graph
     if isinstance(mol, nx.Graph):
         if strip_hydrogen:
@@ -1220,8 +1219,8 @@ def calculate_assembly_upper_bound(mol: Union[nx.Graph, Chem.Mol],
     return n_bonds - 1
 
 
-def calculate_assembly_lower_bound(mol: Union[nx.Graph, Chem.Mol],
-                                   strip_hydrogen: bool = False) -> int:
+def calculate_assembly_index_lower_bound(mol: Union[nx.Graph, Chem.Mol],
+                                         strip_hydrogen: bool = False) -> int:
     if isinstance(mol, nx.Graph):
         if strip_hydrogen:
             mol = remove_hydrogen_from_graph(mol)
@@ -1237,9 +1236,9 @@ def calculate_assembly_lower_bound(mol: Union[nx.Graph, Chem.Mol],
         return int(np.log2(n_bonds))
 
 
-def calculate_sum_assembly(graphs: List[Union[nx.Graph, Chem.Mol]],
-                           settings: Optional[Dict[str, Any]] = None,
-                           parallel: bool = True) -> int:
+def calculate_sum_assembly_index(graphs: List[Union[nx.Graph, Chem.Mol]],
+                                 settings: Optional[Dict[str, Any]] = None,
+                                 parallel: bool = True) -> int:
     if graphs is None or not hasattr(graphs, "__iter__"):
         raise ValueError("`graphs` must be an iterable of graph objects")
 
@@ -1258,10 +1257,10 @@ def calculate_sum_assembly(graphs: List[Union[nx.Graph, Chem.Mol]],
     return int(sum(ai_list))
 
 
-def calculate_assembly_similarity(graphs: List[Union[nx.Graph, Chem.Mol]],
-                                  settings: Optional[Dict[str, Any]] = None,
-                                  parallel: bool = True,
-                                  enforce_exact_mode: bool = True) -> float:
+def calculate_assembly_index_similarity(graphs: List[Union[nx.Graph, Chem.Mol]],
+                                        settings: Optional[Dict[str, Any]] = None,
+                                        parallel: bool = True,
+                                        enforce_exact_mode: bool = True) -> float:
     if settings is None:
         settings = {}
 
@@ -1269,7 +1268,7 @@ def calculate_assembly_similarity(graphs: List[Union[nx.Graph, Chem.Mol]],
         settings["exact"] = True
 
     # Calculate assembly index sum
-    ai_sum = calculate_sum_assembly(graphs, settings, parallel=parallel)
+    ai_sum = calculate_sum_assembly_index(graphs, settings, parallel=parallel)
 
     if ai_sum < 0:
         return -1.0
@@ -1432,8 +1431,8 @@ def _calculate_jo_from_pathway(json_file: str) -> int:
     return ma + jo_correction
 
 
-def calculate_jo(mol: Union[nx.Graph, Chem.Mol],
-                 settings: Optional[Dict[str, Any]] = None) -> Tuple[int, Any, Any]:
+def calculate_assembly_index_jo(mol: Union[nx.Graph, Chem.Mol],
+                                settings: Optional[Dict[str, Any]] = None) -> Tuple[int, Any, Any]:
     settings = settings or {}
 
     # Ensure pathway output is requested
@@ -1471,7 +1470,7 @@ def calculate_jo(mol: Union[nx.Graph, Chem.Mol],
     return jo, vo, pathway
 
 
-def calculate_assembly_ratio(graph: Union[nx.Graph, Chem.Mol], settings: Dict[str, Any]) -> float:
+def calculate_assembly_index_ratio(graph: Union[nx.Graph, Chem.Mol], settings: Dict[str, Any]) -> float:
     """
     Calculate the assembly ratio for a molecular graph.
 
@@ -1529,7 +1528,7 @@ def calculate_assembly_ratio(graph: Union[nx.Graph, Chem.Mol], settings: Dict[st
         return n_edges / ai
 
 
-def calculate_jo_assembly_ratio(graph: Union[nx.Graph, Chem.Mol], settings: Dict[str, Any]) -> float:
+def calculate_assembly_index_jo_ratio(graph: Union[nx.Graph, Chem.Mol], settings: Dict[str, Any]) -> float:
     """
     Calculate the joining-operation (JO) assembly ratio for a molecular graph.
 
@@ -1574,7 +1573,7 @@ def calculate_jo_assembly_ratio(graph: Union[nx.Graph, Chem.Mol], settings: Dict
     n_edges = graph.number_of_edges() if isinstance(graph, nx.Graph) else graph.GetNumBonds()
 
     # Compute the joining-operation index (JO) using existing function
-    jo = calculate_jo(graph, **settings)[0]
+    jo = calculate_assembly_index_jo(graph, **settings)[0]
 
     # Avoid division by zero when there are no edges
     if n_edges == 0:

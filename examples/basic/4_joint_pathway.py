@@ -19,7 +19,7 @@ if __name__ == "__main__":
 
     # Calculate the assembly similarity between the graphs
     # The `settings` parameter specifies options such as whether to strip hydrogen atoms
-    sim = att.calculate_assembly_similarity(graphs, settings={'strip_hydrogen': True})
+    sim = att.calculate_assembly_index_similarity(graphs, settings={'strip_hydrogen': True})
     print(f'Assembly similarity: {sim}', flush=True)
 
     # Calculate and print the Bertz complexity for each molecule
