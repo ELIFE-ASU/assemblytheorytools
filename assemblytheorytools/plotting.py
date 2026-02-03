@@ -6,6 +6,7 @@ from html import escape
 from typing import List, Optional, Dict, Tuple, Any, Union, Sequence
 
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 import networkx as nx
 import numpy as np
 from IPython.display import HTML
@@ -1369,6 +1370,8 @@ def plot_heatmap(x: np.ndarray | List,
                    extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]])
     # Add colour bar
     cbar = plt.colorbar(im, ax=ax)
+    cbar.locator = mticker.MaxNLocator(integer=True)
+    cbar.update_ticks()
     cbar.set_label('Count', fontsize=fontsize)
     ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
     return fig, ax
