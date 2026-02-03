@@ -87,7 +87,7 @@ def test_ai_mol():
     # Convert the graph to a mol and then to a SMILES string
     print(virt_obj, flush=True)
 
-    ref_out = ['[H][C]#[C][H]', '[H][C]', '[H][C]#[C]', '[C]#[C]']  # this is wrong
+    ref_out = ['[H]C', 'C#C', '[H]C#C', '[H]C#C[H]']
 
     assert ai == 2
     assert att.check_elements(virt_obj, ref_out)
