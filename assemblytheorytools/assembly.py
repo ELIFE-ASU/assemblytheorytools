@@ -1792,10 +1792,10 @@ def _input_helper(mol: Chem.Mol, file_path: str, strip_hydrogen: bool = False) -
     return True
 
 
-def calculate_rust_ai(mol: Chem.Mol,
-                      exec_path: Optional[str] = None,
-                      timeout: int = 300,
-                      strip_hydrogen: bool = False) -> int:
+def calculate_assembly_index_rust(mol: Chem.Mol,
+                                  exec_path: Optional[str] = None,
+                                  timeout: int = 300,
+                                  strip_hydrogen: bool = False) -> int:
     """
     Calculate the assembly index using a Rust-based executable.
 

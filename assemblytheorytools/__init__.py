@@ -19,7 +19,7 @@ from .assembly import (calculate_assembly_index,
                        calculate_jo,
                        calculate_assembly_ratio,
                        calculate_jo_assembly_ratio,
-                       calculate_rust_ai,
+                       calculate_assembly_index_rust,
                        integer_chain)
 from .complexity_scores import (count_unique_bonds,
                                 count_bonds,
