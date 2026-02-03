@@ -54,9 +54,9 @@ def load_assembly_output(file_path: str) -> int:
         return next(int(line.split(":")[-1].strip().strip('\n')) for line in f if "assembly index" in line)
 
 
-def run_command_simple(command: str) -> Optional[bytes]:
+def run_command(command: str) -> Optional[bytes]:
     """
-    Run a simple command in the subprocess.
+    Run a command in the subprocess.
 
     Parameters
     ----------
@@ -524,7 +524,7 @@ def compile_assembly_cpp_script(assembly_tar_path: str = "assemblycpp-main",
         exe_dir = os.path.abspath(os.path.expanduser(os.path.join(os.getcwd(), exe_name)))  # Path to executable
 
         # Uncompress the assembly code
-        run_command_simple(f"{uncompress} {assembly_tar_path}.tar.gz")
+        run_command(f"{uncompress} {assembly_tar_path}.tar.gz")
 
         # Get the Boost library
         subprocess.run(
@@ -532,11 +532,11 @@ def compile_assembly_cpp_script(assembly_tar_path: str = "assemblycpp-main",
             shell=True, check=True)
 
         # Unzip the Boost code
-        run_command_simple(f"{uncompress} {boost_code}.tar.gz")
+        run_command(f"{uncompress} {boost_code}.tar.gz")
 
         # Compile the assembly code
         t0 = time.time()
-        run_command_simple(f"g++ {assembly_tar_path}/v5_combined_linux/main.cpp -O3 -o {exe_dir} -I{boost_code}/")
+        run_command(f"g++ {assembly_tar_path}/v5_combined_linux/main.cpp -O3 -o {exe_dir} -I{boost_code}/")
         t1 = time.time()
         print(f"Compilation time: {t1 - t0:.2f} seconds", flush=True)
 
@@ -544,9 +544,9 @@ def compile_assembly_cpp_script(assembly_tar_path: str = "assemblycpp-main",
         os.chmod(exe_dir, 0o755)
 
         # Remove unnecessary files and folders
-        run_command_simple(f"{remove} {boost_code}.tar.gz")
-        run_command_simple(f"{remove} {boost_code}/")
-        run_command_simple(f"{remove} {assembly_tar_path}/")
+        run_command(f"{remove} {boost_code}.tar.gz")
+        run_command(f"{remove} {boost_code}/")
+        run_command(f"{remove} {assembly_tar_path}/")
 
         # Add the executable path to the user's shell configuration
         add_to_bashrc(f"ASS_PATH={exe_dir}", file=".bashrc")
@@ -641,18 +641,18 @@ def compile_assembly_cpp() -> None:
             # check if brew is installed
             if shutil.which("brew") is None:
                 print('Homebrew is not installed. Installing Homebrew...', flush=True)
-                run_command_simple(
+                run_command(
                     '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"')
 
             # check if git is installed
             if shutil.which("git") is None:
                 print('Git is not installed. Installing Git...', flush=True)
-                run_command_simple('brew install git')
+                run_command('brew install git')
 
             # Check if cmake is installed
             if shutil.which("cmake") is None:
                 print('CMake is not installed. Installing CMake...', flush=True)
-                run_command_simple('brew install cmake')
+                run_command('brew install cmake')
 
         if system == "linux":
             # check if git is installed
@@ -672,14 +672,14 @@ def compile_assembly_cpp() -> None:
         # Change to the assemblycpp directory
         assemblycpp_dir = os.path.join(start_dir, "assemblycpp-v5")
         os.chdir(assemblycpp_dir)
-        run_command_simple('cmake -S . -B build')
+        run_command('cmake -S . -B build')
 
         if system == "linux" or system == "darwin":
             # Compile the assembly code
-            run_command_simple('cmake --build build')
+            run_command('cmake --build build')
         elif system == "windows":
             # For Windows, we need to specify the generator
-            run_command_simple('cmake --build build --config Release')
+            run_command('cmake --build build --config Release')
         else:
             raise OSError(f"Unsupported operating system: {system}")
         # Move the compiled executable to the parent directory
