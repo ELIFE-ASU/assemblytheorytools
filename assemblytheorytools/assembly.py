@@ -286,6 +286,7 @@ def calculate_assembly(graphs: List[Union[nx.Graph, Chem.Mol]],
 def calculate_assembly_semi_metric(graph1: Union[nx.Graph, Chem.Mol],
                                    graph2: Union[nx.Graph, Chem.Mol],
                                    settings: Optional[Dict[str, Any]] = None,
+                                   parallel: bool = True,
                                    normalise: bool = False) -> float:
     settings = settings or {}
 
@@ -310,7 +311,7 @@ def calculate_assembly_semi_metric(graph1: Union[nx.Graph, Chem.Mol],
         return -1.0
 
     # Calculate the assembly index for each subgraph
-    sum_ai = calculate_sum_assembly([graph1, graph2], settings)
+    sum_ai = calculate_sum_assembly([graph1, graph2], settings, parallel=parallel)
 
     # Calculate the semi-metric distance
     semi_metric = 2.0 * jai - sum_ai
