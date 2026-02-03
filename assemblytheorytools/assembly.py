@@ -20,16 +20,16 @@ from rdkit.Chem import AllChem as Chem
 import CFG
 from .construction import (parse_pathway_file,
                            parse_string_pathway_file,
-                           molstr_to_str)
+                           molstr_to_str,
+                           convert_digraph_vo_to_target)
 from .tools_file import prep_json, safe_folder_remove
 from .tools_graph import (write_ass_graph_file,
                           remove_hydrogen_from_graph,
                           nx_to_mol,
                           mol_to_nx,
+                          nx_to_smi,
                           canonicalize_node_labels,
                           join_graphs)
-from .tools_mol import (write_v2k_mol_file,
-                        safe_standardize_mol)
 from .tools_mp import mp_calc
 from .tools_string import (prep_joint_string_ai,
                            get_dir_str_molecule,
@@ -488,9 +488,8 @@ def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
                              exact: bool = False) -> Union[Tuple[int, Any, Any], Tuple[int, Any, Any, Optional[str]]]:
     # Initialize variables
     ai = -1
-    virt_obj = None
-    path = None
-    file_path_in = None
+    virtual_objects = None
+    pathway = None
     timed_out = False
 
     # Get the assembly code directory
@@ -503,23 +502,16 @@ def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
     temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}" if save_dir else tempfile.mkdtemp()
     os.makedirs(temp_dir, exist_ok=True)
 
-    # Input is a graph
-    if isinstance(graph, nx.Graph):
-        if strip_hydrogen:
-            graph = remove_hydrogen_from_graph(graph)
-        graph = canonicalize_node_labels(graph)
-        file_path_in = os.path.join(temp_dir, "graph_in")
-        write_ass_graph_file(graph, file_name=file_path_in)
-    # Input is an RDKit mol
-    elif isinstance(graph, Chem.Mol):
-        graph = safe_standardize_mol(graph, add_hydrogens=True)
-        if strip_hydrogen:
-            graph = Chem.RemoveHs(graph)
-        mol_file = os.path.join(temp_dir, "tmp.mol")
-        write_v2k_mol_file(graph, mol_file)
-        file_path_in = os.path.splitext(mol_file)[0]
-    else:
-        raise ValueError("Input not supported")
+    # Check the input type and prepare input files
+    in_type = type(graph)
+    if in_type is Chem.Mol:
+        graph = mol_to_nx(graph)
+
+    if strip_hydrogen:
+        graph = remove_hydrogen_from_graph(graph)
+    graph = canonicalize_node_labels(graph)
+    file_path_in = os.path.join(temp_dir, "graph_in")
+    write_ass_graph_file(graph, file_name=file_path_in)
 
     # Define output and log file paths
     file_path_out = os.path.join(file_path_in + "Out")
@@ -553,8 +545,8 @@ def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
         if debug:
             traceback.print_exc()
 
-    if timed_out == 0:  # If the calculation finished properly, we can read the output file
-
+    # If the calculation finished properly, we can read the output file
+    if timed_out == 0:
         with open(file_path_out, "r") as f:
             first_line = f.readline()
             match = re.search(r'assembly index:\s*(\d+)', first_line)
@@ -562,7 +554,6 @@ def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
                 ai = int(match.group(1))
 
     else:
-
         # Extract the most recent "min AI found so far" from the log file
         last_ai = -1
         if os.path.exists(log_file):
@@ -576,32 +567,31 @@ def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
                     if match:
                         last_ai = int(match.group(1))
                         break
-
                 if not exact:
                     ai = last_ai  # Assign found AI
-
                 # Print appropriate messages based on timeout
                 if ai == -1 and timed_out:
                     print("No minimum AI found before timeout.", flush=True)
                 elif ai != -1 and timed_out:
                     print(f"Upper Bound to AI Found: AI =< {ai}", flush=True)
-
             except Exception as e:
                 print(f"Failed to read AI from log file: {e}", flush=True)
 
     # Process pathway output if available
     if os.path.isfile(file_path_pathway):
         try:
-            if isinstance(graph, nx.Graph):
-                prep_json(file_path_pathway)
-                path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='graph', debug=debug,
-                                                    input_graph=graph)
-            elif isinstance(graph, Chem.Mol):
-                path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='smiles', debug=debug)
-            else:
-                virt_obj = None
-                path = (None, None)
-                raise ValueError("Input not supported")
+            prep_json(file_path_pathway)
+            pathway, virtual_objects = parse_pathway_file(file_path_pathway,
+                                                          vo_type='graph',
+                                                          debug=debug,
+                                                          input_graph=graph)
+
+            if in_type is Chem.Mol:
+                # Convert virtual objects back to SMILES if input was Mol
+                virtual_objects = [nx_to_smi(v, add_hydrogens=False) for v in virtual_objects]
+                # Convert pathway to SMILES representation
+                pathway = convert_digraph_vo_to_target(pathway, target='smi')
+
         except Exception as e:
             print(f"Failed to load pathway data: {e}", flush=True)
             if debug:
@@ -616,7 +606,7 @@ def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
         print(f"Log file printed to: {log_file}", flush=True)
 
     # Return based on flag
-    return (ai, virt_obj, path) if not return_log_file else (ai, virt_obj, path, log_file)
+    return (ai, virtual_objects, pathway) if not return_log_file else (ai, virtual_objects, pathway, log_file)
 
 
 def calculate_assembly(graphs: List[Union[nx.Graph, Chem.Mol]],
