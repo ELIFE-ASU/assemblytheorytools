@@ -19,6 +19,7 @@ from matplotlib.cm import ScalarMappable
 from matplotlib.figure import Figure
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from matplotlib.patches import Circle
+import matplotlib.ticker as mticker
 from pyvis.network import Network
 from rdkit import Chem
 from rdkit.Chem import Draw, rdFMCS
@@ -718,7 +719,9 @@ def _plot_directed_network(nodes: List[str],
                            dpi: int = 300,
                            fig: Optional[plt.Figure] = None,
                            ax: Optional[plt.Axes] = None,
-                           save_kwargs: Optional[Dict[str, Any]] = None
+                           save_kwargs: Optional[Dict[str, Any]] = None,
+                           spacing_mode: str = "linear",
+                           spacing_hyperbolic_factor: float = 0.4
                            ) -> Tuple[plt.Figure, plt.Axes]:
     """
     Generate and save a circle network plot as a PNG file.
@@ -767,6 +770,9 @@ def _plot_directed_network(nodes: List[str],
     filename : str
         Name of the output PNG file.
 
+    `spacing_mode` ("linear" or "hyperbolic")
+    `spacing_hyperbolic_factor` controls the strength of the sinh term when
+
     Returns
     -------
     fig : matplotlib.figure.Figure
@@ -795,32 +801,17 @@ def _plot_directed_network(nodes: List[str],
     if fig is None or ax is None:
         fig, ax = plt.subplots(figsize=(fig_size, fig_size))
 
-    # draw underlying concentric circles
-    for radius in range(1, max_ai + 2):
-        circle = Circle((0, 0), radius, color="black", alpha=1, fill=False, lw=1.5)
-        ax.add_artist(circle)
+    # helper radius mapping consistent with plot_assembly_circle
+    def _radius(idx: int) -> float:
+        base = float(idx)
+        if spacing_mode == "hyperbolic":
+            mapped = float(base + spacing_hyperbolic_factor * np.sinh(base))
+        else:
+            mapped = float(base)
+        return mapped
 
-    # draw nodes and base edges (networkx draws arrows only for some backends; we use nx.draw for consistency)
-    nx.draw(
-        graph,
-        pos=positions,
-        ax=ax,
-        with_labels=False,
-        node_color=node_color,
-        edgecolors=node_edge_color,
-        linewidths=node_linewidth,
-        edge_color='white',
-        node_size=node_size,
-        font_size=max(8, int(node_size / 300)),
-        font_color="black",
-        arrowstyle="->",
-        arrowsize=arrow_size,
-        connectionstyle="arc3,rad=0.2"
-    )
-
-    # draw curved directed edges individually for consistent arrowstyle and alpha
+    # 1) draw curved directed edges first (below circles)
     for src, dst, data in graph.edges(data=True):
-        # choose curvature based on horizontal placement
         x_src, y_src = positions[src]
         x_dst, y_dst = positions[dst]
         if x_src > x_dst:
@@ -829,7 +820,7 @@ def _plot_directed_network(nodes: List[str],
             rad = 0.25
         else:
             rad = 0.0
-        nx.draw_networkx_edges(
+        coll = nx.draw_networkx_edges(
             graph,
             pos=positions,
             edgelist=[(src, dst)],
@@ -842,23 +833,60 @@ def _plot_directed_network(nodes: List[str],
             connectionstyle=f"arc3,rad={rad}",
             arrowsize=arrow_size,
             min_target_margin=10,
+            # don't pass zorder into nx.draw (it may validate kwargs); set after if possible
         )
+        # try to set zorder on returned artist(s)
+        try:
+            if coll is None:
+                continue
+            # coll can be a LineCollection or list; handle common cases
+            if hasattr(coll, "set_zorder"):
+                coll.set_zorder(1)
+            elif isinstance(coll, (list, tuple)):
+                for c in coll:
+                    try:
+                        c.set_zorder(1)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
 
-    # labels: per-node list or global boolean
+    # 2) draw concentric circles above edges
+    for idx in range(1, max_ai + 2):
+        r = _radius(idx)
+        circle = Circle((0, 0), r, color="black", alpha=1, fill=False, lw=1.5)
+        circle.set_zorder(3)
+        ax.add_artist(circle)
+
+    # 3) draw nodes on top of circles using ax.scatter so zorder is applied safely
+    node_xs = [positions[nn][0] for nn in nodes]
+    node_ys = [positions[nn][1] for nn in nodes]
+    # node_size in matplotlib scatter is in points^2; keep API-consistent
+    scat = ax.scatter(node_xs, node_ys,
+                      s=node_size,
+                      c=node_color,
+                      edgecolors=node_edge_color,
+                      linewidths=node_linewidth,
+                      zorder=4)
+    # optional: draw node outlines if edgecolors requested and backend requires it
+    # draw labels using ax.text for explicit zorder control
     font_size = max(8, int(node_size / 200))
     if isinstance(labels, (list, tuple, np.ndarray)):
         for i, node in enumerate(nodes):
             lab = labels[i] if i < len(labels) else ""
             if lab:
                 ax.text(positions[node][0], positions[node][1], str(lab),
-                        ha='center', va='center', fontsize=font_size)
+                        ha='center', va='center', fontsize=font_size, zorder=5)
     elif bool(labels):
         for node in nodes:
             ax.text(positions[node][0], positions[node][1], str(node),
-                    ha='center', va='center', fontsize=font_size)
+                    ha='center', va='center', fontsize=font_size, zorder=5)
 
-    ax.set_xlim(-max_ai - 1.5, max_ai + 1.5)
-    ax.set_ylim(-max_ai - 1.5, max_ai + 1.5)
+    # set limits based on mapped outermost radius
+    max_radius = _radius(max_ai + 1)
+    margin = max(1.5, 0.1 * max_radius)
+    ax.set_xlim(-max_radius - margin, max_radius + margin)
+    ax.set_ylim(-max_radius - margin, max_radius + margin)
     ax.set_aspect("equal", adjustable="datalim")
     fig.tight_layout()
 
@@ -872,8 +900,8 @@ def _plot_directed_network(nodes: List[str],
 
 
 def plot_assembly_circle(nodes: Sequence[Any],
-                         adj_matrix: Optional[np.ndarray] = None,
-                         assembly_indices: Optional[Sequence[int]] = None,
+                         adj_matrix: np.ndarray,
+                         assembly_indices: Sequence[int],
                          labels: Optional[Union[bool, Sequence[str]]] = None,
                          node_size: float = 1000,
                          arrow_size: float = 80,
@@ -890,11 +918,12 @@ def plot_assembly_circle(nodes: Sequence[Any],
                          cmap: Optional[Any] = None,
                          norm: Optional[Any] = None,
                          colorbar_label: Optional[str] = None,
-                         save_kwargs: Optional[Dict[str, Any]] = None
-                         ) -> Tuple[Figure, Axes]:
-    """
-    Plot nodes arranged on concentric circles according to assembly index and draw directed edges.
+                         save_kwargs: Optional[Dict[str, Any]] = None,
+                         spacing_mode: str = "linear",
+                         spacing_hyperbolic_factor: float = 0.4
+                         ):
 
+    """
     Nodes are placed on concentric rings whose radius is proportional to their
     assembly index. Edges between nodes are rendered as curved directed arrows.
     Optional per-node labels, icons (molecule / atoms / graph), colormap/norm
@@ -907,15 +936,11 @@ def plot_assembly_circle(nodes: Sequence[Any],
     nodes : sequence
         Sequence of node identifiers (hashable). Order is used when `adj_matrix`
         or `assembly_indices` correspond by index.
-    adj_matrix : array-like or None, optional
+    adj_matrix : array-like
         Square adjacency matrix (shape ``[n_nodes, n_nodes]``) indicating directed
         edges. Non-zero entries denote an edge from row index to column index.
-        If ``None`` the function attempts to derive adjacency from provided node
-        metadata or other project-specific rules.
-    assembly_indices : array-like of int or None, optional
+    assembly_indices : array-like of int
         Assembly index for each node (lower values are closer to the center).
-        If ``None`` the function will attempt to compute indices (e.g. from node
-        names/strings) when possible.
     labels : bool or sequence, optional
         If a boolean, ``True`` displays node identifiers as labels, ``False``
         hides labels. If a sequence, per-node label strings to render; empty or
@@ -957,6 +982,8 @@ def plot_assembly_circle(nodes: Sequence[Any],
     save_kwargs : dict or None, optional
         Extra keyword arguments forwarded to ``Figure.savefig`` when ``filename``
         is provided (e.g. ``bbox_inches``).
+    spacing_mode: "linear" (radii = ai+1) or "hyperbolic" (radii = (ai+1) + spacing_hyperbolic_factor * sinh(ai+1))
+    spacing_hyperbolic_factor : float. Multiplier for the sinh term in hyperbolic spacing (default 0.4).
 
     Returns
     -------
@@ -988,13 +1015,8 @@ def plot_assembly_circle(nodes: Sequence[Any],
       routine) to perform low-level drawing; modify the returned ``ax`` after
       calling if custom axis limits or annotations are required.
     """
-    if adj_matrix is None:
-        raise ValueError("adj_matrix must be provided to plot_assembly_circle in this optimized variant.")
 
     n_nodes = len(nodes)
-
-    if assembly_indices is None:
-        raise ValueError("assembly_indices must be provided.")
 
     angles = np.full(n_nodes, np.nan)
     max_ai = int(max(assembly_indices))
@@ -1010,21 +1032,47 @@ def plot_assembly_circle(nodes: Sequence[Any],
     # assign angles to others by averaging parents' angles via adjacency (simple propagation)
     # iterative fill: for remaining nodes, average angles of neighbors that have angles
     adj = np.array(adj_matrix)
+    # adjacency_matrix[i, j] != 0 means edge i -> j (i points to j)
+    # parents of node j are nodes p with adj[p, j] != 0
+    remaining_attempts = 0
     while np.any(np.isnan(angles)):
         changed = False
         for i in range(n_nodes):
             if np.isnan(angles[i]):
-                # take neighbors (incoming or outgoing) that have angles
-                nbrs = set(np.where(adj[i, :] != 0)[0].tolist() + np.where(adj[:, i] != 0)[0].tolist())
-                nbrs_with_angles = [j for j in nbrs if not np.isnan(angles[j])]
-                if nbrs_with_angles:
-                    angles[i] = np.mean(angles[nbrs_with_angles])
-                    changed = True
+                parent_idxs = np.where(adj[:, i] != 0)[0]
+                if parent_idxs.size > 0:
+                    parent_angles = angles[parent_idxs]
+                    known = parent_angles[~np.isnan(parent_angles)]
+                    if known.size > 0:
+                        # circular average
+                        angles[i] = _average_angles(known)
+                        changed = True
         if not changed:
-            # fallback spacing if graph disconnected: place remaining evenly
-            remaining = [i for i in range(n_nodes) if np.isnan(angles[i])]
-            for k, i in enumerate(remaining):
-                angles[i] = 2 * np.pi * (k / max(1, len(remaining)))
+            # Try averaging any known neighbor angles (parents OR children)
+            for i in range(n_nodes):
+                if np.isnan(angles[i]):
+                    neighbor_idxs = np.where((adj[:, i] != 0) | (adj[i, :] != 0))[0]
+                    if neighbor_idxs.size > 0:
+                        neighbor_angles = angles[neighbor_idxs]
+                        known = neighbor_angles[~np.isnan(neighbor_angles)]
+                        if known.size > 0:
+                            angles[i] = _average_angles(known)
+                            changed = True
+        if not changed:
+            # final fallback: assign evenly spaced angles to remaining nodes
+            remaining = np.where(np.isnan(angles))[0]
+            nrem = len(remaining)
+            if nrem == 0:
+                break
+            for k, idx in enumerate(remaining):
+                angles[idx] = 2 * np.pi * (k / max(1, nrem))
+            break
+        remaining_attempts += 1
+        if remaining_attempts > n_nodes + 5:
+            # safety net to avoid infinite loops; fill any remaining randomly
+            remaining = np.where(np.isnan(angles))[0]
+            for idx in remaining:
+                angles[idx] = 2 * np.pi * random.random()
             break
 
         # Resolve exact-angle overlaps: if multiple nodes share the same angle (within tol),
@@ -1035,19 +1083,33 @@ def plot_assembly_circle(nodes: Sequence[Any],
         for idx in finite_idxs:
             if processed[idx]:
                 continue
-            # find indices with the same angle (within tolerance)
-            same = [j for j in finite_idxs if np.isclose(angles[j], angles[idx], atol=tol)]
-            if len(same) > 1:
-                # span controls how far we spread duplicates (radians). Keep small.
-                span = min(0.18, 0.06 * len(same))
-                offsets = np.linspace(-span, span, len(same))
-                # sort by original index for determinism
-                for k, j in enumerate(sorted(same)):
-                    angles[j] = angles[j] + offsets[k]
-            processed[same] = True
+            # find indices with angles close on the circle
+            diffs = np.abs((angles[finite_idxs] - angles[idx] + np.pi) % (2 * np.pi) - np.pi)
+            same_mask = diffs <= tol
+            same_idxs = finite_idxs[same_mask]
+            if same_idxs.size > 1:
+                # compute circular center
+                center = _average_angles(angles[same_idxs])
+                # small angular spread proportional to count
+                spread = min(0.08, 0.03 * same_idxs.size)
+                offsets = np.linspace(-spread, spread, same_idxs.size)
+                # sort by current radius (index) for deterministic ordering
+                for k, j in enumerate(sorted(same_idxs)):
+                    angles[j] = (center + offsets[k]) % (2 * np.pi)
+                    processed[j] = True
+            else:
+                processed[idx] = True
 
-    x_positions = (np.array(assembly_indices) + 1) * np.cos(angles)
-    y_positions = (np.array(assembly_indices) + 1) * np.sin(angles)
+    # compute radii according to spacing_mode
+    ai_plus = np.array(assembly_indices, dtype=float) + 1.0
+    if spacing_mode == "hyperbolic":
+        # combined linear + mild sinh term so inner rings remain reasonable while outer rings expand
+        radii = ai_plus + float(spacing_hyperbolic_factor) * np.sinh(ai_plus)
+    else:
+        radii = ai_plus
+
+    x_positions = radii * np.cos(angles)
+    y_positions = radii * np.sin(angles)
 
     # If fig/ax not provided, create them (no fallbacks beyond this)
     if fig is None or ax is None:
@@ -1069,11 +1131,13 @@ def plot_assembly_circle(nodes: Sequence[Any],
         edge_color=edge_color,
         arrow_alpha=arrow_alpha,
         fig_size=fig_size,
-        filename=None,  # defer saving until after colorbar addition
+        filename=None,
         fig=fig,
         ax=ax,
         dpi=dpi,
         save_kwargs=save_kwargs,
+        spacing_mode=spacing_mode,
+        spacing_hyperbolic_factor=spacing_hyperbolic_factor,
     )
 
     # Add colorbar inline if user passed cmap and norm
@@ -1082,24 +1146,27 @@ def plot_assembly_circle(nodes: Sequence[Any],
         sm.set_array(np.linspace(getattr(norm, "vmin", 0), getattr(norm, "vmax", 1), 256))
         cbar = fig.colorbar(sm, ax=ax, orientation="vertical", fraction=0.046, pad=0.02)
 
-        # force integer-only tick labels
-        import matplotlib.ticker as mticker
-        vmin = norm.vmin if hasattr(norm, "vmin") else 0.0
-        vmax = norm.vmax if hasattr(norm, "vmax") else 1.0
-        tick_min = int(np.ceil(vmin))
-        tick_max = int(np.floor(vmax))
+        vmin = float(getattr(norm, "vmin", 0.0))
+        vmax = float(getattr(norm, "vmax", 1.0))
 
-        if tick_max >= tick_min:
-            ticks = np.arange(tick_min, tick_max + 1)
-            cbar.set_ticks(ticks)
-            cbar.set_ticklabels([str(int(t)) for t in ticks])
-        else:
-            # small/fractional range: still request integer ticks from locator
-            cbar.locator = mticker.MaxNLocator(integer=True)
+        # Decide whether ticks should be integer-only: both endpoints near integers and range reasonable
+        endpoints_integer_like = math.isclose(vmin, round(vmin), abs_tol=1e-8) and math.isclose(vmax, round(vmax),
+                                                                                                abs_tol=1e-8)
+        reasonable_range_for_integers = (vmax - vmin) <= 100
+        integer_ticks = endpoints_integer_like and reasonable_range_for_integers
+
+        # Use MaxNLocator to adaptively choose up to 10 ticks
+        locator = mticker.MaxNLocator(nbins=10, integer=integer_ticks)
+        cbar.locator = locator
+        cbar.update_ticks()
+
+        # Format ticks: use integer formatter when integer ticks requested
+        if integer_ticks:
+            cbar.formatter = mticker.FormatStrFormatter('%d')
             cbar.update_ticks()
 
         if colorbar_label:
-            cbar.set_label(colorbar_label)
+            cbar.set_label(colorbar_label, fontsize=12)
 
     # finally save if requested (after colorbar added)
     if filename is not None:
