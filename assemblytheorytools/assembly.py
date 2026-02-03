@@ -214,7 +214,7 @@ def _convert_timeout_for_platform(seconds: float) -> int:
     return int(seconds)
 
 
-def calculate_assembly_index(mol: Union[nx.Graph, Chem.Mol, str],
+def calculate_assembly_index(mol: Union[nx.Graph, Chem.Mol],
                              dir_code: Optional[str] = None,
                              timeout: float = 100.0,
                              debug: bool = False,
@@ -222,82 +222,6 @@ def calculate_assembly_index(mol: Union[nx.Graph, Chem.Mol, str],
                              strip_hydrogen: bool = False,
                              return_log_file: bool = False,
                              exact: bool = False) -> Union[Tuple[int, Any, Any], Tuple[int, Any, Any, Optional[str]]]:
-    """
-    Calculate the assembly index for a molecule or molecular graph.
-
-    This function computes the assembly index (AI) for a given input using the
-    external assembly calculator or internal CFG upper-bound. Supported input
-    types include NetworkX graphs, RDKit `Chem.Mol` objects and paths to `*.mol`
-    files. For plain string inputs an upper-bound via `CFG.ai_with_pathways` is
-    returned (the function warns and exits early). The function can create a
-    temporary working directory (removed unless `debug` is True), invoke the
-    external assembler, and parse produced output and pathway files.
-
-    Parameters
-    ----------
-    mol : Union[nx.Graph, Chem.Mol, str]
-        Input to analyse:
-        - NetworkX ``nx.Graph``: written as an assembly graph and processed by the
-          external calculator.
-        - RDKit ``Chem.Mol``: written to a V2K-style ``.mol`` file and processed.
-        - Path to a ``*.mol`` file: copied or rewritten into the working directory.
-        - Plain string (not ending with ``.mol``): treated as a string input and
-          processed via ``CFG.ai_with_pathways`` (upper bound) with an early return.
-    dir_code : str, optional
-        Path to the assembly executable. When ``None`` the bundled/compiled binary
-        is located via ``add_assembly_to_path``. Default is ``None``.
-    timeout : float, optional
-        Maximum time in seconds to allow the external calculator to run. Default
-        is ``100.0``. If exceeded the function attempts a graceful interrupt and
-        will try to extract the best found upper bound from the log.
-    debug : bool, optional
-        If True, create a timestamped working directory (``ai_calc_<ts>``) and keep
-        debug output and temporary files. Default is ``False``.
-    joint_corr : bool, optional
-        If True, apply a correction to the returned AI for multi-component
-        systems (subtracting component offsets). Default is ``True``.
-    strip_hydrogen : bool, optional
-        If True, remove explicit hydrogens prior to writing input files. Default
-        is ``False``.
-    return_log_file : bool, optional
-        If True, return the path to the assembler log file as the fourth element
-        of the returned tuple. Default is ``False``.
-    exact : bool, optional
-        When True request exact calculation behaviour where supported. Default is
-        ``False``.
-
-    Returns
-    -------
-    tuple
-        If ``return_log_file`` is False returns a 3-tuple: ``(ai, virt_obj, path)``:
-        - ai (int): Computed assembly index (>= 0) or negative sentinel on failure.
-        - virt_obj: Virtual object representation returned by pathway parser (or ``None``).
-        - path: Parsed pathway structure (or ``None``).
-        If ``return_log_file`` is True returns ``(ai, virt_obj, path, log_file)`` where
-        ``log_file`` is the path to the assembler log produced in the working folder.
-
-    Raises
-    ------
-    ValueError
-        If ``mol`` is not a supported type or input conversion fails.
-    OSError, subprocess.CalledProcessError
-        If external tools or the assembly executable cannot be found, executed or
-        compiled successfully.
-    subprocess.TimeoutExpired
-        If an invoked external process cannot be terminated within ``timeout`` and
-        the underlying subprocess module raises this exception.
-
-    Notes
-    -----
-    - Temporary working directories named like ``ai_calc_<timestamp>`` are created;
-      they are removed automatically unless ``debug`` is True.
-    - In timeout cases the function attempts to read the assembler log for the
-      last reported ``min AI found so far`` and may return that as an upper bound.
-    - When pathway output is present the function parses it and returns the
-      pathway and virtual object via ``parse_pathway_file`` / ``prep_json``.
-    - Joint correction subtracts component offsets so multi-component AIs are
-      comparable with single-component results.
-    """
     # Initialize variables
     ai = -1
     virt_obj = None
@@ -305,152 +229,142 @@ def calculate_assembly_index(mol: Union[nx.Graph, Chem.Mol, str],
     file_path_in = None
     timed_out = False
 
-    # Check if input is a string and not a .mol file
-    if isinstance(mol, str) and not mol.endswith(".mol"):
-        print(
-            "Warning: You input a string to a function that expects a molecule- returning upper bound on string assembly index.",
-            flush=True)
-        # Calculate assembly index directly for string input
-        ai, virt_obj, path = CFG.ai_with_pathways(mol, f_print=False)
-        return (ai, virt_obj, path) if not return_log_file else (ai, virt_obj, path, None)
+    # Get the assembly code directory
+    if dir_code is None:
+        dir_code = add_assembly_to_path()
+
+    # Create working directory
+    temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}" if debug else tempfile.mkdtemp()
+    os.makedirs(temp_dir, exist_ok=True)
+
+    # Input is a graph
+    if isinstance(mol, nx.Graph):
+        if strip_hydrogen:
+            mol = remove_hydrogen_from_graph(mol)
+        mol = canonicalize_node_labels(mol)
+        file_path_in = os.path.join(temp_dir, "graph_in")
+        write_ass_graph_file(mol, file_name=file_path_in)
+    # Input is an RDKit mol
+    elif isinstance(mol, Chem.Mol):
+        mol = safe_standardize_mol(mol, add_hydrogens=True)
+        if strip_hydrogen:
+            mol = Chem.RemoveHs(mol)
+        mol_file = os.path.join(temp_dir, "tmp.mol")
+        write_v2k_mol_file(mol, mol_file)
+        file_path_in = os.path.splitext(mol_file)[0]
+    # Input is a mol file
+    elif isinstance(mol, str) and mol.endswith(".mol"):
+        if strip_hydrogen:
+            mol_ob = Chem.MolFromMolFile(mol)
+            mol_ob = safe_standardize_mol(mol_ob, add_hydrogens=True)
+            mol_ob = Chem.RemoveHs(mol_ob)
+            mol = os.path.join(temp_dir, "tmp.mol")
+            Chem.MolToMolFile(mol_ob, mol)
+        else:
+            shutil.copy(mol, os.path.join(temp_dir, "tmp.mol"))
+            mol = os.path.join(temp_dir, "tmp.mol")
+        file_path_in = os.path.splitext(mol)[0]
+    else:
+        raise ValueError("Input not supported")
+
+    # Define output and log file paths
+    file_path_out = os.path.join(file_path_in + "Out")
+    file_path_pathway = os.path.join(file_path_in + "Pathway")
+    log_file = os.path.join(temp_dir, "assembly_output.log")
+
+    # Convert timeout flag from seconds to x miliseconds in windows and x microseconds in linux/macOS
+    timeout_flag = _convert_timeout_for_platform(timeout)
+
+    # Run the assembly code and log output
+    try:
+        with open(log_file, "w") as log:
+            start_time = time.time()
+            process = subprocess.Popen(
+                [dir_code,
+                 file_path_in,
+                 '-memTest=0',
+                 '-removeHydrogens=0',
+                 '-compensateDisjoint=0',
+                 f'-runTime={timeout_flag}'],
+                stdout=log,
+                stderr=log
+            )
+            process.wait()
+            if time.time() - start_time > timeout:
+                timed_out = True
+                print("Warning: Assembly calculation timed out.", flush=True)
+
+    except Exception as e:
+        print(f"Error: {e}", flush=True)
+        if debug:
+            traceback.print_exc()
+
+    if timed_out == 0:  # If the calculation finished properly, we can read the output file
+
+        with open(file_path_out, "r") as f:
+            first_line = f.readline()
+            match = re.search(r'assembly index:\s*(\d+)', first_line)
+            if match:
+                ai = int(match.group(1))
 
     else:
-        # Get the assembly code directory
-        if dir_code is None:
-            dir_code = add_assembly_to_path()
 
-        # Create working directory
-        temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}" if debug else tempfile.mkdtemp()
-        os.makedirs(temp_dir, exist_ok=True)
+        # Extract the most recent "min AI found so far" from the log file
+        last_ai = -1
+        if os.path.exists(log_file):
+            try:
+                with open(log_file, "r") as log:
+                    log_lines = log.readlines()
 
-        # Input is a graph
-        if isinstance(mol, nx.Graph):
-            if strip_hydrogen:
-                mol = remove_hydrogen_from_graph(mol)
-            mol = canonicalize_node_labels(mol)
-            file_path_in = os.path.join(temp_dir, "graph_in")
-            write_ass_graph_file(mol, file_name=file_path_in)
-        # Input is an RDKit mol
-        elif isinstance(mol, Chem.Mol):
-            mol = safe_standardize_mol(mol, add_hydrogens=True)
-            if strip_hydrogen:
-                mol = Chem.RemoveHs(mol)
-            mol_file = os.path.join(temp_dir, "tmp.mol")
-            write_v2k_mol_file(mol, mol_file)
-            file_path_in = os.path.splitext(mol_file)[0]
-        # Input is a mol file
-        elif isinstance(mol, str) and mol.endswith(".mol"):
-            if strip_hydrogen:
-                mol_ob = Chem.MolFromMolFile(mol)
-                mol_ob = safe_standardize_mol(mol_ob, add_hydrogens=True)
-                mol_ob = Chem.RemoveHs(mol_ob)
-                mol = os.path.join(temp_dir, "tmp.mol")
-                Chem.MolToMolFile(mol_ob, mol)
-            else:
-                shutil.copy(mol, os.path.join(temp_dir, "tmp.mol"))
-                mol = os.path.join(temp_dir, "tmp.mol")
-            file_path_in = os.path.splitext(mol)[0]
-        else:
-            raise ValueError("Input not supported")
+                # Reverse scan for last occurrence of "min AI found so far"
+                for line in reversed(log_lines):
+                    match = re.search(r"min AI found so far:\s*(\d+)", line)
+                    if match:
+                        last_ai = int(match.group(1))
+                        break
 
-        # Define output and log file paths
-        file_path_out = os.path.join(file_path_in + "Out")
-        file_path_pathway = os.path.join(file_path_in + "Pathway")
-        log_file = os.path.join(temp_dir, "assembly_output.log")
+                if not exact:
+                    ai = last_ai  # Assign found AI
 
-        # Convert timeout flag from seconds to x miliseconds in windows and x microseconds in linux/macOS
-        timeout_flag = _convert_timeout_for_platform(timeout)
+                # Print appropriate messages based on timeout
+                if ai == -1 and timed_out:
+                    print("No minimum AI found before timeout.", flush=True)
+                elif ai != -1 and timed_out:
+                    print(f"Upper Bound to AI Found: AI =< {ai}", flush=True)
 
-        # Run the assembly code and log output
+            except Exception as e:
+                print(f"Failed to read AI from log file: {e}", flush=True)
+
+    # Process pathway output if available
+    if os.path.isfile(file_path_pathway):
         try:
-            with open(log_file, "w") as log:
-                start_time = time.time()
-                process = subprocess.Popen(
-                    [dir_code,
-                     file_path_in,
-                     '-memTest=0',
-                     '-removeHydrogens=0',
-                     '-compensateDisjoint=0',
-                     f'-runTime={timeout_flag}'],
-                    stdout=log,
-                    stderr=log
-                )
-                process.wait()
-                if time.time() - start_time > timeout:
-                    timed_out = True
-                    print("Warning: Assembly calculation timed out.", flush=True)
-
+            if isinstance(mol, nx.Graph):
+                prep_json(file_path_pathway)
+                path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='graph', debug=debug,
+                                                    input_graph=mol)
+            elif isinstance(mol, Chem.Mol):
+                path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='smiles', debug=debug)
+            elif ".mol" in mol:
+                path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='inchi', debug=debug)
+            else:
+                virt_obj = None
+                path = (None, None)
+                raise ValueError("Input not supported")
         except Exception as e:
-            print(f"Error: {e}", flush=True)
+            print(f"Failed to load pathway data: {e}", flush=True)
             if debug:
                 traceback.print_exc()
 
-        if timed_out == 0:  # If the calculation finished properly, we can read the output file
+    # Apply joint correction if necessary
+    if joint_corr and ai > 0:
+        ai = joint_correction(mol, ai)
 
-            with open(file_path_out, "r") as f:
-                first_line = f.readline()
-                match = re.search(r'assembly index:\s*(\d+)', first_line)
-                if match:
-                    ai = int(match.group(1))
+    # Print log file path if required
+    if return_log_file:
+        print(f"Log file printed to: {log_file}", flush=True)
 
-        else:
-
-            # Extract the most recent "min AI found so far" from the log file
-            last_ai = -1
-            if os.path.exists(log_file):
-                try:
-                    with open(log_file, "r") as log:
-                        log_lines = log.readlines()
-
-                    # Reverse scan for last occurrence of "min AI found so far"
-                    for line in reversed(log_lines):
-                        match = re.search(r"min AI found so far:\s*(\d+)", line)
-                        if match:
-                            last_ai = int(match.group(1))
-                            break
-
-                    if not exact:
-                        ai = last_ai  # Assign found AI
-
-                    # Print appropriate messages based on timeout
-                    if ai == -1 and timed_out:
-                        print("No minimum AI found before timeout.", flush=True)
-                    elif ai != -1 and timed_out:
-                        print(f"Upper Bound to AI Found: AI =< {ai}", flush=True)
-
-                except Exception as e:
-                    print(f"Failed to read AI from log file: {e}", flush=True)
-
-        # Process pathway output if available
-        if os.path.isfile(file_path_pathway):
-            try:
-                if isinstance(mol, nx.Graph):
-                    prep_json(file_path_pathway)
-                    path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='graph', debug=debug,
-                                                        input_graph=mol)
-                elif isinstance(mol, Chem.Mol):
-                    path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='smiles', debug=debug)
-                elif ".mol" in mol:
-                    path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='inchi', debug=debug)
-                else:
-                    virt_obj = None
-                    path = (None, None)
-                    raise ValueError("Input not supported")
-            except Exception as e:
-                print(f"Failed to load pathway data: {e}", flush=True)
-                if debug:
-                    traceback.print_exc()
-
-        # Apply joint correction if necessary
-        if joint_corr and ai > 0:
-            ai = joint_correction(mol, ai)
-
-        # Print log file path if required
-        if return_log_file:
-            print(f"Log file printed to: {log_file}", flush=True)
-
-        # Return based on flag
-        return (ai, virt_obj, path) if not return_log_file else (ai, virt_obj, path, log_file)
+    # Return based on flag
+    return (ai, virt_obj, path) if not return_log_file else (ai, virt_obj, path, log_file)
 
 
 def calculate_assembly(graphs: List[nx.Graph],
@@ -1640,7 +1554,7 @@ def regularise_ai(ai: Optional[int]) -> int:
 
 
 def calculate_assembly_index_parallel(graphs: List[nx.Graph],
-                                settings: Optional[Dict[str, Any]]) -> List[List[Any]]:
+                                      settings: Optional[Dict[str, Any]]) -> List[List[Any]]:
     """
     Calculate assembly indices for multiple graphs in parallel.
 
