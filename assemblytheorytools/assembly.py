@@ -80,7 +80,7 @@ def run_command(command: str) -> Optional[bytes]:
     return result.stdout
 
 
-def joint_correction(mol: Union[nx.Graph, Chem.Mol], ass_index: int) -> int:
+def joint_assembly_index_correction(mol: Union[nx.Graph, Chem.Mol], ass_index: int) -> int:
     if isinstance(mol, nx.Graph):
         # Get the number of connected components in the graph
         num_components = nx.number_connected_components(mol)
@@ -254,7 +254,7 @@ def calculate_assembly_index(mol: Union[nx.Graph, Chem.Mol],
 
     # Apply joint correction if necessary
     if joint_corr and ai > 0:
-        ai = joint_correction(mol, ai)
+        ai = joint_assembly_index_correction(mol, ai)
 
     # Print log file path if required
     if return_log_file:
@@ -1979,3 +1979,4 @@ def integer_chain(n: int) -> int:
         for i, line in enumerate(file):
             if i == n + 1:
                 return int(line.split()[3])
+    return -1
