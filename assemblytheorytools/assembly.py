@@ -16,7 +16,7 @@ import networkx as nx
 import numpy as np
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
-
+import assembly_theory as at_rust
 import CFG
 from .construction import (parse_pathway_file,
                            parse_string_pathway_file,
@@ -1924,140 +1924,39 @@ def calculate_assembly_index_jo_ratio(graph: Union[nx.Graph, Chem.Mol], settings
         return n_edges / jo
 
 
-def _input_helper_rust(mol: Chem.Mol, file_path: str, strip_hydrogen: bool = False) -> bool:
+def calculate_assembly_index_rust(mol: Union[nx.Graph, Chem.Mol]) -> int:
     """
-    Prepare an RDKit molecule and write it to a file in `.mol` format.
+    Calculate the assembly index of a molecule using the Rust-based assembly theory library.
 
-    This helper normalizes the hydrogen content of the given RDKit molecule,
-    checks for unsupported wildcard atoms, and writes the molecule as a MolBlock
-    to the specified file path.
-
-    Args:
-        mol (Chem.Mol): RDKit molecule to process.
-        file_path (str): Destination file path where the `.mol` MolBlock will be written.
-        strip_hydrogen (bool, optional): If True, remove explicit hydrogens before writing.
-            If False, ensure explicit hydrogens are present. Defaults to False.
-
-    Returns:
-        bool: True if the molecule was successfully written to `file_path`.
-              Returns False if the molecule contains wildcard atoms (e.g., `*`)
-              which are considered invalid for downstream processing.
-
-    Raises:
-        OSError: Propagates any I/O related exceptions raised while opening/writing the file.
-
-    Notes:
-        - Uses RDKit's Chem.RemoveHs and Chem.AddHs to control hydrogen handling.
-        - The function intentionally rejects molecules that contain wildcard atoms
-          because downstream tools expect fully specified atom types.
-        - The written representation is the MolBlock produced by Chem.MolToMolBlock.
-
-    Example:
-        ok = _input_helper(mol, "/tmp/tmp.mol", strip_hydrogen=True)
-    """
-    # Ensure hydrogens are present or removed according to the flag
-    mol = Chem.RemoveHs(mol) if strip_hydrogen else Chem.AddHs(mol)
-
-    # Reject molecules with wildcard atoms (e.g., '*') which downstream tools cannot handle
-    if any(atom.GetSymbol() == '*' for atom in mol.GetAtoms()):
-        return False
-
-    # Write MolBlock to the specified file path
-    with open(file_path, 'w') as f:
-        f.write(Chem.MolToMolBlock(mol))
-
-    return True
-
-
-def calculate_assembly_index_rust(mol: Union[nx.Graph, Chem.Mol],
-                                  exec_path: Optional[str] = None,
-                                  timeout: float = 300.0,
-                                  strip_hydrogen: bool = False) -> int:
-    """
-    Calculate the assembly index using a Rust-based executable.
-
-    This function is a wrapper around a precompiled Rust binary that calculates
-    the assembly index for a given molecular graph or RDKit molecule. It prepares
-    the input, invokes the Rust executable, and parses the output.
+    This function computes the assembly index for a given molecular graph or RDKit molecule
+    by converting the input to an RDKit `Chem.Mol` object (if necessary) and then passing
+    it to the Rust-based `assembly_theory` library for calculation.
 
     Parameters
     ----------
     mol : Union[nx.Graph, Chem.Mol]
-        The input molecular graph or RDKit molecule.
-    exec_path : Optional[str], optional
-        Path to the precompiled Rust executable; if None, defaults to the bundled
-        version. Default is None.
-    timeout : float, optional
-        Maximum time in seconds to allow the Rust process to run. Default is 300.0.
-    strip_hydrogen : bool, optional
-        If True, remove hydrogen atoms from the graph before calculation.
-        Default is False.
+        The input molecule, which can be either a NetworkX graph or an RDKit `Chem.Mol` object.
 
     Returns
     -------
     int
-        The calculated assembly index, or -1 if the calculation failed.
+        The assembly index of the molecule as computed by the Rust-based library.
 
     Raises
     ------
-    NotImplementedError
-        If the function is called on a non-Linux platform.
     ValueError
-        If the input type is not supported.
-    OSError
-        If there are issues with file system access, process execution, or
-        if required external tools or compiled executables are not available.
-    subprocess.TimeoutExpired
-        When the Rust process exceeds the specified timeout.
+        If the input molecule cannot be converted to an RDKit `Chem.Mol` object.
+
+    Notes
+    -----
+    - If the input is a NetworkX graph, it is first converted to an RDKit `Chem.Mol` object
+      using the `nx_to_mol` function.
+    - The Rust-based library `assembly_theory` is used for the actual computation of the
+      assembly index.
     """
-
     if type(mol) == nx.Graph:
-        mol = nx_to_mol(mol)
-
-    # Ensure this helper is only used on Linux for now
-    system = platform.system().lower()
-    if system != "linux":
-        raise NotImplementedError("Rust assembly index calculator is currently only supported on Linux.")
-
-    # Default to the bundled precompiled Rust executable if none provided
-    if exec_path is None:
-        exec_path = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "precompiled", "Rust")
-        )
-
-    # Create a temporary .mol file and ensure proper H-handling / wildcard checks
-    with tempfile.NamedTemporaryFile(suffix='.mol', delete=True) as tmp_file:
-        # Prepare and write mol file; if invalid (e.g., wildcard atoms), abort
-        if not _input_helper_rust(mol, tmp_file.name, strip_hydrogen=strip_hydrogen):
-            print("Invalid input", flush=True)
-            return -1
-
-        try:
-            # Run the Rust executable, capture output, enforce timeout
-            result = subprocess.run([exec_path, tmp_file.name],
-                                    capture_output=True,
-                                    text=True,
-                                    timeout=timeout)
-
-            # Non-zero exit codes indicate failure; surface stderr for diagnostics
-            if result.returncode != 0:
-                print(f"Rust executable returned non-zero exit code {result.returncode}", flush=True)
-                if result.stderr:
-                    print(result.stderr.strip(), flush=True)
-                return -1
-
-            # Parse the first integer from stdout as the assembly index
-            match = re.search(r'\b\d+\b', result.stdout or "")
-            return int(match.group(0)) if match else -1
-
-        except subprocess.TimeoutExpired:
-            # Process exceeded allowed time
-            print(f"Rust executable timed out after {timeout} seconds.", flush=True)
-            return -1
-        except Exception as e:
-            # Catch-all for unexpected errors
-            print(f"Exception occurred: {e}", flush=True)
-            return -1
+        mol = nx_to_mol(mol)  # Convert NetworkX graph to RDKit molecule if necessary
+    return at_rust.index(Chem.MolToMolBlock(mol))  # Compute the assembly index using the Rust library
 
 
 def calculate_integer_chain(n: int) -> int:

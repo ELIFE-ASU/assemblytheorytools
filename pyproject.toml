@@ -28,7 +28,8 @@ dependencies = [
     "pubchempy>=1.0.5",
     "cairosvg>=2.8.2",
     "CFG @ git+https://github.com/ELIFE-ASU/CFG.git",
-    "dagviz @ git+https://github.com/ELIFE-ASU/dagviz.git"
+    "dagviz @ git+https://github.com/ELIFE-ASU/dagviz.git",
+    "assembly-theory>=0.6.0",
 ]
 
 classifiers = [

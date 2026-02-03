@@ -835,7 +835,7 @@ def test_calculate_rust_ai():
     print(flush=True)
     smi = "C1=CC=CC=C1"  # Benzene
     mol = att.smi_to_mol(smi)
-    ai_r = att.calculate_assembly_index_rust(mol, strip_hydrogen=True)
+    ai_r = att.calculate_assembly_index_rust(mol)
     print(ai_r, flush=True)
     ai_v5, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
     print(ai_v5, flush=True)
@@ -1043,3 +1043,14 @@ def test_int_chain():
     assert att.calculate_integer_chain(5) == 3
     assert att.calculate_integer_chain(9998) == 16
     assert att.calculate_integer_chain(9999) == 16
+
+def test_tmp():
+
+    from rdkit import Chem
+
+    # Get a mol block from a molecule's SMILES representation.
+    anthracene = Chem.MolFromSmiles("c1ccc2cc3ccccc3cc2c1")
+    anthracene = Chem.MolToMolBlock(anthracene)
+
+    # Calculate the molecule's assembly index.
+    print(at.index(anthracene))  # 6
