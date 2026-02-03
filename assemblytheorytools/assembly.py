@@ -1221,7 +1221,7 @@ def regularise_ai(ai: Optional[int]) -> int:
         return ai
 
 
-def calculate_assembly_index_parallel(graphs: List[nx.Graph],
+def calculate_assembly_index_parallel(graphs: List[Union[nx.Graph, Chem.Mol]],
                                       settings: Optional[Dict[str, Any]]) -> List[List[Any]]:
     """
     Calculate assembly indices for multiple graphs in parallel.
@@ -1277,43 +1277,9 @@ def calculate_assembly_index_parallel(graphs: List[nx.Graph],
     return [list(group) for group in zip(*results)]
 
 
-def calculate_sum_assembly(graphs: List[nx.Graph],
+def calculate_sum_assembly(graphs: List[Union[nx.Graph, Chem.Mol]],
                            settings: Optional[Dict[str, Any]] = None,
                            parallel: bool = True) -> int:
-    """
-    Sum assembly indices for a collection of molecular graphs.
-
-    Parameters
-    ----------
-    graphs : iterable
-        Iterable of molecular graphs (e.g. list of NetworkX graphs or other supported types).
-    settings : dict, optional
-        Settings forwarded to :func:`calculate_assembly_index` (for example ``{"exact": True}``).
-        If ``None`` an empty settings dictionary is used.
-    parallel : bool, optional
-        If True (default) compute assembly indices in parallel using
-        :func:`calculate_assembly_index_parallel`. If False compute them sequentially.
-
-    Returns
-    -------
-    int
-        The sum of the individual assembly indices. If any assembly index is invalid
-        (negative or ``None``), ``-1`` is returned to indicate failure (for example
-        due to timeout or incomplete exact-mode calculation).
-
-    Raises
-    ------
-    ValueError
-        If ``graphs`` is not iterable or is ``None``.
-
-    Notes
-    -----
-    - Parallel mode expects :func:`calculate_assembly_index_parallel` to return a sequence
-      whose first element is the list of assembly indices.
-    - Negative assembly indices are treated as failures and cause this function to
-      return ``-1`` rather than a partial sum.
-
-    """
     if graphs is None or not hasattr(graphs, "__iter__"):
         raise ValueError("`graphs` must be an iterable of graph objects")
 
@@ -1332,43 +1298,10 @@ def calculate_sum_assembly(graphs: List[nx.Graph],
     return int(sum(ai_list))
 
 
-def calculate_assembly_similarity(graphs: List[nx.Graph],
+def calculate_assembly_similarity(graphs: List[Union[nx.Graph, Chem.Mol]],
                                   settings: Optional[Dict[str, Any]] = None,
                                   parallel: bool = True,
                                   enforce_exact_mode: bool = True) -> float:
-    """
-    Calculate the assembly similarity index for a list of molecular graphs.
-
-    The assembly similarity index is defined as:
-        (Sum of individual assembly indices / Joint assembly index) - 1.0
-
-    Parameters:
-    -----------
-    graphs : list
-        A list of molecular graphs to compare. Each graph can be a NetworkX graph or another supported type.
-    settings : dict, optional
-        A dictionary of settings to be passed to the `calculate_assembly_index` function. Defaults to an empty dictionary.
-    parallel : bool, optional
-        If True, calculates the assembly indices in parallel. Defaults to True.
-    enforce_exact_mode: bool
-        If True (default) the assembly calculations will use exact mode. 
-        This is default as approximate assembly indices can result in 
-        inconsistent / meaningless similarity values.
-
-    Returns:
-    --------
-    float
-        The assembly similarity index. If the joint assembly index is 0, returns 0.0.
-        If any exact assembly calculations fail to complete returns -1.0
-
-    Warnings
-    --------
-        Passing more than two graphs is allowed, but the resulting similarity
-        value may be difficult to interpret and may not exhibit expected
-        pairwise behaviour (e.g., remaining within the [0, 1] range). For
-        example, the similarity of three identical graphs will be reported
-        as 2.0.
-    """
     if settings is None:
         settings = {}
 
