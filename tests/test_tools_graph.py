@@ -1,0 +1,104 @@
+import networkx as nx
+
+import assemblytheorytools as att
+
+
+def test_get_graph_charges():
+    """
+    Test the calculation of formal charges for nodes in a molecular graph.
+
+    This function performs the following steps:
+    1. Creates a molecular graph using `att.ph_2p_graph()`.
+    2. Calculates the formal charges of the graph's nodes using `att.get_graph_charges()`.
+    3. Prints the calculated charges.
+    4. Asserts that the calculated charges match the expected values.
+
+    Asserts:
+        - The calculated charges are equal to [2, 0].
+
+    Notes:
+        - The graph represents a molecule with two nodes, where the expected charges are predefined.
+    """
+    print(flush=True)
+    print('Testing charged case', flush=True)
+    graph = att.ph_2p_graph()
+    charges = att.get_graph_charges(graph)
+    print("Charges of the graph:", charges, flush=True)
+    assert charges == [2, 0]
+
+
+def test_smi_to_nx_conversion():
+    """
+    Test the conversion of a SMILES string to a NetworkX graph and back to a SMILES string.
+
+    This function performs the following steps:
+    1. Converts a SMILES string to a NetworkX graph.
+    2. Converts the NetworkX graph back to a SMILES string.
+    3. Asserts that the original SMILES string and the converted SMILES string are equal.
+
+    Asserts:
+        - The converted SMILES string is equal to the original SMILES string.
+    """
+    print(flush=True)
+    smi = "[H]O[H]"
+    graph = att.smi_to_nx(smi)
+    smi_out = att.nx_to_smi(graph)
+    assert smi_out == smi, f"Expected {smi}, but got {smi_out}"
+
+
+def test_inchi_to_nx_conversion():
+    """
+    Test the conversion of an InChI string to a NetworkX graph and back to an InChI string.
+
+    This function performs the following steps:
+    1. Converts an InChI string to a NetworkX graph.
+    2. Converts the NetworkX graph back to an InChI string.
+    3. Checks if the original InChI string and the converted InChI string are equal.
+
+    Asserts:
+        - The converted InChI string is equal to the original InChI string.
+    """
+    print(flush=True)
+    inchi = "InChI=1S/H2O/h1H2"
+    graph = att.inchi_to_nx(inchi)
+    inchi_out = att.nx_to_inchi(graph)
+    assert inchi_out == inchi, f"Expected {inchi}, but got {inchi_out}"
+
+
+def test_join_graphs():
+    """
+    Test the functionality of joining and splitting molecular graphs.
+
+    This function performs the following steps:
+    1. Creates two molecular graphs from SMILES strings.
+    2. Joins the two graphs into a single graph.
+    3. Asserts that the joined graph has the correct number of nodes and edges.
+    4. Splits the joined graph back into its disconnected subgraphs.
+    5. Asserts that the split subgraphs have the correct number of nodes and edges.
+    6. Verifies that the original graphs are isomorphic to the split subgraphs.
+
+    Asserts:
+        - The joined graph has 5 nodes and 3 edges.
+        - The split subgraphs have the correct number of nodes and edges.
+        - The original graphs are isomorphic to the split subgraphs.
+    """
+    print(flush=True)
+    # Create a molecular graph for water
+    g1 = att.smi_to_nx('[H][O][H]')
+    # Create a molecular graph for oxygen
+    g2 = att.smi_to_nx('[O][O]')
+    # Join the two graphs into a single graph
+    joined = att.join_graphs([g1, g2])
+    assert joined.number_of_nodes() == 5
+    assert joined.number_of_edges() == 3
+
+    # Split the joined graph back into its components
+    g1_split, g2_split = att.get_disconnected_subgraphs(joined)
+    assert g1_split.number_of_nodes() == 3
+    assert g1_split.number_of_edges() == 2
+    assert g2_split.number_of_nodes() == 2
+    assert g2_split.number_of_edges() == 1
+
+    # Check that the original graphs are equal to the split graphs
+    assert nx.is_isomorphic(g1, g1_split)
+    assert nx.is_isomorphic(g2, g2_split)

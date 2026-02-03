@@ -141,3 +141,12 @@ def test_sample_cbrdb():
     df = att.sample_cbrdb(n_sample)
     assert df is not None
     assert len(df) == n_sample
+
+
+def test_enumerate_stereoisomers_shortest():
+    print(flush=True)
+    smi = 'COC1=C2OC3C(O)C=CC4C5CC(=C2C43CCN5C)C=C1'
+    mol = Chem.MolFromSmiles(smi)
+    smi_out = att.enumerate_stereoisomers_shortest(mol)
+    name_out = att.pubchem_smi_to_name(smi_out, prefer="synonym")
+    assert name_out == 'Codeine'
