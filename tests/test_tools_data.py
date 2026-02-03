@@ -3,8 +3,54 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from rdkit import Chem
 
 import assemblytheorytools as att
+
+
+def test_pubchem():
+    id_str = 'Aspirin'
+    id = 2244
+    n_sample = 3
+
+    print(flush=True)
+    smi = att.pubchem_name_to_smi(id_str)
+    print(smi, flush=True)
+    assert smi == 'CC(=O)OC1=CC=CC=C1C(=O)O'
+    mol = att.pubchem_name_to_mol(id_str, add_hydrogens=True)
+    smi_out = Chem.MolToSmiles(mol)
+    print(smi_out, flush=True)
+    assert smi_out == '[H]OC(=O)c1c([H])c([H])c([H])c([H])c1OC(=O)C([H])([H])[H]'
+    graph = att.pubchem_name_to_nx(id_str, add_hydrogens=True)
+    smi_out = att.nx_to_smi(graph)
+    print(smi_out, flush=True)
+    assert smi_out == '[H]OC(=O)C1=C([H])C([H])=C([H])C([H])=C1OC(=O)C([H])([H])[H]'
+
+    smi = att.pubchem_id_to_smi(id)
+    print(smi, flush=True)
+    assert smi == 'CC(=O)OC1=CC=CC=C1C(=O)O'
+    mol = att.pubchem_id_to_mol(id, add_hydrogens=True)
+    smi_out = Chem.MolToSmiles(mol)
+    print(smi_out, flush=True)
+    assert smi_out == '[H]OC(=O)c1c([H])c([H])c([H])c([H])c1OC(=O)C([H])([H])[H]'
+    graph = att.pubchem_id_to_nx(id, add_hydrogens=True)
+    smi_out = att.nx_to_smi(graph)
+    print(smi_out, flush=True)
+    assert smi_out == '[H]OC(=O)C1=C([H])C([H])=C([H])C([H])=C1OC(=O)C([H])([H])[H]'
+
+    _, smi_out = att.sample_random_pubchem(n_sample)
+    print(smi_out, flush=True)
+    assert len(smi_out) == n_sample
+
+    _, smi_out = att.sample_first_pubchem(n_sample)
+    print(smi_out, flush=True)
+    assert len(smi_out) == n_sample
+
+    # att.download_pubchem_cid_smiles_gz()
+    # assert os.path.exists('CID-SMILES.gz')
+    # id_out, smi_out = att.sample_pubchem_cid_smiles_gz(n_sample)
+    # print(id_out, smi_out, flush=True)
+    # assert len(smi_out) == n_sample
 
 
 def test_pubchem_smi_to_name():
