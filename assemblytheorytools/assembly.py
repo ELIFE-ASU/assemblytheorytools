@@ -1681,46 +1681,13 @@ def _input_helper_rust(mol: Chem.Mol, file_path: str, strip_hydrogen: bool = Fal
     return True
 
 
-def calculate_assembly_index_rust(mol: Chem.Mol,
+def calculate_assembly_index_rust(mol: Union[nx.Graph, Chem.Mol],
                                   exec_path: Optional[str] = None,
                                   timeout: int = 300,
                                   strip_hydrogen: bool = False) -> int:
-    """
-    Calculate the assembly index using a Rust-based executable.
+    if type(mol) == nx.Graph:
+        mol = nx_to_mol(mol)
 
-    This function writes the provided RDKit molecule to a temporary `.mol` file
-    (optionally stripping hydrogens), invokes a precompiled Rust executable to
-    compute the assembly index, and parses the first integer found in the
-    executable's standard output as the result.
-
-    Args:
-        mol (Chem.Mol): RDKit molecule to evaluate.
-        exec_path (str | None): Path to the Rust executable. If None, the function
-            looks for a default precompiled binary at
-            `os.path.join(os.path.dirname(__file__), "precompiled", "Rust")`.
-        timeout (int): Maximum time in seconds to wait for the Rust process.
-        strip_hydrogen (bool): If True, hydrogens will be removed before writing
-            the temporary `.mol` file.
-
-    Returns:
-        int: Parsed assembly index (non-negative integer) on success.
-             Returns -1 on invalid input, execution error, parse failure, or timeout.
-
-    Raises:
-        NotImplementedError: If called on a non-Linux platform (Rust binary supported only on Linux).
-
-    Notes:
-        - The function relies on `_input_helper` to prepare and write the molecule.
-          `_input_helper` will return False if wildcard atoms are present, in which
-          case this function returns -1.
-        - The Rust executable is expected to print a number somewhere in its
-          standard output; the first integer matched by the regex is used.
-        - Standard error and non-zero exit codes are treated as failures and
-          cause a return value of -1.
-
-    Example:
-        ai = calculate_rust_ai(my_rdkit_mol, exec_path="/path/to/rust_bin", timeout=120)
-    """
     # Ensure this helper is only used on Linux for now
     system = platform.system().lower()
     if system != "linux":
