@@ -125,7 +125,7 @@ def _convert_timeout_for_platform(seconds: float) -> int:
     return int(seconds)
 
 
-def calculate_assembly_index(mol: Union[nx.Graph, Chem.Mol],
+def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
                              dir_code: Optional[str] = None,
                              timeout: float = 100.0,
                              debug: bool = False,
@@ -149,19 +149,19 @@ def calculate_assembly_index(mol: Union[nx.Graph, Chem.Mol],
     os.makedirs(temp_dir, exist_ok=True)
 
     # Input is a graph
-    if isinstance(mol, nx.Graph):
+    if isinstance(graph, nx.Graph):
         if strip_hydrogen:
-            mol = remove_hydrogen_from_graph(mol)
-        mol = canonicalize_node_labels(mol)
+            graph = remove_hydrogen_from_graph(graph)
+        graph = canonicalize_node_labels(graph)
         file_path_in = os.path.join(temp_dir, "graph_in")
-        write_ass_graph_file(mol, file_name=file_path_in)
+        write_ass_graph_file(graph, file_name=file_path_in)
     # Input is an RDKit mol
-    elif isinstance(mol, Chem.Mol):
-        mol = safe_standardize_mol(mol, add_hydrogens=True)
+    elif isinstance(graph, Chem.Mol):
+        graph = safe_standardize_mol(graph, add_hydrogens=True)
         if strip_hydrogen:
-            mol = Chem.RemoveHs(mol)
+            graph = Chem.RemoveHs(graph)
         mol_file = os.path.join(temp_dir, "tmp.mol")
-        write_v2k_mol_file(mol, mol_file)
+        write_v2k_mol_file(graph, mol_file)
         file_path_in = os.path.splitext(mol_file)[0]
     else:
         raise ValueError("Input not supported")
@@ -237,11 +237,11 @@ def calculate_assembly_index(mol: Union[nx.Graph, Chem.Mol],
     # Process pathway output if available
     if os.path.isfile(file_path_pathway):
         try:
-            if isinstance(mol, nx.Graph):
+            if isinstance(graph, nx.Graph):
                 prep_json(file_path_pathway)
                 path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='graph', debug=debug,
-                                                    input_graph=mol)
-            elif isinstance(mol, Chem.Mol):
+                                                    input_graph=graph)
+            elif isinstance(graph, Chem.Mol):
                 path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='smiles', debug=debug)
             else:
                 virt_obj = None
@@ -254,7 +254,7 @@ def calculate_assembly_index(mol: Union[nx.Graph, Chem.Mol],
 
     # Apply joint correction if necessary
     if joint_corr and ai > 0:
-        ai = joint_assembly_index_correction(mol, ai)
+        ai = joint_assembly_index_correction(graph, ai)
 
     # Print log file path if required
     if return_log_file:
@@ -264,39 +264,15 @@ def calculate_assembly_index(mol: Union[nx.Graph, Chem.Mol],
     return (ai, virt_obj, path) if not return_log_file else (ai, virt_obj, path, log_file)
 
 
-def calculate_assembly(graphs: List[nx.Graph],
+def calculate_assembly(graphs: List[Union[nx.Graph, Chem.Mol]],
                        n_i: List[float],
                        settings: Optional[Dict[str, Any]] = None,
                        parallel: bool = True) -> float:
-    """
-    Calculate the assembly value for a set of molecular graphs.
-
-    This function computes the assembly value based on the assembly indices of the input graphs
-    and their respective weights. It supports parallel computation for efficiency.
-
-    Parameters
-    ----------
-    graphs : list[nx.Graph]
-        A list of molecular graphs represented as NetworkX graph objects.
-    n_i : list[float]
-        A list of weights corresponding to each graph in the `graphs` list.
-    settings : dict | None, optional
-        A dictionary of settings for the assembly index calculation. Defaults to an empty dictionary.
-    parallel : bool, optional
-        If True, calculates assembly indices in parallel. Defaults to True.
-
-    Returns
-    -------
-    float
-        The calculated assembly value, which is a weighted sum of the regularized assembly indices.
-    """
     settings = settings or {}
 
     if parallel:
-        # Calculate assembly indices in parallel
-        ai_list, _, _ = calculate_assembly_index_parallel(graphs, settings)
+        ai_list = calculate_assembly_index_parallel(graphs, settings)[0]
     else:
-        # Calculate assembly indices sequentially
         ai_list = [calculate_assembly_index(graph, **settings)[0] for graph in graphs]
 
     # Regularize the assembly indices to ensure non-negative values
@@ -362,12 +338,8 @@ def calculate_assembly_semi_metric(graph1: nx.Graph,
     combined_mol = combine_mols(mols)
 
     # Calculate the joint assembly index
-    jai, _, _ = calculate_assembly_index(combined_mol,
-                                         dir_code=dir_code,
-                                         timeout=timeout,
-                                         debug=debug,
-                                         strip_hydrogen=strip_hydrogen,
-                                         exact=exact)
+    jai, _, _ = calculate_assembly_index(combined_mol, dir_code=dir_code, timeout=timeout, debug=debug,
+                                         strip_hydrogen=strip_hydrogen, exact=exact)
     if jai <= -1:
         print("No minimum JAI found before timeout.", flush=True)
         return -1
@@ -378,12 +350,8 @@ def calculate_assembly_semi_metric(graph1: nx.Graph,
     # Calculate the assembly index for each subgraph
     result = 0
     for subgraph in [graph1, graph2]:
-        ai, _, _ = calculate_assembly_index(subgraph,
-                                            dir_code=dir_code,
-                                            timeout=timeout,
-                                            debug=debug,
-                                            strip_hydrogen=strip_hydrogen,
-                                            exact=exact)
+        ai, _, _ = calculate_assembly_index(subgraph, dir_code=dir_code, timeout=timeout, debug=debug,
+                                            strip_hydrogen=strip_hydrogen, exact=exact)
         if debug:
             print(f"Assembly Index: {ai}", flush=True)
         result += ai
@@ -814,21 +782,16 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
             print("Return log file:", return_log_file, flush=True)
 
         if return_log_file:
-            graph_ai, graph_virtual_obj, graph_path, log_file = calculate_assembly_index(graph,
-                                                                                         dir_code=dir_code,
-                                                                                         timeout=timeout,
-                                                                                         debug=debug,
+            graph_ai, graph_virtual_obj, graph_path, log_file = calculate_assembly_index(graph, dir_code=dir_code,
+                                                                                         timeout=timeout, debug=debug,
                                                                                          joint_corr=False,
                                                                                          strip_hydrogen=False,
                                                                                          return_log_file=return_log_file)
 
         else:
-            graph_ai, graph_virtual_obj, graph_path = calculate_assembly_index(graph,
-                                                                               dir_code=dir_code,
-                                                                               timeout=timeout,
-                                                                               debug=debug,
-                                                                               joint_corr=False,
-                                                                               strip_hydrogen=False)
+            graph_ai, graph_virtual_obj, graph_path = calculate_assembly_index(graph, dir_code=dir_code,
+                                                                               timeout=timeout, debug=debug,
+                                                                               joint_corr=False, strip_hydrogen=False)
 
         # Correct for joint assembly and directed encoding
         ai = graph_ai - 2 * len(delimiters)
@@ -1634,12 +1597,8 @@ def calculate_jo(mol: Union[nx.Graph, Chem.Mol],
                  return_log_file: bool = False,
                  exact: bool = False) -> Tuple[int, Any, Any]:
     # Run the assembly index calculation to produce pathway output in a temp folder
-    _, vo, pathway = calculate_assembly_index(mol,
-                                              dir_code=dir_code,
-                                              timeout=timeout,
-                                              debug=True,
-                                              strip_hydrogen=strip_hydrogen,
-                                              return_log_file=return_log_file,
+    _, vo, pathway = calculate_assembly_index(mol, dir_code=dir_code, timeout=timeout, debug=True,
+                                              strip_hydrogen=strip_hydrogen, return_log_file=return_log_file,
                                               exact=exact)
 
     # Locate the most recent assembly calculation folder
