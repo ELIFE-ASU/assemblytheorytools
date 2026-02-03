@@ -80,37 +80,13 @@ def run_command(command: str) -> Optional[bytes]:
     return result.stdout
 
 
-def joint_correction(mol: Union[nx.Graph, Chem.Mol, str], ass_index: int) -> int:
-    """
-    Correct the assembly index based on the number of components in the molecule or chemical system.
-
-    Parameters
-    ----------
-    mol : Union[nx.Graph, Chem.Mol, str]
-        The molecule or chemical system, which can be a NetworkX graph, an RDKit
-        object, or a file path to a .mol file.
-    ass_index : int
-        The initial assembly index.
-
-    Returns
-    -------
-    int
-        The corrected assembly index.
-    
-    Raises
-    ------
-    ValueError
-        If input type is not supported.
-    """
+def joint_correction(mol: Union[nx.Graph, Chem.Mol], ass_index: int) -> int:
     if isinstance(mol, nx.Graph):
         # Get the number of connected components in the graph
         num_components = nx.number_connected_components(mol)
     elif isinstance(mol, Chem.Mol):
         # Get the number of components in the RDKit molecular object
         num_components = len(Chem.rdmolops.GetMolFrags(mol=Chem.Mol(mol)))
-    elif ".mol" in mol:
-        # Get the number of components in the molecular object from the .mol file
-        num_components = len(Chem.rdmolops.GetMolFrags(mol=Chem.MolFromMolFile(mol)))
     else:
         num_components = None
         ValueError("Input not supported")
