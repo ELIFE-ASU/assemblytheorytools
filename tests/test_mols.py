@@ -63,38 +63,6 @@ def test_ai_graph():
     assert att.check_elements(virt_obj, ref_out)
 
 
-def test_ai_mol_file():
-    """
-    Test the calculation of the assembly index for a molecule from a file.
-
-    This function performs the following steps:
-    1. Converts a SMILES string to a molecule object.
-    2. Writes the molecule object to a mol file.
-    3. Calculates the assembly index of the molecule from the mol file.
-    4. Compares the calculated assembly index to the expected value.
-    5. Verifies that the InChI of the molecule matches the InChI from the output dictionary.
-    6. Removes the temporary mol file.
-
-    Asserts:
-        - The calculated assembly index is equal to 2.
-        - The InChI of the molecule matches the InChI from the output dictionary.
-    """
-    print(flush=True)
-    smi_in = "[H]C#C[H]"
-    # Convert the SMILES string to a molecule object
-    mol = att.smi_to_mol(smi_in)
-    # Write the molecule object to a mol file
-    mol_file = "tmp.mol"
-    att.write_v2k_mol_file(mol, mol_file)
-    # Calculate the assembly index of the molecule from the mol file
-    ai, virt_obj, _ = att.calculate_assembly_index(mol_file)
-    print(virt_obj, flush=True)
-    ref_out = ['InChI=1S/C2H2/c1-2/h1-2H', 'InChI=1S/CH4/h1H4']  # this is wrong
-    assert ai == 2
-    assert att.check_elements(virt_obj, ref_out)
-    os.remove(mol_file)
-
-
 def test_ai_mol():
     """
     Test the calculation of the assembly index for a molecule.
@@ -153,7 +121,7 @@ def test_ai_compare_graph_mol_file_mol():
         # Calculate the assembly index for the graph
         ai_graph, _, _ = att.calculate_assembly_index(graph)
         # Calculate the assembly index for the mol file
-        ai_mol_file, _, _ = att.calculate_assembly_index(mol_file)
+        ai_mol_file, _, _ = att.calculate_assembly_index(Chem.MolFromMolFile(mol_file))
         # Calculate the assembly index for the molecule object
         ai_mol, _, _ = att.calculate_assembly_index(mol)
 
@@ -196,7 +164,7 @@ def test_calculate_assembly_index_flag_for_logs():
     # test input of mol object to mol file, no return log file
     mol_file = "test_benzene.mol"
     att.write_v2k_mol_file(mol, mol_file)
-    ai_mol_file, _, _ = att.calculate_assembly_index(mol_file)
+    ai_mol_file, _, _ = att.calculate_assembly_index(Chem.MolFromMolFile(mol_file))
     assert ai == ai_mol_file, "Assembly index should be consistent across representations"
 
     # Clean up test file
@@ -232,7 +200,7 @@ def test_big_chungus():
     # Graph
     ai_graph, _, _ = att.calculate_assembly_index(graph, strip_hydrogen=True)
     # Mol file
-    ai_mol_file, _, _ = att.calculate_assembly_index(mol_file, strip_hydrogen=True)
+    ai_mol_file, _, _ = att.calculate_assembly_index(Chem.MolFromMolFile(mol_file), strip_hydrogen=True)
     # Mol
     ai_mol, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
     print(ai_graph, ai_mol_file, ai_mol, flush=True)
@@ -255,7 +223,7 @@ def test_taxol_file():
     """
     print(flush=True)
     mol_file = os.path.expanduser(os.path.abspath("tests/data/mol_files/taxol.mol"))
-    ai, _, _ = att.calculate_assembly_index(mol_file, timeout=15.0, strip_hydrogen=True)
+    ai, _, _ = att.calculate_assembly_index(Chem.MolFromMolFile(mol_file), timeout=15.0, strip_hydrogen=True)
     print(ai, flush=True)
     # actual value is 23, but for timeout this is ok
     assert ai <= 24
