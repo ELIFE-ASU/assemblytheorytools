@@ -2,9 +2,10 @@ import os
 
 import matplotlib.pyplot as plt
 import networkx as nx
+import pytest
+from rdkit import Chem
 
 import assemblytheorytools as att
-import pytest
 
 
 def test_readme_example():
@@ -277,10 +278,11 @@ def test_exact_flag():
     """
     print(flush=True)
     mol_file = os.path.expanduser(os.path.abspath("tests/data/mol_files/taxol.mol"))
-    ai, _, _ = att.calculate_assembly_index(mol_file,
-                                            timeout=10.0,
-                                            strip_hydrogen=True,
-                                            exact=True)
+    mol = Chem.MolFromMolFile(mol_file)
+    ai = att.calculate_assembly_index(mol,
+                                      timeout=10.0,
+                                      strip_hydrogen=True,
+                                      exact=True)[0]
     assert ai == -1
 
 
@@ -953,7 +955,7 @@ def test_joint_correction_does_not_affect_failed_assembly_index():
     joined = att.join_graphs([taxol, taxol, taxol])
 
     # exact mode and short timeout to enforce failure and return -1
-    ai = att.calculate_assembly_index(joined, exact=True, timeout=1)[0]
+    ai = att.calculate_assembly_index(joined, timeout=1, exact=True)[0]
 
     # prior to this fix, ai would be less than -1 due to joint_correction
     assert ai == -1
