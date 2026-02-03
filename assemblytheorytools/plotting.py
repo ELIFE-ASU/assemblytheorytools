@@ -1110,8 +1110,8 @@ def plot_assembly_circle(nodes: Sequence[Any],
     return fig, ax
 
 
-def scatter_plot(x: np.ndarray,
-                 y: np.ndarray,
+def scatter_plot(x: Union[np.ndarray, List],
+                 y: Union[np.ndarray, List],
                  xlab: str = 'x',
                  ylab: str = 'y',
                  figsize: Tuple[float, float] = (8, 5),
@@ -1120,15 +1120,15 @@ def scatter_plot(x: np.ndarray,
                  ) -> Tuple[Figure, Axes]:
     """
     Create a simple scatter plot with customizable styling.
-    
+
     Generates a basic 2D scatter plot with black markers and configurable
     transparency, labels, and sizing.
-    
+
     Parameters
     ----------
-    x : array-like
+    x : array-like or list
         X-coordinates of the points.
-    y : array-like
+    y : array-like or list
         Y-coordinates of the points.
     xlab : str, optional
         Label for the x-axis, by default 'x'.
@@ -1140,12 +1140,16 @@ def scatter_plot(x: np.ndarray,
         Font size for axis labels, by default 16.
     alpha : float, optional
         Transparency of markers (0=transparent, 1=opaque), by default 0.5.
-    
+
     Returns
     -------
     tuple of (matplotlib.figure.Figure, matplotlib.axes.Axes)
         Figure and axis objects containing the scatter plot.
     """
+    # Convert to numpy arrays if they aren't already
+    x = np.asarray(x)
+    y = np.asarray(y)
+
     # Create a figure and axis
     fig, ax = plt.subplots(figsize=figsize)
     ax.scatter(x, y, color='black', alpha=alpha, s=50)
@@ -1153,8 +1157,8 @@ def scatter_plot(x: np.ndarray,
     return fig, ax
 
 
-def scatter_plot_with_colorbar(x: np.ndarray,
-                               y: np.ndarray,
+def scatter_plot_with_colorbar(x: Union[np.ndarray, List],
+                               y: Union[np.ndarray, List],
                                xlab: str = 'x',
                                ylab: str = 'y',
                                cmap: str = 'viridis',
@@ -1163,16 +1167,16 @@ def scatter_plot_with_colorbar(x: np.ndarray,
                                ) -> Tuple[Figure, Axes]:
     """
     Create a density-colored scatter plot using kernel density estimation.
-    
+
     Generates a 2D scatter plot where points are colored based on their local
     density calculated via Gaussian kernel density estimation. High-density
     regions appear in warmer colors.
-    
+
     Parameters
     ----------
-    x : array-like
+    x : array-like or list
         X-coordinates of the points.
-    y : array-like
+    y : array-like or list
         Y-coordinates of the points.
     xlab : str, optional
         Label for the x-axis, by default 'x'.
@@ -1184,18 +1188,18 @@ def scatter_plot_with_colorbar(x: np.ndarray,
         Figure size in inches as (width, height), by default (8, 5).
     fontsize : int, optional
         Font size for axis labels, by default 16.
-    
+
     Returns
     -------
     tuple of (matplotlib.figure.Figure, matplotlib.axes.Axes)
         Figure and axis objects containing the density-colored scatter plot.
     """
-    # Create a figure and axis
-    fig, ax = plt.subplots(figsize=figsize)
-
     # Convert to numpy arrays if they aren't already
     x = np.asarray(x)
     y = np.asarray(y)
+
+    # Create a figure and axis
+    fig, ax = plt.subplots(figsize=figsize)
 
     # Stack the data and calculate the point density
     xy = np.vstack([x, y])
@@ -1213,17 +1217,13 @@ def scatter_plot_with_colorbar(x: np.ndarray,
                          s=50,
                          alpha=0.8)
 
-    # # Add colour bar
-    # cbar = plt.colorbar(scatter, ax=ax)
-    # cbar.set_label('Point Density', fontsize=fontsize)
-
     # Configure the plot
     ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
     return fig, ax
 
 
-def plot_contourf_full(x: np.ndarray,
-                       y: np.ndarray,
+def plot_contourf_full(x: Union[np.ndarray, List],
+                       y: Union[np.ndarray, List],
                        xlab: str,
                        ylab: str,
                        c_map: str = "Purples",
@@ -1239,10 +1239,9 @@ def plot_contourf_full(x: np.ndarray,
 
     Parameters
     ----------
-    x : array-like
-        One-dimensional numeric values for the first coordinate. Converted to a
-        NumPy array internally.
-    y : array-like
+    x : array-like or list
+        One-dimensional numeric values for the first coordinate.
+    y : array-like or list
         One-dimensional numeric values for the second coordinate. Must be the same
         length as ``x``.
     xlab : str
@@ -1258,48 +1257,31 @@ def plot_contourf_full(x: np.ndarray,
 
     Returns
     -------
-    fig : matplotlib.figure.Figure
-        Matplotlib Figure object containing the contour plot.
+    fig : matplotlib.figure.FigureMatplotlib Figure object containing the contour plot.
     ax : matplotlib.axes.Axes
         Matplotlib Axes object containing the contour plot.
-
-    Raises
-    ------
-    ValueError
-        If ``x`` or ``y`` is empty or if ``x`` and ``y`` have different lengths.
-    TypeError
-        If inputs cannot be converted to numeric arrays suitable for KDE.
-
-    Notes
-    -----
-    - The function estimates density on a square grid defined by the range of ``x``:
-      ``lims = [min(x), max(x)]`` and uses a grid resolution proportional to
-      ``x.size ** 0.6`` and ``y.size ** 0.6`` (complex step with ``numpy.mgrid``).
-    - Density is computed with ``scipy.stats.gaussian_kde`` on the stacked
-      coordinates and displayed with ``ax.contourf``.
-    - Axis limits are set to the same ``lims`` for both axes so the plot covers a
-      square domain; modify axis limits after receiving the returned ``ax`` if a
-      different extent is required.
     """
+    # Convert to numpy arrays if they aren't already
+    x = np.asarray(x)
+    y = np.asarray(y)
+
     fig, ax = plt.subplots(figsize=figsize)
     lims = [min(x), max(x)]
 
     k = gaussian_kde(np.vstack([x, y]))
     xi, yi = np.mgrid[lims[0]:lims[1]:x.size ** 0.6 * 1j, lims[0]:lims[1]:y.size ** 0.6 * 1j]
     zi = k(np.vstack([xi.flatten(), yi.flatten()]))
-    ax.contourf(xi, yi, zi.reshape(xi.shape), alpha=0.9, cmap=c_map)  # , levels=20)
+    ax.contourf(xi, yi, zi.reshape(xi.shape), alpha=0.9, cmap=c_map)
 
-    # set the axis limits
     ax.set_xlim(lims)
     ax.set_ylim(lims)
 
-    # add axis labels
     ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
     return fig, ax
 
 
-def plot_heatmap(x: np.ndarray | List,
-                 y: np.ndarray | List,
+def plot_heatmap(x: Union[np.ndarray, List],
+                 y: Union[np.ndarray, List],
                  xlab: str,
                  ylab: str,
                  c_map: str = 'viridis',
@@ -1316,9 +1298,9 @@ def plot_heatmap(x: np.ndarray | List,
 
     Parameters
     ----------
-    x : array-like
+    x : array-like or list
         X-coordinates of the points. Converted to a NumPy array internally.
-    y : array-like
+    y : array-like or list
         Y-coordinates of the points. Must be the same length as ``x``.
     xlab : str
         Label for the x-axis.
@@ -1341,25 +1323,11 @@ def plot_heatmap(x: np.ndarray | List,
         The Matplotlib Figure containing the heatmap.
     ax : matplotlib.axes.Axes
         The Matplotlib Axes containing the heatmap.
-
-    Raises
-    ------
-    ValueError
-        If ``x`` and ``y`` have different lengths or if either is empty.
-    TypeError
-        If inputs cannot be converted to numeric arrays.
-
-    Notes
-    -----
-    - The function computes ``heatmap_data, xedges, yedges = np.histogram2d(x, y, bins=(nbins, nbins))`` (or
-      with a tuple of bin counts) and displays the transposed heatmap via
-      ``ax.imshow(heatmap_data.T, origin='lower', extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]])`` so
-      that the image axes align with the original x/y coordinates.
-    - The colorbar reflects raw bin counts (not density-normalised values) unless
-      the caller normalises the histogram beforehand.
-    - For very large datasets consider reducing ``nbins`` for performance or using
-      2D kernel density estimation for a smoother field.
     """
+    # Convert to numpy arrays if they aren't already
+    x = np.asarray(x)
+    y = np.asarray(y)
+
     fig, ax = plt.subplots(figsize=figsize)
     # Create a 2D histogram of the data
     heatmap_data, xedges, yedges = np.histogram2d(x, y, bins=nbins)
@@ -1377,10 +1345,10 @@ def plot_heatmap(x: np.ndarray | List,
     return fig, ax
 
 
-def scatter_plot_3d_with_colorbar(x: np.ndarray,
-                                  y: np.ndarray,
-                                  z: np.ndarray,
-                                  c: Optional[np.ndarray] = None,
+def scatter_plot_3d_with_colorbar(x: Union[np.ndarray, List],
+                                  y: Union[np.ndarray, List],
+                                  z: Union[np.ndarray, List],
+                                  c: Optional[Union[np.ndarray, List]] = None,
                                   xlab: str = 'x',
                                   ylab: str = 'y',
                                   zlab: str = 'z',
@@ -1400,13 +1368,13 @@ def scatter_plot_3d_with_colorbar(x: np.ndarray,
 
     Parameters
     ----------
-    x : array-like
+    x : array-like or list
         X-coordinates of the points.
-    y : array-like
+    y : array-like or list
         Y-coordinates of the points.
-    z : array-like
+    z : array-like or list
         Z-coordinates of the points.
-    c : array-like or None, optional
+    c : array-like, list, or None, optional
         Scalar values used to determine point colors. If ``None`` (default), a Gaussian KDE
         is computed on the stacked (x, y, z) coordinates to estimate local point density.
     xlab : str, optional
@@ -1434,32 +1402,17 @@ def scatter_plot_3d_with_colorbar(x: np.ndarray,
         Matplotlib Figure containing the 3D scatter and colorbar.
     ax : matplotlib.axes._subplots.Axes3DSubplot
         Matplotlib 3D Axes containing the scatter plot.
-
-    Raises
-    ------
-    ValueError
-        If the coordinate arrays ``x``, ``y``, and ``z`` have different lengths or are empty.
-    TypeError
-        If inputs cannot be converted to numeric arrays.
-
-    Notes
-    -----
-    - When ``c`` is not provided the function computes a Gaussian KDE on the stacked
-      coordinates to produce a continuous density estimate; high-density regions will
-      therefore be shown with colors corresponding to larger ``c`` values.
-    - Points are optionally sorted by color/density so that high-density points are
-      plotted last, improving visibility.
-    - The function relies on Matplotlib's 3D toolkit; ensure a compatible backend is used
-      when rendering offscreen or in non-interactive environments.
     """
     # Create a figure and 3D axis
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111, projection='3d')
 
-    # Convert to numpy arrays
+    # Convert to numpy arrays if they aren't already
     x = np.asarray(x)
     y = np.asarray(y)
     z = np.asarray(z)
+    if c is not None:
+        c = np.asarray(c)
 
     # If no color values provided, calculate point density
     if c is None:
@@ -1498,8 +1451,8 @@ def scatter_plot_3d_with_colorbar(x: np.ndarray,
     return fig, ax
 
 
-def plot_hexbin_scatter(x: np.ndarray,
-                        y: np.ndarray,
+def plot_hexbin_scatter(x: Union[np.ndarray, List],
+                        y: Union[np.ndarray, List],
                         xlab: str = 'x',
                         ylab: str = 'y',
                         guide_line: bool = True,
@@ -1508,18 +1461,18 @@ def plot_hexbin_scatter(x: np.ndarray,
                         fontsize: int = 16,
                         bins_scale: Optional[str] = None) -> Tuple[Figure, Axes]:
     """
-    Create a hexbin scatter plot with optional y=x guide line and colorbar.
+    Create a hexbin scatter plot with optional y=x guideline and colorbar.
 
     Generates a hexagonal-binned 2D density plot using Matplotlib's ``hexbin`` to
     visualize the joint distribution of ``x`` and ``y``. Provides configurable
     colormap, bin scaling (e.g. ``'log'``), figure sizing and font sizing, and an
-    optional red dashed y=x guide line.
+    optional red dashed y=x guideline.
 
     Parameters
     ----------
-    x : array-like
+    x : array-like or list
         Data for the x-axis. Converted to a NumPy array internally.
-    y : array-like
+    y : array-like or list
         Data for the y-axis. Must be the same length as ``x``.
     xlab : str, optional
         Label for the x-axis. Default is ``'x'``.
@@ -1560,16 +1513,8 @@ def plot_hexbin_scatter(x: np.ndarray,
       ``'counts'`` by default; when ``bins_scale == 'log'``, zero-count hexagons are
       not shown on a log scale.
     - Setting ``gridsize`` larger increases spatial resolution but may increase plotting time.
-    - The optional guide line is drawn across the data range and helps to visually
+    - The optional guideline is drawn across the data range and helps to visually
       assess deviations from the identity relationship.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> x = np.random.normal(size=1000)
-    >>> y = x * 0.8 + np.random.normal(scale=0.5, size=1000)
-    >>> fig, ax = plot_hexbin_scatter(x, y, xlab='Observed', ylab='Predicted', guide_line=True,
-    ...                              cmap='plasma', gridsize=40, bins_scale='log')
     """
     # Convert to numpy arrays if they aren't already
     x = np.asarray(x)
@@ -1578,7 +1523,7 @@ def plot_hexbin_scatter(x: np.ndarray,
     # Create a figure and axis
     fig, ax = plt.subplots(figsize=figsize)
 
-    # Determine x and y axis limits
+    # Determine x and y-axis limits
     xlim = x.min(), x.max()
     ylim = y.min(), y.max()
 
@@ -1601,7 +1546,7 @@ def plot_hexbin_scatter(x: np.ndarray,
     return fig, ax
 
 
-def plot_histogram(data: np.ndarray,
+def plot_histogram(data: Union[np.ndarray, List],
                    bins: Union[int, Sequence[float]] = 30,
                    xlab: str = 'Values',
                    ylab: str = 'Frequency',
@@ -1617,8 +1562,8 @@ def plot_histogram(data: np.ndarray,
 
     Parameters
     ----------
-    data : array-like
-        One-dimensional numeric data to plot. May be any sequence or NumPy array.
+    data : array-like or list
+        One-dimensional numeric data to plot. Converted to a NumPy array internally.
     bins : int or sequence, optional
         Number of histogram bins (int) or explicit bin edges (sequence). Default is 30.
     xlab : str, optional
@@ -1626,7 +1571,7 @@ def plot_histogram(data: np.ndarray,
     ylab : str, optional
         Label for the y-axis. Default is ``'Frequency'``.
     figsize : tuple of float, optional
-        Figure size in inches as (width, height). Default is ``(8, 6)``.
+        Figure size in inches as (width, height). Default is ``(8, 5)``.
     fontsize : int, optional
         Font size used for axis labels and ticks. Default is 16.
 
@@ -1654,6 +1599,9 @@ def plot_histogram(data: np.ndarray,
     - For publication-quality figures, modify ``figsize`` and ``fontsize`` and
       save the returned ``fig`` with appropriate ``dpi`` and ``bbox_inches`` settings.
     """
+    # Convert to numpy array if it isn't already
+    data = np.asarray(data)
+
     fig, ax = plt.subplots(figsize=figsize)
     plt.hist(data,
              bins=bins,
@@ -1668,7 +1616,7 @@ def plot_histogram(data: np.ndarray,
     return fig, ax
 
 
-def plot_histogram_all_x(data: np.ndarray,
+def plot_histogram_all_x(data: Union[np.ndarray, List],
                          xlab: str = 'Number of Bonds',
                          ylab: str = 'Frequency',
                          figsize: Tuple[float, float] = (8, 5),
@@ -1683,9 +1631,8 @@ def plot_histogram_all_x(data: np.ndarray,
 
     Parameters
     ----------
-    data : array-like
-        One-dimensional numeric data to plot. Values will be converted to a NumPy
-        array; non-finite values will raise or be handled by NumPy's histogram.
+    data : array-like or list
+        One-dimensional numeric data to plot. Converted to a NumPy array internally.
     xlab : str, optional
         Label for the x-axis. Default is ``'Number of Bonds'``.
     ylab : str, optional
@@ -1693,32 +1640,34 @@ def plot_histogram_all_x(data: np.ndarray,
     figsize : tuple of float, optional
         Figure size in inches as (width, height). Default is ``(8, 5)``.
     fontsize : int, optional
-        Font size for axis labels and ticks. Default is ``16``.
+        Font size used for axis labels and ticks. Default is 16.
 
     Returns
     -------
     fig : matplotlib.figure.Figure
-        The Matplotlib Figure containing the histogram.
+        Matplotlib Figure object containing the histogram.
     ax : matplotlib.axes.Axes
-        The Matplotlib Axes containing the histogram.
+        Matplotlib Axes object containing the histogram.
 
     Raises
     ------
     ValueError
-        If `data` is empty or cannot be converted to a one-dimensional numeric array.
+        If ``data`` is empty or cannot be interpreted as numeric data.
     TypeError
         If input types prevent numeric conversion.
 
     Notes
     -----
     - Bins are constructed as ``range(floor(min(data)), ceil(max(data)) + 2)`` so
-      that every integer value in the observed range falls into a distinct bin
-      centered on that integer value.
+      that each integer gets its own bin.
     - Intended for discrete integer data; for continuous data use a fixed bin count
-      or custom bin edges.
+      or another binning strategy via ``plot_histogram``.
     - The function delegates plotting to Matplotlib and applies shared styling
-      (labels, layout, font sizes) consistent with other plotting utilities.
+      from ``ax_plot``.
     """
+    # Convert to numpy array if it isn't already
+    data = np.asarray(data)
+
     bins = range(int(data.min()), int(data.max()) + 2)
     fig, ax = plot_histogram(data,
                              bins=bins,
@@ -1729,8 +1678,8 @@ def plot_histogram_all_x(data: np.ndarray,
     return fig, ax
 
 
-def plot_histogram_compare(data1: np.ndarray,
-                           data2: np.ndarray,
+def plot_histogram_compare(data1: Union[np.ndarray, List],
+                           data2: Union[np.ndarray, List],
                            labels: Sequence[str],
                            bins: Union[int, Sequence[float]] = 30,
                            xlab: str = 'Values',
@@ -1748,22 +1697,20 @@ def plot_histogram_compare(data1: np.ndarray,
 
     Parameters
     ----------
-    data1 : array-like
-        First dataset to plot. Can be any sequence or NumPy array of numeric values.
-    data2 : array-like
-        Second dataset to plot. Must be comparable in scale to `data1`.
+    data1 : array-like or list
+        First dataset for comparison. Converted to a NumPy array internally.
+    data2 : array-like or list
+        Second dataset for comparison. Converted to a NumPy array internally.
     labels : sequence of str
-        Two-item sequence providing labels for the datasets used in the legend.
+        Legend labels for ``data1`` and ``data2``, respectively.
     bins : int or sequence, optional
-        Number of bins (int) or a bin-edge sequence to be used for both histograms.
-        Default is 30.
+        Number of histogram bins (int) or explicit bin edges (sequence). Default is 30.
     xlab : str, optional
         Label for the x-axis. Default is ``'Values'``.
     ylab : str, optional
         Label for the y-axis. Default is ``'Frequency'``.
     y_scale : {str, None}, optional
-        Vertical scale for the y-axis. Common value: ``'log'`` to use logarithmic
-        scaling; if ``None``, linear scaling is used. Default is ``'log'``.
+        Y-axis scale; use ``'log'`` for logarithmic scale. Default is ``'log'``.
     figsize : tuple of float, optional
         Figure size in inches as (width, height). Default is ``(8, 5)``.
     fontsize : int, optional
@@ -1772,43 +1719,42 @@ def plot_histogram_compare(data1: np.ndarray,
     Returns
     -------
     fig : matplotlib.figure.Figure
-        The Matplotlib Figure containing the histograms.
+        Matplotlib Figure object containing the histograms.
     ax : matplotlib.axes.Axes
-        The Matplotlib Axes containing the histograms.
+        Matplotlib Axes object containing the histograms.
 
     Raises
     ------
     ValueError
-        If `labels` does not contain exactly two entries, or if `bins` is invalid
-        (for example a non-positive integer).
+        If ``data1`` or ``data2`` are empty, or if ``labels`` does not contain two strings.
     TypeError
-        If input datasets are not array-like or cannot be converted to numeric arrays.
+        If inputs cannot be converted to numeric arrays.
 
     Notes
     -----
     - When ``y_scale == 'log'``, care should be taken with zero or negative bin
-      counts; Matplotlib will ignore or mask non-positive values on a log scale.
+      counts, which cannot be displayed on a logarithmic axis.
     - Both datasets are plotted on the same axes and share the same binning to
-      ensure meaningful visual comparison.
+      ensure a direct comparison.
     - For reproducible styling, pass fully defined parameters (bins, figsize, fontsize).
     """
+    # Convert to numpy arrays if they aren't already
+    data1 = np.asarray(data1)
+    data2 = np.asarray(data2)
+
     fig, ax = plt.subplots(figsize=figsize)
     plt.hist(data1, bins=bins, alpha=0.8, label=labels[0])
     plt.hist(data2, bins=bins, alpha=0.8, label=labels[1])
     plt.legend()
 
     if y_scale is not None:
-        # Find the nearest order of magnitude to the maximum count
-        order_of_magnitude = 10 ** np.floor(np.log10(max(max(data1), max(data2))))
-        # Set the y-axis limit to the next order of magnitude
-        ax.set_ylim(1, order_of_magnitude * 10)
-        ax.set_yscale('log')
+        ax.set_yscale(y_scale)
 
     ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
     return fig, ax
 
 
-def plot_kde(data: np.ndarray,
+def plot_kde(data: Union[np.ndarray, List],
              bandwidth: Optional[float] = None,
              grid_size: int = 1000,
              y_scale: Optional[str] = 'log',
@@ -1829,58 +1775,49 @@ def plot_kde(data: np.ndarray,
 
     Parameters
     ----------
-    data : array-like
-        One-dimensional input data for KDE. Must contain at least two distinct values.
+    data : array-like or list
+        One-dimensional numeric data to plot. Converted to a NumPy array internally.
     bandwidth : float or None, optional
-        Bandwidth selection for the KDE. Passed to `gaussian_kde` as `bw_method`.
-        If None, the default automatic method is used. Default is None.
+        The bandwidth for the KDE. If None, SciPy's default is used.
     grid_size : int, optional
-        Number of points in the evaluation grid used to plot the KDE. Must be >= 2.
-        Default is 1000.
+        Number of points in the grid for evaluating the KDE. Default is 1000.
     y_scale : {str, None}, optional
-        Vertical scale for the plotted y-axis. Common values: ``'log'`` or ``None``.
-        If ``'log'``, the y-axis will be set to logarithmic scale. Default is ``'log'``.
+        Y-axis scale; use 'log' for logarithmic scale. Default is 'log'.
     xlab : str, optional
-        X-axis label. Default is ``"Value"``.
+        Label for the x-axis. Default is "Value".
     ylab : str, optional
-        Y-axis label. Default is ``"Frequency"``.
+        Label for the y-axis. Default is "Frequency".
     fig : matplotlib.figure.Figure or None, optional
-        If provided, the KDE will be drawn into this figure. If ``None``, a new
-        figure is created. Default is ``None``.
+        Existing Figure to plot on. If None, a new one is created.
     ax : matplotlib.axes.Axes or None, optional
-        If provided, the KDE will be drawn into this axes. If ``None``, a new
-        axes is created (on ``fig`` or a new figure). Default is ``None``.
+        Existing Axes to plot on. If None, a new one is created.
     fig_size : tuple of float, optional
-        Size of the figure to create when ``fig`` is ``None``. Given as
-        (width, height) in inches. Default is ``(8, 5)``.
+        Size of the figure to create if `fig` is None. Default is (8, 5).
     fontsize : int, optional
-        Font size used for axis labels and tick labels. Default is 16.
+        Font size for axis labels. Default is 16.
 
     Returns
     -------
     fig : matplotlib.figure.Figure
-        The Matplotlib Figure containing the plot.
+        The Matplotlib Figure object.
     ax : matplotlib.axes.Axes
-        The Matplotlib Axes containing the KDE plot.
+        The Matplotlib Axes object.
 
     Raises
     ------
     ValueError
-        If ``data`` is empty or contains fewer than two unique values, or if
-        ``grid_size`` < 2.
+        If `data` is empty.
     TypeError
-        If inputs are of incorrect types that prevent numeric conversion.
+        If `data` cannot be converted to a numeric array.
 
     Notes
     -----
     - The function converts the KDE output (a probability density) to expected
-      counts by multiplying the density by the number of samples and the grid
-      spacing: counts = density * n_samples * dx. This makes the y-axis directly
-      interpretable as expected frequency per bin width.
+      counts for plotting, making the y-axis more interpretable.
     - Bandwidth behaviour follows SciPy's ``gaussian_kde`` semantics. Passing a
-      scalar ``bandwidth`` is equivalent to using it as the ``bw_method`` argument.
+      value overrides the default estimator (e.g., 'scott' or 'silverman').
     - When ``y_scale`` is set to ``'log'``, zero or negative plotted values may
-      not be visible; small positive clipping may be applied by the plotting routine.
+      not be visible.
     """
     if fig is None or ax is None:
         fig, ax = plt.subplots(figsize=fig_size)
@@ -1901,11 +1838,7 @@ def plot_kde(data: np.ndarray,
 
     ax.set_xlim(x_min, x_max)
     if y_scale is not None:
-        # Find the nearest order of magnitude to the maximum count
-        order_of_magnitude = 10 ** np.floor(np.log10(max(counts)))
-        # Set the y-axis limit to the next order of magnitude
-        ax.set_ylim(1, order_of_magnitude * 10)
-        ax.set_yscale('log')
+        ax.set_yscale(y_scale)
 
     # Overlay KDE scaled to counts
     ax.plot(xs, counts, color='red', lw=2)
