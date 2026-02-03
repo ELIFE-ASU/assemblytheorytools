@@ -3,28 +3,32 @@ import random
 import tempfile
 from collections import defaultdict
 from html import escape
-from typing import List, Optional, Sequence, Dict, Tuple, Any
+from typing import List, Optional, Dict, Tuple, Any, Union, Sequence
 
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 import networkx as nx
 import numpy as np
 from IPython.display import HTML
+from PIL import Image
+from ase import Atoms
 from ase.visualize.plot import plot_atoms
-from matplotlib import colormaps, colors, cm
-from matplotlib.cm import ScalarMappable
+from matplotlib import colormaps, colors
 from matplotlib.axes import Axes
+from matplotlib.cm import ScalarMappable
 from matplotlib.figure import Figure
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from matplotlib.patches import Circle
 import matplotlib.ticker as mticker
 from pyvis.network import Network
-from rdkit.Chem import Draw
+from rdkit import Chem
+from rdkit.Chem import Draw, rdFMCS
 from scipy.stats import gaussian_kde
 
-import CFG
 from .tools_atoms import mol_to_atoms
+from .tools_data import pubchem_smi_to_name, enumerate_stereoisomers_shortest
 from .tools_graph import relabel_digraph, nx_to_smi
-from .tools_mol import smi_to_mol
+from .tools_mol import smi_to_mol, standardize_mol
 
 # set the plot axis
 plt.rcParams['axes.linewidth'] = 2.0
@@ -353,37 +357,47 @@ def plot_interactive_graph(graph: nx.Graph,
 def plot_digraph_metro(digraph: nx.DiGraph,
                        filename: str = 'metro',
                        steps: bool = False,
-                       vo_smiles: bool = True) -> None:
+                       vo_str: bool = True,
+                       vo_names: str | None = None) -> None:
     """
-    Visualize a directed graph in metro/subway map style using dagviz.
-    
-    Creates a hierarchical visualization of a directed graph resembling a
-    metro/subway map. Optionally labels nodes with topological steps or
-    SMILES strings for molecular graphs.
-    
+    Render a directed acyclic graph (DAG) in a metro-style layout and save as SVG and PNG.
+
+    This function visualizes a directed acyclic graph (DAG) using the `dagviz` library's
+    metro-style layout. The graph can be optionally relabeled with topological steps or
+    virtual object (VO) labels. The output is saved as both an SVG and a PNG file.
+
     Parameters
     ----------
     digraph : networkx.DiGraph
-        Directed graph to visualize.
+        The directed acyclic graph to be visualized.
     filename : str, optional
-        Output filename (without extension) for the SVG and PNG files,
-        by default 'metro'.
+        The base name for the output files (without extension). Defaults to 'metro'.
     steps : bool, optional
-        If True, relabels nodes with their topological generation step,
-        by default False.
-    vo_smiles : bool, optional
-        If True, labels nodes with SMILES representations from 'vo' attribute,
-        by default True.
-    
-    Returns
-    -------
-    None
-        Saves visualization to SVG and PNG files.
-    
+        If True, relabel the graph nodes with their topological step. Defaults to False.
+    vo_str : bool, optional
+        If True, convert the 'vo' attribute of nodes to string labels. Defaults to True.
+    vo_names : str, optional
+        If True, attempt to retrieve human-readable names for virtual objects using
+        `pubchem_smi_to_name`. Defaults to None.
+
     Raises
     ------
     ImportError
-        If dagviz or cairosvg packages are not installed.
+        If the required `dagviz` or `cairosvg` libraries are not installed.
+    ValueError
+        If a node's 'vo' attribute is of an unsupported type.
+
+    Notes
+    -----
+    - The `dagviz` library is used for rendering the graph in a metro-style layout.
+    - The `cairosvg` library is used to convert the SVG output to PNG format.
+    - Node labels are determined based on the 'vo' attribute, which can be a string,
+      a NetworkX graph, or an RDKit molecule object.
+
+    Returns
+    -------
+    None
+        The function saves the graph visualization to files and does not return any value.
     """
     try:
         import cairosvg
@@ -398,15 +412,26 @@ def plot_digraph_metro(digraph: nx.DiGraph,
         # Relabel the graph nodes with their topological step if requested
         digraph = relabel_digraph(digraph)
 
-    if vo_smiles:
-        try:
-            for node in digraph.nodes:
-                # set the node label to the smiles
-                digraph.nodes[node]['label'] = nx_to_smi(digraph.nodes[node]['vo'],
-                                                         add_hydrogens=False,
-                                                         sanitize=False)
-        except:
-            pass
+    if vo_str:
+        for node in digraph.nodes:
+            d_type = type(digraph.nodes[node]['vo'])
+            if d_type == str:
+                lab = digraph.nodes[node]['vo']
+            elif d_type == nx.Graph:
+                lab = nx_to_smi(digraph.nodes[node]['vo'],
+                                add_hydrogens=False,
+                                sanitize=True)
+            elif d_type == Chem.Mol:
+                lab = Chem.MolToSmiles(digraph.nodes[node]['vo'])
+            else:
+                raise ValueError(f"Unsupported virtual object type: {d_type}")
+
+            if vo_names:
+                lab = enumerate_stereoisomers_shortest(Chem.MolFromSmiles(lab), prefer=vo_names)
+                lab = pubchem_smi_to_name(lab, prefer=vo_names)
+                if lab is None:
+                    lab = ""
+            digraph.nodes[node]['label'] = lab
 
     # Configure the metro-style rendering backend
     backend = dagviz.style.metro.svg_renderer(dagviz.style.metro.StyleConfig(node_stroke="black"))
@@ -429,7 +454,10 @@ def plot_pathway(graph: nx.DiGraph,
                  plot_type: str = 'mol',
                  arrow_style: str = '1',
                  layout_style: str = 'crossmin_long',
-                 frame_on: bool = True) -> tuple[Figure, Axes]:
+                 frame_on: bool = True,
+                 font_size: int = 11,
+                 arrow_color: str = '#264f70',
+                 plt_arrow_style='->') -> tuple[Figure, Axes]:
     """
     Visualize a directed acyclic graph as a pathway with customizable layout.
     
@@ -457,7 +485,13 @@ def plot_pathway(graph: nx.DiGraph,
         multipartite, by default 'crossmin_long'.
     frame_on : bool, optional
         If True, displays axis frame, by default True.
-    
+    font_size : int, optional
+        Font size for string assembly paths, by default 11.
+    arrow_color : str, optional
+        Color for arrows in hex format, by default '#264f70'.
+    plt_arrow_style : str or ArrowStyle object from matplotlib.patches, optional
+        Style of the arrowheads in the plot, by default '->'.
+
     Returns
     -------
     tuple of (matplotlib.figure.Figure, matplotlib.axes.Axes)
@@ -468,6 +502,21 @@ def plot_pathway(graph: nx.DiGraph,
     ValueError
         If arrow_style is not '1' or '2'.
     """
+
+    # If the input is a graph check if it contains molecule graphs and convert to smiles
+    if plot_type == 'mol':
+        for node in graph.nodes:
+            node_graph = graph.nodes[node]['vo']
+            if isinstance(node_graph, nx.Graph):
+                try:
+                    smi = nx_to_smi(node_graph, add_hydrogens=False, sanitize=False)
+                    graph.nodes[node]['vo'] = smi
+                except:
+                    plot_type = 'graph'
+    elif plot_type == "string":
+        if show_icons:
+            node_color = 'white'
+
     fig, ax = plt.subplots(figsize=fig_size)
 
     for layer, nodes in enumerate(nx.topological_generations(graph)):
@@ -484,9 +533,11 @@ def plot_pathway(graph: nx.DiGraph,
         pos = nx.multipartite_layout(graph, subset_key="layer")
 
     if arrow_style == '1':
-        edge_color = 'white'
+        edge_color1 = 'white'
+        edge_color = arrow_color
     elif arrow_style == '2':
-        edge_color = 'grey'
+        edge_color1 = 'grey'
+        edge_color = 'grey'  # Unused
     else:
         raise ValueError("Invalid arrow style. Use '1' or '2'.")
 
@@ -497,14 +548,14 @@ def plot_pathway(graph: nx.DiGraph,
                      node_size=1000,
                      node_color=node_color,
                      connectionstyle="arc3,rad=0.1",
-                     edge_color=edge_color,
+                     edge_color=edge_color1,
                      arrows=True,
                      arrowstyle="->",
                      width=2.0)
 
     if arrow_style == '1':
         if show_icons:
-            arrow_margin = 50
+            arrow_margin = 70
         else:
             arrow_margin = 20
 
@@ -534,9 +585,9 @@ def plot_pathway(graph: nx.DiGraph,
                 edgelist=[edge],
                 ax=ax,
                 arrows=True,
-                arrowstyle="->",
+                arrowstyle=plt_arrow_style,
                 width=2.5,
-                edge_color="grey",
+                edge_color=edge_color,
                 connectionstyle=f"arc3,rad={rad}",
                 min_target_margin=arrow_margin,
             )
@@ -594,8 +645,27 @@ def plot_pathway(graph: nx.DiGraph,
                 imagebox = OffsetImage(img, zoom=0.02)
                 ab = AnnotationBbox(imagebox, (pos[node][0], pos[node][1]), frameon=frame_on)
                 ax.add_artist(ab)
+        elif plot_type == "string":
+            for node in graph.nodes:
+                s = graph.nodes[node]["vo"]
+                ax.text(pos[node][0],
+                        pos[node][1],
+                        s,
+                        fontsize=font_size,
+                        ha='center',
+                        va='center',
+                        bbox=dict(boxstyle='round,pad=0.5',
+                                  facecolor='white',
+                                  edgecolor='white',
+                                  linewidth=1))
+
     fig.tight_layout()
     ax.axis('off')
+    # scatter the positions to fix the view
+    ax.scatter([pos[node][0] for node in graph.nodes()],
+               [pos[node][1] for node in graph.nodes()],
+               s=0, color='red')
+
     return fig, ax
 
 
@@ -636,7 +706,7 @@ def _plot_directed_network(nodes: List[str],
                            x: np.ndarray,
                            y: np.ndarray,
                            max_ai: int,
-                           labels: bool, # can be bool or List[str]
+                           labels: bool,  # can be bool or List[str]
                            node_size: float,
                            arrow_size: float,
                            node_color: str,
@@ -829,18 +899,18 @@ def _plot_directed_network(nodes: List[str],
     return fig, ax
 
 
-def plot_assembly_circle(nodes,
-                         adj_matrix,
-                         assembly_indices,
-                         labels=None,
-                         node_size=1000,
-                         arrow_size=80,
-                         node_color='#264f70',
+def plot_assembly_circle(nodes: Sequence[Any],
+                         adj_matrix: np.ndarray,
+                         assembly_indices: Sequence[int],
+                         labels: Optional[Union[bool, Sequence[str]]] = None,
+                         node_size: float = 1000,
+                         arrow_size: float = 80,
+                         node_color: Union[str, Sequence[str]] = '#264f70',
                          node_edge_color: str = "black",
                          node_linewidth: float = 2.5,
-                         edge_color='Grey',
-                         arrow_alpha=1.0,
-                         fig_size=10,
+                         edge_color: Union[str, Sequence[str]] = 'Grey',
+                         arrow_alpha: float = 1.0,
+                         fig_size: Union[float, Tuple[float, float]] = 10,
                          filename: Optional[str] = None,
                          dpi: int = 300,
                          fig: Optional[plt.Figure] = None,
@@ -852,48 +922,101 @@ def plot_assembly_circle(nodes,
                          spacing_mode: str = "linear",
                          spacing_hyperbolic_factor: float = 0.4
                          ):
-    '''
-    Here is a function to plot a graph, where objects are displayed in concentric
-    circles according to their assembly index.
 
-        Parameters:
-        ----------
-        nodes : list
-            A list of nodes in the network that are to be visualized.
+    """
+    Nodes are placed on concentric rings whose radius is proportional to their
+    assembly index. Edges between nodes are rendered as curved directed arrows.
+    Optional per-node labels, icons (molecule / atoms / graph), colormap/norm
+    support and file saving are provided. The function delegates low-level
+    drawing to an internal routine and may compute missing inputs (assembly
+    indices or adjacency) if they are not supplied.
 
-        assembly_indices (OPTIONAL): list or numpy.ndarray
-            If not provided, they will be calculated for strings.
+    Parameters
+    ----------
+    nodes : sequence
+        Sequence of node identifiers (hashable). Order is used when `adj_matrix`
+        or `assembly_indices` correspond by index.
+    adj_matrix : array-like
+        Square adjacency matrix (shape ``[n_nodes, n_nodes]``) indicating directed
+        edges. Non-zero entries denote an edge from row index to column index.
+    assembly_indices : array-like of int
+        Assembly index for each node (lower values are closer to the center).
+    labels : bool or sequence, optional
+        If a boolean, ``True`` displays node identifiers as labels, ``False``
+        hides labels. If a sequence, per-node label strings to render; empty or
+        ``None`` entries suppress text for that node.
+    node_size : float, optional
+        Marker size for nodes. Default is ``1000``.
+    arrow_size : float, optional
+        Arrowhead size for directed edges. Default is ``80``.
+    node_color : str or sequence, optional
+        Color for nodes; may be a single color string or a sequence of colors
+        (one per node). Default is ``'#264f70'``.
+    node_edge_color : str, optional
+        Color for node borders. Default is ``'black'``.
+    node_linewidth : float, optional
+        Line width for node borders. Default is ``2.5``.
+    edge_color : str or sequence, optional
+        Color for edges. Default is ``'Grey'``.
+    arrow_alpha : float, optional
+        Alpha/transparency for arrows (0.0 - 1.0). Default is ``1.0``.
+    fig_size : float or tuple, optional
+        Size of the figure in inches. If a single float is provided it is used
+        for both width and height. Default is ``10``.
+    filename : str or None, optional
+        If provided, save the rendered figure to this path (PNG). Default is
+        ``None`` (no file saved).
+    dpi : int, optional
+        Resolution in dots-per-inch when saving. Default is ``300``.
+    fig : matplotlib.figure.Figure or None, optional
+        Figure to draw onto. If ``None`` a new figure is created.
+    ax : matplotlib.axes.Axes or None, optional
+        Axes to draw onto. If ``None`` a new axes is created.
+    cmap : matplotlib.colors.Colormap or str or None, optional
+        Colormap to map per-node values if node colors are provided as numeric
+        values. If provided together with ``norm``, a colorbar may be added.
+    norm : matplotlib.colors.Normalize or None, optional
+        Normalization instance used with ``cmap`` for color scaling.
+    colorbar_label : str or None, optional
+        Label for the colorbar when a colormap and norm are supplied.
+    save_kwargs : dict or None, optional
+        Extra keyword arguments forwarded to ``Figure.savefig`` when ``filename``
+        is provided (e.g. ``bbox_inches``).
+    spacing_mode: "linear" (radii = ai+1) or "hyperbolic" (radii = (ai+1) + spacing_hyperbolic_factor * sinh(ai+1))
+    spacing_hyperbolic_factor : float. Multiplier for the sinh term in hyperbolic spacing (default 0.4).
 
-        adj_matrix : numpy.ndarray
-        A square adjacency matrix representing the relationships between nodes.
-        If adj_matrix[i, j] >= 1, it signifies that node i points to node j.
-        This argument is required.
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Matplotlib Figure that contains the rendered assembly circle plot.
+    ax : matplotlib.axes.Axes
+        Matplotlib Axes used for the drawing.
 
-        labels : list
-            A list of labels corresponding to the nodes. These labels can be used for debugging or display purposes.
+    Raises
+    ------
+    ValueError
+        If provided arrays (e.g. ``nodes``, ``adj_matrix``, ``assembly_indices``)
+        have inconsistent lengths or if ``adj_matrix`` is not square when supplied.
+    TypeError
+        If inputs cannot be interpreted as the expected types (e.g. numeric
+        assembly indices or a 2D adjacency array).
 
-        node_size : float
-
-        arrow_size (OPTIONAL): float
-
-        node_color (OPTIONAL): str or list
-
-        edge_color (OPTIONAL): str or list
-
-        fig_size (OPTIONAL): float
-
-        filename (OPTIONAL): str
-
-        spacing_mode: "linear" (radii = ai+1) or "hyperbolic" (radii = (ai+1) + spacing_hyperbolic_factor * sinh(ai+1))
-        spacing_hyperbolic_factor : float. Multiplier for the sinh term in hyperbolic spacing (default 0.4).
-    '''
-    if adj_matrix is None:
-        raise ValueError("adj_matrix must be provided to plot_assembly_circle in this optimized variant.")
+    Notes
+    -----
+    - Node placement: nodes with the same assembly index share the same radius and
+      are arranged by angle. Building-block nodes (minimum assembly index) are
+      evenly spaced around the innermost circle; other nodes inherit an average
+      angle from their parents via adjacency propagation.
+    - Edges are rendered as curved arcs; curvature is chosen heuristically from
+      relative node positions to improve readability.
+    - When ``cmap`` and ``norm`` are provided the function adds a colorbar using
+      the provided label and places it on the figure prior to optional saving.
+    - The function may call internal helpers (e.g. a directed-network plotting
+      routine) to perform low-level drawing; modify the returned ``ax`` after
+      calling if custom axis limits or annotations are required.
+    """
 
     n_nodes = len(nodes)
-
-    if assembly_indices is None:
-        raise ValueError("assembly_indices must be provided.")
 
     angles = np.full(n_nodes, np.nan)
     max_ai = int(max(assembly_indices))
@@ -1054,25 +1177,25 @@ def plot_assembly_circle(nodes,
     return fig, ax
 
 
-def scatter_plot(x,
-                 y,
-                 xlab='x',
-                 ylab='y',
-                 figsize=(8, 5),
-                 fontsize=16,
-                 alpha=0.5,
-                 ):
+def scatter_plot(x: Union[np.ndarray, List],
+                 y: Union[np.ndarray, List],
+                 xlab: str = 'x',
+                 ylab: str = 'y',
+                 figsize: Tuple[float, float] = (8, 5),
+                 fontsize: int = 16,
+                 alpha: float = 0.5,
+                 ) -> Tuple[Figure, Axes]:
     """
     Create a simple scatter plot with customizable styling.
-    
+
     Generates a basic 2D scatter plot with black markers and configurable
     transparency, labels, and sizing.
-    
+
     Parameters
     ----------
-    x : array-like
+    x : array-like or list
         X-coordinates of the points.
-    y : array-like
+    y : array-like or list
         Y-coordinates of the points.
     xlab : str, optional
         Label for the x-axis, by default 'x'.
@@ -1084,12 +1207,16 @@ def scatter_plot(x,
         Font size for axis labels, by default 16.
     alpha : float, optional
         Transparency of markers (0=transparent, 1=opaque), by default 0.5.
-    
+
     Returns
     -------
     tuple of (matplotlib.figure.Figure, matplotlib.axes.Axes)
         Figure and axis objects containing the scatter plot.
     """
+    # Convert to numpy arrays if they aren't already
+    x = np.asarray(x)
+    y = np.asarray(y)
+
     # Create a figure and axis
     fig, ax = plt.subplots(figsize=figsize)
     ax.scatter(x, y, color='black', alpha=alpha, s=50)
@@ -1097,26 +1224,26 @@ def scatter_plot(x,
     return fig, ax
 
 
-def scatter_plot_with_colorbar(x,
-                               y,
-                               xlab='x',
-                               ylab='y',
-                               cmap='viridis',
-                               figsize=(8, 5),
-                               fontsize=16,
-                               ):
+def scatter_plot_with_colorbar(x: Union[np.ndarray, List],
+                               y: Union[np.ndarray, List],
+                               xlab: str = 'x',
+                               ylab: str = 'y',
+                               cmap: str = 'viridis',
+                               figsize: Tuple[float, float] = (8, 5),
+                               fontsize: int = 16,
+                               ) -> Tuple[Figure, Axes]:
     """
     Create a density-colored scatter plot using kernel density estimation.
-    
+
     Generates a 2D scatter plot where points are colored based on their local
     density calculated via Gaussian kernel density estimation. High-density
     regions appear in warmer colors.
-    
+
     Parameters
     ----------
-    x : array-like
+    x : array-like or list
         X-coordinates of the points.
-    y : array-like
+    y : array-like or list
         Y-coordinates of the points.
     xlab : str, optional
         Label for the x-axis, by default 'x'.
@@ -1128,18 +1255,18 @@ def scatter_plot_with_colorbar(x,
         Figure size in inches as (width, height), by default (8, 5).
     fontsize : int, optional
         Font size for axis labels, by default 16.
-    
+
     Returns
     -------
     tuple of (matplotlib.figure.Figure, matplotlib.axes.Axes)
         Figure and axis objects containing the density-colored scatter plot.
     """
-    # Create a figure and axis
-    fig, ax = plt.subplots(figsize=figsize)
-
     # Convert to numpy arrays if they aren't already
     x = np.asarray(x)
     y = np.asarray(y)
+
+    # Create a figure and axis
+    fig, ax = plt.subplots(figsize=figsize)
 
     # Stack the data and calculate the point density
     xy = np.vstack([x, y])
@@ -1157,50 +1284,120 @@ def scatter_plot_with_colorbar(x,
                          s=50,
                          alpha=0.8)
 
-    # # Add colour bar
-    # cbar = plt.colorbar(scatter, ax=ax)
-    # cbar.set_label('Point Density', fontsize=fontsize)
-
     # Configure the plot
     ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
     return fig, ax
 
 
-def plot_contourf_full(x,
-                       y,
-                       xlab,
-                       ylab,
-                       c_map="Purples",
-                       figsize=(8, 5),
-                       fontsize=16):
+def plot_contourf_full(x: Union[np.ndarray, List],
+                       y: Union[np.ndarray, List],
+                       xlab: str,
+                       ylab: str,
+                       c_map: str = "Purples",
+                       figsize: Tuple[float, float] = (8, 5),
+                       fontsize: int = 16) -> Tuple[Figure, Axes]:
+    """
+    Create a filled contour plot of the joint density estimated from paired data.
+
+    Compute a Gaussian kernel density estimate (KDE) over a square grid spanning the
+    range of the provided `x` values and render the result with Matplotlib's
+    ``contourf``. Axis limits are set to the same range to preserve aspect and the
+    function applies the package's standard axis styling helper.
+
+    Parameters
+    ----------
+    x : array-like or list
+        One-dimensional numeric values for the first coordinate.
+    y : array-like or list
+        One-dimensional numeric values for the second coordinate. Must be the same
+        length as ``x``.
+    xlab : str
+        Label for the x-axis.
+    ylab : str
+        Label for the y-axis.
+    c_map : str or matplotlib.colors.Colormap, optional
+        Colormap used for the filled contours. Default is ``"Purples"``.
+    figsize : tuple of float, optional
+        Figure size in inches as ``(width, height)``. Default is ``(8, 5)``.
+    fontsize : int, optional
+        Base font size for axis labels and ticks. Default is ``16``.
+
+    Returns
+    -------
+    fig : matplotlib.figure.FigureMatplotlib Figure object containing the contour plot.
+    ax : matplotlib.axes.Axes
+        Matplotlib Axes object containing the contour plot.
+    """
+    # Convert to numpy arrays if they aren't already
+    x = np.asarray(x)
+    y = np.asarray(y)
+
     fig, ax = plt.subplots(figsize=figsize)
     lims = [min(x), max(x)]
 
     k = gaussian_kde(np.vstack([x, y]))
     xi, yi = np.mgrid[lims[0]:lims[1]:x.size ** 0.6 * 1j, lims[0]:lims[1]:y.size ** 0.6 * 1j]
     zi = k(np.vstack([xi.flatten(), yi.flatten()]))
-    ax.contourf(xi, yi, zi.reshape(xi.shape), alpha=0.9, cmap=c_map)  # , levels=20)
+    ax.contourf(xi, yi, zi.reshape(xi.shape), alpha=0.9, cmap=c_map)
 
-    # set the axis limits
     ax.set_xlim(lims)
     ax.set_ylim(lims)
 
-    # add axis labels
     ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
     return fig, ax
 
 
-def plot_heatmap(x,
-                 y,
-                 xlab,
-                 ylab,
-                 c_map='viridis',
-                 nbins=50,
-                 figsize=(8, 5),
-                 fontsize=16):
+def plot_heatmap(x: Union[np.ndarray, List],
+                 y: Union[np.ndarray, List],
+                 xlab: str,
+                 ylab: str,
+                 c_map: str = 'viridis',
+                 nbins: int | Tuple[int, int] = 50,
+                 figsize: Tuple[float, float] = (8, 5),
+                 fontsize: int = 16) -> Tuple[Figure, Axes]:
+    """
+    Plot a 2D heatmap (binned density) of paired x, y data using a histogram and imshow.
+
+    Creates a 2D histogram of the input coordinates with configurable binning and
+    renders the result with Matplotlib's ``imshow``. A colorbar indicating point
+    density is attached and axis labels and styling are applied via the package's
+    plotting helpers.
+
+    Parameters
+    ----------
+    x : array-like or list
+        X-coordinates of the points. Converted to a NumPy array internally.
+    y : array-like or list
+        Y-coordinates of the points. Must be the same length as ``x``.
+    xlab : str
+        Label for the x-axis.
+    ylab : str
+        Label for the y-axis.
+    c_map : str or matplotlib.colors.Colormap, optional
+        Colormap used for the heatmap. Default is ``'viridis'``.
+    nbins : int or tuple, optional
+        Number of bins to use for the 2D histogram. If an int, the same number of
+        bins is applied to both axes. If a tuple ``(nx, ny)``, uses ``nx`` and
+        ``ny`` bins for x and y respectively. Default is ``50``.
+    figsize : tuple of float, optional
+        Figure size in inches as ``(width, height)``. Default is ``(8, 5)``.
+    fontsize : int, optional
+        Base font size for axis labels and colorbar label. Default is ``16``.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        The Matplotlib Figure containing the heatmap.
+    ax : matplotlib.axes.Axes
+        The Matplotlib Axes containing the heatmap.
+    """
+    # Convert to numpy arrays if they aren't already
+    x = np.asarray(x)
+    y = np.asarray(y)
+
     fig, ax = plt.subplots(figsize=figsize)
     # Create a 2D histogram of the data
-    heatmap_data, xedges, yedges = np.histogram2d(x, y, bins=(nbins, nbins))
+    heatmap_data, xedges, yedges = np.histogram2d(x, y, bins=nbins)
     im = ax.imshow(heatmap_data.T,
                    origin='lower',
                    cmap=c_map,
@@ -1208,32 +1405,81 @@ def plot_heatmap(x,
                    extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]])
     # Add colour bar
     cbar = plt.colorbar(im, ax=ax)
-    cbar.set_label('Point Density', fontsize=fontsize)
+    cbar.locator = mticker.MaxNLocator(integer=True)
+    cbar.update_ticks()
+    cbar.set_label('Count', fontsize=fontsize)
     ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
     return fig, ax
 
 
-def scatter_plot_3d_with_colorbar(x,
-                                  y,
-                                  z,
-                                  c=None,
-                                  xlab='x',
-                                  ylab='y',
-                                  zlab='z',
-                                  cmap='viridis',
-                                  figsize=(10, 8),
-                                  fontsize=20,
-                                  alpha=0.8,
-                                  s=50,
-                                  labelpad=20):
+def scatter_plot_3d_with_colorbar(x: Union[np.ndarray, List],
+                                  y: Union[np.ndarray, List],
+                                  z: Union[np.ndarray, List],
+                                  c: Optional[Union[np.ndarray, List]] = None,
+                                  xlab: str = 'x',
+                                  ylab: str = 'y',
+                                  zlab: str = 'z',
+                                  cmap: str = 'viridis',
+                                  figsize: Tuple[float, float] = (10, 8),
+                                  fontsize: int = 20,
+                                  alpha: float = 0.8,
+                                  s: Union[float, np.ndarray] = 50,
+                                  labelpad: float = 20) -> Tuple[Figure, Axes]:
+    """
+    Create a 3D scatter plot with an optional colorbar driven by provided values or KDE-based density.
+
+    Generates a 3D scatter plot on a Matplotlib Axes with points colored by the given `c` values.
+    If `c` is None, local point density is estimated with a Gaussian KDE and used for coloring.
+    A colorbar is attached to the figure and labeled appropriately. The function returns the
+    Matplotlib Figure and 3D Axes objects for further customization or saving.
+
+    Parameters
+    ----------
+    x : array-like or list
+        X-coordinates of the points.
+    y : array-like or list
+        Y-coordinates of the points.
+    z : array-like or list
+        Z-coordinates of the points.
+    c : array-like, list, or None, optional
+        Scalar values used to determine point colors. If ``None`` (default), a Gaussian KDE
+        is computed on the stacked (x, y, z) coordinates to estimate local point density.
+    xlab : str, optional
+        Label for the x-axis, by default ``'x'``.
+    ylab : str, optional
+        Label for the y-axis, by default ``'y'``.
+    zlab : str, optional
+        Label for the z-axis, by default ``'z'``.
+    cmap : str or matplotlib.colors.Colormap, optional
+        Colormap to map ``c`` values to colors, by default ``'viridis'``.
+    figsize : tuple of float, optional
+        Figure size in inches as ``(width, height)``, by default ``(10, 8)``.
+    fontsize : int, optional
+        Base font size for axis labels and colorbar, by default ``20``.
+    alpha : float, optional
+        Marker transparency in the range [0, 1], by default ``0.8``.
+    s : float or array-like, optional
+        Marker size for the scatter points, by default ``50``.
+    labelpad : float, optional
+        Padding for axis labels (useful for 3D labels), by default ``20``.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Matplotlib Figure containing the 3D scatter and colorbar.
+    ax : matplotlib.axes._subplots.Axes3DSubplot
+        Matplotlib 3D Axes containing the scatter plot.
+    """
     # Create a figure and 3D axis
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111, projection='3d')
 
-    # Convert to numpy arrays
+    # Convert to numpy arrays if they aren't already
     x = np.asarray(x)
     y = np.asarray(y)
     z = np.asarray(z)
+    if c is not None:
+        c = np.asarray(c)
 
     # If no color values provided, calculate point density
     if c is None:
@@ -1272,31 +1518,70 @@ def scatter_plot_3d_with_colorbar(x,
     return fig, ax
 
 
-def plot_hexbin_scatter(x,
-                        y,
-                        xlab='x',
-                        ylab='y',
-                        guide_line=True,
-                        cmap='viridis',
-                        figsize=(8, 5),
-                        fontsize=16,
-                        bins_scale=None):
+def plot_hexbin_scatter(x: Union[np.ndarray, List],
+                        y: Union[np.ndarray, List],
+                        xlab: str = 'x',
+                        ylab: str = 'y',
+                        guide_line: bool = True,
+                        cmap: str = 'viridis',
+                        figsize: Tuple[float, float] = (8, 5),
+                        fontsize: int = 16,
+                        bins_scale: Optional[str] = None) -> Tuple[Figure, Axes]:
     """
-    Creates a hexbin scatter plot using Matplotlib.
+    Create a hexbin scatter plot with optional y=x guideline and colorbar.
 
-    Parameters:
-    x (array-like): Data for the x-axis.
-    y (array-like): Data for the y-axis.
-    xlab (str, optional): Label for the x-axis. Defaults to 'x'.
-    ylab (str, optional): Label for the y-axis. Defaults to 'y'.
-    guide_line (bool, optional): If True, adds a y=x guide line to the plot. Defaults to True.
-    cmap (str, optional): Colormap for the hexbin plot. Defaults to 'viridis'.
-    figsize (tuple, optional): Size of the figure in inches (width, height). Defaults to (8, 5).
-    fontsize (int, optional): Font size for axis labels and colorbar label. Defaults to 16.
-    bins_scale (str or None, optional): Scaling for the hexbin bins (e.g., 'log'). Defaults to None.
+    Generates a hexagonal-binned 2D density plot using Matplotlib's ``hexbin`` to
+    visualize the joint distribution of ``x`` and ``y``. Provides configurable
+    colormap, bin scaling (e.g. ``'log'``), figure sizing and font sizing, and an
+    optional red dashed y=x guideline.
 
-    Returns:
-    tuple: A tuple containing the Matplotlib figure and axis objects.
+    Parameters
+    ----------
+    x : array-like or list
+        Data for the x-axis. Converted to a NumPy array internally.
+    y : array-like or list
+        Data for the y-axis. Must be the same length as ``x``.
+    xlab : str, optional
+        Label for the x-axis. Default is ``'x'``.
+    ylab : str, optional
+        Label for the y-axis. Default is ``'y'``.
+    guide_line : bool, optional
+        If ``True``, draw a reference line for ``y = x`` (red dashed). Default is ``True``.
+    cmap : str or matplotlib.colors.Colormap, optional
+        Colormap used for the hexbin plot. Default is ``'viridis'``.
+    figsize : tuple of float, optional
+        Figure size in inches as ``(width, height)``. Default is ``(8, 5)``.
+    fontsize : int, optional
+        Font size used for axis labels and colorbar label. Default is ``16``.
+    bins_scale : {str, None}, optional
+        Bin scaling mode passed to Matplotlib's ``hexbin`` ``bins`` parameter.
+        Common value: ``'log'`` for logarithmic binning; if ``None`` (default) uses linear counts.
+    gridsize : int or tuple, optional
+        The number of hexagons in the x-direction (int) or a (nx, ny) tuple.
+        Controls hexagon resolution. Default is ``30``.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Matplotlib Figure object containing the hexbin plot.
+    ax : matplotlib.axes.Axes
+        Matplotlib Axes object containing the hexbin plot.
+
+    Raises
+    ------
+    ValueError
+        If ``x`` and ``y`` have different lengths or are empty.
+    TypeError
+        If inputs cannot be converted to numeric arrays.
+
+    Notes
+    -----
+    - The function wraps Matplotlib's ``ax.hexbin`` and adds a colorbar labeled
+      ``'counts'`` by default; when ``bins_scale == 'log'``, zero-count hexagons are
+      not shown on a log scale.
+    - Setting ``gridsize`` larger increases spatial resolution but may increase plotting time.
+    - The optional guideline is drawn across the data range and helps to visually
+      assess deviations from the identity relationship.
     """
     # Convert to numpy arrays if they aren't already
     x = np.asarray(x)
@@ -1305,7 +1590,7 @@ def plot_hexbin_scatter(x,
     # Create a figure and axis
     fig, ax = plt.subplots(figsize=figsize)
 
-    # Determine x and y axis limits
+    # Determine x and y-axis limits
     xlim = x.min(), x.max()
     ylim = y.min(), y.max()
 
@@ -1328,52 +1613,128 @@ def plot_hexbin_scatter(x,
     return fig, ax
 
 
-def plot_histogram(data,
-                   bins=30,
-                   xlab='Values',
-                   ylab='Frequency',
-                   figsize=(8, 5),
-                   fontsize=16,
-                   ):
+def plot_histogram(data: Union[np.ndarray, List],
+                   bins: Union[int, Sequence[float]] = 30,
+                   xlab: str = 'Values',
+                   ylab: str = 'Frequency',
+                   figsize: Tuple[float, float] = (8, 5),
+                   fontsize: int = 16,
+                   ) -> Tuple[Figure, Axes]:
     """
-    Plots a histogram for the given data.
+    Plot a histogram for a one-dimensional dataset with configurable styling.
 
-    Parameters:
-    data (list or array-like): The data to be plotted in the histogram.
-    bins (int, optional): Number of bins for the histogram. Default is 30.
-    xlab (str, optional): Label for the x-axis. Default is 'Values'.
-    ylab (str, optional): Label for the y-axis. Default is 'Frequency'.
-    figsize (tuple, optional): Size of the figure in inches (width, height). Default is (8, 6).
-    fontsize (int, optional): Font size for axis labels. Default is 16.
+    Produces a Matplotlib histogram for numeric data and applies the package's
+    standard axis styling. The function is intended for quick exploratory plots
+    or for consistent figure generation in scripts and notebooks.
 
-    Returns:
-    tuple: A tuple containing the Matplotlib figure and axis objects (fig, ax).
+    Parameters
+    ----------
+    data : array-like or list
+        One-dimensional numeric data to plot. Converted to a NumPy array internally.
+    bins : int or sequence, optional
+        Number of histogram bins (int) or explicit bin edges (sequence). Default is 30.
+    xlab : str, optional
+        Label for the x-axis. Default is ``'Values'``.
+    ylab : str, optional
+        Label for the y-axis. Default is ``'Frequency'``.
+    figsize : tuple of float, optional
+        Figure size in inches as (width, height). Default is ``(8, 5)``.
+    fontsize : int, optional
+        Font size used for axis labels and ticks. Default is 16.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Matplotlib Figure object containing the histogram.
+    ax : matplotlib.axes.Axes
+        Matplotlib Axes object containing the histogram.
+
+    Raises
+    ------
+    ValueError
+        If ``data`` is empty or cannot be interpreted as one-dimensional numeric data,
+        or if ``bins`` is a non-positive integer.
+    TypeError
+        If input types prevent numeric conversion (for example non-iterable ``data``).
+
+    Notes
+    -----
+    - The function delegates styling (ticks, labels, layout) to the module's
+      helper routines and calls ``plt.hist`` for the rendering.
+    - When ``bins`` is provided as an integer, Matplotlib's default binning rules
+      are used; pass explicit bin edges to control bin placement precisely.
+    - For publication-quality figures, modify ``figsize`` and ``fontsize`` and
+      save the returned ``fig`` with appropriate ``dpi`` and ``bbox_inches`` settings.
     """
+    # Convert to numpy array if it isn't already
+    data = np.asarray(data)
+
     fig, ax = plt.subplots(figsize=figsize)
-    plt.hist(data, bins=bins, color='blue', edgecolor='black', alpha=0.8)
-    ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
+    plt.hist(data,
+             bins=bins,
+             color='blue',
+             edgecolor='black',
+             alpha=0.8)
+    ax_plot(fig, ax,
+            xlab=xlab,
+            ylab=ylab,
+            xs=fontsize,
+            ys=fontsize)
     return fig, ax
 
 
-def plot_histogram_all_x(data,
-                         xlab='Number of Bonds',
-                         ylab='Frequency',
-                         figsize=(8, 5),
-                         fontsize=16):
+def plot_histogram_all_x(data: Union[np.ndarray, List],
+                         xlab: str = 'Number of Bonds',
+                         ylab: str = 'Frequency',
+                         figsize: Tuple[float, float] = (8, 5),
+                         fontsize: int = 16) -> Tuple[Figure, Axes]:
     """
-    Plots a histogram for the given data with bins automatically determined
-    based on the range of the data.
+    Plot a histogram using integer bins spanning the full range of the input data.
 
-    Parameters:
-    data (array-like): The data to be plotted in the histogram.
-    xlab (str, optional): Label for the x-axis. Default is 'Number of Bonds'.
-    ylab (str, optional): Label for the y-axis. Default is 'Frequency'.
-    figsize (tuple, optional): Size of the figure in inches (width, height). Default is (8, 6).
-    fontsize (int, optional): Font size for axis labels. Default is 16.
+    Creates a histogram whose bin edges are chosen to cover every integer value
+    present in `data` (from floor(min) to ceil(max)). This is useful for discrete
+    integer-valued data (e.g. counts or number of bonds) where each integer value
+    should map to its own bin.
 
-    Returns:
-    tuple: A tuple containing the figure and axis objects (fig, ax).
+    Parameters
+    ----------
+    data : array-like or list
+        One-dimensional numeric data to plot. Converted to a NumPy array internally.
+    xlab : str, optional
+        Label for the x-axis. Default is ``'Number of Bonds'``.
+    ylab : str, optional
+        Label for the y-axis. Default is ``'Frequency'``.
+    figsize : tuple of float, optional
+        Figure size in inches as (width, height). Default is ``(8, 5)``.
+    fontsize : int, optional
+        Font size used for axis labels and ticks. Default is 16.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Matplotlib Figure object containing the histogram.
+    ax : matplotlib.axes.Axes
+        Matplotlib Axes object containing the histogram.
+
+    Raises
+    ------
+    ValueError
+        If ``data`` is empty or cannot be interpreted as numeric data.
+    TypeError
+        If input types prevent numeric conversion.
+
+    Notes
+    -----
+    - Bins are constructed as ``range(floor(min(data)), ceil(max(data)) + 2)`` so
+      that each integer gets its own bin.
+    - Intended for discrete integer data; for continuous data use a fixed bin count
+      or another binning strategy via ``plot_histogram``.
+    - The function delegates plotting to Matplotlib and applies shared styling
+      from ``ax_plot``.
     """
+    # Convert to numpy array if it isn't already
+    data = np.asarray(data)
+
     bins = range(int(data.min()), int(data.max()) + 2)
     fig, ax = plot_histogram(data,
                              bins=bins,
@@ -1384,78 +1745,146 @@ def plot_histogram_all_x(data,
     return fig, ax
 
 
-def plot_histogram_compare(data1,
-                           data2,
-                           labels,
-                           bins=30,
-                           xlab='Values',
-                           ylab='Frequency',
-                           y_scale='log',
-                           figsize=(8, 5),
-                           fontsize=16,
-                           ):
+def plot_histogram_compare(data1: Union[np.ndarray, List],
+                           data2: Union[np.ndarray, List],
+                           labels: Sequence[str],
+                           bins: Union[int, Sequence[float]] = 30,
+                           xlab: str = 'Values',
+                           ylab: str = 'Frequency',
+                           y_scale: Optional[str] = 'log',
+                           figsize: Tuple[float, float] = (8, 5),
+                           fontsize: int = 16,
+                           ) -> Tuple[Figure, Axes]:
     """
-    Plots a comparative histogram for two datasets.
+    Plot comparative histograms for two datasets with optional logarithmic y-scale.
 
-    Parameters:
-    data1 (list or array-like): The first dataset to be plotted.
-    data2 (list or array-like): The second dataset to be plotted.
-    labels (list of str): Labels for the two datasets, used in the legend.
-    bins (int, optional): Number of bins for the histograms. Default is 30.
-    xlab (str, optional): Label for the x-axis. Default is 'Values'.
-    ylab (str, optional): Label for the y-axis. Default is 'Frequency'.
-    y_scale (str, optional): Scale for the y-axis (e.g., 'log'). Default is 'log'.
-    figsize (tuple, optional): Size of the figure in inches (width, height). Default is (8, 5).
-    fontsize (int, optional): Font size for axis labels. Default is 16.
+    Creates side-by-side histogram overlays for two datasets to facilitate visual
+    comparison. Supports configurable binning, axis labels, figure sizing, font
+    sizes and optional logarithmic scaling on the y-axis.
 
-    Returns:
-    tuple: A tuple containing the Matplotlib figure and axis objects (fig, ax).
+    Parameters
+    ----------
+    data1 : array-like or list
+        First dataset for comparison. Converted to a NumPy array internally.
+    data2 : array-like or list
+        Second dataset for comparison. Converted to a NumPy array internally.
+    labels : sequence of str
+        Legend labels for ``data1`` and ``data2``, respectively.
+    bins : int or sequence, optional
+        Number of histogram bins (int) or explicit bin edges (sequence). Default is 30.
+    xlab : str, optional
+        Label for the x-axis. Default is ``'Values'``.
+    ylab : str, optional
+        Label for the y-axis. Default is ``'Frequency'``.
+    y_scale : {str, None}, optional
+        Y-axis scale; use ``'log'`` for logarithmic scale. Default is ``'log'``.
+    figsize : tuple of float, optional
+        Figure size in inches as (width, height). Default is ``(8, 5)``.
+    fontsize : int, optional
+        Font size for axis labels and legend. Default is 16.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Matplotlib Figure object containing the histograms.
+    ax : matplotlib.axes.Axes
+        Matplotlib Axes object containing the histograms.
+
+    Raises
+    ------
+    ValueError
+        If ``data1`` or ``data2`` are empty, or if ``labels`` does not contain two strings.
+    TypeError
+        If inputs cannot be converted to numeric arrays.
+
+    Notes
+    -----
+    - When ``y_scale == 'log'``, care should be taken with zero or negative bin
+      counts, which cannot be displayed on a logarithmic axis.
+    - Both datasets are plotted on the same axes and share the same binning to
+      ensure a direct comparison.
+    - For reproducible styling, pass fully defined parameters (bins, figsize, fontsize).
     """
+    # Convert to numpy arrays if they aren't already
+    data1 = np.asarray(data1)
+    data2 = np.asarray(data2)
+
     fig, ax = plt.subplots(figsize=figsize)
     plt.hist(data1, bins=bins, alpha=0.8, label=labels[0])
     plt.hist(data2, bins=bins, alpha=0.8, label=labels[1])
     plt.legend()
 
     if y_scale is not None:
-        # Find the nearest order of magnitude to the maximum count
-        order_of_magnitude = 10 ** np.floor(np.log10(max(max(data1), max(data2))))
-        # Set the y-axis limit to the next order of magnitude
-        ax.set_ylim(1, order_of_magnitude * 10)
-        ax.set_yscale('log')
+        ax.set_yscale(y_scale)
 
     ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
     return fig, ax
 
 
-def plot_kde(
-        data,
-        bandwidth=None,
-        grid_size=1000,
-        y_scale='log',
-        xlab="Value",
-        ylab="Frequency",
-        fig=None,
-        ax=None,
-        fig_size=(8, 5),
-        fontsize=16,
-):
+def plot_kde(data: Union[np.ndarray, List],
+             bandwidth: Optional[float] = None,
+             grid_size: int = 1000,
+             y_scale: Optional[str] = 'log',
+             xlab: str = "Value",
+             ylab: str = "Frequency",
+             fig: Optional[plt.Figure] = None,
+             ax: Optional[plt.Axes] = None,
+             fig_size: Tuple[float, float] = (8, 5),
+             fontsize: int = 16,
+             ) -> Tuple[Figure, Axes]:
     """
-    Plots a Kernel Density Estimate (KDE) for the given data using Matplotlib.
+    Plot a Kernel Density Estimate (KDE) and convert density to expected counts.
 
-    Parameters:
-    data (array-like): The data for which the KDE is to be plotted.
-    bandwidth (float or None, optional): The bandwidth of the KDE. If None, it is automatically determined. Defaults to None.
-    grid_size (int, optional): The number of points in the grid for evaluating the KDE. Defaults to 1000.
-    y_scale (str or None, optional): The scale for the y-axis (e.g., 'log'). If None, no scaling is applied. Defaults to 'log'.
-    xlab (str, optional): Label for the x-axis. Defaults to "Value".
-    ylab (str, optional): Label for the y-axis. Defaults to "Frequency".
-    fig (matplotlib.figure.Figure or None, optional): The Matplotlib figure object. If None, a new figure is created. Defaults to None.
-    ax (matplotlib.axes.Axes or None, optional): The Matplotlib Axes object. If None, a new Axes is created. Defaults to None.
-    fig_size (tuple, optional): The size of the figure in inches (width, height). Defaults to (8, 5).
-    fontsize (int, optional): Font size for axis labels. Defaults to 16.
+    Computes a KDE for one-dimensional data using SciPy's `gaussian_kde`, evaluates
+    it on a regular grid, converts the density to expected counts (so the area under
+    the curve equals the number of samples), and plots the resulting curve on the
+    provided Matplotlib axes or on newly created figure/axes.
 
-    Returns:
-    tuple: A tuple containing the Matplotlib figure and axis objects (fig, ax).
+    Parameters
+    ----------
+    data : array-like or list
+        One-dimensional numeric data to plot. Converted to a NumPy array internally.
+    bandwidth : float or None, optional
+        The bandwidth for the KDE. If None, SciPy's default is used.
+    grid_size : int, optional
+        Number of points in the grid for evaluating the KDE. Default is 1000.
+    y_scale : {str, None}, optional
+        Y-axis scale; use 'log' for logarithmic scale. Default is 'log'.
+    xlab : str, optional
+        Label for the x-axis. Default is "Value".
+    ylab : str, optional
+        Label for the y-axis. Default is "Frequency".
+    fig : matplotlib.figure.Figure or None, optional
+        Existing Figure to plot on. If None, a new one is created.
+    ax : matplotlib.axes.Axes or None, optional
+        Existing Axes to plot on. If None, a new one is created.
+    fig_size : tuple of float, optional
+        Size of the figure to create if `fig` is None. Default is (8, 5).
+    fontsize : int, optional
+        Font size for axis labels. Default is 16.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        The Matplotlib Figure object.
+    ax : matplotlib.axes.Axes
+        The Matplotlib Axes object.
+
+    Raises
+    ------
+    ValueError
+        If `data` is empty.
+    TypeError
+        If `data` cannot be converted to a numeric array.
+
+    Notes
+    -----
+    - The function converts the KDE output (a probability density) to expected
+      counts for plotting, making the y-axis more interpretable.
+    - Bandwidth behaviour follows SciPy's ``gaussian_kde`` semantics. Passing a
+      value overrides the default estimator (e.g., 'scott' or 'silverman').
+    - When ``y_scale`` is set to ``'log'``, zero or negative plotted values may
+      not be visible.
     """
     if fig is None or ax is None:
         fig, ax = plt.subplots(figsize=fig_size)
@@ -1476,11 +1905,7 @@ def plot_kde(
 
     ax.set_xlim(x_min, x_max)
     if y_scale is not None:
-        # Find the nearest order of magnitude to the maximum count
-        order_of_magnitude = 10 ** np.floor(np.log10(max(counts)))
-        # Set the y-axis limit to the next order of magnitude
-        ax.set_ylim(1, order_of_magnitude * 10)
-        ax.set_yscale('log')
+        ax.set_yscale(y_scale)
 
     # Overlay KDE scaled to counts
     ax.plot(xs, counts, color='red', lw=2)
@@ -1489,38 +1914,99 @@ def plot_kde(
     return fig, ax
 
 
-def multipartite_layout_crossmin(
-        G,
-        subset_key="subset",
-        align="vertical",
-        method="barycenter",
-        iterations=100,
-        layer_spacing=1.0,
-        node_spacing=1.0,
-        scale=1.0,
-        seed=None,
-        weight=None,
-        return_order=False,
-):
+def multipartite_layout_crossmin(G: nx.Graph,
+                                 subset_key: str = "subset",
+                                 align: str = "vertical",
+                                 method: str = "barycenter",
+                                 iterations: int = 100,
+                                 layer_spacing: float = 1.0,
+                                 node_spacing: float = 1.0,
+                                 scale: float = 1.0,
+                                 seed: Optional[int] = None,
+                                 weight: Optional[str] = None,
+                                 return_order: bool = False,
+                                 ) -> Union[
+    Dict[Any, Tuple[float, float]], Tuple[Dict[Any, Tuple[float, float]], Dict[Any, List[Any]]]]:
     """
-    Computes a multipartite layout for a graph, minimizing edge crossings between layers.
+    Compute a multipartite layout for a graph minimizing inter-layer edge crossings.
 
-    Parameters:
-    G (networkx.Graph): The input graph.
-    subset_key (str, optional): Node attribute used to determine layer assignment. Defaults to "subset".
-    align (str, optional): Alignment of layers. "vertical" for columns, "horizontal" for rows. Defaults to "vertical".
-    method (str, optional): Method for ordering nodes within layers. "barycenter" or "median". Defaults to "barycenter".
-    iterations (int, optional): Number of top-down and bottom-up sweeps to refine node order. Defaults to 100.
-    layer_spacing (float, optional): Spacing between layers. Defaults to 1.0.
-    node_spacing (float, optional): Spacing between nodes within a layer. Defaults to 1.0.
-    scale (float, optional): Scaling factor for the layout. Defaults to 1.0.
-    seed (int, optional): Random seed for reproducibility. Defaults to None.
-    weight (str, optional): Edge attribute used as weight for ordering. Defaults to None.
-    return_order (bool, optional): If True, returns the final node order per layer. Defaults to False.
+    This function computes positions for nodes arranged in discrete layers (a
+    multipartite layout) and attempts to reduce edge crossings between adjacent
+    layers using iterative heuristics (barycenter or median). The algorithm first
+    constructs per-layer node lists from a node attribute (``subset_key``), applies
+    an initial stable ordering, then performs a number of top-down and bottom-up
+    sweeps to refine ordering. The returned positions follow the chosen
+    ``align`` convention with configurable spacing and scaling. Optionally the final
+    per-layer node order can be returned.
 
-    Returns:
-    dict: A dictionary mapping nodes to their (x, y) positions.
-    tuple (optional): If return_order is True, also returns a dictionary of node orders per layer.
+    Parameters
+    ----------
+    G : networkx.Graph
+        Input graph. Nodes must supply the layer membership via the node attribute
+        named by ``subset_key`` (an integer or sortable value). If missing, nodes
+        default to layer 0.
+    subset_key : str, optional
+        Node attribute key used to determine layer membership. Default is ``"subset"``.
+    align : {'vertical', 'horizontal'}, optional
+        Whether layers are arranged vertically (columns) or horizontally (rows).
+        Default is ``"vertical"``.
+    method : {'barycenter', 'median'}, optional
+        Heuristic used to compute the preferred order of nodes in a layer from the
+        neighbour positions in adjacent layers. ``'barycenter'`` uses a (weighted)
+        average neighbour index, ``'median'`` uses the median neighbour index.
+        Default is ``'barycenter'``.
+    iterations : int, optional
+        Number of top-down and bottom-up sweeps to refine node ordering. Must be
+        >= 1. Larger values increase runtime and may reduce crossings. Default is 100.
+    layer_spacing : float, optional
+        Distance between consecutive layers on the fixed axis. Must be > 0.
+        Default is 1.0.
+    node_spacing : float, optional
+        Spacing between adjacent nodes within a layer on the free axis. Must be > 0.
+        Default is 1.0.
+    scale : float, optional
+        Global scaling factor applied to final coordinates. Default is 1.0.
+    seed : int or None, optional
+        Random seed for deterministic tie-breaking. If None, behaviour may be
+        non-deterministic. Default is None.
+    weight : str or None, optional
+        Edge attribute name to use as a numeric weight when computing barycenters.
+        If None, unit weights are assumed. Default is None.
+    return_order : bool, optional
+        If True, also return the per-layer node ordering (dictionary mapping layer
+        value -> ordered list of nodes). Default is False.
+
+    Returns
+    -------
+    pos : dict
+        Mapping node -> (x, y) float coordinates. Coordinates follow the chosen
+        ``align`` convention (layers along the fixed axis).
+    orders : dict, optional
+        When ``return_order`` is True, a dictionary mapping each layer value to the
+        final ordered list of nodes is returned as the second element of a tuple:
+        ``(pos, orders)``.
+
+    Raises
+    ------
+    ValueError
+        If parameters are invalid (for example nonpositive spacings, nonpositive
+        iterations, or unsupported ``method`` or ``align`` values).
+    TypeError
+        If node layer attributes are of an unexpected type that cannot be sorted,
+        or if specified edge weights are non-numeric.
+
+    Notes
+    -----
+    - The algorithm is primarily heuristic and aims to reduce pairwise crossings
+      between adjacent layers; it does not guarantee a global minimum.
+    - Initial layer orders are chosen deterministically (degree/name) to improve
+      reproducibility; tie-breaking uses ``seed`` when provided.
+    - For performance, barycenter computations may accumulate neighbour indices
+      weighted by edge attribute (if ``weight`` provided) and stable tie-breaking
+      is recommended for deterministic output.
+    - The produced positions use integer layer coordinates multiplied by
+      ``layer_spacing`` on the fixed axis and evenly spaced node positions within
+      each layer (centered) multiplied by ``node_spacing`` and ``scale``.
     """
     if seed is not None:
         random.seed(seed)
@@ -1638,48 +2124,116 @@ def multipartite_layout_crossmin(
     return pos
 
 
-def multipartite_layout_crossmin_long(
-        G,
-        subset_key="subset",
-        align="vertical",
-        method="barycenter",
-        iterations=100,
-        layer_spacing=1.0,
-        node_spacing=1.0,
-        scale=1.0,
-        seed=None,
-        weight=None,
-        insert_dummies=True,
-        dummy_prefix="__dummy__",
-        return_order=False,
-        return_dummies=False,
-        return_routes=False,
-):
+def multipartite_layout_crossmin_long(G: nx.Graph,
+                                      subset_key: str = "subset",
+                                      align: str = "vertical",
+                                      method: str = "barycenter",
+                                      iterations: int = 100,
+                                      layer_spacing: float = 1.0,
+                                      node_spacing: float = 1.0,
+                                      scale: float = 1.0,
+                                      seed: Optional[int] = None,
+                                      weight: Optional[str] = None,
+                                      insert_dummies: bool = True,
+                                      dummy_prefix: str = "__dummy__",
+                                      return_order: bool = False,
+                                      return_dummies: bool = False,
+                                      return_routes: bool = False,
+                                      ) -> Union[Dict[Any, Tuple[float, float]], Tuple[Any, ...]]:
     """
-    Computes a multipartite layout for a graph, minimizing edge crossings between layers.
-    This version supports dummy node insertion for edges spanning multiple layers.
+    Compute a multipartite layout minimizing crossings with optional dummy-node routing for long edges.
 
-    Parameters:
-    G (networkx.Graph): The input graph.
-    subset_key (str, optional): Node attribute used to determine layer assignment. Defaults to "subset".
-    align (str, optional): Alignment of layers. "vertical" for columns, "horizontal" for rows. Defaults to "vertical".
-    method (str, optional): Method for ordering nodes within layers. "barycenter" or "median". Defaults to "barycenter".
-    iterations (int, optional): Number of top-down and bottom-up sweeps to refine node order. Defaults to 100.
-    layer_spacing (float, optional): Spacing between layers. Defaults to 1.0.
-    node_spacing (float, optional): Spacing between nodes within a layer. Defaults to 1.0.
-    scale (float, optional): Scaling factor for the layout. Defaults to 1.0.
-    seed (int, optional): Random seed for reproducibility. Defaults to None.
-    weight (str, optional): Edge attribute used as weight for ordering. Defaults to None.
-    insert_dummies (bool, optional): If True, inserts dummy nodes for edges spanning multiple layers. Defaults to True.
-    dummy_prefix (str, optional): Prefix for dummy node names. Defaults to "__dummy__".
-    return_order (bool, optional): If True, returns the final node order per layer. Defaults to False.
-    return_dummies (bool, optional): If True, includes dummy nodes in the returned layout. Defaults to False.
-    return_routes (bool, optional): If True, returns routing information for edges. Defaults to False.
+    This function computes positions for nodes arranged in discrete layers (multipartite layout)
+    and attempts to minimise edge crossings using iterative barycenter/median heuristics.
+    Edges that span more than one intermediate layer may be replaced by synthetic dummy nodes
+    to allow polyline routing and improved crossing reduction. The function is deterministic
+    when a seed is provided and can optionally return auxiliary information such as per-layer
+    orders, inserted dummy node identifiers and routing descriptors for long edges.
 
-    Returns:
-    dict: A dictionary mapping nodes to their (x, y) positions.
-    dict (optional): If return_order is True, also returns a dictionary of node orders per layer.
-    list (optional): If return_routes is True, also returns a list of edge routing information.
+    Parameters
+    ----------
+    G : networkx.Graph
+        Input graph. Nodes must expose a layer attribute indicated by ``subset_key`` (or the
+        attribute is inferred/treated uniformly). Graph may be directed or undirected.
+    subset_key : str, optional
+        Node attribute key used to determine layer membership. Defaults to ``"subset"``.
+    align : {'vertical', 'horizontal'}, optional
+        Whether layers are arranged vertically (columns) or horizontally (rows).
+        Defaults to ``"vertical"``.
+    method : {'barycenter', 'median'}, optional
+        Heuristic used to compute orderings within layers. ``'barycenter'`` computes a
+        weighted average position of neighbours; ``'median'`` uses the median neighbour
+        index. Defaults to ``'barycenter'``.
+    iterations : int, optional
+        Number of top-down and bottom-up sweeps to refine node ordering. Must be >= 1.
+        Larger values increase runtime and may reduce crossings. Defaults to 100.
+    layer_spacing : float, optional
+        Spacing between consecutive layers on the fixed axis. Must be > 0. Defaults to 1.0.
+    node_spacing : float, optional
+        Spacing between adjacent nodes within a layer on the free axis. Must be > 0.
+        Defaults to 1.0.
+    scale : float, optional
+        Global scaling factor applied to final coordinates. Defaults to 1.0.
+    seed : int or None, optional
+        Random seed for reproducible tie-breaking and stochastic choices. Defaults to None.
+    weight : str or None, optional
+        Edge attribute name used as a numeric weight for ordering and crossing computations.
+        If None, unit weights are assumed. Defaults to None.
+    insert_dummies : bool, optional
+        If True, insert synthetic dummy nodes for edges spanning multiple intermediate layers
+        so those edges are represented as sequences of unit hops. Defaults to True.
+    dummy_prefix : str, optional
+        Prefix used for synthetic dummy node identifiers when ``insert_dummies`` is True.
+        Defaults to ``"__dummy__"``.
+    return_order : bool, optional
+        If True, return a dictionary mapping each layer value to the final ordered list
+        of nodes (excluding or including dummies according to ``return_dummies``). Defaults to False.
+    return_dummies : bool, optional
+        If True, include dummy node identifiers and their positions in the returned layout.
+        Defaults to False.
+    return_routes : bool, optional
+        If True, return routing descriptors for edges that were split into dummy chains.
+        Each routing descriptor describes the node chain or intermediate coordinates for
+        drawing a polyline representing the original edge. Defaults to False.
+
+    Returns
+    -------
+    pos : dict
+        Mapping node -> (x, y) coordinate positions (float). Coordinates follow the chosen
+        ``align`` convention (layers along the fixed axis). By default dummy nodes are not
+        included unless ``return_dummies`` is True.
+    tuple, optional
+        When one or more of ``return_order``, ``return_dummies`` or ``return_routes`` is True,
+        a tuple is returned with the primary ``pos`` as the first element followed by the
+        requested auxiliary structures in this order: ``orders``, ``dummies``, ``routes``.
+        - orders : dict mapping layer value -> list of nodes in final order (may include dummies
+          if ``return_dummies`` is True).
+        - dummies : set or list of dummy node identifiers and their positions (present when
+          ``return_dummies`` is True).
+        - routes : list of routing descriptors for edges spanning layers (present when
+          ``return_routes`` is True).
+
+    Raises
+    ------
+    ValueError
+        If parameters are invalid (for example nonpositive spacings, nonpositive iterations,
+        or inconsistent layer assignments).
+    TypeError
+        If node layer attributes are of an unexpected type or edge weights (when specified)
+        are non-numeric.
+
+    Notes
+    -----
+    - The algorithm first constructs per-layer node lists from ``subset_key`` and applies
+      repeated top-down and bottom-up sweeps using the chosen heuristic to reduce crossings.
+    - Dummy nodes are purely layout artefacts used to represent long edges as chains of
+      single-layer hops; they can be filtered from outputs unless explicitly requested.
+    - For performance, weighted barycenter computations accumulate neighbour indices weighted
+      by the configured edge attribute (if ``weight`` is provided) and use stable tie-breaking.
+    - When ``insert_dummies`` is True, the function preserves a mapping from original edges
+      to their dummy-node chains so that routed polylines can be reconstructed for drawing.
+    - The algorithm is stochastic only in tie-breaking and optional proposals; provide
+      ``seed`` for deterministic behaviour.
     """
     if seed is not None:
         random.seed(seed)
@@ -1953,7 +2507,7 @@ def multipartite_layout_crossmin_long(
 class _BIT:
     # Fenwick tree for prefix sums of floats (weights).
 
-    def __init__(self, n):
+    def __init__(self, n: int) -> None:
         """
         Initializes the Fenwick tree.
 
@@ -1963,7 +2517,7 @@ class _BIT:
         self.n = n
         self.t = [0.0] * (n + 1)
 
-    def add(self, i, delta):
+    def add(self, i: int, delta: float) -> None:
         """
         Adds a value to the element at index `i`.
 
@@ -1976,7 +2530,7 @@ class _BIT:
             self.t[i] += delta
             i += i & -i
 
-    def sum_prefix(self, i):
+    def sum_prefix(self, i: int) -> float:
         """
         Computes the prefix sum from index 0 to `i` (inclusive).
 
@@ -1996,21 +2550,59 @@ class _BIT:
         return s
 
 
-def _pair_crossings_weighted(order_left, order_right, edges):
+def _pair_crossings_weighted(order_left: List[Any],
+                             order_right: List[Any],
+                             edges: List[Tuple[Any, Any, float]]) -> float:
     """
-    Counts the weighted crossings between two adjacent layers given their current order.
+    Count weighted crossings between two adjacent layers given their node orders.
 
-    Parameters:
-    order_left (list): A list of nodes representing the order of nodes in the left layer.
-    order_right (list): A list of nodes representing the order of nodes in the right layer.
-    edges (list of tuples): A list of edges connecting nodes in the left layer to nodes in the right layer.
-                            Each edge is represented as a tuple (u, v, w), where:
-                            - u: Node in the left layer.
-                            - v: Node in the right layer.
-                            - w: Weight of the edge.
+    Computes the total weighted crossing value for a bipartite set of edges
+    connecting nodes in a left layer to nodes in a right layer. Each edge
+    contributes proportionally to its weight and crossings are counted as the
+    product of weights of two edges that geometrically cross given the layer
+    orderings.
 
-    Returns:
-    float: The total weighted crossing value. The crossing weight is the product of edge weights (w1 * w2).
+    Parameters
+    ----------
+    order_left : list
+        Ordered list of nodes in the left layer. Elements should be hashable and
+        unique within this list.
+    order_right : list
+        Ordered list of nodes in the right layer. Elements should be hashable and
+        unique within this list.
+    edges : list of tuple
+        Iterable of edges connecting the two layers. Each item should be a
+        tuple ``(u, v, w)`` where ``u`` is a node in ``order_left``, ``v`` is a
+        node in ``order_right`` and ``w`` is a numeric edge weight (float or int).
+        Edges referencing nodes not present in the corresponding order are
+        ignored or may trigger an error depending on the caller's expectations.
+
+    Returns
+    -------
+    float
+        Total weighted crossing measure. For every pair of edges ``(u1, v1, w1)``
+        and ``(u2, v2, w2)`` that cross given the two orders (i.e. left positions
+        satisfy pos_left(u1) < pos_left(u2) but pos_right(v1) > pos_right(v2)),
+        the contribution ``w1 * w2`` is added. The returned value is the sum
+        of these contributions.
+
+    Raises
+    ------
+    TypeError
+        If inputs are of incorrect types (for example ``order_left``/``order_right``
+        not indexable or ``edges`` not iterable of triples).
+    ValueError
+        If an edge references a node not found in the provided orders and the
+        implementation chooses to treat that as an error.
+
+    Notes
+    -----
+    - A common efficient implementation sorts edges by left-layer index and
+      counts inversions on the right-layer indices using a Fenwick tree
+      (binary indexed tree) or similar prefix-sum structure to achieve
+      near-linearithmic runtime.
+    - The function returns a floating point sum to accommodate non-integer
+      edge weights and large accumulation.
     """
     # Map nodes in the left layer to their positions
     posL = {u: i for i, u in enumerate(order_left)}
@@ -2045,55 +2637,128 @@ def _pair_crossings_weighted(order_left, order_right, edges):
     return inv
 
 
-def multipartite_layout_sa(
-        G,
-        subset_key="subset",
-        align="vertical",
-        insert_dummies=True,
-        dummy_prefix="__dummy__",
-        node_spacing=1.0,
-        layer_spacing=1.5,
-        scale=1.0,
-        weight=None,
-        max_proposals=8000,
-        cooling_rate=0.95,
-        cooling_interval=200,
-        adjacent_swap_prob=0.7,
-        stop_after_no_improve=2000,
-        T0=None,
-        seed=None,
-        return_order=False,
-        return_dummies=False,
-        return_routes=False,
-):
+def multipartite_layout_sa(G: nx.Graph,
+                           subset_key: str = "subset",
+                           align: str = "vertical",
+                           insert_dummies: bool = True,
+                           dummy_prefix: str = "__dummy__",
+                           node_spacing: float = 1.0,
+                           layer_spacing: float = 1.5,
+                           scale: float = 1.0,
+                           weight: Optional[str] = None,
+                           max_proposals: int = 8000,
+                           cooling_rate: float = 0.95,
+                           cooling_interval: int = 200,
+                           adjacent_swap_prob: float = 0.7,
+                           stop_after_no_improve: int = 2000,
+                           T0: Optional[float] = None,
+                           seed: Optional[int] = None,
+                           return_order: bool = False,
+                           return_dummies: bool = False,
+                           return_routes: bool = False,
+                           ) -> Union[Dict[Any, Tuple[float, float]], Tuple[Any, ...]]:
     """
-    Computes a multipartite layout for a graph using simulated annealing to minimize edge crossings.
+    Compute a multipartite layout for a graph using simulated annealing to minimize edge crossings.
 
-    Parameters:
-    G (networkx.Graph): The input graph.
-    subset_key (str, optional): Node attribute used to determine layer assignment. Defaults to "subset".
-    align (str, optional): Alignment of layers. "vertical" for columns, "horizontal" for rows. Defaults to "vertical".
-    insert_dummies (bool, optional): If True, inserts dummy nodes for edges spanning multiple layers. Defaults to True.
-    dummy_prefix (str, optional): Prefix for dummy node names. Defaults to "__dummy__".
-    node_spacing (float, optional): Spacing between nodes within a layer. Defaults to 1.0.
-    layer_spacing (float, optional): Spacing between layers. Defaults to 1.5.
-    scale (float, optional): Scaling factor for the layout. Defaults to 1.0.
-    weight (str, optional): Edge attribute used as weight for ordering. Defaults to None.
-    max_proposals (int, optional): Maximum number of proposals for simulated annealing. Defaults to 8000.
-    cooling_rate (float, optional): Cooling rate for simulated annealing. Defaults to 0.95.
-    cooling_interval (int, optional): Number of steps between temperature reductions. Defaults to 200.
-    adjacent_swap_prob (float, optional): Probability of swapping adjacent nodes during proposals. Defaults to 0.7.
-    stop_after_no_improve (int, optional): Number of steps without improvement before stopping. Defaults to 2000.
-    T0 (float, optional): Initial temperature for simulated annealing. If None, it is estimated. Defaults to None.
-    seed (int, optional): Random seed for reproducibility. Defaults to None.
-    return_order (bool, optional): If True, returns the final node order per layer. Defaults to False.
-    return_dummies (bool, optional): If True, includes dummy nodes in the returned layout. Defaults to False.
-    return_routes (bool, optional): If True, returns routing information for edges. Defaults to False.
+    This function produces coordinates for nodes arranged in discrete layers (multipartite layout)
+    while attempting to minimise edge crossings via a simulated-annealing-based reordering
+    procedure. Optionally inserts dummy nodes for edges that span multiple layers, supports
+    weighted edges for ordering, and can return auxiliary information such as per-layer
+    orders, dummy-node inclusion and routing information for long edges.
 
-    Returns:
-    dict: A dictionary mapping nodes to their (x, y) positions.
-    dict (optional): If return_order is True, also returns a dictionary of node orders per layer.
-    list (optional): If return_routes is True, also returns a list of edge routing information.
+    Parameters
+    ----------
+    G : networkx.Graph
+        Input graph. Nodes must have a layer attribute indicated by *subset_key* (or the
+        attribute is inferred/treated uniformly). Graph may be directed or undirected.
+    subset_key : str, optional
+        Node attribute key used to determine layer membership. Defaults to ``"subset"``.
+    align : {'vertical', 'horizontal'}, optional
+        Whether layers are arranged vertically (columns) or horizontally (rows). Defaults
+        to ``"vertical"``.
+    insert_dummies : bool, optional
+        If True, insert dummy nodes for edges that span more than one layer to allow
+        routing as poly-lines and improve crossing minimisation. Defaults to True.
+    dummy_prefix : str, optional
+        Prefix used for synthetic dummy node names when *insert_dummies* is True.
+        Defaults to ``"__dummy__"``.
+    node_spacing : float, optional
+        Distance between adjacent nodes within a layer on the free axis. Defaults to 1.0.
+    layer_spacing : float, optional
+        Spacing between consecutive layers on the fixed axis. Defaults to 1.5.
+    scale : float, optional
+        Scaling factor applied to final coordinates. Defaults to 1.0.
+    weight : str or None, optional
+        Edge attribute name used as a weight for ordering and crossing computations.
+        If None, unit weights are assumed. Defaults to None.
+    max_proposals : int, optional
+        Maximum number of proposals (moves) evaluated during simulated annealing.
+        Larger values increase optimisation time and may yield fewer crossings. Defaults
+        to 8000.
+    cooling_rate : float, optional
+        Multiplicative cooling factor applied to the temperature when scheduled. Must be
+        in (0, 1). Defaults to 0.95.
+    cooling_interval : int, optional
+        Number of proposals between temperature reductions. Defaults to 200.
+    adjacent_swap_prob : float, optional
+        Probability of proposing an adjacent node swap vs. a broader move when creating
+        candidates. Value in [0.0, 1.0]. Defaults to 0.7.
+    stop_after_no_improve : int or None, optional
+        If provided, stop optimisation after this many proposals without improvement.
+        Set to None to disable early stopping. Defaults to 2000.
+    T0 : float or None, optional
+        Initial temperature for simulated annealing. If None, an automatic initial
+        temperature is estimated from initial crossing costs. Defaults to None.
+    seed : int or None, optional
+        Random seed to ensure reproducible layouts. Defaults to None.
+    return_order : bool, optional
+        If True return a dictionary mapping layer values to the final ordered node lists.
+        Defaults to False.
+    return_dummies : bool, optional
+        If True include dummy nodes in the returned positioning and ordering results.
+        Defaults to False.
+    return_routes : bool, optional
+        If True return routing information for edges (lists of intermediate coordinates
+        or node chains) useful for drawing multi-segment edges. Defaults to False.
+
+    Returns
+    -------
+    pos : dict
+        Mapping of node -> (x, y) coordinate positions (float). Coordinates follow the
+        chosen *align* convention (layers along the fixed axis).
+    tuple, optional
+        When one or more of ``return_order``, ``return_dummies`` or ``return_routes`` is
+        True, a tuple containing additional results is returned. The ordering of
+        additional return values is:
+        (pos, orders, dummies, routes) where any of ``orders``, ``dummies`` or ``routes``
+        is included only if requested via the corresponding flag:
+        - orders : dict mapping original layer values -> list of nodes in final order.
+        - dummies : set or list of dummy node identifiers (present when ``return_dummies``).
+        - routes : list of routing descriptors for edges spanning layers (present when ``return_routes``).
+
+    Raises
+    ------
+    ValueError
+        If provided parameters are invalid (for example nonsensical spacings, nonpositive
+        *max_proposals*, or cooling parameters outside valid ranges).
+    TypeError
+        If graph nodes do not expose the expected layer attribute type and cannot be
+        interpreted or if edge weights are non-numeric when *weight* is specified.
+
+    Notes
+    -----
+    - The algorithm is stochastic; supply *seed* to obtain deterministic behaviour.
+    - Dummy nodes are purely layout artefacts to represent long edges as chains of unit
+      hops; they may be filtered from the returned position map unless explicitly
+      requested via ``return_dummies``.
+    - Simulated annealing balances local adjacent swaps and larger perturbations controlled
+      by *adjacent_swap_prob*; tuning *max_proposals*, *cooling_rate* and *cooling_interval*
+      affects runtime and solution quality.
+    - The function attempts to minimise weighted pairwise edge crossings using standard
+      barycenter/median heuristics supplemented by the annealing phase.
+    - When *return_routes* is True, edge routing information describes the polyline
+      coordinates or dummy-node chain that should be used to draw multi-layer edges
+      without large visual overlaps.
     """
     if seed is not None:
         random.seed(seed)
@@ -2418,3 +3083,495 @@ def multipartite_layout_sa(
     if return_routes:
         return pos, routed
     return pos
+
+
+def show_common_bonds(
+        smiles_a: str,
+        smiles_b: str,
+        legends: List[str] | None = None,
+        common_bond_color: Tuple[float, float, float] = (0.1, 0.8, 0.1),
+        common_atom_color: Tuple[float, float, float] = (0.1, 0.8, 0.1),
+        size: Tuple[int, int] = (700, 350),
+        timeout_s: int = 5,
+        ring_matches_ring_only: bool = True,
+        complete_rings_only: bool = True,
+):
+    """
+    Visualize the maximum common substructure (MCS) between two molecules.
+
+    This function takes two SMILES strings, computes their MCS, and highlights
+    the common atoms and bonds in the resulting visualization. The output is
+    an image showing the two molecules side by side with the MCS highlighted.
+
+    Parameters
+    ----------
+    smiles_a : str
+        SMILES string of the first molecule.
+    smiles_b : str
+        SMILES string of the second molecule.
+    legends : List[str] or None, optional
+        Legends for the two molecules. Defaults to ["A", "B"] if None.
+    common_bond_color : Tuple[float, float, float], optional
+        RGB color for highlighting common bonds. Defaults to (0.1, 0.8, 0.1).
+    common_atom_color : Tuple[float, float, float], optional
+        RGB color for highlighting common atoms. Defaults to (0.1, 0.8, 0.1).
+    size : Tuple[int, int], optional
+        Size of the output image in pixels (width, height). Defaults to (700, 350).
+    timeout_s : int, optional
+        Timeout in seconds for the MCS computation. Defaults to 5.
+    ring_matches_ring_only : bool, optional
+        If True, only matches rings to rings. Defaults to True.
+    complete_rings_only : bool, optional
+        If True, only matches complete rings. Defaults to True.
+
+    Returns
+    -------
+    PIL.Image.Image
+        An image showing the two molecules with the MCS highlighted. If no MCS
+        is found, the molecules are displayed without highlights.
+
+    Raises
+    ------
+    ValueError
+        If one or both SMILES strings cannot be parsed by RDKit.
+
+    Notes
+    -----
+    - The function uses RDKit to compute the MCS and visualize the molecules.
+    - If no MCS is found, the molecules are displayed without any highlights.
+    - The function supports customization of colors, image size, and MCS parameters.
+    """
+    if legends is None:
+        legends = ["A", "B"]
+    mol_a = Chem.MolFromSmiles(smiles_a)
+    mol_b = Chem.MolFromSmiles(smiles_b)
+    if mol_a is None or mol_b is None:
+        raise ValueError("One or both SMILES strings could not be parsed by RDKit.")
+
+    # Standardize molecule layouts for better visualization
+    mol_a = standardize_mol(mol_a, add_hydrogens=False)
+    mol_b = standardize_mol(mol_b, add_hydrogens=False)
+
+    # Compute MCS (Maximum Common Substructure)
+    mcs_params = rdFMCS.MCSParameters()
+    mcs_params.Timeout = int(timeout_s)
+    mcs_params.AtomCompare = rdFMCS.AtomCompare.CompareElements
+    mcs_params.BondCompare = rdFMCS.BondCompare.CompareOrderExact
+    mcs_params.RingMatchesRingOnly = bool(ring_matches_ring_only)
+    mcs_params.CompleteRingsOnly = bool(complete_rings_only)
+
+    mcs_res = rdFMCS.FindMCS([mol_a, mol_b], mcs_params)
+    if not mcs_res.smartsString:
+        # No overlap found; draw without highlights.
+        return Draw.MolsToGridImage(
+            [mol_a, mol_b],
+            molsPerRow=2,
+            subImgSize=(size[0] // 2, size[1]),
+            legends=legends,
+        )
+
+    mcs_mol = Chem.MolFromSmarts(mcs_res.smartsString)
+    if mcs_mol is None:
+        return Draw.MolsToGridImage(
+            [mol_a, mol_b],
+            molsPerRow=2,
+            subImgSize=(size[0] // 2, size[1]),
+            legends=legends,
+        )
+
+    match_a = mol_a.GetSubstructMatch(mcs_mol)
+    match_b = mol_b.GetSubstructMatch(mcs_mol)
+
+    if not match_a or not match_b:
+        # If MCS SMARTS can't be matched back (rare), draw without highlights.
+        return Draw.MolsToGridImage(
+            [mol_a, mol_b],
+            molsPerRow=2,
+            subImgSize=(size[0] // 2, size[1]),
+            legends=legends,
+        )
+
+    # Map MCS bonds to bond indices in each molecule
+    def _mcs_bond_indices(parent_mol, match: Tuple[int, ...]) -> List[int]:
+        """
+        Map the bonds in the MCS to their indices in the parent molecule.
+
+        Parameters
+        ----------
+        parent_mol : rdkit.Chem.Mol
+            The parent molecule.
+        match : Tuple[int, ...]
+            Atom indices in the parent molecule that match the MCS.
+
+        Returns
+        -------
+        List[int]
+            List of bond indices in the parent molecule that are part of the MCS.
+        """
+        bond_idxs = []
+        for b in mcs_mol.GetBonds():
+            a1 = match[b.GetBeginAtomIdx()]
+            a2 = match[b.GetEndAtomIdx()]
+            pb = parent_mol.GetBondBetweenAtoms(a1, a2)
+            if pb is not None:
+                bond_idxs.append(pb.GetIdx())
+        return bond_idxs
+
+    common_bonds_a = _mcs_bond_indices(mol_a, match_a)
+    common_bonds_b = _mcs_bond_indices(mol_b, match_b)
+
+    common_atoms_a = list(match_a)
+    common_atoms_b = list(match_b)
+
+    # Color dictionaries for RDKit drawing
+    bond_colors_a: Dict[int, Tuple[float, float, float]] = {i: common_bond_color for i in common_bonds_a}
+    bond_colors_b: Dict[int, Tuple[float, float, float]] = {i: common_bond_color for i in common_bonds_b}
+    atom_colors_a: Dict[int, Tuple[float, float, float]] = {i: common_atom_color for i in common_atoms_a}
+    atom_colors_b: Dict[int, Tuple[float, float, float]] = {i: common_atom_color for i in common_atoms_b}
+
+    # Generate the image with highlighted atoms and bonds
+    img = Draw.MolsToGridImage(
+        [mol_a, mol_b],
+        molsPerRow=2,
+        subImgSize=(size[0] // 2, size[1]),
+        legends=legends,
+        highlightBondLists=[common_bonds_a, common_bonds_b],
+        highlightBondColors=[bond_colors_a, bond_colors_b],
+        highlightAtomLists=[common_atoms_a, common_atoms_b],
+        highlightAtomColors=[atom_colors_a, atom_colors_b],
+        useSVG=False,  # Set True if you prefer SVG output
+    )
+    return img
+
+
+def draw_mol_grid(
+        mols: Sequence[Union[Chem.Mol, str]],
+        legends: Optional[Sequence[str]] = None,
+        n_cols: int = 4,
+        sub_img_size: tuple = (200, 200),
+        max_mols: Optional[int] = None,
+        use_svg: bool = False,
+):
+    """
+    Generate a grid image of molecular structures.
+
+    This function takes a sequence of RDKit `Mol` objects or SMILES strings,
+    converts them to RDKit `Mol` objects if necessary, and arranges them in a
+    grid layout. Optionally, legends can be added below each molecule, and the
+    output can be rendered as an SVG image.
+
+    Parameters
+    ----------
+    mols : Sequence[Union[Chem.Mol, str]]
+        A sequence of RDKit `Mol` objects or SMILES strings representing the molecules to be drawn.
+    legends : Optional[Sequence[str]], optional
+        A sequence of legend strings to display below each molecule. If `None`, no legends are added.
+    n_cols : int, optional
+        The number of columns in the grid. Must be a positive integer. Defaults to 4.
+    sub_img_size : tuple, optional
+        The size of each sub-image in the grid, specified as (width, height). Defaults to (200, 200).
+    max_mols : Optional[int], optional
+        The maximum number of molecules to include in the grid. If `None`, all molecules are included. Defaults to `None`.
+    use_svg : bool, optional
+        If `True`, the output is rendered as an SVG image. Otherwise, a raster image is generated. Defaults to `False`.
+
+    Returns
+    -------
+    PIL.Image.Image or str
+        The generated grid image. If `use_svg` is `True`, an SVG string is returned. Otherwise, a PIL image is returned.
+
+    Raises
+    ------
+    ValueError
+        If `n_cols` is not a positive integer or if the length of `legends` does not match the number of molecules.
+    TypeError
+        If an item in `mols` is neither an RDKit `Mol` object nor a SMILES string.
+
+    Notes
+    -----
+    - If a SMILES string cannot be converted to an RDKit `Mol` object, an empty molecule is used as a placeholder.
+    - The function uses RDKit's `MolsToGridImage` for rendering the grid.
+    """
+    if n_cols <= 0:
+        raise ValueError("n_cols must be a positive integer")
+
+        # Convert inputs to RDKit Mol objects
+    rdkit_mols: List[Chem.Mol] = []
+    for i, m in enumerate(mols):
+        if isinstance(m, Chem.Mol):
+            mol_obj = m
+        elif isinstance(m, str):
+            mol_obj = Chem.MolFromSmiles(m)
+        else:
+            raise TypeError(f"Item {i} is neither an RDKit Mol nor a SMILES string: {type(m)}")
+
+        if mol_obj is None:
+            mol_obj = Chem.MolFromSmiles("")
+        rdkit_mols.append(mol_obj)
+
+    if max_mols is not None:
+        rdkit_mols = rdkit_mols[: int(max_mols)]
+
+        # Legends
+    if legends is None:
+        legends_list = [""] * len(rdkit_mols)
+    else:
+        if len(legends) != len(rdkit_mols):
+            raise ValueError("legends must be the same length as mols")
+        legends_list = list(legends)
+
+        # Draw
+    img = Draw.MolsToGridImage(
+        mols=rdkit_mols,
+        molsPerRow=n_cols,
+        subImgSize=sub_img_size,
+        legends=legends_list,
+        useSVG=use_svg,
+    )
+
+
+def draw_mol_grid_box(
+        mols: Sequence[Union[Chem.Mol, str]],
+        legends: Optional[Sequence[str]] = None,
+        n_cols: int = 4,
+        sub_img_size: Tuple[int, int] = (200, 200),
+        max_mols: Optional[int] = None,
+        box_bg: str = "#E6E6E6",
+        gap: int = 12,
+        outer_margin: int = 12,
+        inner_pad: int = 10,
+):
+    """
+    Generate a grid image of molecular structures with customizable styling.
+
+    This function takes a sequence of RDKit `Mol` objects or SMILES strings, converts them
+    to RDKit `Mol` objects if necessary, and arranges them in a grid layout. Each molecule
+    is drawn inside a colored box with optional legends below. The grid layout, box styling,
+    and image dimensions are fully configurable.
+
+    Parameters
+    ----------
+    mols : Sequence[Union[Chem.Mol, str]]
+        A sequence of RDKit `Mol` objects or SMILES strings representing the molecules to be drawn.
+    legends : Optional[Sequence[str]], optional
+        A sequence of legend strings to display below each molecule. If `None`, no legends are added.
+    n_cols : int, optional
+        The number of columns in the grid. Must be a positive integer. Defaults to 4.
+    sub_img_size : Tuple[int, int], optional
+        The size of each sub-image (box) in the grid, specified as (width, height). Defaults to (200, 200).
+    max_mols : Optional[int], optional
+        The maximum number of molecules to include in the grid. If `None`, all molecules are included. Defaults to `None`.
+    box_bg : str, optional
+        The background color of the boxes in hexadecimal format. Defaults to "#E6E6E6".
+    gap : int, optional
+        The gap (in pixels) between adjacent boxes. Must be non-negative. Defaults to 12.
+    outer_margin : int, optional
+        The margin (in pixels) around the entire grid. Must be non-negative. Defaults to 12.
+    inner_pad : int, optional
+        The padding (in pixels) between the molecule drawing and the edges of the box. Must be non-negative. Defaults to 10.
+
+    Returns
+    -------
+    PIL.Image.Image
+        A PIL image object representing the grid of molecular structures.
+
+    Raises
+    ------
+    ValueError
+        If `n_cols` is not a positive integer, or if `gap`, `outer_margin`, or `inner_pad` are negative.
+        If the length of `legends` does not match the number of molecules.
+    TypeError
+        If an item in `mols` is neither an RDKit `Mol` object nor a SMILES string.
+
+    Notes
+    -----
+    - If a SMILES string cannot be converted to an RDKit `Mol` object, an empty molecule is used as a placeholder.
+    - The function uses RDKit's `MolToImage` for rendering individual molecules and PIL for assembling the grid.
+    - The grid layout is determined by the number of columns (`n_cols`) and the total number of molecules.
+    """
+    if n_cols <= 0:
+        raise ValueError("n_cols must be a positive integer")
+    if gap < 0 or outer_margin < 0 or inner_pad < 0:
+        raise ValueError("gap/outer_margin/inner_pad must be >= 0")
+
+    # Convert inputs to RDKit Mol objects
+    rdkit_mols: List[Chem.Mol] = []
+    for i, m in enumerate(mols):
+        if isinstance(m, Chem.Mol):
+            mol_obj = m
+        elif isinstance(m, str):
+            mol_obj = Chem.MolFromSmiles(m)
+        else:
+            raise TypeError(f"Item {i} is neither an RDKit Mol nor a SMILES string: {type(m)}")
+
+        if mol_obj is None:
+            mol_obj = Chem.MolFromSmiles("")
+        rdkit_mols.append(mol_obj)
+
+    if max_mols is not None:
+        rdkit_mols = rdkit_mols[: int(max_mols)]
+
+    # Legends
+    if legends is None:
+        legends_list = [""] * len(rdkit_mols)
+    else:
+        if len(legends) != len(rdkit_mols):
+            raise ValueError("legends must be the same length as mols")
+        legends_list = list(legends)
+
+    n_mols = len(rdkit_mols)
+    if n_mols == 0:
+        # Return a tiny blank image rather than erroring
+        return Image.new("RGB", (outer_margin * 2 + 1, outer_margin * 2 + 1), "white")
+
+    n_rows = math.ceil(n_mols / n_cols)
+    box_w, box_h = sub_img_size
+
+    # Size available for the RDKit drawing inside the grey tile
+    inner_w = max(1, box_w - 2 * inner_pad)
+    inner_h = max(1, box_h - 2 * inner_pad)
+
+    # Final canvas (white background = the "whitespace" between tiles)
+    canvas_w = outer_margin * 2 + n_cols * box_w + (n_cols - 1) * gap
+    canvas_h = outer_margin * 2 + n_rows * box_h + (n_rows - 1) * gap
+    canvas = Image.new("RGB", (canvas_w, canvas_h), "white")
+
+    # Render each molecule into its own grey tile, then paste into canvas
+    for idx, (mol, legend) in enumerate(zip(rdkit_mols, legends_list)):
+        r = idx // n_cols
+        c = idx % n_cols
+
+        # RDKit per-mol image (PIL). Legend is drawn within this image.
+        mol_img = Draw.MolToImage(mol, size=(inner_w, inner_h), legend=legend)
+
+        # Make the grey box and paste the mol drawing with padding
+        tile = Image.new("RGB", (box_w, box_h), box_bg)
+        tile.paste(mol_img, (inner_pad, inner_pad))
+
+        x = outer_margin + c * (box_w + gap)
+        y = outer_margin + r * (box_h + gap)
+        canvas.paste(tile, (x, y))
+
+    return canvas
+
+
+def plot_ir_spectrum(spectrum: np.ndarray,
+                     peaks: np.ndarray | None = None,
+                     xlab: str = 'Wavenumber (cm⁻¹)',
+                     ylab: str = 'Intensity',
+                     flip_x: bool = True,
+                     figsize: Tuple[float, float] = (8, 5),
+                     fontsize: int = 16) -> Tuple[Figure, Axes]:
+    """
+    Plots an infrared (IR) spectrum with optional peak annotations.
+
+    Parameters:
+    -----------
+    spectrum : np.ndarray
+        A 2D array where the first column represents the wavenumber (frequency)
+        and the second column represents the intensity.
+    peaks : np.ndarray or None, optional
+        Indices of the peaks to highlight in the spectrum. If None, no peaks are highlighted.
+        Defaults to None.
+    xlab : str, optional
+        Label for the x-axis. Defaults to 'Wavenumber (cm⁻¹)'.
+    ylab : str, optional
+        Label for the y-axis. Defaults to 'Intensity'.
+    flip_x : bool, optional
+        Whether to invert the x-axis (common for IR spectra where higher wavenumbers are on the left).
+        Defaults to True.
+    figsize : Tuple[float, float], optional
+        Size of the figure in inches. Defaults to (8, 5).
+    fontsize : int, optional
+        Font size for axis labels. Defaults to 16.
+
+    Returns:
+    --------
+    Tuple[Figure, Axes]
+        The matplotlib Figure and Axes objects for the plot.
+
+    """
+    freq = spectrum.T[0]
+    intensity = spectrum.T[1]
+    # Create a figure and axis
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.plot(freq, intensity, linewidth=2, color='black')
+
+    if peaks is not None:
+        plt.scatter(freq[peaks], intensity[peaks], color='red')
+
+    # Apply standard styling
+    ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
+
+    # Invert x-axis if requested (standard for IR)
+    if flip_x:
+        ax.invert_xaxis()
+
+    return fig, ax
+
+
+def plot_ase_atoms(
+        atoms: Atoms,
+        outfile: Optional[str] = None,
+        *,
+        rotation: str = "0x,0y,0z",
+        show_unit_cell: int = 0,
+        fig_size: Tuple[float, float] = (6, 6),
+        dpi: int = 300,
+        transparent: bool = False,
+):
+    """
+    Visualize an ASE Atoms object using Matplotlib.
+
+    This function generates a 2D visualization of an ASE Atoms object and optionally
+    saves the plot to a file. The visualization can be customized with rotation,
+    unit cell display, figure size, and transparency settings.
+
+    Parameters
+    ----------
+    atoms : ase.Atoms
+        The ASE Atoms object to visualize.
+    outfile : str or None, optional
+        The file path to save the plot. If None, the plot is not saved. Defaults to None.
+    rotation : str, optional
+        The rotation to apply to the Atoms object, specified as a string (e.g., "90x,0y,0z").
+        Defaults to "0x,0y,0z".
+    show_unit_cell : int, optional
+        Whether to display the unit cell. Set to 1 to show the unit cell, 0 to hide it.
+        Defaults to 0.
+    fig_size : tuple of float, optional
+        The size of the figure in inches (width, height). Defaults to (6, 6).
+    dpi : int, optional
+        The resolution of the figure in dots per inch. Defaults to 300.
+    transparent : bool, optional
+        Whether to make the background of the saved figure transparent. Defaults to False.
+
+    Returns
+    -------
+    tuple
+        A tuple containing the Matplotlib Figure and Axes objects.
+
+    Notes
+    -----
+    - The axis is turned off for a cleaner visualization.
+    - If `outfile` is provided, the figure is saved with tight bounding and no padding.
+    """
+    # Create a Matplotlib figure and axis with the specified size
+    fig, ax = plt.subplots(figsize=fig_size)
+
+    # Plot the ASE Atoms object with the specified parameters
+    plot_atoms(atoms, ax=ax, rotation=rotation, show_unit_cell=show_unit_cell)
+
+    # Turn off the axis for a cleaner visualization
+    ax.axis("off")
+
+    # Save the figure to the specified file if `outfile` is provided
+    if outfile:
+        fig.savefig(outfile,
+                    dpi=dpi,
+                    transparent=transparent,
+                    bbox_inches="tight",
+                    pad_inches=0)
+
+    # Return the Matplotlib figure and axis
+    return fig, ax

@@ -1,4 +1,5 @@
 import functools
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 from scipy.stats.distributions import skewnorm
@@ -77,7 +78,7 @@ ISOTOPES = {
 }
 
 
-def _ma_distribution_params(mw):
+def _ma_distribution_params(mw: float) -> Tuple[float, float, float]:
     """
     Convert a molecular weight into skew-normal distribution parameters.
 
@@ -113,7 +114,7 @@ def _ma_distribution_params(mw):
     return alpha, loc, scale
 
 
-def _ma_samples(mw, n_samples):
+def _ma_samples(mw: float, n_samples: int) -> np.ndarray:
     """
     Generate Molecular Assembly (MA) complexity estimates from a skew-normal distribution.
 
@@ -136,7 +137,7 @@ def _ma_samples(mw, n_samples):
     return np.maximum(skewnorm(alpha, loc, scale).rvs(n_samples), 0.)
 
 
-def unify_trees(trees: list[dict]):
+def unify_trees(trees: List[Optional[Dict]]) -> Dict:
     """
     Merge multiple fragmentation trees into one unified structure.
 
@@ -174,7 +175,7 @@ def unify_trees(trees: list[dict]):
         }
 
 
-def meta_tree(samples: list[dict], meta_parent_mz: float = 1e6) -> dict:
+def meta_tree(samples: List[Dict], meta_parent_mz: float = 1e6) -> Dict[float, Dict]:
     """
     Combine multiple fragmentation trees under a single 'meta' parent precursor.
 
@@ -214,11 +215,11 @@ class MAEstimator:
     """
 
     def __init__(self,
-                 same_level=True,
-                 tol=0.01,
-                 adduct_masses=None,
-                 n_samples=20,
-                 min_chunk=20.0):
+                 same_level: bool = True,
+                 tol: float = 0.01,
+                 adduct_masses: Optional[List[float]] = None,
+                 n_samples: int = 20,
+                 min_chunk: float = 20.0) -> None:
         """
         Initialize the MAEstimator instance.
 
@@ -249,7 +250,7 @@ class MAEstimator:
         self.min_chunk = min_chunk  # Minimum MW of what can be considered a fragment
 
     @functools.cache
-    def estimate_by_mw(self, mw, has_children):
+    def estimate_by_mw(self, mw: float, has_children: bool) -> np.ndarray:
         """
         Estimate MA values based on molecular weight.
 
@@ -275,7 +276,11 @@ class MAEstimator:
                     return self.zero
         return _ma_samples(mw, self.n_samples)
 
-    def estimate_ma(self, tree: dict[float, dict], mw: float = None, progress_levels=0, joint=False):
+    def estimate_ma(self,
+                    tree: Dict[float, Dict],
+                    mw: Optional[float] = None,
+                    progress_levels: int = 0,
+                    joint: bool = False) -> np.ndarray:
         """
         Estimate MA values recursively for a fragmentation tree.
 
@@ -350,7 +355,7 @@ class MAEstimator:
         estimate = min(child_estimates.values(), key=np.mean)
         return estimate
 
-    def common_precursors(self, data, parent1, parent2):
+    def common_precursors(self, data: Dict, parent1: float, parent2: float) -> set:
         """
         Find shared parent peaks for two fragments.
 
@@ -372,7 +377,7 @@ class MAEstimator:
         precursors2 = self.precursors(data, parent2)
         return set(precursors1).intersection(precursors2)
 
-    def precursors(self, data, parent):
+    def precursors(self, data: Dict, parent: float) -> Dict:
         """
         Find potential parent peaks for a given fragment.
 
@@ -420,7 +425,7 @@ class MAEstimator:
         # Remove invalid (heavier-than-parent) children
         return {k: v for k, v in children.items() if 0 < k < parent}
 
-    def same_level_precursors(self, data, parent):
+    def same_level_precursors(self, data: Dict, parent: float) -> Dict:
         """
         Find valid associations at the same fragmentation level.
 
@@ -447,7 +452,11 @@ class MAEstimator:
         return result
 
 
-def _build_tree(data, level=1, acc=None, parent=None, max_level=3):
+def _build_tree(data: Dict,
+                level: int = 1,
+                acc: Optional[Dict] = None,
+                parent: Optional[float] = None,
+                max_level: int = 3) -> Optional[Dict]:
     """
     Build a nested fragmentation tree from MSn DataFrames.
 
@@ -506,7 +515,7 @@ def _build_tree(data, level=1, acc=None, parent=None, max_level=3):
     return None
 
 
-def build_tree(data: dict, max_level=3):
+def build_tree(data: Dict, max_level: int = 3) -> Dict:
     """
     Simple wrapper for initiating tree construction.
 
@@ -541,7 +550,7 @@ def build_tree(data: dict, max_level=3):
     return _build_tree(data, max_level=max_level)
 
 
-def tree_depth(tree: dict):
+def tree_depth(tree: Dict) -> int:
     """
     Compute the maximum depth of a fragmentation tree.
 
@@ -564,7 +573,7 @@ def tree_depth(tree: dict):
         return 0
 
 
-def print_tree(tree, indent=0, max_depth=10):
+def print_tree(tree: Dict, indent: int = 0, max_depth: int = 10) -> None:
     """
     Pretty print a fragmentation tree.
 

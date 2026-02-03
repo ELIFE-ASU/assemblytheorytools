@@ -198,3 +198,36 @@ def test_plot_assembly_circle():
 
     assert os.path.isfile('circle_plot.png'), "Failed to generate the file."
     os.remove('circle_plot.png')
+
+
+def test_show_common_bonds():
+    print(flush=True)
+
+    mols_str = ["codeine",
+                "morphine"]
+
+    smis = [att.pubchem_name_to_smi(name) for name in mols_str]
+    img = att.show_common_bonds(*smis, legends=mols_str)
+    assert img is not None, "Failed to generate the image."
+    img.show()
+
+
+def test_draw_mol_grid():
+    print(flush=True)
+
+    mols_str = ["CCO", "CCN", "CCC", "CCCl", "CCBr", "CCI", "CCF", "CC=O"]
+
+    img = att.draw_mol_grid(mols_str, legends=mols_str)
+    assert img is not None, "Failed to generate the image."
+    img.show()
+
+
+def test_plot_ase_atoms():
+    print(flush=True)
+
+    smi = "C1=CC=CC=C1"
+    atoms = att.smiles_to_atoms(smi)
+    fig, ax = att.plot_ase_atoms(atoms)
+    plt.show()
+    assert fig is not None, "Failed to create the figure."
+    assert ax is not None, "Failed to create the axes."

@@ -8,9 +8,9 @@ if __name__ == "__main__":
     timeout = 600.0
 
     # List of SMILES strings representing the input molecules
-    smiles_list = ['C(C(=O)O)N',
-                   'C[C@@H](C(=O)O)N',
-                   'C([C@@H](C(=O)O)N)O',
+    smiles_list = ['C(C(=O)O)N',  # Glycine
+                   'C[C@@H](C(=O)O)N',  # Alanine
+                   'C([C@@H](C(=O)O)N)O',  # Serine
                    ]
 
     # Convert all SMILES strings to molecular graphs
@@ -29,9 +29,12 @@ if __name__ == "__main__":
         print(f"Running joint: {i + 1}", flush=True)
 
         # Calculate the assembly index and virtual objects for the current graph
+        # The assembly index is a measure of molecular complexity, and virtual objects
+        # represent intermediate structures in the assembly process
         ai, virt_obj, _ = att.calculate_assembly_index(graph, timeout=timeout)
 
         # Convert the virtual objects into SMILES strings
+        # This step generates SMILES representations of the virtual objects for output
         smiles_output = [Chem.MolToSmiles(att.nx_to_mol(graph)) for graph in virt_obj]
 
         # Print the assembly index and the SMILES representation of the input graph

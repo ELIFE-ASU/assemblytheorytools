@@ -65,7 +65,7 @@ def test_delimiter_chars():
     """
     s_in = ["a"] * 95
     a1, v1, p1 = att.calculate_string_assembly_index(s_in, directed=True)
-    a2, v2, p2 = att.calculate_string_assembly_index(s_in, directed=False)  # I think this is locked behind issue #297
+    a2, v2, p2 = att.calculate_string_assembly_index(s_in, directed=False) 
     a3, v3, p3 = att.calculate_string_assembly_index(s_in, mode='cfg')
     assert a1 == a2
     assert a1 == a3
@@ -157,3 +157,15 @@ def test_bug_08222025():
     """
     ai, vo, path = att.calculate_string_assembly_index('yydpetgtwy', mode='mol', directed=False, debug=True)
     assert path
+
+
+def test_string_graph_conversion():
+    """
+    Test the consistency of the string to graph encoding and decoding functions.
+    """
+
+    for _ in range(50):
+        s = att.generate_random_strings(1, 20)[0]
+        assert s == att.molstr_to_str(att.get_dir_str_molecule(s))
+        graph, edge_color_dict = att.get_undir_str_molecule(s)
+        assert s == att.molstr_to_str(graph, edge_color_dict = edge_color_dict)

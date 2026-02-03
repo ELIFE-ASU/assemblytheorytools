@@ -2,18 +2,16 @@ import os
 import re
 import tempfile
 from pathlib import Path
-from typing import Union
+from typing import Union, Optional, List, Tuple, Any, Dict
 
 import networkx as nx
 import numpy as np
 import pandas as pd
 from ase import Atoms
 from ase.calculators.cp2k import CP2K
-from ase.calculators.orca import ORCA
-from ase.calculators.orca import OrcaProfile
+from ase.calculators.orca import ORCA, OrcaProfile
 from ase.io import read
-from ase.units import Hartree
-from ase.units import Rydberg
+from ase.units import Hartree, Rydberg
 from rdkit import Chem as Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem import rdDetermineBonds
@@ -127,10 +125,10 @@ def mol_to_atoms(mol: Mol,
     return atoms
 
 
-def atoms_to_mol(atoms,
+def atoms_to_mol(atoms: Atoms,
                  sanitize: bool = True,
                  add_hydrogens: bool = False,
-                 charge: int = 0) -> Chem.Mol:
+                 charge: int = 0) -> Mol:
     """
     Convert an ASE Atoms object to an RDKit Mol object.
 
@@ -218,7 +216,7 @@ def atoms_to_smiles(atoms: Atoms,
                             canonical=True)
 
 
-def atoms_to_nx(atoms,
+def atoms_to_nx(atoms: Atoms,
                 sanitize: bool = True,
                 add_hydrogen: bool = False,
                 charge: int = 0) -> nx.Graph:
@@ -404,15 +402,15 @@ def get_spin_multiplicity(mol: Chem.Mol) -> int:
     return (n_rad + 1) if n_rad else 1
 
 
-def cp2k_calc_preset(cp2k_command=None,
-                     directory=None,
-                     cutoff=400,
-                     charge=0,
-                     multiplicity=1,
-                     basis_set='DZVP-MOLOPT-SR-GTH',
-                     xc='PBE',
-                     calc_extra=None,
-                     blocks_extra=None):
+def cp2k_calc_preset(cp2k_command: Optional[str] = None,
+                     directory: Optional[str] = None,
+                     cutoff: int = 400,
+                     charge: int = 0,
+                     multiplicity: int = 1,
+                     basis_set: str = 'DZVP-MOLOPT-SR-GTH',
+                     xc: str = 'PBE',
+                     calc_extra: Optional[Dict[str, Any]] = None,
+                     blocks_extra: Optional[Dict[str, Any]] = None) -> CP2K:
     """
     Create and configure a CP2K calculator preset for quantum chemistry calculations.
 
@@ -479,20 +477,20 @@ def cp2k_calc_preset(cp2k_command=None,
     return calc
 
 
-def orca_calc_preset(orca_path=None,
-                     directory=None,
-                     calc_type='DFT',
-                     xc='wB97X',
-                     charge=0,
-                     multiplicity=1,
-                     basis_set='def2-SVP',
-                     n_procs=10,
-                     f_solv=False,
-                     f_disp=False,
-                     atom_list=None,
-                     calc_extra=None,
-                     blocks_extra=None,
-                     scf_option=None):
+def orca_calc_preset(orca_path: Optional[str] = None,
+                     directory: Optional[str] = None,
+                     calc_type: str = 'DFT',
+                     xc: str = 'r2SCAN-3c',
+                     charge: int = 0,
+                     multiplicity: int = 1,
+                     basis_set: str = 'def2-mTZVPP',
+                     n_procs: int = 10,
+                     f_solv: Union[bool, str] = False,
+                     f_disp: Union[bool, str] = False,
+                     atom_list: Optional[List[int]] = None,
+                     calc_extra: Optional[str] = None,
+                     blocks_extra: Optional[str] = None,
+                     scf_option: Optional[str] = None) -> ORCA:
     """
     Create and configure an ORCA calculator preset for quantum chemistry calculations.
 
@@ -505,13 +503,13 @@ def orca_calc_preset(orca_path=None,
     calc_type : str, optional
         Type of calculation to perform (e.g., 'DFT', 'MP2', 'CCSD', 'QM/XTB2'). Default is 'DFT'.
     xc : str, optional
-        Exchange-correlation functional to use. Default is 'wB97X'.
+        Exchange-correlation functional to use. Default is 'r2SCAN-3c'.
     charge : int, optional
         Total charge of the system. Default is 0.
     multiplicity : int, optional
         Spin multiplicity of the system. Default is 1.
     basis_set : str, optional
-        Basis set to use for the calculation. Default is 'def2-SVP'.
+        Basis set to use for the calculation. Default is 'def2-mTZVPP'.
     n_procs : int, optional
         Number of processors to use. Default is 10.
     f_solv : bool or str, optional
@@ -621,17 +619,17 @@ def orca_calc_preset(orca_path=None,
     return calc
 
 
-def optimise_atoms(atoms,
-                   charge=0,
-                   multiplicity=1,
-                   orca_path=None,
-                   xc='r2SCAN-3c',
-                   basis_set='def2-QZVP',
-                   tight_opt=False,
-                   tight_scf=False,
-                   f_solv=False,
-                   f_disp=False,
-                   n_procs=10):
+def optimise_atoms(atoms: Atoms,
+                   charge: int = 0,
+                   multiplicity: int = 1,
+                   orca_path: Optional[str] = None,
+                   xc: str = 'r2SCAN-3c',
+                   basis_set: str = 'def2-mTZVPP',
+                   tight_opt: bool = False,
+                   tight_scf: bool = False,
+                   f_solv: Union[bool, str] = False,
+                   f_disp: Union[bool, str] = False,
+                   n_procs: int = 10) -> Atoms:
     """
     Optimize the geometry of a molecule using ORCA.
 
@@ -653,7 +651,7 @@ def optimise_atoms(atoms,
     xc : str, optional
         Exchange-correlation functional to use. Default is 'r2SCAN-3c'.
     basis_set : str, optional
-        Basis set to use for the calculation. Default is 'def2-QZVP'.
+        Basis set to use for the calculation. Default is 'def2-mTZVPP'.
     tight_opt : bool, optional
         Whether to use tight optimization parameters. Default is False.
     tight_scf : bool, optional
@@ -746,7 +744,7 @@ def get_total_electrons(atoms: Atoms) -> int:
     return n_electrons
 
 
-def round_to_nearest_two(number):
+def round_to_nearest_two(number: Union[int, float]) -> int:
     """
     Round a number to the nearest multiple of 2.
     
@@ -772,12 +770,12 @@ def round_to_nearest_two(number):
     return result
 
 
-def calculate_ccsd_energy(atoms,
-                          charge=0,
-                          multiplicity=1,
-                          orca_path=None,
-                          basis_set='def2-TZVPP',
-                          n_procs=10):
+def calculate_ccsd_energy(atoms: Atoms,
+                          charge: int = 0,
+                          multiplicity: int = 1,
+                          orca_path: Optional[str] = None,
+                          basis_set: str = 'def2-TZVPP',
+                          n_procs: int = 10) -> float:
     """
     Perform a CCSD energy calculation for a molecule.
 
@@ -833,7 +831,7 @@ def calculate_ccsd_energy(atoms,
         return atoms.get_potential_energy()
 
 
-def grab_value(orca_file, term, splitter):
+def grab_value(orca_file: str, term: str, splitter: str) -> Optional[float]:
     """
     Extract a numerical value from an ORCA output file.
     
@@ -861,21 +859,21 @@ def grab_value(orca_file, term, splitter):
         return None
 
 
-def calculate_free_energy(atoms,
-                          charge=0,
-                          multiplicity=1,
-                          temperature=None,
-                          pressure=None,
-                          orca_path=None,
-                          xc='r2SCAN-3c',
-                          basis_set='def2-QZVP',
-                          tight_opt=False,
-                          tight_scf=False,
-                          f_solv=False,
-                          f_disp=False,
-                          n_procs=10,
-                          use_ccsd=False,
-                          ccsd_energy=None):
+def calculate_free_energy(atoms: Atoms,
+                          charge: int = 0,
+                          multiplicity: int = 1,
+                          temperature: Optional[float] = None,
+                          pressure: Optional[float] = None,
+                          orca_path: Optional[str] = None,
+                          xc: str = 'r2SCAN-3c',
+                          basis_set: str = 'def2-mTZVPP',
+                          tight_opt: bool = False,
+                          tight_scf: bool = False,
+                          f_solv: bool = False,
+                          f_disp: bool = False,
+                          n_procs: int = 10,
+                          use_ccsd: bool = False,
+                          ccsd_energy: Optional[float] = None) -> Tuple[float, float, float]:
     """
     Calculate the Gibbs free energy, enthalpy, and entropy of a molecule.
 
@@ -900,7 +898,7 @@ def calculate_free_energy(atoms,
     xc : str, optional
         Exchange-correlation functional to use. Default is 'r2SCAN-3c'.
     basis_set : str, optional
-        Basis set to use for the calculation. Default is 'def2-QZVP'.
+        Basis set to use for the calculation. Default is 'def2-mTZVPP'.
     tight_opt : bool, optional
         Whether to use tight geometry optimization. Default is False.
     tight_scf : bool, optional
@@ -1011,7 +1009,7 @@ def calculate_free_energy(atoms,
         return energy, energy - entropy, entropy
 
 
-def list_to_str(lst):
+def list_to_str(lst: List[Any]) -> str:
     """
     Convert a list to a comma-separated string.
     
@@ -1032,17 +1030,17 @@ def list_to_str(lst):
     return ', '.join(lst)
 
 
-def calculate_hessian(atoms,
-                      charge=0,
-                      multiplicity=1,
-                      orca_path=None,
-                      xc='r2SCAN-3c',
-                      basis_set='def2-QZVP',
-                      tight_opt=False,
-                      tight_scf=False,
-                      f_solv=False,
-                      f_disp=False,
-                      n_procs=10):
+def calculate_hessian(atoms: Atoms,
+                      charge: int = 0,
+                      multiplicity: int = 1,
+                      orca_path: Optional[str] = None,
+                      xc: str = 'r2SCAN-3c',
+                      basis_set: str = 'def2-mTZVPP',
+                      tight_opt: bool = False,
+                      tight_scf: bool = False,
+                      f_solv: Union[bool, str] = False,
+                      f_disp: Union[bool, str] = False,
+                      n_procs: int = 10) -> Tuple[Atoms, str]:
     """
     Perform a Hessian matrix calculation for a molecule.
 
@@ -1062,7 +1060,7 @@ def calculate_hessian(atoms,
     xc : str, optional
         Exchange-correlation functional to use. Default is 'r2SCAN-3c'.
     basis_set : str, optional
-        Basis set to use for the calculation. Default is 'def2-QZVP'.
+        Basis set to use for the calculation. Default is 'def2-mTZVPP'.
     tight_opt : bool, optional
         Whether to use tight optimization parameters. Default is False.
     tight_scf : bool, optional
@@ -1214,11 +1212,11 @@ def extract_conformer_info(filepath: Union[str, Path]) -> pd.DataFrame:
     )
 
 
-def calculate_goat(atoms,
-                   charge=0,
-                   multiplicity=1,
-                   orca_path=None,
-                   n_procs=10):
+def calculate_goat(atoms: Atoms,
+                   charge: int = 0,
+                   multiplicity: int = 1,
+                   orca_path: Optional[str] = None,
+                   n_procs: int = 10) -> Tuple[List[Atoms], pd.DataFrame]:
     """
     Perform a GOAT (Global Optimization of Atomic Topologies) calculation using ORCA.
 
@@ -1296,14 +1294,14 @@ def calculate_goat(atoms,
         return atoms, df
 
 
-def get_virtual_objects_energy(mol_list,
-                               orca_path=None,
-                               xc='wB97X',
-                               basis_set='def2-SVP',
-                               f_solv=False,
-                               f_disp=False,
-                               n_procs=10,
-                               ccsd_energy=False):
+def get_virtual_objects_energy(mol_list: List[Mol],
+                               orca_path: Optional[str] = None,
+                               xc: str = 'r2SCAN-3c',
+                               basis_set: str = 'def2-mTZVPP',
+                               f_solv: bool = False,
+                               f_disp: bool = False,
+                               n_procs: int = 10,
+                               ccsd_energy: bool = False) -> List[float]:
     """
     Calculate free energies for a list of RDKit molecules.
     
@@ -1319,7 +1317,7 @@ def get_virtual_objects_energy(mol_list,
     xc : str, optional
         Exchange-correlation functional to use. Default is 'wB97X'.
     basis_set : str, optional
-        Basis set to use for calculations. Default is 'def2-SVP'.
+        Basis set to use for calculations. Default is 'def2-mTZVPP'.
     f_solv : bool, optional
         Whether to include solvent effects. Default is False.
     f_disp : bool, optional

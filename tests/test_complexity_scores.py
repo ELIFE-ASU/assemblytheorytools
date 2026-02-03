@@ -33,6 +33,60 @@ def test_count_unique_bonds():
     assert n == 3, f"Expected 2 unique bonds for {smi}, got {n}"
 
 
+def test_count_bonds():
+    """
+    Test the `count_bonds` function.
+
+    This function performs the following tests:
+    1. Converts a SMILES string for water ("O") to a molecule object.
+       - Asserts that the total number of bonds is 2.
+    2. Converts a SMILES string for benzene ("c1ccccc1") to a molecule object.
+       - Asserts that the total number of bonds is 12.
+
+    Asserts:
+        - The total number of bonds matches the expected value for each test case.
+    """
+    print(flush=True)
+    # Test with water
+    smi = "O"
+    mol = att.smi_to_mol(smi)  # Convert SMILES to molecule object
+    n = att.count_bonds(mol)  # Count total bonds
+    assert n == 2, f"Expected 2 bonds for {smi}, got {n}"
+
+    # Test with benzene
+    smi = "c1ccccc1"  # Benzene
+    mol = att.smi_to_mol(smi)  # Convert SMILES to molecule object
+    n = att.count_bonds(mol)  # Count total bonds
+    assert n == 12, f"Expected 12 bonds for {smi}, got {n}"
+
+
+def test_count_non_h_bonds():
+    """
+    Test the `count_non_h_bonds` function.
+
+    This function performs the following tests:
+    1. Converts a SMILES string for water ("O") to a molecule object.
+       - Asserts that the number of non-hydrogen bonds is 0.
+    2. Converts a SMILES string for benzene ("c1ccccc1") to a molecule object.
+       - Asserts that the number of non-hydrogen bonds is 6.
+
+    Asserts:
+        - The number of non-hydrogen bonds matches the expected value for each test case.
+    """
+    print(flush=True)
+    # Test with water
+    smi = "O"
+    mol = att.smi_to_mol(smi)  # Convert SMILES to molecule object
+    n = att.count_non_h_bonds(mol)  # Count non-hydrogen bonds
+    assert n == 0, f"Expected 0 non-hydrogen bonds for {smi}, got {n}"
+
+    # Test with benzene
+    smi = "c1ccccc1"  # Benzene
+    mol = att.smi_to_mol(smi)  # Convert SMILES to molecule object
+    n = att.count_non_h_bonds(mol)  # Count non-hydrogen bonds
+    assert n == 6, f"Expected 6 non-hydrogen bonds for {smi}, got {n}"
+
+
 def test_get_mol_descriptors():
     """
     Test that `get_mol_descriptors()` correctly calculates molecular
@@ -403,3 +457,23 @@ def test_mc2():
     smi = "COC1=C(O)C=C(CC(=O)O)C=C1Br"
     mol = Chem.MolFromSmiles(smi)
     assert att.mc2(mol) == 8
+
+
+def test_shannon_entropy():
+    """
+    Test the `shannon_entropy` function from the `assemblytheorytools` library.
+
+    This function performs the following steps:
+    1. Defines a string `smi` representing a sequence of characters.
+    2. Computes the Shannon entropy of the string using `att.shannon_entropy`.
+    3. Prints the computed entropy value.
+    4. Asserts that the computed entropy is approximately equal to 3.251
+       (with a tolerance of 0.001).
+
+    Example see https://www.science.org/doi/10.1126/sciadv.abj2465
+    """
+    print(flush=True)  # Ensure output is flushed immediately
+    smi = "CG_TTG_A1_GAC1G_3CTC4_1T5CAG42342543"  # Input sequence for entropy calculation
+    entropy = att.shannon_entropy(smi)  # Compute Shannon entropy of the input sequence
+    print(f"Shannon entropy: {entropy:.2f}", flush=True)  # Print the computed entropy value
+    assert np.allclose(entropy, 3.251, atol=0.001)  # Verify the computed value matches the expected result

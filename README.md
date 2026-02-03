@@ -61,6 +61,19 @@ For example, put `export ASS_PATH=/home/user/asscpp` in your submission
 script or your `.bashrc`.
 For compilation instructions to make your version from source, check out AssemblyCPP for instructions.
 
+### ORCA - Optional
+
+Components of this code use ORCA, a flexible, efficient, and easy-to-use general-purpose quantum chemistry program
+package. ORCA is free for academic use but requires registration.
+
+1. Go to the [ORCA Forum](https://orcaforum.kofo.mpg.de/) and register for an account.
+2. Once registered, navigate to the "Downloads" section.
+3. Download the appropriate version for your Linux system (e.g., `ORCA 6.1.1, Linux, x86-64, shared-linked, .tar.xz`).
+4. Move the downloaded archive to your desired installation directory (e.g., `$HOME/orca_6_1_1`) and extract it.
+5. Add the ORCA executable to `ORCA_PATH` to path so that ATT can point to it. For example, put
+   `export ORCA_PATH=$HOME/orca_6_1_1/orca` in your submission
+   script or your `.bashrc`.
+
 ## 💡 Example
 
 For most use cases, the general calculation can be
@@ -164,13 +177,19 @@ Gage Siebert, string assembly index calculations and CFG integration.
 
 Keith Patarroyo, assembly path reconstruction and visualisation.
 
+Amit Kahana, recursive MA integration
+
 Ian Seet, joining operations index calculations.
 
 Sebastian Pagel, reassembly calculations and visualisation.
 
 Veronica Mierzejewski, integration of reassembly calculations.
 
+Stuart Marshall, debugging and optimization
+
 Marina Fernandez-Ruz, visualisation and circle plots.
+
+Abhishek Sharma, administrative support
 
 Mohammadreza Shahjahan, branding, development.
 

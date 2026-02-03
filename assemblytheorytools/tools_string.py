@@ -274,3 +274,4 @@ def generate_random_strings(n_pool: int, n_length: int) -> list[str]:
 
     # Generate a list of random strings using the specified character set
     return [''.join(random.choices(chars, k=n_length)) for _ in range(n_pool)]
+

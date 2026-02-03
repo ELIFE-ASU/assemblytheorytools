@@ -1,9 +1,8 @@
 import random
-from typing import List, Tuple, Optional
+from typing import List
 
 import numpy as np
 from rdkit.Chem import AllChem as Chem
-from rdkit.Chem import Draw
 from rdkit.Chem.rdchem import Mol
 
 from .assembly import calculate_assembly_index
@@ -113,7 +112,7 @@ def swap_random_elements_list(arr: list[int]) -> list[int]:
     return arr
 
 
-def scramble_list(lst):
+def scramble_list(lst: list) -> list:
     """
     Randomly shuffle list elements.
     
@@ -140,7 +139,7 @@ def scramble_list(lst):
     return out
 
 
-def swap_random_elements(lst):
+def swap_random_elements(lst: list) -> list:
     """
     Swap two randomly selected elements in a list.
     
@@ -177,7 +176,7 @@ def swap_random_elements(lst):
     return lst
 
 
-def pad_list(lst, length):
+def pad_list(lst: list, length: int) -> list:
     """
     Pad a list with empty strings to a specified length.
     
@@ -204,7 +203,7 @@ def pad_list(lst, length):
     return lst + [''] * (length - len(lst))
 
 
-def get_max_list_lengths(lists):
+def get_max_list_lengths(lists: list[list]) -> int:
     """
     Calculate the maximum length among a collection of lists.
     
@@ -226,7 +225,10 @@ def get_max_list_lengths(lists):
     return max([len(lst) for lst in lists])
 
 
-def ensure_equal_length(l1, l2, l3, max_length=None):
+def ensure_equal_length(l1: list,
+                        l2: list,
+                        l3: list,
+                        max_length: None | int = None) -> list[list]:
     """
     Ensure three lists have equal length by padding with empty strings.
     
@@ -260,76 +262,9 @@ def ensure_equal_length(l1, l2, l3, max_length=None):
     return [l + [''] * (max_length - len(l)) for l in [l1, l2, l3]]
 
 
-def plot_vo(dup_vo: List[str], rem_vo: List[str], ree_vo: List[str], outfile: str = "virtual_objects.png",
-            image_size: Tuple[int, int] = (600, 600)) -> None:
-    """
-    Plot virtual objects in a grid image and save to a file.
-    
-    Creates a matrix visualization of three categories of virtual objects:
-    duplicates, remnants, and removed-edges. Converts InChI strings to
-    molecular structures and arranges them in a labeled grid.
-    
-    Parameters
-    ----------
-    dup_vo : list of str
-        List of duplicate virtual objects in InChI format.
-    rem_vo : list of str
-        List of remnant virtual objects in InChI format.
-    ree_vo : list of str
-        List of removed-edges virtual objects in InChI format.
-    outfile : str, optional
-        The name of the output image file, by default "virtual_objects.png".
-    image_size : tuple of int, optional
-        The size of each sub-image in the grid as (width, height),
-        by default (600, 600).
-    
-    Returns
-    -------
-    None
-        Saves the grid image to the specified output file.
-    """
-    im_mat = ensure_equal_length(dup_vo, rem_vo, ree_vo)
-    max_length = get_max_list_lengths(im_mat)
-    mols_mat = [[Chem.MolFromInchi(inchi) for inchi in row] for row in im_mat]
-    leg_mat = ensure_equal_length(["Duplicates"],
-                                  ["Remnants"],
-                                  ["Removed-Edges"],
-                                  max_length=max_length)
-    Draw.MolsMatrixToGridImage(mols_mat, legendsMatrix=leg_mat, subImgSize=image_size).save(outfile)
-    return None
-
-
-def plot_simple_idx_compare(mol_list: List[Mol], labels: Optional[List[str]] = None,
-                            outfile: str = "allpath_indexes.png", image_size: Tuple[int, int] = (600, 600)) -> None:
-    """
-    Plot a grid image of molecules with atom indices and save to a file.
-
-    Parameters
-    ----------
-    mol_list : List[Mol]
-        List of RDKit molecule objects to visualize.
-    labels : Optional[List[str]], optional
-        List of labels for each molecule. If None, default labels
-        ("Path 1", "Path 2", ...) are generated, by default None.
-    outfile : str, optional
-        The name of the output image file, by default "allpath_indexes.png".
-    image_size : Tuple[int, int], optional
-        The size of each sub-image in the grid as (width, height),
-        by default (600, 600).
-
-    Returns
-    -------
-    None
-        Saves the grid image to the specified output file.
-    """
-    if labels is None:
-        labels = [f"Path {i + 1}" for i in range(len(mol_list))]
-    Draw.MolsToGridImage([mol_with_atom_index(mol) for mol in mol_list], subImgSize=image_size, legends=labels).save(
-        outfile)
-    return None
-
-
-def all_shortest_paths(mol: Mol, f_graph_care: bool = False, max_attempts: int = 3) -> List[str]:
+def all_shortest_paths(mol: Mol,
+                       f_graph_care: bool = False,
+                       max_attempts: int = 3) -> List[str]:
     """
     Generate all unique shortest paths of a molecule by scrambling atom indices.
 

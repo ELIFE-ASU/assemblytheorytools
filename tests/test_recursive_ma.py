@@ -1,6 +1,5 @@
-import pickle
-from pathlib import Path
 import numpy as np
+
 import assemblytheorytools as att
 
 np.random.seed(seed=0)

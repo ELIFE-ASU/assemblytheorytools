@@ -164,3 +164,9 @@ cython_debug/
 
 # Mac
 .DS_Store
+
+# assembly files
+memUsage
+*.csv.gz
+*.tar
+*.gz
