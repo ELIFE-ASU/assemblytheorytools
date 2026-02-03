@@ -433,6 +433,21 @@ def compile_assembly_cpp() -> None:
 
 
 def joint_assembly_index_correction(mol: Union[nx.Graph, Chem.Mol], ass_index: int) -> int:
+    """
+    Corrects the assembly index based on the joint assembly components.
+
+    Parameters
+    ----------
+    mol : Union[nx.Graph, Chem.Mol]
+        The input molecule or graph.
+    ass_index : int
+        The original assembly index.
+
+    Returns
+    -------
+    int
+        The corrected assembly index.
+    """
     if isinstance(mol, nx.Graph):
         # Get the number of connected components in the graph
         num_components = nx.number_connected_components(mol)
@@ -487,6 +502,81 @@ def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
                              return_log_file: bool = False,
                              canonicalize: bool = True,
                              exact: bool = False) -> Union[Tuple[int, Any, Any], Tuple[int, Any, Any, Optional[str]]]:
+    """
+    Calculate the assembly index for a given graph or molecule.
+
+    This function computes an (optionally joint) assembly index for the input
+    molecular graph or RDKit molecule using the external assembly calculator.
+    It manages temporary file creation, process execution, and output parsing,
+    and supports both single and joint assembly index calculations.
+
+    Parameters
+    ----------
+    graph : Union[nx.Graph, Chem.Mol]
+        The input molecular graph or RDKit molecule.
+    dir_code : str, optional
+        Path to the assembly executable; if None, the bundled/compiled binary
+        is located via add_assembly_to_path or equivalent.
+    timeout : float, optional
+        Maximum time in seconds to allow the external calculator to run.
+        Default is 100.0.
+    save_dir : bool, optional
+        If True, save the temporary files and directories used for the calculation.
+        Default is False.
+    debug : bool, optional
+        If True, print debug information and keep temporary files.
+        Default is False.
+    joint_corr : bool, optional
+        If True, apply joint assembly index correction based on graph components.
+        Default is True.
+    strip_hydrogen : bool, optional
+        If True, remove hydrogen atoms from the graph before calculation.
+        Default is False.
+    return_log_file : bool, optional
+        If True, return the path to the log file produced by the external run as
+        the fourth element of the returned tuple. Default is False.
+    canonicalize : bool, optional
+        If True, canonicalize the node labels in the graph.
+        Default is True.
+    exact : bool, optional
+        If True, enforce exact mode for assembly index calculation.
+        Default is False.
+
+    Returns
+    -------
+    tuple
+        If return_log_file is False returns a 3-tuple: (ai, virt_obj, path) where
+        ai is the (possibly joint) assembly index (int), virt_obj is a list
+        or other representation of virtual objects (or None), and path is the
+        pathway representation (or None). If return_log_file is True returns
+        (ai, virt_obj, path, log_file) where log_file is the path to the
+        assembler log produced in the temporary ai_calc_* folder.
+
+    Raises
+    ------
+    ValueError
+        If the input graph is not supported or if an invalid mode is specified.
+    OSError
+        If there are issues with file system access, process execution, or
+        if required external tools or compiled executables are not available.
+    subprocess.TimeoutExpired
+        When an invoked external process exceeds timeout and cannot be cleanly
+        terminated.
+
+    Notes
+    -----
+    - Joint inputs (lists) are encoded with delimiters; the final returned AI is
+      corrected by subtracting delimiter and directedness offsets.
+    - Temporary working directories named like ``ai_calc_<timestamp>`` are created;
+      they are removed automatically unless ``debug`` is True.
+    - In 'str' mode the function expects the string-assembly binary (set via
+      environment variable ``ASS_STR_PATH`` or found by ``add_assembly_to_path``).
+    - In 'cfg' mode the function delegates to ``CFG.ai_with_pathways`` and
+      returns an upper bound; no external binary is invoked.
+    - For reproducible behaviour consider using ``debug=True`` to preserve the
+      temporary folder and log files.
+
+    """
     # Initialize variables
     ai = -1
     virtual_objects = None
@@ -615,6 +705,38 @@ def calculate_assembly(graphs: List[Union[nx.Graph, Chem.Mol]],
                        n_i: List[float],
                        settings: Optional[Dict[str, Any]] = None,
                        parallel: bool = True) -> float:
+    """
+    Calculate the assembly index for a list of graphs.
+
+    This function computes the assembly index for each graph in the input list
+    (graphs) using the calculate_assembly_index function. It then regularizes
+    the assembly indices to ensure non-negative values and computes the weighted
+    sum of the exponential of the assembly indices.
+
+    Parameters
+    ----------
+    graphs : List[Union[nx.Graph, Chem.Mol]]
+        A list of molecular graphs or RDKit molecules to analyze.
+    n_i : List[float]
+        A list of weights corresponding to each graph, used for weighted sum calculation.
+    settings : Optional[Dict[str, Any]], optional
+        A dictionary of settings forwarded to calculate_assembly_index.
+        If None, an empty dictionary is used. Default is None.
+    parallel : bool, optional
+        If True, run calculations in parallel using multiple processes.
+        Default is True.
+
+    Returns
+    -------
+    float
+        The overall assembly index for the combined system of graphs.
+
+    Raises
+    ------
+    ValueError
+        If the input graphs are not of the same type or if the list lengths do not match.
+    """
+
     settings = settings or {}
 
     if parallel:
@@ -1111,7 +1233,7 @@ def load_assembly_time() -> float:
     - The implementation expects the last line of the ``Out`` file to contain a
       colon-separated value whose final token is the numeric time (matching the
       historical behavior of the project). The numeric value is interpreted as
-      microseconds and converted to seconds by multiplying by ``1e-6``.
+      microseconds and converted to seconds by multiplying with ``1e-6``.
     - Uses :func:`get_most_recent_calc` to find the latest calculation folder.
 
     Examples
@@ -1157,8 +1279,58 @@ def calculate_assembly_index_semi_metric(graph1: Union[nx.Graph, Chem.Mol],
                                          settings: Optional[Dict[str, Any]] = None,
                                          parallel: bool = True,
                                          normalise: bool = False) -> float:
+    """
+    Calculate the semi-metric distance between two molecular graphs.
+
+    The semi-metric distance is computed as twice the joint assembly index minus
+    the sum of the individual assembly indices. This value represents the
+    "additional cost" or "savings" when combining the two structures into a
+    single assembly.
+
+    Parameters
+    ----------
+    graph1 : Union[nx.Graph, Chem.Mol]
+        The first molecular graph or RDKit molecule.
+    graph2 : Union[nx.Graph, Chem.Mol]
+        The second molecular graph or RDKit molecule.
+    settings : Optional[Dict[str, Any]], optional
+        A dictionary of settings forwarded to calculate_assembly_index.
+        If None, an empty dictionary is used. Default is None.
+    parallel : bool, optional
+        If True, run calculations in parallel using multiple processes.
+        Default is True.
+    normalise : bool, optional
+        If True, normalize the semi-metric distance by the sum of the assembly indices.
+        Default is False.
+
+    Returns
+    -------
+    float
+        The computed semi-metric distance, which may be negative, zero, or positive.
+
+    Raises
+    ------
+    ValueError
+        If the input graphs are not of the same type.
+    OSError
+        If there are issues with file system access, process execution, or
+        if required external tools or compiled executables are not available.
+    subprocess.TimeoutExpired
+        When an invoked external process exceeds timeout and cannot be cleanly
+        terminated.
+
+    Notes
+    -----
+    - A negative semi-metric distance indicates that the combined assembly is
+      "cheaper" than the sum of the individual assemblies, suggesting a
+      synergistic effect.
+    - This metric is useful for evaluating the potential efficiency or
+      feasibility of synthesizing the combined structure.
+    """
+
     settings = settings or {}
 
+    # Ensure both graphs are of the same type
     if type(graph1) != type(graph2):
         raise ValueError("Input graphs must be of the same type")
 
@@ -1192,6 +1364,31 @@ def calculate_assembly_index_semi_metric(graph1: Union[nx.Graph, Chem.Mol],
 
 def calculate_assembly_index_upper_bound(mol: Union[nx.Graph, Chem.Mol],
                                          strip_hydrogen: bool = False) -> int:
+    """
+    Calculate the upper bound of the assembly index for a molecular graph or RDKit molecule.
+
+    The upper bound is estimated based on the number of bonds/edges in the structure,
+    providing a theoretical maximum for the assembly index.
+
+    Parameters
+    ----------
+    mol : Union[nx.Graph, Chem.Mol]
+        The input molecular graph or RDKit molecule.
+    strip_hydrogen : bool, optional
+        If True, remove hydrogen atoms from the graph before calculation.
+        Default is False.
+
+    Returns
+    -------
+    int
+        The estimated upper bound of the assembly index.
+
+    Raises
+    ------
+    ValueError
+        If the input type is not supported.
+    """
+
     # Check if the input is a NetworkX graph
     if isinstance(mol, nx.Graph):
         if strip_hydrogen:
@@ -1213,6 +1410,31 @@ def calculate_assembly_index_upper_bound(mol: Union[nx.Graph, Chem.Mol],
 
 def calculate_assembly_index_lower_bound(mol: Union[nx.Graph, Chem.Mol],
                                          strip_hydrogen: bool = False) -> int:
+    """
+    Calculate the lower bound of the assembly index for a molecular graph or RDKit molecule.
+
+    The lower bound is estimated based on the number of bonds/edges in the structure,
+    providing a theoretical minimum for the assembly index.
+
+    Parameters
+    ----------
+    mol : Union[nx.Graph, Chem.Mol]
+        The input molecular graph or RDKit molecule.
+    strip_hydrogen : bool, optional
+        If True, remove hydrogen atoms from the graph before calculation.
+        Default is False.
+
+    Returns
+    -------
+    int
+        The estimated lower bound of the assembly index.
+
+    Raises
+    ------
+    ValueError
+        If the input type is not supported.
+    """
+
     if isinstance(mol, nx.Graph):
         if strip_hydrogen:
             mol = remove_hydrogen_from_graph(mol)
@@ -1231,6 +1453,42 @@ def calculate_assembly_index_lower_bound(mol: Union[nx.Graph, Chem.Mol],
 def calculate_sum_assembly_index(graphs: List[Union[nx.Graph, Chem.Mol]],
                                  settings: Optional[Dict[str, Any]] = None,
                                  parallel: bool = True) -> int:
+    """
+    Calculate the sum of assembly indices for multiple graphs.
+
+    This function computes the assembly index for each graph in the input list
+    (graphs) using the calculate_assembly_index function. It then sums the
+    individual assembly indices to provide a total assembly index for the
+    combined system of graphs.
+
+    Parameters
+    ----------
+    graphs : List[Union[nx.Graph, Chem.Mol]]
+        A list of molecular graphs or RDKit molecules to analyze.
+    settings : Optional[Dict[str, Any]], optional
+        A dictionary of settings forwarded to calculate_assembly_index.
+        If None, an empty dictionary is used. Default is None.
+    parallel : bool, optional
+        If True, run calculations in parallel using multiple processes.
+        Default is True.
+
+    Returns
+    -------
+    int
+        The total assembly index for the combined system of graphs.
+
+    Raises
+    ------
+    ValueError
+        If the input graphs are not of the same type.
+    OSError
+        If there are issues with file system access, process execution, or
+        if required external tools or compiled executables are not available.
+    subprocess.TimeoutExpired
+        When an invoked external process exceeds timeout and cannot be cleanly
+        terminated.
+    """
+
     if graphs is None or not hasattr(graphs, "__iter__"):
         raise ValueError("`graphs` must be an iterable of graph objects")
 
@@ -1253,6 +1511,54 @@ def calculate_assembly_index_similarity(graphs: List[Union[nx.Graph, Chem.Mol]],
                                         settings: Optional[Dict[str, Any]] = None,
                                         parallel: bool = True,
                                         enforce_exact_mode: bool = True) -> float:
+    """
+    Calculate the assembly index similarity for a set of graphs.
+
+    This function computes the assembly index for the joint graph (combined
+    from all input graphs) and compares it to the sum of the assembly indices
+    of the individual graphs. The similarity is defined as the ratio of the
+    sum of individual AIs to the AI of the joint graph.
+
+    Parameters
+    ----------
+    graphs : List[Union[nx.Graph, Chem.Mol]]
+        A list of molecular graphs or RDKit molecules to analyze.
+    settings : Optional[Dict[str, Any]], optional
+        A dictionary of settings forwarded to calculate_assembly_index.
+        If None, an empty dictionary is used. Default is None.
+    parallel : bool, optional
+        If True, run calculations in parallel using multiple processes.
+        Default is True.
+    enforce_exact_mode : bool, optional
+        If True, enforce exact mode for assembly index calculation.
+        Default is True.
+
+    Returns
+    -------
+    float
+        The calculated similarity index, which should be close to 1.0 for
+        similar structures and significantly different for dissimilar ones.
+
+    Raises
+    ------
+    ValueError
+        If the input graphs are not of the same type.
+    OSError
+        If there are issues with file system access, process execution, or
+        if required external tools or compiled executables are not available.
+    subprocess.TimeoutExpired
+        When an invoked external process exceeds timeout and cannot be cleanly
+        terminated.
+
+    Notes
+    -----
+    - The function is designed to detect and warn about potentially unintended
+      comparisons of isomorphic structures.
+    - The similarity index provides a measure of how the whole compares to
+      the sum of its parts, which can be greater than 1.0 due to synergistic
+      effects or structural efficiencies.
+    """
+
     if settings is None:
         settings = {}
 
@@ -1425,6 +1731,48 @@ def _calculate_jo_from_pathway(json_file: str) -> int:
 
 def calculate_assembly_index_jo(mol: Union[nx.Graph, Chem.Mol],
                                 settings: Optional[Dict[str, Any]] = None) -> Tuple[int, Any, Any]:
+    """
+    Calculate the joining-operation (JO) assembly index for a molecular graph or RDKit molecule.
+
+    The JO assembly index is a metric that reflects the efficiency or feasibility of
+    synthesizing a molecular structure. It is computed based on the assembly pathways
+    and the molecular assembly numbers of the constituent parts.
+
+    Parameters
+    ----------
+    mol : Union[nx.Graph, Chem.Mol]
+        The input molecular graph or RDKit molecule.
+    settings : Optional[Dict[str, Any]], optional
+        A dictionary of settings forwarded to calculate_assembly_index.
+        If None, an empty dictionary is used. Default is None.
+
+    Returns
+    -------
+    tuple
+        A 3-tuple: (jo, virt_obj, path) where
+        jo is the joining-operation assembly index (int), virt_obj is a list
+        or other representation of virtual objects (or None), and path is the
+        pathway representation (or None).
+
+    Raises
+    ------
+    ValueError
+        If the input graph is not supported.
+    OSError
+        If there are issues with file system access, process execution, or
+        if required external tools or compiled executables are not available.
+    subprocess.TimeoutExpired
+        When an invoked external process exceeds timeout and cannot be cleanly
+        terminated.
+
+    Notes
+    -----
+    - The function relies on the presence of a valid assembly calculation folder
+      and the availability of the necessary pathway files.
+    - If no valid pathway file is found, or if JO calculation fails, the function
+      returns -1 for the JO index.
+    """
+
     settings = settings or {}
 
     # Ensure pathway output is requested
@@ -1623,8 +1971,46 @@ def _input_helper_rust(mol: Chem.Mol, file_path: str, strip_hydrogen: bool = Fal
 
 def calculate_assembly_index_rust(mol: Union[nx.Graph, Chem.Mol],
                                   exec_path: Optional[str] = None,
-                                  timeout: int = 300,
+                                  timeout: float = 300.0,
                                   strip_hydrogen: bool = False) -> int:
+    """
+    Calculate the assembly index using a Rust-based executable.
+
+    This function is a wrapper around a precompiled Rust binary that calculates
+    the assembly index for a given molecular graph or RDKit molecule. It prepares
+    the input, invokes the Rust executable, and parses the output.
+
+    Parameters
+    ----------
+    mol : Union[nx.Graph, Chem.Mol]
+        The input molecular graph or RDKit molecule.
+    exec_path : Optional[str], optional
+        Path to the precompiled Rust executable; if None, defaults to the bundled
+        version. Default is None.
+    timeout : float, optional
+        Maximum time in seconds to allow the Rust process to run. Default is 300.0.
+    strip_hydrogen : bool, optional
+        If True, remove hydrogen atoms from the graph before calculation.
+        Default is False.
+
+    Returns
+    -------
+    int
+        The calculated assembly index, or -1 if the calculation failed.
+
+    Raises
+    ------
+    NotImplementedError
+        If the function is called on a non-Linux platform.
+    ValueError
+        If the input type is not supported.
+    OSError
+        If there are issues with file system access, process execution, or
+        if required external tools or compiled executables are not available.
+    subprocess.TimeoutExpired
+        When the Rust process exceeds the specified timeout.
+    """
+
     if type(mol) == nx.Graph:
         mol = nx_to_mol(mol)
 
