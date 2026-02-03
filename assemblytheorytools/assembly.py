@@ -1187,7 +1187,7 @@ def calculate_assembly_lower_bound(mol: Union[nx.Graph, Chem.Mol],
         raise ValueError("Input not supported")
     n_bonds = mol.GetNumBonds() if isinstance(mol, Chem.Mol) else mol.number_of_edges()
     if n_bonds < 1000:
-        return integer_chain(n_bonds)
+        return calculate_integer_chain(n_bonds)
     else:
         return int(np.log2(n_bonds))
 
@@ -1747,7 +1747,7 @@ def calculate_jo_assembly_ratio(graph: Union[nx.Graph, Chem.Mol], settings: Dict
         return n_edges / jo
 
 
-def _input_helper(mol: Chem.Mol, file_path: str, strip_hydrogen: bool = False) -> bool:
+def _input_helper_rust(mol: Chem.Mol, file_path: str, strip_hydrogen: bool = False) -> bool:
     """
     Prepare an RDKit molecule and write it to a file in `.mol` format.
 
@@ -1846,7 +1846,7 @@ def calculate_assembly_index_rust(mol: Chem.Mol,
     # Create a temporary .mol file and ensure proper H-handling / wildcard checks
     with tempfile.NamedTemporaryFile(suffix='.mol', delete=True) as tmp_file:
         # Prepare and write mol file; if invalid (e.g., wildcard atoms), abort
-        if not _input_helper(mol, tmp_file.name, strip_hydrogen=strip_hydrogen):
+        if not _input_helper_rust(mol, tmp_file.name, strip_hydrogen=strip_hydrogen):
             print("Invalid input", flush=True)
             return -1
 
@@ -1878,7 +1878,7 @@ def calculate_assembly_index_rust(mol: Chem.Mol,
             return -1
 
 
-def integer_chain(n: int) -> int:
+def calculate_integer_chain(n: int) -> int:
     """
     Read the shortest integer chain length l(n) from a precomputed data file.
 

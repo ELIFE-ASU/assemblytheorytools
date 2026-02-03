@@ -626,13 +626,13 @@ def test_standardise_smiles():
 
 
 def test_int_chain():
-    assert att.integer_chain(1) == 0
-    assert att.integer_chain(2) == 1
-    assert att.integer_chain(3) == 2
-    assert att.integer_chain(4) == 2
-    assert att.integer_chain(5) == 3
-    assert att.integer_chain(9998) == 16
-    assert att.integer_chain(9999) == 16
+    assert att.calculate_integer_chain(1) == 0
+    assert att.calculate_integer_chain(2) == 1
+    assert att.calculate_integer_chain(3) == 2
+    assert att.calculate_integer_chain(4) == 2
+    assert att.calculate_integer_chain(5) == 3
+    assert att.calculate_integer_chain(9998) == 16
+    assert att.calculate_integer_chain(9999) == 16
 
 
 def _get_ai(smi):
