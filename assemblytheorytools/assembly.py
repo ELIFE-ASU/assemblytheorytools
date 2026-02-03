@@ -726,10 +726,6 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
     - For reproducible behaviour consider using ``debug=True`` to preserve the
       temporary folder and log files.
 
-    Examples
-    --------
-    >>> ai, vo, path = calculate_string_assembly_index("ABCDEF", timeout=60.0)
-    >>> ai, vo, path, log = calculate_string_assembly_index(["A","B"], return_log_file=True, mode="str")
     """
 
     log_file = None
@@ -1317,10 +1313,6 @@ def calculate_sum_assembly(graphs: List[nx.Graph],
     - Negative assembly indices are treated as failures and cause this function to
       return ``-1`` rather than a partial sum.
 
-    Examples
-    --------
-    >>> calculate_sum_assembly([g1, g2], settings={'exact': True}, parallel=False)
-    5
     """
     if graphs is None or not hasattr(graphs, "__iter__"):
         raise ValueError("`graphs` must be an iterable of graph objects")
@@ -1684,10 +1676,6 @@ def calculate_assembly_ratio(graph: Union[nx.Graph, Chem.Mol], settings: Dict[st
     - The returned value may be meaningless if `calculate_assembly_index` returned a non-positive AI;
       callers should check the AI return value when exact/robust behaviour is required.
 
-    Example
-    -------
-    >>> settings = {"timeout": 60.0, "strip_hydrogen": True}
-    >>> ratio = calculate_assembly_ratio(my_graph, settings)
     """
     # Determine number of edges/bonds depending on the input type
     n_edges = graph.number_of_edges() if isinstance(graph, nx.Graph) else graph.GetNumBonds()
@@ -1743,10 +1731,6 @@ def calculate_jo_assembly_ratio(graph: Union[nx.Graph, Chem.Mol], settings: Dict
       can guard against this by pre-checking the returned JO if required.
     - This function does not modify the input graph or molecule.
 
-    Example
-    -------
-    >>> settings = {"timeout": 60.0, "strip_hydrogen": True}
-    >>> ratio = calculate_jo_assembly_ratio(my_graph, settings)
     """
     # Determine number of edges (bonds) depending on input type
     n_edges = graph.number_of_edges() if isinstance(graph, nx.Graph) else graph.GetNumBonds()
