@@ -485,6 +485,7 @@ def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
                              joint_corr: bool = True,
                              strip_hydrogen: bool = False,
                              return_log_file: bool = False,
+                             canonicalize: bool = True,
                              exact: bool = False) -> Union[Tuple[int, Any, Any], Tuple[int, Any, Any, Optional[str]]]:
     # Initialize variables
     ai = -1
@@ -509,7 +510,8 @@ def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
 
     if strip_hydrogen:
         graph = remove_hydrogen_from_graph(graph)
-    graph = canonicalize_node_labels(graph)
+    if canonicalize:
+        graph = canonicalize_node_labels(graph)
     file_path_in = os.path.join(temp_dir, "graph_in")
     write_ass_graph_file(graph, file_name=file_path_in)
 

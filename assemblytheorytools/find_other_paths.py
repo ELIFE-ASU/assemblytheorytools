@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional, Dict, Any
 
 import numpy as np
 from rdkit.Chem import AllChem as Chem
@@ -74,6 +74,7 @@ def _scramble_list(lst: list) -> list:
 
 
 def all_shortest_paths(mol: Mol,
+                       settings: Optional[Dict[str, Any]] = None,
                        f_graph_care: bool = False,
                        max_attempts: int = 3) -> List[str]:
     """
@@ -83,6 +84,8 @@ def all_shortest_paths(mol: Mol,
     ----------
     mol : rdkit.Chem.Mol
         The input RDKit molecule object.
+    settings : dict, optional
+        Settings to pass to the assembly index calculation function,
     f_graph_care : bool, optional
         Whether to kekulize the molecule, by default False.
     max_attempts : int, optional
@@ -111,6 +114,11 @@ def all_shortest_paths(mol: Mol,
     if not isinstance(mol, Chem.Mol):
         raise ValueError("Input must be an RDKit molecule object.")
 
+    settings = settings or {}
+
+    # Ensure pathway output is requested
+    settings["canonicalize"] = False
+
     m_order = _get_atom_order(mol)
     out_list = []
     n_attempts = int(mol.GetNumBonds() * 4)
@@ -124,7 +132,7 @@ def all_shortest_paths(mol: Mol,
         if f_graph_care:
             Chem.Kekulize(mol_renum)
 
-        ai, virt_obj, _ = calculate_assembly_index(mol_renum)
+        ai, virt_obj, _ = calculate_assembly_index(mol_renum, **settings)
 
         new_inchi_found = False
         for vo in virt_obj:
