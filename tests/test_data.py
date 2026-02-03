@@ -76,7 +76,7 @@ def test_calc_n_peaks_in_range():
     print(flush=True)
     ir_file = 'tests/data/ir_jcamp'
     spectrum = att.load_ir_jcamp_data(ir_file)
-    n_peaks = att.find_n_peak_indices_in_range(spectrum, 500, 1500)
+    n_peaks = att.find_n_peak_indices_in_range(spectrum, min_x=500, max_x=1500)
     assert n_peaks == 32
 
 

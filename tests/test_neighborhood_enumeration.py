@@ -92,7 +92,8 @@ def test_enumerate_up_small():
     assert len(unique_graphs) == 5
     # Check that the output graphs are isomorphic to the expected graphs
     for expected_graph in [G1, G2, G3, G4, G5]:
-        assert any(nx.is_isomorphic(g, expected_graph, node_match=node_match, edge_match=edge_match) for g in unique_graphs)
+        assert any(
+            nx.is_isomorphic(g, expected_graph, node_match=node_match, edge_match=edge_match) for g in unique_graphs)
 
 
 def test_enumerate_up_runs():
@@ -258,7 +259,7 @@ def test_enum_up_C_2_O():
     g.nodes[1]['color'] = 'O'
     g.edges[(0, 1)]['color'] = 2
 
-    up_graphs = att.enumerate_up(g, g, 1, 1)
+    up_graphs = att.enumerate_up(g, g)
 
     print(f"Neighborhood+ size = {len(up_graphs)}")
 
@@ -317,7 +318,7 @@ def test_enum_up_S_2_O():
     g.nodes[1]['color'] = 'O'
     g.edges[(0, 1)]['color'] = 2
 
-    up_graphs = att.enumerate_up(g, g, 1, 1, 1, custom_valence_table=custom_valence_table)
+    up_graphs = att.enumerate_up(g, g, debug=True, custom_valence_table=custom_valence_table)
 
     print(f"Neighborhood+ size = {len(up_graphs)}")
 

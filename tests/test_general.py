@@ -221,7 +221,7 @@ def test_hydrogen_stripping():
     # Load the mol file, pass it Graph
     ai_graph, _, _ = att.calculate_assembly_index(att.remove_hydrogen_from_graph(graph))
     # Directly run the mol file
-    ai_mol_file, _, _ = att.calculate_assembly_index(mol_file)
+    ai_mol_file, _, _ = att.calculate_assembly_index(Chem.MolFromMolFile(mol_file))
     # RDkit Mol
     ai_mol, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
 
@@ -231,7 +231,7 @@ def test_hydrogen_stripping():
     # Graph
     ai_graph, _, _ = att.calculate_assembly_index(graph, strip_hydrogen=True)
     # Mol file
-    ai_mol_file, _, _ = att.calculate_assembly_index(mol_file, strip_hydrogen=True)
+    ai_mol_file, _, _ = att.calculate_assembly_index(Chem.MolFromMolFile(mol_file), strip_hydrogen=True)
     # Mol
     ai_mol, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
 
