@@ -252,18 +252,6 @@ def calculate_assembly_index(mol: Union[nx.Graph, Chem.Mol],
         mol_file = os.path.join(temp_dir, "tmp.mol")
         write_v2k_mol_file(mol, mol_file)
         file_path_in = os.path.splitext(mol_file)[0]
-    # Input is a mol file
-    elif isinstance(mol, str) and mol.endswith(".mol"):
-        if strip_hydrogen:
-            mol_ob = Chem.MolFromMolFile(mol)
-            mol_ob = safe_standardize_mol(mol_ob, add_hydrogens=True)
-            mol_ob = Chem.RemoveHs(mol_ob)
-            mol = os.path.join(temp_dir, "tmp.mol")
-            Chem.MolToMolFile(mol_ob, mol)
-        else:
-            shutil.copy(mol, os.path.join(temp_dir, "tmp.mol"))
-            mol = os.path.join(temp_dir, "tmp.mol")
-        file_path_in = os.path.splitext(mol)[0]
     else:
         raise ValueError("Input not supported")
 
@@ -344,8 +332,6 @@ def calculate_assembly_index(mol: Union[nx.Graph, Chem.Mol],
                                                     input_graph=mol)
             elif isinstance(mol, Chem.Mol):
                 path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='smiles', debug=debug)
-            elif ".mol" in mol:
-                path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='inchi', debug=debug)
             else:
                 virt_obj = None
                 path = (None, None)
@@ -1384,59 +1370,14 @@ def load_assembly_time() -> float:
     return float(time_to_completion) * 1e-6
 
 
-def calculate_assembly_upper_bound(mol: Union[nx.Graph, Chem.Mol, str],
+def calculate_assembly_upper_bound(mol: Union[nx.Graph, Chem.Mol],
                                    strip_hydrogen: bool = False) -> int:
-    """
-    Calculate an upper bound for the assembly index of a molecule.
-
-    The upper bound is defined as the number of bonds in the molecule minus one.
-    This is a simple, conservative estimate useful as a quick bound or sanity check.
-
-    Parameters
-    ----------
-    mol : Union[nx.Graph, Chem.Mol, str]
-        A molecular object: a NetworkX graph, an RDKit ``Chem.Mol``, or a path to a
-        ``.mol`` file. When a file path is provided it will be parsed with RDKit.
-    strip_hydrogen : bool, optional
-        If True, remove explicit hydrogens before counting bonds. Default is False.
-
-    Returns
-    -------
-    int
-        The computed upper bound, equal to ``n_bonds - 1`` where ``n_bonds`` is the
-        number of bonds/edges in the molecule.
-
-    Raises
-    ------
-    ValueError
-        If ``mol`` is not a supported type (neither a NetworkX graph, an RDKit
-        molecule, nor a path to a ``.mol`` file).
-
-    Notes
-    -----
-    - The function does not modify the original ``mol`` object passed by the caller.
-    - For NetworkX graphs the bond count is obtained from ``graph.number_of_edges()``.
-    - For RDKit molecules the bond count is obtained from ``mol.GetNumBonds()``.
-    - When a ``.mol`` file path is provided it is parsed with RDKit; if parsing fails
-      RDKit will return ``None`` and subsequent operations will raise.
-
-    Examples
-    --------
-    >>> ub = calculate_assembly_upper_bound(my_graph)
-    >>> isinstance(ub, int)
-    True
-    """
     # Check if the input is a NetworkX graph
     if isinstance(mol, nx.Graph):
         if strip_hydrogen:
             mol = remove_hydrogen_from_graph(mol)
     # Check if the input is an RDKit molecule
     elif isinstance(mol, Chem.Mol):
-        if strip_hydrogen:
-            mol = Chem.RemoveHs(mol)
-    # Check if the input is a file path to a `.mol` file
-    elif isinstance(mol, str) and mol.endswith(".mol"):
-        mol = Chem.MolFromMolFile(mol)
         if strip_hydrogen:
             mol = Chem.RemoveHs(mol)
     else:
@@ -1450,60 +1391,12 @@ def calculate_assembly_upper_bound(mol: Union[nx.Graph, Chem.Mol, str],
     return n_bonds - 1
 
 
-def calculate_assembly_lower_bound(mol: Union[nx.Graph, Chem.Mol, str],
+def calculate_assembly_lower_bound(mol: Union[nx.Graph, Chem.Mol],
                                    strip_hydrogen: bool = False) -> int:
-    """
-    Compute a lower bound for the assembly index of a molecule.
-
-    The lower bound is estimated as the length of a shortest addition chain
-    for the number of bonds when that data is available from a precomputed table;
-    for large bond counts the logarithm (base 2) is used as a fallback.
-
-    Parameters
-    ----------
-    mol : Union[nx.Graph, Chem.Mol, str]
-        A molecular object: a NetworkX graph, an RDKit `Chem.Mol`, or a path to a
-        `.mol` file. When a file path is provided it will be parsed with RDKit.
-    strip_hydrogen : bool, optional
-        If True, remove explicit hydrogens before computing bond counts. Default
-        is False.
-
-    Returns
-    -------
-    int
-        An integer lower bound for the assembly index computed from the number
-        of bonds. For `n_bonds < 1000` the function uses a precomputed integer
-        chain table via :func:`integer_chain`. For larger `n_bonds` it returns
-        `int(log2(n_bonds))`.
-
-    Raises
-    ------
-    ValueError
-        If `mol` is not a supported type (neither a NetworkX graph, RDKit
-        molecule, nor a path to a `.mol` file).
-
-    Notes
-    -----
-    - The function does not modify the original `mol` object.
-    - The precomputed table used by :func:`integer_chain` must be present in
-      the package data directory; that function raises for out-of-range `n`.
-    - The fallback `log2` estimate is conservative for very large molecules.
-
-    Examples
-    --------
-    >>> calculate_assembly_lower_bound(my_graph)
-    4
-    >>> calculate_assembly_lower_bound(my_rdkit_mol, strip_hydrogen=True)
-    3
-    """
     if isinstance(mol, nx.Graph):
         if strip_hydrogen:
             mol = remove_hydrogen_from_graph(mol)
     elif isinstance(mol, Chem.Mol):
-        if strip_hydrogen:
-            mol = Chem.RemoveHs(mol)
-    elif isinstance(mol, str) and mol.endswith(".mol"):
-        mol = Chem.MolFromMolFile(mol)
         if strip_hydrogen:
             mol = Chem.RemoveHs(mol)
     else:
@@ -1535,15 +1428,6 @@ def regularise_ai(ai: Optional[int]) -> int:
     -----
     - The function is idempotent for non-negative integer inputs.
     - The type hint uses ``int`` but the function tolerates ``None`` at runtime.
-
-    Examples
-    --------
-    >>> regularise_ai(5)
-    5
-    >>> regularise_ai(-1)
-    0
-    >>> regularise_ai(None)
-    0
     """
     if ai < 0:
         return 0
@@ -1918,64 +1802,12 @@ def calculate_jo_from_pathway(json_file: str) -> int:
     return ma + jo_correction
 
 
-def calculate_jo(mol: Union[nx.Graph, Chem.Mol, str],
+def calculate_jo(mol: Union[nx.Graph, Chem.Mol],
                  dir_code: Optional[str] = None,
                  timeout: float = 100.0,
                  strip_hydrogen: bool = False,
                  return_log_file: bool = False,
                  exact: bool = False) -> Tuple[int, Any, Any]:
-    """
-    Calculate the joining-operations assembly index (JO) for a molecule.
-
-    This function computes the JO by first running the assembly index calculation
-    for `mol` (which produces pathway output in a temporary `ai_calc_...` directory),
-    locating the most recent `Pathway` file from that run, and then parsing the
-    pathway JSON to compute the JO value.
-
-    Parameters
-    ----------
-    mol : Union[nx.Graph, Chem.Mol, str]
-        The molecule to process. Supported types are NetworkX graphs, RDKit Mol objects,
-        or a path to a `.mol` file.
-    dir_code : str, optional
-        Path to the assembly executable (passed to `calculate_assembly_index`). If None,
-        the default lookup/compile behavior in `calculate_assembly_index` is used.
-    timeout : float, optional
-        Maximum time (in seconds) allowed for the assembly index calculation.
-    strip_hydrogen : bool, optional
-        If True, hydrogens will be stripped before calculation.
-    return_log_file : bool, optional
-        Forwarded to `calculate_assembly_index` to request the log file be kept.
-    exact : bool, optional
-        If True, request exact assembly calculation mode.
-
-    Returns
-    -------
-    tuple
-        (jo, vo, pathway)
-        - jo (int): The calculated JO value, or -1 on failure.
-        - vo: The virtual object returned by `calculate_assembly_index` (if any).
-        - pathway: The pathway structure returned by `calculate_assembly_index` (if any).
-
-    Raises
-    ------
-    None explicitly; errors during JO calculation are caught and result in a
-    (-1, None, None) return after cleanup.
-
-    Notes
-    -----
-    - The function removes the temporary `ai_calc_...` directory created by the
-      assembly calculation before returning.
-    - If no `Pathway` file is found in the most recent assembly folder the function
-      returns (-1, None, None).
-    - The function intentionally keeps behavior minimal: it does not attempt to
-      locate multiple `Pathway` files, nor to preserve extra logs beyond what
-      `calculate_assembly_index` produces.
-
-    Example
-    -------
-    >>> jo, vo, pathway = calculate_jo(my_graph, timeout=120, strip_hydrogen=True)
-    """
     # Run the assembly index calculation to produce pathway output in a temp folder
     _, vo, pathway = calculate_assembly_index(mol,
                                               dir_code=dir_code,
