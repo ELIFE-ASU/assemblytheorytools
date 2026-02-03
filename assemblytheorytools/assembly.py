@@ -21,7 +21,7 @@ import CFG
 from .construction import (parse_pathway_file,
                            parse_string_pathway_file,
                            molstr_to_str)
-from .tools_file import prep_json
+from .tools_file import prep_json, safe_folder_remove
 from .tools_graph import (write_ass_graph_file,
                           remove_hydrogen_from_graph,
                           nx_to_mol,
@@ -129,6 +129,7 @@ def _convert_timeout_for_platform(seconds: float) -> int:
 def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
                              dir_code: Optional[str] = None,
                              timeout: float = 100.0,
+                             save_dir: bool = False,
                              debug: bool = False,
                              joint_corr: bool = True,
                              strip_hydrogen: bool = False,
@@ -146,7 +147,9 @@ def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
         dir_code = add_assembly_to_path()
 
     # Create working directory
-    temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}" if debug else tempfile.mkdtemp()
+    if debug:
+        save_dir = True
+    temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}" if save_dir else tempfile.mkdtemp()
     os.makedirs(temp_dir, exist_ok=True)
 
     # Input is a graph
@@ -1370,50 +1373,7 @@ def _parse_pathway_file(data: Dict[str, Any]) -> Dict[str, Any]:
     return parsed_pathway
 
 
-def calculate_jo_from_pathway(json_file: str) -> int:
-    """
-    Calculate the joining-operations assembly index (JO) from a pathway JSON file.
-
-    The JO is computed from the pathway structure produced by the assembly tool.
-    The function reads pathway data, reconstructs the original graph from the first
-    `file_graph` entry, and iteratively applies duplicate-fragment removals to
-    accumulate corrections that reflect joining operations.
-
-    Parameters
-    ----------
-    json_file : str
-        Path to a JSON file containing pathway information. Expected keys (after
-        parsing) include:
-          - 'file_graph': list where first element has 'edges' describing the original graph edges.
-          - 'duplicates': list of duplicate fragments where each fragment contains 'Right' (and/or 'Left') edges.
-
-    Returns
-    -------
-    int
-        The computed JO as an integer.
-
-    Raises
-    ------
-    FileNotFoundError
-        If `json_file` does not exist.
-    json.JSONDecodeError
-        If the file cannot be parsed as JSON.
-    KeyError, IndexError, ValueError
-        If expected keys/structures are missing or malformed.
-
-    Notes
-    -----
-    - Edges in the JSON are expected to be iterable pairs (e.g. lists or tuples).
-    - The algorithm:
-        1. Builds the original graph from `file_graph[0]['edges']`.
-        2. Initializes a metric `ma = n_edges - n_connected_components`.
-        3. For each duplicate fragment (using its `Right` edges) it:
-            - Decreases `ma` by fragment size minus one.
-            - Removes fragment edges from the running edge set to form a remnant graph.
-            - Computes connected-component changes and overlapping atom corrections.
-        4. Returns `ma + jo_correction`.
-    """
-
+def _calculate_jo_from_pathway(json_file: str) -> int:
     # Load JSON pathway data
     with open(json_file, 'r', encoding='utf-8') as f:
         data = json.load(f)
@@ -1473,29 +1433,24 @@ def calculate_jo_from_pathway(json_file: str) -> int:
 
 
 def calculate_jo(mol: Union[nx.Graph, Chem.Mol],
-                 dir_code: Optional[str] = None,
-                 timeout: float = 100.0,
-                 strip_hydrogen: bool = False,
-                 return_log_file: bool = False,
-                 exact: bool = False) -> Tuple[int, Any, Any]:
+                 settings: Optional[Dict[str, Any]] = None) -> Tuple[int, Any, Any]:
+    settings = settings or {}
+
+    # Ensure pathway output is requested
+    settings["save_dir"] = True
+
     # Run the assembly index calculation to produce pathway output in a temp folder
-    _, vo, pathway = calculate_assembly_index(mol, dir_code=dir_code, timeout=timeout, debug=True,
-                                              strip_hydrogen=strip_hydrogen, return_log_file=return_log_file,
-                                              exact=exact)
+    _, vo, pathway = calculate_assembly_index(mol, **settings)
 
     # Locate the most recent assembly calculation folder
     assembly_path = get_most_recent_calc()
 
     # Find a file that ends with "Pathway" in that folder
     pathway_files = [f for f in os.listdir(assembly_path) if f.endswith("Pathway")]
+    # No pathway output available -> cannot compute JO
     if not pathway_files:
-        # No pathway output available -> cannot compute JO
         print("No pathway file found. Returning -1.", flush=True)
-        # Clean up folder to avoid leaving temp data
-        try:
-            shutil.rmtree(assembly_path)
-        except Exception:
-            pass
+        safe_folder_remove(assembly_path)
         return -1, None, None
 
     # Use the first pathway file found
@@ -1503,23 +1458,16 @@ def calculate_jo(mol: Union[nx.Graph, Chem.Mol],
 
     # Compute JO from the pathway file and handle errors
     try:
-        jo = calculate_jo_from_pathway(pathway_file)
+        jo = _calculate_jo_from_pathway(pathway_file)
     except Exception as e:
-        # On error, remove the temporary folder and return failure sentinel
         print(f"Error calculating joint assembly index: {e}", flush=True)
-        try:
-            shutil.rmtree(assembly_path)
-        except Exception:
-            pass
+        safe_folder_remove(assembly_path)
         return -1, None, None
 
     # Cleanup the temporary assembly folder
-    try:
-        shutil.rmtree(assembly_path)
-    except Exception:
-        pass
+    safe_folder_remove(assembly_path)
 
-    # Return the computed JO along with virtual object and pathway from the AI run
+    # Return the computed JO along with virtual objects and pathway from the AI run
     return jo, vo, pathway
 
 
@@ -1626,7 +1574,7 @@ def calculate_jo_assembly_ratio(graph: Union[nx.Graph, Chem.Mol], settings: Dict
     n_edges = graph.number_of_edges() if isinstance(graph, nx.Graph) else graph.GetNumBonds()
 
     # Compute the joining-operation index (JO) using existing function
-    jo, _, _ = calculate_jo(graph, **settings)
+    jo = calculate_jo(graph, **settings)[0]
 
     # Avoid division by zero when there are no edges
     if n_edges == 0:

@@ -428,7 +428,7 @@ def test_semi_metric():
     # Convert the system into graphs
     graphs = [att.mol_to_nx(mol) for mol in mols]
     settings = {'strip_hydrogen': True,
-                'timeout': 100.0,}
+                'timeout': 100.0, }
     distance = att.calculate_assembly_semi_metric(graphs[0],
                                                   graphs[1],
                                                   settings)
@@ -801,24 +801,6 @@ def test_calculate_assembly_lower_bound():
     assert ai_lower_bound_graph == 2  # Assert the lower bound for the graph without hydrogen stripping
 
 
-def test_calculate_jo_from_pathway():
-    """
-    Test the calculation of the joining operation index (JO) from a pathway file.
-
-    This function performs the following steps:
-    1. Defines the file path for the pathway file.
-    2. Calculates the joining operation index (JO) using the `calculate_jo_from_pathway` function.
-    3. Asserts that the calculated JO matches the expected value.
-
-    Asserts:
-        - The calculated JO is equal to 28.
-    """
-    print(flush=True)
-    file = os.path.expanduser(os.path.abspath("tests/data/pathway/taxolPathway"))
-    jo = att.calculate_jo_from_pathway(file)
-    assert jo == 28, f"Expected JO to be 28, but got {jo}"
-
-
 def test_calculate_jo():
     """
     Test the calculation of the joining operation index (JO) for a molecular graph.
@@ -835,7 +817,7 @@ def test_calculate_jo():
     print(flush=True)
     smi = "C1=CC=CC=C1"  # Benzene
     graph = att.smi_to_nx(smi)
-    jo, _, _ = att.calculate_jo(graph)
+    jo = att.calculate_jo(graph)[0]
     assert jo == 6, f"Expected JO to be 6, but got {jo}"
 
 

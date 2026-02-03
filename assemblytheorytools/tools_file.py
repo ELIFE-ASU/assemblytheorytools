@@ -236,3 +236,26 @@ def remove_file_pattern(pattern: str):
             os.remove(path)
         except OSError:
             pass
+
+
+def safe_folder_remove(folder_path: str):
+    """
+    Safely remove a folder and all its contents.
+
+    Parameters
+    ----------
+    folder_path : str
+        The path to the folder to be removed.
+
+    Returns
+    -------
+    None
+        This function does not return a value.
+    """
+    if os.path.exists(folder_path) and os.path.isdir(folder_path):
+        for root, dirs, files in os.walk(folder_path, topdown=False):
+            for name in files:
+                os.remove(os.path.join(root, name))
+            for name in dirs:
+                os.rmdir(os.path.join(root, name))
+        os.rmdir(folder_path)
