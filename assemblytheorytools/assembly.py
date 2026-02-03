@@ -81,249 +81,6 @@ def run_command(command: str) -> Optional[bytes]:
     return result.stdout
 
 
-def joint_assembly_index_correction(mol: Union[nx.Graph, Chem.Mol], ass_index: int) -> int:
-    if isinstance(mol, nx.Graph):
-        # Get the number of connected components in the graph
-        num_components = nx.number_connected_components(mol)
-    elif isinstance(mol, Chem.Mol):
-        # Get the number of components in the RDKit molecular object
-        num_components = len(Chem.rdmolops.GetMolFrags(mol=Chem.Mol(mol)))
-    else:
-        num_components = None
-        ValueError("Input not supported")
-    # Return the number of components minus 1
-    correction = max(0, num_components - 1)
-    if correction < 0:
-        correction = 0
-    return ass_index - correction
-
-
-def _convert_timeout_for_platform(seconds: float) -> int:
-    """
-    Convert a timeout expressed in seconds to platform-specific integer units.
-
-    Behavior:
-      - Windows (platform name contains ``"windows"``) -> milliseconds (seconds * 1_000)
-      - Linux (``"linux"``) or macOS (``"darwin"``) -> microseconds (seconds * 1_000_000)
-      - Other platforms -> integer seconds (``int(seconds)``)
-
-    Parameters
-    ----------
-    seconds : float
-        Timeout value in seconds. Expected to be a numeric value (non-negative
-        when used as a timeout).
-
-    Returns
-    -------
-    int
-        The converted timeout suitable for passing to platform-specific APIs.
-    """
-    system = platform.system().lower()
-    if "windows" in system:
-        return int(seconds * 1_000)
-    if "linux" in system or "darwin" in system:
-        return int(seconds * 1_000_000)
-    return int(seconds)
-
-
-def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
-                             dir_code: Optional[str] = None,
-                             timeout: float = 100.0,
-                             save_dir: bool = False,
-                             debug: bool = False,
-                             joint_corr: bool = True,
-                             strip_hydrogen: bool = False,
-                             return_log_file: bool = False,
-                             exact: bool = False) -> Union[Tuple[int, Any, Any], Tuple[int, Any, Any, Optional[str]]]:
-    # Initialize variables
-    ai = -1
-    virt_obj = None
-    path = None
-    file_path_in = None
-    timed_out = False
-
-    # Get the assembly code directory
-    if dir_code is None:
-        dir_code = add_assembly_to_path()
-
-    # Create working directory
-    if debug:
-        save_dir = True
-    temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}" if save_dir else tempfile.mkdtemp()
-    os.makedirs(temp_dir, exist_ok=True)
-
-    # Input is a graph
-    if isinstance(graph, nx.Graph):
-        if strip_hydrogen:
-            graph = remove_hydrogen_from_graph(graph)
-        graph = canonicalize_node_labels(graph)
-        file_path_in = os.path.join(temp_dir, "graph_in")
-        write_ass_graph_file(graph, file_name=file_path_in)
-    # Input is an RDKit mol
-    elif isinstance(graph, Chem.Mol):
-        graph = safe_standardize_mol(graph, add_hydrogens=True)
-        if strip_hydrogen:
-            graph = Chem.RemoveHs(graph)
-        mol_file = os.path.join(temp_dir, "tmp.mol")
-        write_v2k_mol_file(graph, mol_file)
-        file_path_in = os.path.splitext(mol_file)[0]
-    else:
-        raise ValueError("Input not supported")
-
-    # Define output and log file paths
-    file_path_out = os.path.join(file_path_in + "Out")
-    file_path_pathway = os.path.join(file_path_in + "Pathway")
-    log_file = os.path.join(temp_dir, "assembly_output.log")
-
-    # Convert timeout flag from seconds to x miliseconds in windows and x microseconds in linux/macOS
-    timeout_flag = _convert_timeout_for_platform(timeout)
-
-    # Run the assembly code and log output
-    try:
-        with open(log_file, "w") as log:
-            start_time = time.time()
-            process = subprocess.Popen(
-                [dir_code,
-                 file_path_in,
-                 '-memTest=0',
-                 '-removeHydrogens=0',
-                 '-compensateDisjoint=0',
-                 f'-runTime={timeout_flag}'],
-                stdout=log,
-                stderr=log
-            )
-            process.wait()
-            if time.time() - start_time > timeout:
-                timed_out = True
-                print("Warning: Assembly calculation timed out.", flush=True)
-
-    except Exception as e:
-        print(f"Error: {e}", flush=True)
-        if debug:
-            traceback.print_exc()
-
-    if timed_out == 0:  # If the calculation finished properly, we can read the output file
-
-        with open(file_path_out, "r") as f:
-            first_line = f.readline()
-            match = re.search(r'assembly index:\s*(\d+)', first_line)
-            if match:
-                ai = int(match.group(1))
-
-    else:
-
-        # Extract the most recent "min AI found so far" from the log file
-        last_ai = -1
-        if os.path.exists(log_file):
-            try:
-                with open(log_file, "r") as log:
-                    log_lines = log.readlines()
-
-                # Reverse scan for last occurrence of "min AI found so far"
-                for line in reversed(log_lines):
-                    match = re.search(r"min AI found so far:\s*(\d+)", line)
-                    if match:
-                        last_ai = int(match.group(1))
-                        break
-
-                if not exact:
-                    ai = last_ai  # Assign found AI
-
-                # Print appropriate messages based on timeout
-                if ai == -1 and timed_out:
-                    print("No minimum AI found before timeout.", flush=True)
-                elif ai != -1 and timed_out:
-                    print(f"Upper Bound to AI Found: AI =< {ai}", flush=True)
-
-            except Exception as e:
-                print(f"Failed to read AI from log file: {e}", flush=True)
-
-    # Process pathway output if available
-    if os.path.isfile(file_path_pathway):
-        try:
-            if isinstance(graph, nx.Graph):
-                prep_json(file_path_pathway)
-                path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='graph', debug=debug,
-                                                    input_graph=graph)
-            elif isinstance(graph, Chem.Mol):
-                path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='smiles', debug=debug)
-            else:
-                virt_obj = None
-                path = (None, None)
-                raise ValueError("Input not supported")
-        except Exception as e:
-            print(f"Failed to load pathway data: {e}", flush=True)
-            if debug:
-                traceback.print_exc()
-
-    # Apply joint correction if necessary
-    if joint_corr and ai > 0:
-        ai = joint_assembly_index_correction(graph, ai)
-
-    # Print log file path if required
-    if return_log_file:
-        print(f"Log file printed to: {log_file}", flush=True)
-
-    # Return based on flag
-    return (ai, virt_obj, path) if not return_log_file else (ai, virt_obj, path, log_file)
-
-
-def calculate_assembly(graphs: List[Union[nx.Graph, Chem.Mol]],
-                       n_i: List[float],
-                       settings: Optional[Dict[str, Any]] = None,
-                       parallel: bool = True) -> float:
-    settings = settings or {}
-
-    if parallel:
-        ai_list = calculate_assembly_index_parallel(graphs, settings)[0]
-    else:
-        ai_list = [calculate_assembly_index(graph, **settings)[0] for graph in graphs]
-
-    # Regularize the assembly indices to ensure non-negative values
-    ai_list = [regularise_ai(ai) for ai in ai_list]
-    n_t = sum(n_i)  # Total weight of all graphs
-    # Compute the weighted sum of the exponential of the assembly indices
-    return sum(np.exp(ai) * ((n - 1) / n_t) for ai, n in zip(ai_list, n_i))
-
-
-def calculate_assembly_semi_metric(graph1: Union[nx.Graph, Chem.Mol],
-                                   graph2: Union[nx.Graph, Chem.Mol],
-                                   settings: Optional[Dict[str, Any]] = None,
-                                   parallel: bool = True,
-                                   normalise: bool = False) -> float:
-    settings = settings or {}
-
-    if type(graph1) != type(graph2):
-        raise ValueError("Input graphs must be of the same type")
-
-    if type(graph1) == Chem.Mol:
-        # Convert RDKit Mol to NetworkX graph
-        graph1 = mol_to_nx(graph1)
-        graph2 = mol_to_nx(graph2)
-
-    # Check if the inputs are isomorphic
-    # in which case the semi-metric distance is 0 and the user may not intend to compare these mols
-    if nx.is_isomorphic(graph1, graph2):
-        print("Input graphs are isomorphic.", flush=True)
-        return 0.0
-
-    # Calculate the joint assembly index
-    jai = calculate_assembly_index(join_graphs([graph1, graph2]), **settings)[0]
-    if jai <= -1:
-        print("No minimum JAI found before timeout.", flush=True)
-        return -1.0
-
-    # Calculate the assembly index for each subgraph
-    sum_ai = calculate_sum_assembly([graph1, graph2], settings, parallel=parallel)
-
-    # Calculate the semi-metric distance
-    semi_metric = 2.0 * jai - sum_ai
-    if normalise:
-        return semi_metric / sum_ai
-
-    return semi_metric
-
-
 def add_to_bashrc(export_line: str, file: str = ".bashrc") -> None:
     """
     Append an export line to the specified bash configuration file.
@@ -345,6 +102,76 @@ def add_to_bashrc(export_line: str, file: str = ".bashrc") -> None:
     # Open the .bashrc file in append mode and write the export line to it
     with open(file_path, "a") as f:
         f.write(f"\nexport {export_line}\n")
+
+
+def add_assembly_to_path(str_mode: bool = False) -> str:
+    """
+    Ensure the assembly executable path is available in the environment and return it.
+
+    The function checks the environment for a path variable (`ASS_STR_PATH` when
+    *str_mode* is True, otherwise `ASS_PATH`). If not present it looks for a
+    precompiled executable in the package `precompiled` directory, attempts to
+    compile the assembly code when necessary, and sets the environment variable.
+
+    Parameters
+    ----------
+    str_mode : bool, optional
+        If True, operate on the string-assembly executable variable
+        ``ASS_STR_PATH``; otherwise operate on the molecular assembly variable
+        ``ASS_PATH``. Default is False.
+
+    Returns
+    -------
+    str
+        Absolute path to the assembly executable stored in the chosen environment variable.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the executable cannot be located or compiled successfully.
+
+    Notes
+    -----
+    - The function mutates ``os.environ`` by setting the selected key.
+    - The function searches for executables inside the package `precompiled`
+      folder adjacent to the module file and may call ``compile_assembly_cpp()``
+      to build a missing executable.
+    """
+    # Determine the environment variable key based on the mode
+    key = "ASS_STR_PATH" if str_mode else "ASS_PATH"
+
+    # Check if the environment variable is already set
+    if not os.environ.get(key):
+        # Default executable name for Linux systems
+
+        if str_mode:
+            exec_name = "asscpp_combined_static_strings"
+        else:
+            exec_name = "asscpp_combined_static_linux"
+
+        full_att_path = os.path.join(os.path.dirname(__file__), "precompiled", exec_name)
+
+        # Check if the precompiled executable exists
+        if not os.path.isfile(full_att_path):
+            # Fallback to the generic assembly executable name
+            exec_name = "assembly"
+            full_att_path = os.path.join(os.path.dirname(__file__), "precompiled", exec_name)
+
+            # If the executable still doesn't exist, attempt to compile it
+            if not os.path.isfile(full_att_path):
+                print("Assembly code not found.", flush=True)
+                compile_assembly_cpp()  # Compile the assembly executable
+                full_att_path = os.path.join(os.path.dirname(__file__), "precompiled", "assembly")
+
+                # Raise an error if the compiled executable cannot be found
+                if not os.path.isfile(full_att_path):
+                    raise FileNotFoundError(f"Failed to compile assembly code: {full_att_path}")
+
+        # Set the environment variable to the executable path
+        os.environ[key] = full_att_path
+
+    # Return the path stored in the environment variable
+    return os.environ[key]
 
 
 def compile_assembly_cpp_script(assembly_tar_path: str = "assemblycpp-main",
@@ -604,6 +431,211 @@ def compile_assembly_cpp() -> None:
         os.chdir(start_dir)
         exit()
     return None
+
+
+def joint_assembly_index_correction(mol: Union[nx.Graph, Chem.Mol], ass_index: int) -> int:
+    if isinstance(mol, nx.Graph):
+        # Get the number of connected components in the graph
+        num_components = nx.number_connected_components(mol)
+    elif isinstance(mol, Chem.Mol):
+        # Get the number of components in the RDKit molecular object
+        num_components = len(Chem.rdmolops.GetMolFrags(mol=Chem.Mol(mol)))
+    else:
+        num_components = None
+        ValueError("Input not supported")
+    # Return the number of components minus 1
+    correction = max(0, num_components - 1)
+    if correction < 0:
+        correction = 0
+    return ass_index - correction
+
+
+def _convert_timeout_for_platform(seconds: float) -> int:
+    """
+    Convert a timeout expressed in seconds to platform-specific integer units.
+
+    Behavior:
+      - Windows (platform name contains ``"windows"``) -> milliseconds (seconds * 1_000)
+      - Linux (``"linux"``) or macOS (``"darwin"``) -> microseconds (seconds * 1_000_000)
+      - Other platforms -> integer seconds (``int(seconds)``)
+
+    Parameters
+    ----------
+    seconds : float
+        Timeout value in seconds. Expected to be a numeric value (non-negative
+        when used as a timeout).
+
+    Returns
+    -------
+    int
+        The converted timeout suitable for passing to platform-specific APIs.
+    """
+    system = platform.system().lower()
+    if "windows" in system:
+        return int(seconds * 1_000)
+    if "linux" in system or "darwin" in system:
+        return int(seconds * 1_000_000)
+    return int(seconds)
+
+
+def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
+                             dir_code: Optional[str] = None,
+                             timeout: float = 100.0,
+                             save_dir: bool = False,
+                             debug: bool = False,
+                             joint_corr: bool = True,
+                             strip_hydrogen: bool = False,
+                             return_log_file: bool = False,
+                             exact: bool = False) -> Union[Tuple[int, Any, Any], Tuple[int, Any, Any, Optional[str]]]:
+    # Initialize variables
+    ai = -1
+    virt_obj = None
+    path = None
+    file_path_in = None
+    timed_out = False
+
+    # Get the assembly code directory
+    if dir_code is None:
+        dir_code = add_assembly_to_path()
+
+    # Create working directory
+    if debug:
+        save_dir = True
+    temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}" if save_dir else tempfile.mkdtemp()
+    os.makedirs(temp_dir, exist_ok=True)
+
+    # Input is a graph
+    if isinstance(graph, nx.Graph):
+        if strip_hydrogen:
+            graph = remove_hydrogen_from_graph(graph)
+        graph = canonicalize_node_labels(graph)
+        file_path_in = os.path.join(temp_dir, "graph_in")
+        write_ass_graph_file(graph, file_name=file_path_in)
+    # Input is an RDKit mol
+    elif isinstance(graph, Chem.Mol):
+        graph = safe_standardize_mol(graph, add_hydrogens=True)
+        if strip_hydrogen:
+            graph = Chem.RemoveHs(graph)
+        mol_file = os.path.join(temp_dir, "tmp.mol")
+        write_v2k_mol_file(graph, mol_file)
+        file_path_in = os.path.splitext(mol_file)[0]
+    else:
+        raise ValueError("Input not supported")
+
+    # Define output and log file paths
+    file_path_out = os.path.join(file_path_in + "Out")
+    file_path_pathway = os.path.join(file_path_in + "Pathway")
+    log_file = os.path.join(temp_dir, "assembly_output.log")
+
+    # Convert timeout flag from seconds to x miliseconds in windows and x microseconds in linux/macOS
+    timeout_flag = _convert_timeout_for_platform(timeout)
+
+    # Run the assembly code and log output
+    try:
+        with open(log_file, "w") as log:
+            start_time = time.time()
+            process = subprocess.Popen(
+                [dir_code,
+                 file_path_in,
+                 '-memTest=0',
+                 '-removeHydrogens=0',
+                 '-compensateDisjoint=0',
+                 f'-runTime={timeout_flag}'],
+                stdout=log,
+                stderr=log
+            )
+            process.wait()
+            if time.time() - start_time > timeout:
+                timed_out = True
+                print("Warning: Assembly calculation timed out.", flush=True)
+
+    except Exception as e:
+        print(f"Error: {e}", flush=True)
+        if debug:
+            traceback.print_exc()
+
+    if timed_out == 0:  # If the calculation finished properly, we can read the output file
+
+        with open(file_path_out, "r") as f:
+            first_line = f.readline()
+            match = re.search(r'assembly index:\s*(\d+)', first_line)
+            if match:
+                ai = int(match.group(1))
+
+    else:
+
+        # Extract the most recent "min AI found so far" from the log file
+        last_ai = -1
+        if os.path.exists(log_file):
+            try:
+                with open(log_file, "r") as log:
+                    log_lines = log.readlines()
+
+                # Reverse scan for last occurrence of "min AI found so far"
+                for line in reversed(log_lines):
+                    match = re.search(r"min AI found so far:\s*(\d+)", line)
+                    if match:
+                        last_ai = int(match.group(1))
+                        break
+
+                if not exact:
+                    ai = last_ai  # Assign found AI
+
+                # Print appropriate messages based on timeout
+                if ai == -1 and timed_out:
+                    print("No minimum AI found before timeout.", flush=True)
+                elif ai != -1 and timed_out:
+                    print(f"Upper Bound to AI Found: AI =< {ai}", flush=True)
+
+            except Exception as e:
+                print(f"Failed to read AI from log file: {e}", flush=True)
+
+    # Process pathway output if available
+    if os.path.isfile(file_path_pathway):
+        try:
+            if isinstance(graph, nx.Graph):
+                prep_json(file_path_pathway)
+                path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='graph', debug=debug,
+                                                    input_graph=graph)
+            elif isinstance(graph, Chem.Mol):
+                path, virt_obj = parse_pathway_file(file_path_pathway, vo_type='smiles', debug=debug)
+            else:
+                virt_obj = None
+                path = (None, None)
+                raise ValueError("Input not supported")
+        except Exception as e:
+            print(f"Failed to load pathway data: {e}", flush=True)
+            if debug:
+                traceback.print_exc()
+
+    # Apply joint correction if necessary
+    if joint_corr and ai > 0:
+        ai = joint_assembly_index_correction(graph, ai)
+
+    # Print log file path if required
+    if return_log_file:
+        print(f"Log file printed to: {log_file}", flush=True)
+
+    # Return based on flag
+    return (ai, virt_obj, path) if not return_log_file else (ai, virt_obj, path, log_file)
+
+
+def calculate_assembly(graphs: List[Union[nx.Graph, Chem.Mol]],
+                       n_i: List[float],
+                       settings: Optional[Dict[str, Any]] = None,
+                       parallel: bool = True) -> float:
+    settings = settings or {}
+
+    if parallel:
+        ai_list = calculate_assembly_index_parallel(graphs, settings)[0]
+    else:
+        ai_list = [calculate_assembly_index(graph, **settings)[0] for graph in graphs]
+
+    # Regularize the assembly indices to ensure non-negative values
+    ai_list = [regularise_ai(ai) for ai in ai_list]
+    n_t = sum(n_i)  # Total weight of all graphs
+    # Compute the weighted sum of the exponential of the assembly indices
+    return sum(np.exp(ai) * ((n - 1) / n_t) for ai, n in zip(ai_list, n_i))
 
 
 def calculate_string_assembly_index(input_data: Union[str, List[str]],
@@ -936,222 +968,6 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         raise ValueError("Mode must be either 'mol', 'str', or 'cfg'.")
 
 
-def add_assembly_to_path(str_mode: bool = False) -> str:
-    """
-    Ensure the assembly executable path is available in the environment and return it.
-
-    The function checks the environment for a path variable (`ASS_STR_PATH` when
-    *str_mode* is True, otherwise `ASS_PATH`). If not present it looks for a
-    precompiled executable in the package `precompiled` directory, attempts to
-    compile the assembly code when necessary, and sets the environment variable.
-
-    Parameters
-    ----------
-    str_mode : bool, optional
-        If True, operate on the string-assembly executable variable
-        ``ASS_STR_PATH``; otherwise operate on the molecular assembly variable
-        ``ASS_PATH``. Default is False.
-
-    Returns
-    -------
-    str
-        Absolute path to the assembly executable stored in the chosen environment variable.
-
-    Raises
-    ------
-    FileNotFoundError
-        If the executable cannot be located or compiled successfully.
-
-    Notes
-    -----
-    - The function mutates ``os.environ`` by setting the selected key.
-    - The function searches for executables inside the package `precompiled`
-      folder adjacent to the module file and may call ``compile_assembly_cpp()``
-      to build a missing executable.
-    """
-    # Determine the environment variable key based on the mode
-    key = "ASS_STR_PATH" if str_mode else "ASS_PATH"
-
-    # Check if the environment variable is already set
-    if not os.environ.get(key):
-        # Default executable name for Linux systems
-
-        if str_mode:
-            exec_name = "asscpp_combined_static_strings"
-        else:
-            exec_name = "asscpp_combined_static_linux"
-
-        full_att_path = os.path.join(os.path.dirname(__file__), "precompiled", exec_name)
-
-        # Check if the precompiled executable exists
-        if not os.path.isfile(full_att_path):
-            # Fallback to the generic assembly executable name
-            exec_name = "assembly"
-            full_att_path = os.path.join(os.path.dirname(__file__), "precompiled", exec_name)
-
-            # If the executable still doesn't exist, attempt to compile it
-            if not os.path.isfile(full_att_path):
-                print("Assembly code not found.", flush=True)
-                compile_assembly_cpp()  # Compile the assembly executable
-                full_att_path = os.path.join(os.path.dirname(__file__), "precompiled", "assembly")
-
-                # Raise an error if the compiled executable cannot be found
-                if not os.path.isfile(full_att_path):
-                    raise FileNotFoundError(f"Failed to compile assembly code: {full_att_path}")
-
-        # Set the environment variable to the executable path
-        os.environ[key] = full_att_path
-
-    # Return the path stored in the environment variable
-    return os.environ[key]
-
-
-def get_most_recent_calc() -> str:
-    """
-    Locate the most recent assembly calculation directory in the current working directory.
-
-    The function scans the current working directory for folders whose names start
-    with ``ai_calc_`` and returns the path to the most recently created one (as
-    determined by the file system creation time).
-
-    Returns
-    -------
-    str
-        Absolute path to the most recent calculation folder.
-
-    Raises
-    ------
-    FileNotFoundError
-        If no folder starting with ``ai_calc_`` is present in the current working directory.
-
-    Notes
-    -----
-    - The function uses :func:`os.path.getctime` to determine the "most recent"
-      folder. On some platforms this value measures the creation time; on others
-      it may reflect the last metadata change.
-    - The function returns an absolute path built from the current working
-      directory and the selected folder name.
-    """
-    assembly_folders = [folder for folder in os.listdir(os.getcwd()) if folder.startswith("ai_calc_")]
-    if not assembly_folders:
-        raise FileNotFoundError("No 'ai_calc_' folders found in the current working directory")
-    assembly_folder = max(assembly_folders, key=lambda fn: os.path.getctime(os.path.join(os.getcwd(), fn)))
-    assembly_path = os.path.join(os.getcwd(), assembly_folder)
-    return assembly_path
-
-
-def load_assembly_time() -> float:
-    """
-    Load the time-to-completion recorded by the most recent assembly run.
-
-    The function locates the most recent directory in the current working
-    directory whose name starts with ``ai_calc_``, finds the most recent file
-    in that directory whose name ends with ``Out``, reads the last line of the
-    file, extracts the numeric time value, and returns it in seconds.
-
-    Returns
-    -------
-    float
-        Time to completion in seconds (the value read from the file is assumed
-        to be in microseconds and is converted to seconds).
-
-    Raises
-    ------
-    FileNotFoundError
-        If no ``ai_calc_`` directory is found or if no ``Out`` file exists in the
-        most recent calculation directory.
-    ValueError
-        If the time value cannot be parsed as a number from the last line of the
-        selected file.
-    OSError
-        If removal of the assembly folder fails during cleanup.
-
-    Notes
-    -----
-    - The function removes the identified ``ai_calc_`` directory after reading
-      the time value.
-    - The implementation expects the last line of the ``Out`` file to contain a
-      colon-separated value whose final token is the numeric time (matching the
-      historical behavior of the project). The numeric value is interpreted as
-      microseconds and converted to seconds by multiplying by ``1e-6``.
-    - Uses :func:`get_most_recent_calc` to find the latest calculation folder.
-
-    Examples
-    --------
-    >>> t = load_assembly_time()
-    >>> isinstance(t, float)
-    True
-    """
-    # Locate the most recent assembly calculation folder
-    assembly_path = get_most_recent_calc()
-    if not os.path.isdir(assembly_path):
-        raise FileNotFoundError(f"No assembly calculation folder found: {assembly_path}")
-
-    # Find files ending with "Out" and pick the most recent by creation time
-    out_files = [f for f in os.listdir(assembly_path) if f.endswith("Out")]
-    if not out_files:
-        raise FileNotFoundError(f"No '*Out' files found in {assembly_path}")
-
-    out_files = sorted(out_files, key=lambda fn: os.path.getctime(os.path.join(assembly_path, fn)))
-    latest_file = os.path.join(assembly_path, out_files[-1])
-
-    # Read the last line and extract the trailing numeric token
-    with open(latest_file, "r", encoding="utf-8") as f:
-        lines = f.readlines()
-        if not lines:
-            raise ValueError(f"File {latest_file} is empty")
-        last_line = lines[-1].strip()
-
-    # Extract the value after the last colon and convert to float (assumed microseconds)
-    try:
-        time_token = last_line.split(":")[-1].strip()
-        time_to_completion = float(time_token)
-    except Exception as e:
-        raise ValueError(f"Failed to parse time from '{latest_file}': {e}") from e
-
-    # Cleanup the assembly folder and return time in seconds
-    shutil.rmtree(assembly_path)
-    return float(time_to_completion) * 1e-6
-
-
-def calculate_assembly_upper_bound(mol: Union[nx.Graph, Chem.Mol],
-                                   strip_hydrogen: bool = False) -> int:
-    # Check if the input is a NetworkX graph
-    if isinstance(mol, nx.Graph):
-        if strip_hydrogen:
-            mol = remove_hydrogen_from_graph(mol)
-    # Check if the input is an RDKit molecule
-    elif isinstance(mol, Chem.Mol):
-        if strip_hydrogen:
-            mol = Chem.RemoveHs(mol)
-    else:
-        # Raise an error if the input type is not supported
-        raise ValueError("Input not supported")
-
-    # Calculate the number of bonds in the molecule
-    n_bonds = mol.GetNumBonds() if isinstance(mol, Chem.Mol) else mol.number_of_edges()
-
-    # Return the upper bound of the assembly index
-    return n_bonds - 1
-
-
-def calculate_assembly_lower_bound(mol: Union[nx.Graph, Chem.Mol],
-                                   strip_hydrogen: bool = False) -> int:
-    if isinstance(mol, nx.Graph):
-        if strip_hydrogen:
-            mol = remove_hydrogen_from_graph(mol)
-    elif isinstance(mol, Chem.Mol):
-        if strip_hydrogen:
-            mol = Chem.RemoveHs(mol)
-    else:
-        raise ValueError("Input not supported")
-    n_bonds = mol.GetNumBonds() if isinstance(mol, Chem.Mol) else mol.number_of_edges()
-    if n_bonds < 1000:
-        return calculate_integer_chain(n_bonds)
-    else:
-        return int(np.log2(n_bonds))
-
-
 def regularise_ai(ai: Optional[int]) -> int:
     """
     Regularise the assembly index to a non-negative integer.
@@ -1235,6 +1051,190 @@ def calculate_assembly_index_parallel(graphs: List[Union[nx.Graph, Chem.Mol]],
 
     # Transpose results: group values of the same field together
     return [list(group) for group in zip(*results)]
+
+
+def _get_most_recent_calc() -> str:
+    """
+    Locate the most recent assembly calculation directory in the current working directory.
+
+    The function scans the current working directory for folders whose names start
+    with ``ai_calc_`` and returns the path to the most recently created one (as
+    determined by the file system creation time).
+
+    Returns
+    -------
+    str
+        Absolute path to the most recent calculation folder.
+
+    Raises
+    ------
+    FileNotFoundError
+        If no folder starting with ``ai_calc_`` is present in the current working directory.
+
+    Notes
+    -----
+    - The function uses :func:`os.path.getctime` to determine the "most recent"
+      folder. On some platforms this value measures the creation time; on others
+      it may reflect the last metadata change.
+    - The function returns an absolute path built from the current working
+      directory and the selected folder name.
+    """
+    assembly_folders = [folder for folder in os.listdir(os.getcwd()) if folder.startswith("ai_calc_")]
+    if not assembly_folders:
+        raise FileNotFoundError("No 'ai_calc_' folders found in the current working directory")
+    assembly_folder = max(assembly_folders, key=lambda fn: os.path.getctime(os.path.join(os.getcwd(), fn)))
+    assembly_path = os.path.join(os.getcwd(), assembly_folder)
+    return assembly_path
+
+
+def load_assembly_time() -> float:
+    """
+    Load the time-to-completion recorded by the most recent assembly run.
+
+    The function locates the most recent directory in the current working
+    directory whose name starts with ``ai_calc_``, finds the most recent file
+    in that directory whose name ends with ``Out``, reads the last line of the
+    file, extracts the numeric time value, and returns it in seconds.
+
+    Returns
+    -------
+    float
+        Time to completion in seconds (the value read from the file is assumed
+        to be in microseconds and is converted to seconds).
+
+    Raises
+    ------
+    FileNotFoundError
+        If no ``ai_calc_`` directory is found or if no ``Out`` file exists in the
+        most recent calculation directory.
+    ValueError
+        If the time value cannot be parsed as a number from the last line of the
+        selected file.
+    OSError
+        If removal of the assembly folder fails during cleanup.
+
+    Notes
+    -----
+    - The function removes the identified ``ai_calc_`` directory after reading
+      the time value.
+    - The implementation expects the last line of the ``Out`` file to contain a
+      colon-separated value whose final token is the numeric time (matching the
+      historical behavior of the project). The numeric value is interpreted as
+      microseconds and converted to seconds by multiplying by ``1e-6``.
+    - Uses :func:`get_most_recent_calc` to find the latest calculation folder.
+
+    Examples
+    --------
+    >>> t = load_assembly_time()
+    >>> isinstance(t, float)
+    True
+    """
+    # Locate the most recent assembly calculation folder
+    assembly_path = _get_most_recent_calc()
+    if not os.path.isdir(assembly_path):
+        raise FileNotFoundError(f"No assembly calculation folder found: {assembly_path}")
+
+    # Find files ending with "Out" and pick the most recent by creation time
+    out_files = [f for f in os.listdir(assembly_path) if f.endswith("Out")]
+    if not out_files:
+        raise FileNotFoundError(f"No '*Out' files found in {assembly_path}")
+
+    out_files = sorted(out_files, key=lambda fn: os.path.getctime(os.path.join(assembly_path, fn)))
+    latest_file = os.path.join(assembly_path, out_files[-1])
+
+    # Read the last line and extract the trailing numeric token
+    with open(latest_file, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+        if not lines:
+            raise ValueError(f"File {latest_file} is empty")
+        last_line = lines[-1].strip()
+
+    # Extract the value after the last colon and convert to float (assumed microseconds)
+    try:
+        time_token = last_line.split(":")[-1].strip()
+        time_to_completion = float(time_token)
+    except Exception as e:
+        raise ValueError(f"Failed to parse time from '{latest_file}': {e}") from e
+
+    # Cleanup the assembly folder and return time in seconds
+    shutil.rmtree(assembly_path)
+    return float(time_to_completion) * 1e-6
+
+
+def calculate_assembly_semi_metric(graph1: Union[nx.Graph, Chem.Mol],
+                                   graph2: Union[nx.Graph, Chem.Mol],
+                                   settings: Optional[Dict[str, Any]] = None,
+                                   parallel: bool = True,
+                                   normalise: bool = False) -> float:
+    settings = settings or {}
+
+    if type(graph1) != type(graph2):
+        raise ValueError("Input graphs must be of the same type")
+
+    if type(graph1) == Chem.Mol:
+        # Convert RDKit Mol to NetworkX graph
+        graph1 = mol_to_nx(graph1)
+        graph2 = mol_to_nx(graph2)
+
+    # Check if the inputs are isomorphic
+    # in which case the semi-metric distance is 0 and the user may not intend to compare these mols
+    if nx.is_isomorphic(graph1, graph2):
+        print("Input graphs are isomorphic.", flush=True)
+        return 0.0
+
+    # Calculate the joint assembly index
+    jai = calculate_assembly_index(join_graphs([graph1, graph2]), **settings)[0]
+    if jai <= -1:
+        print("No minimum JAI found before timeout.", flush=True)
+        return -1.0
+
+    # Calculate the assembly index for each subgraph
+    sum_ai = calculate_sum_assembly([graph1, graph2], settings, parallel=parallel)
+
+    # Calculate the semi-metric distance
+    semi_metric = 2.0 * jai - sum_ai
+    if normalise:
+        return semi_metric / sum_ai
+
+    return semi_metric
+
+
+def calculate_assembly_upper_bound(mol: Union[nx.Graph, Chem.Mol],
+                                   strip_hydrogen: bool = False) -> int:
+    # Check if the input is a NetworkX graph
+    if isinstance(mol, nx.Graph):
+        if strip_hydrogen:
+            mol = remove_hydrogen_from_graph(mol)
+    # Check if the input is an RDKit molecule
+    elif isinstance(mol, Chem.Mol):
+        if strip_hydrogen:
+            mol = Chem.RemoveHs(mol)
+    else:
+        # Raise an error if the input type is not supported
+        raise ValueError("Input not supported")
+
+    # Calculate the number of bonds in the molecule
+    n_bonds = mol.GetNumBonds() if isinstance(mol, Chem.Mol) else mol.number_of_edges()
+
+    # Return the upper bound of the assembly index
+    return n_bonds - 1
+
+
+def calculate_assembly_lower_bound(mol: Union[nx.Graph, Chem.Mol],
+                                   strip_hydrogen: bool = False) -> int:
+    if isinstance(mol, nx.Graph):
+        if strip_hydrogen:
+            mol = remove_hydrogen_from_graph(mol)
+    elif isinstance(mol, Chem.Mol):
+        if strip_hydrogen:
+            mol = Chem.RemoveHs(mol)
+    else:
+        raise ValueError("Input not supported")
+    n_bonds = mol.GetNumBonds() if isinstance(mol, Chem.Mol) else mol.number_of_edges()
+    if n_bonds < 1000:
+        return calculate_integer_chain(n_bonds)
+    else:
+        return int(np.log2(n_bonds))
 
 
 def calculate_sum_assembly(graphs: List[Union[nx.Graph, Chem.Mol]],
@@ -1443,7 +1443,7 @@ def calculate_jo(mol: Union[nx.Graph, Chem.Mol],
     _, vo, pathway = calculate_assembly_index(mol, **settings)
 
     # Locate the most recent assembly calculation folder
-    assembly_path = get_most_recent_calc()
+    assembly_path = _get_most_recent_calc()
 
     # Find a file that ends with "Pathway" in that folder
     pathway_files = [f for f in os.listdir(assembly_path) if f.endswith("Pathway")]
