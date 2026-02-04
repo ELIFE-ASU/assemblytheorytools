@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import assemblytheorytools as att
 
 if __name__ == "__main__":
-    # Sample 10,000 entries from the CBRDB database
+    # Sample n entries from the CBRDB database,
     sample = att.sample_cbrdb(n_samples=10_000)
 
     # Convert SMILES strings to NetworkX graph representations in parallel
