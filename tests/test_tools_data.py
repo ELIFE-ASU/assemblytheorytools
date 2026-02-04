@@ -150,3 +150,65 @@ def test_enumerate_stereoisomers_shortest():
     smi_out = att.enumerate_stereoisomers_shortest(mol)
     name_out = att.pubchem_smi_to_name(smi_out, prefer="synonym")
     assert name_out == 'Codeine'
+
+
+def test_show_ir_data():
+    import time
+    df = att.process_chemotion_ir_data('/home/louie/Downloads/10.22000-OGoEQGlsZGElrgst.tar')
+    df = att.filter_by_nh_bonds(df, max_bonds=30)
+
+    # print the set of symbols in the smiles column
+    all_symbols = set()
+    for smi in df['smiles']:
+        for char in smi:
+            all_symbols.add(char)
+    print(f"All symbols in SMILES: {all_symbols}", flush=True)
+    df = df[~df['smiles'].str.contains('B|I|F|P|K|S')].reset_index(drop=True)
+
+    # Sample 50 entries from the dataframe
+    df = df.sample(n=100, random_state=42).reset_index(drop=True)
+    graphs = att.mp_calc(att.smi_to_nx, df['smiles'].tolist())
+    df['ai'] = att.calculate_assembly_index_parallel(graphs, settings={'strip_hydrogen': True})[0]
+
+    # sort by ai descending
+    df = df.sort_values(by='ai', ascending=False).reset_index(drop=True)
+
+    # # loop over the entire dataframe and print ai and smiles
+    # for i, row in df.iterrows():
+    #     time.sleep(0.5)
+    #     # print(f"{i}, AI: {row['ai']}, SMILES: {row['smiles']}, Name: {row['name']}", flush=True)
+    #     print(f"{i}, AI: {row['ai']}, SMILES: {row['smiles']}, Name: {att.pubchem_smi_to_name(row['smiles'])}",
+    #           flush=True)
+
+    # 99, AI: 3, SMILES: CCCCCN, Name: Amylamine
+    smi_1 = 'CCCCCN'
+    # 9, AI: 15, SMILES: COC(=O)[C@H](Cc1c[nH]c2c1cccc2)NC(=O)OC(C)(C)C, Name: Boc-Trp-Ome
+    smi_2 = 'COC(=O)[C@H](Cc1c[nH]c2c1cccc2)NC(=O)OC(C)(C)C'
+
+    # find indices of these two smiles in the dataframe
+    idx_1 = df.index[df['smiles'] == smi_1].tolist()[0]
+    idx_2 = df.index[df['smiles'] == smi_2].tolist()[0]
+
+    # Apply Savitzky-Golay filter to smooth the IR spectra in parallel
+    df['spectrum'] = att.mp_calc(att.apply_sg_filter, df['spectrum'])
+
+    view_idx = idx_1
+    # print the
+    peaks = att.find_peak_indices_in_range(df['spectrum'].iloc[view_idx])
+    att.plot_ir_spectrum(df['spectrum'].iloc[view_idx], peaks=peaks)
+    plt.savefig(f"{idx_1}_ir_spectrum.svg")
+    plt.savefig(f"{idx_1}_ir_spectrum.png", dpi=300)
+    plt.show()
+    atoms = att.smiles_to_atoms(df['smiles'].iloc[view_idx])
+    att.plot_ase_atoms(atoms, f"{idx_1}_atoms.png", rotation='30x,0y,0z')
+    plt.show()
+
+    view_idx = idx_2
+    peaks = att.find_peak_indices_in_range(df['spectrum'].iloc[view_idx])
+    att.plot_ir_spectrum(df['spectrum'].iloc[view_idx], peaks=peaks)
+    plt.savefig(f"{idx_2}_ir_spectrum.svg")
+    plt.savefig(f"{idx_2}_ir_spectrum.png", dpi=300)
+    plt.show()
+    atoms = att.smiles_to_atoms(df['smiles'].iloc[view_idx])
+    att.plot_ase_atoms(atoms, f"{idx_2}_atoms.png", rotation='0x,120y,90z')
+    plt.show()
