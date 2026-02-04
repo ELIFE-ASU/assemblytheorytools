@@ -6,9 +6,9 @@ if __name__ == "__main__":
                 "morphine"]
     # Set the timeout duration for assembly index calculations (in seconds)
     timeout = 10.0 * 60.0
-
-    # Convert molecule names to their corresponding SMILES strings using PubChem
-    smis = [att.pubchem_name_to_smi(name) for name in mols_str]
+    # Corresponding SMILES strings for the molecules
+    smis = ['CN1CC[C@]23[C@@H]4[C@H]1CC5=C2C(=C(C=C5)OC)O[C@H]3[C@H](C=C4)O',
+            'CN1CC[C@]23[C@@H]4[C@H]1CC5=C2C(=C(C=C5)O)O[C@H]3[C@H](C=C4)O']
 
     # Visualize the common bonds between the molecules and display the image
     img = att.show_common_bonds(*smis, legends=mols_str)
@@ -50,6 +50,5 @@ if __name__ == "__main__":
     print(f"Joint assembly index: {ai}", flush=True)
     print(f"Virtual objects in pathway: {virt_obj}", flush=True)
 
-    # Plot the directed graph representation of the assembly pathway
-    # - vo_names: Display synonyms for virtual object names
+    # Plot the directed graph representation of the assembly pathway. Display synonyms for virtual object names
     att.plot_digraph_metro(pathway, vo_names='synonym')
