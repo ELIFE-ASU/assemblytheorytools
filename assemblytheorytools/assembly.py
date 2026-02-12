@@ -1067,14 +1067,10 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
 
     elif mode == "cfg":  # Use the RePair upper bound
         if directed:
-            composite_ai, virt_obj, path = CFG.ai_with_pathways(string, f_print=False)
-            if debug:
-                print(f"Composite String: {string}", flush=True)
-                print(f"Length of string: {len(string)}", flush=True)
-                print(f"Composite Assembly Index: {composite_ai}", flush=True)
-                print(f"Delimiters: {delimiters}", flush=True)
+            path_len, virt_obj, path = CFG.ai_with_pathways(input_data, f_print=False)
+
             # Convert to (joint) assembly index of directed strings
-            return composite_ai - 2 * len(delimiters), virt_obj, path  # Note: there is no log file for CFG
+            return path_len, virt_obj, path  # Note: there is no log file for CFG
         else:
             raise ValueError(
                 "Current CFG code works natively for directed strings. Directed string assembly index is an upper bound to undirected string assembly index, so you may still use the directed calculator.")

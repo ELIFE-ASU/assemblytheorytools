@@ -61,15 +61,15 @@ def test_cfg_str_ass():
 
 def test_delimiter_chars():
     """
-    Test that the delimiter characters for joint assembly calculations are working as intended.
+    Test that the joint assembly calculations are working as intended.
     """
     s_in = ["a"] * 95
     a1, v1, p1 = att.calculate_string_assembly_index(s_in, directed=True)
     a2, v2, p2 = att.calculate_string_assembly_index(s_in, directed=False) 
     a3, v3, p3 = att.calculate_string_assembly_index(s_in, mode='cfg')
-    assert a1 == a2
-    assert a1 == a3
     assert a1 == 0
+    assert a2 == 0
+    assert a3 == 0
 
 
 # @pytest.mark.skip 
