@@ -936,7 +936,9 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
             dir_code = add_assembly_to_path(str_mode=True)
 
         # Create working directory
-        temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}" if debug else tempfile.mkdtemp()
+        #temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}" if debug else tempfile.mkdtemp()
+        temp_dir = tempfile.mkdtemp()
+        temp_dir = os.path.abspath(temp_dir)
         os.makedirs(temp_dir, exist_ok=True)
 
         # Put string into a temporary text file
@@ -945,10 +947,8 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
             f.write(string)
 
         # Define output and log file paths
-        # file_path_out = os.path.join(file_path_in + "Out")
-        # file_path_pathway = os.path.join(file_path_in + "Pathway")
         file_path_out = file_path_in + "Out"
-        file_path_pathway = file_path_in + "Pathway"
+        #file_path_pathway = file_path_in + "_0_Pathway" # There is an issue with CPP str file output, so we will search for this later
         log_file = os.path.join(temp_dir, "assembly_output.log")
 
         if debug:
@@ -1045,22 +1045,36 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         ai += - 2 * len(delimiters)  # Convert to (joint) assembly index of strings
 
         # Process pathway output if available
-        if os.path.isfile(file_path_pathway):
-            try:
-                virt_obj, path = parse_string_pathway_file(file_path_pathway)
-            except Exception as e:
-                print(f"Failed to load pathway data: {e}", flush=True)
+        pathway_files = [f for f in os.listdir(temp_dir) if f.endswith("Pathway")]
+        if pathway_files:
+            file_path_pathway = os.path.join(temp_dir, pathway_files[0])
+            if os.path.isfile(file_path_pathway):
                 if debug:
-                    traceback.print_exc()
+                    print(f"Parsing pathway data from: {file_path_pathway}", flush=True)
+                try:
+                    virt_obj, path = parse_string_pathway_file(file_path_pathway)
+                except Exception as e:
+                    print(f"Failed to load pathway data: {e}", flush=True)
+                    if debug:
+                        traceback.print_exc()
+        elif debug:
+            print(f"No pathway file found in: {temp_dir}", flush=True)
 
         # Print log file path if required
         if return_log_file:
             print(f"Log file printed to: {log_file}", flush=True)
 
         # Remove temporary files
-        if os.path.exists(file_path_in):
-            os.remove(file_path_in)
-        shutil.rmtree(temp_dir)  # Clean up the temporary directory
+        if not debug:
+            if os.path.exists(file_path_in):
+                os.remove(file_path_in)
+            shutil.rmtree(temp_dir)  # Clean up the temporary directory
+        else:
+            print(f"Temporary directory retained for debugging: {temp_dir}", flush=True)
+            print(f'File path in: {file_path_in}', flush=True)
+            for root, dirs, files in os.walk(temp_dir):
+                for file in files:
+                    print(f' - {file}', flush=True)
 
         # Return based on flag
         return (ai, virt_obj, path) if not return_log_file else (ai, virt_obj, path, log_file)
