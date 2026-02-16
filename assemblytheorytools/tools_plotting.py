@@ -19,7 +19,6 @@ from matplotlib.cm import ScalarMappable
 from matplotlib.figure import Figure
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from matplotlib.patches import Circle
-import matplotlib.ticker as mticker
 from pyvis.network import Network
 from rdkit import Chem
 from rdkit.Chem import Draw, rdFMCS
@@ -922,7 +921,6 @@ def plot_assembly_circle(nodes: Sequence[Any],
                          spacing_mode: str = "linear",
                          spacing_hyperbolic_factor: float = 0.4
                          ):
-
     """
     Nodes are placed on concentric rings whose radius is proportional to their
     assembly index. Edges between nodes are rendered as curved directed arrows.

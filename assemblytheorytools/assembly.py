@@ -12,11 +12,12 @@ from datetime import datetime
 from functools import partial
 from typing import Union, List, Optional, Tuple, Dict, Any
 
+import assembly_theory as at_rust
 import networkx as nx
 import numpy as np
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
-import assembly_theory as at_rust
+
 import CFG
 from .construction import (parse_pathway_file,
                            parse_string_pathway_file,
