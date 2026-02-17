@@ -3345,7 +3345,6 @@ def draw_mol_grid_box(
     if gap < 0 or outer_margin < 0 or inner_pad < 0:
         raise ValueError("gap/outer_margin/inner_pad must be >= 0")
 
-
     if sort_by is not None:
         sorted_indices = sorted(range(len(mols)), key=lambda i: sort_by[i], reverse=False)
         mols = [mols[i] for i in sorted_indices]
@@ -3415,40 +3414,12 @@ def draw_mol_grid_box(
 
 def plot_ir_spectrum(spectrum: np.ndarray,
                      peaks: np.ndarray | None = None,
+                     highlight_range: Optional[Tuple[float, float]] = (400.0, 1500.0),
                      xlab: str = 'Wavenumber (cm⁻¹)',
                      ylab: str = 'Intensity',
                      flip_x: bool = True,
                      figsize: Tuple[float, float] = (8, 5),
                      fontsize: int = 16) -> Tuple[Figure, Axes]:
-    """
-    Plots an infrared (IR) spectrum with optional peak annotations.
-
-    Parameters:
-    -----------
-    spectrum : np.ndarray
-        A 2D array where the first column represents the wavenumber (frequency)
-        and the second column represents the intensity.
-    peaks : np.ndarray or None, optional
-        Indices of the peaks to highlight in the spectrum. If None, no peaks are highlighted.
-        Defaults to None.
-    xlab : str, optional
-        Label for the x-axis. Defaults to 'Wavenumber (cm⁻¹)'.
-    ylab : str, optional
-        Label for the y-axis. Defaults to 'Intensity'.
-    flip_x : bool, optional
-        Whether to invert the x-axis (common for IR spectra where higher wavenumbers are on the left).
-        Defaults to True.
-    figsize : Tuple[float, float], optional
-        Size of the figure in inches. Defaults to (8, 5).
-    fontsize : int, optional
-        Font size for axis labels. Defaults to 16.
-
-    Returns:
-    --------
-    Tuple[Figure, Axes]
-        The matplotlib Figure and Axes objects for the plot.
-
-    """
     freq = spectrum.T[0]
     intensity = spectrum.T[1]
     # Create a figure and axis
@@ -3460,6 +3431,11 @@ def plot_ir_spectrum(spectrum: np.ndarray,
 
     # Apply standard styling
     ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
+
+    # Add highlighted background region
+    if highlight_range:
+        ax.axvspan(highlight_range[0], highlight_range[1], color='lightgrey', alpha=0.5, zorder=0)
+
 
     # Invert x-axis if requested (standard for IR)
     if flip_x:
