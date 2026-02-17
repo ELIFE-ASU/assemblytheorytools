@@ -4,7 +4,7 @@ import assemblytheorytools as att
 
 if __name__ == "__main__":
     # Sample n entries from the CBRDB database,
-    sample = att.sample_cbrdb(n_samples=10_000)
+    sample = att.sample_cbrdb()
 
     # Convert SMILES strings to NetworkX graph representations in parallel
     graphs = att.mp_calc(att.smi_to_nx, sample['smiles'])
@@ -42,7 +42,7 @@ if __name__ == "__main__":
     plt.show()
 
     # Generate labels for the first 9 molecules in the sample
-    labs = [f"Name: {sample['nickname'][i]}, AI: {sample['assembly_index'][i]}" for i in range(9)]
+    labs = [f"{sample['nickname'][i]}, AI={sample['assembly_index'][i]}" for i in range(9)]
 
     # Extract the SMILES strings for the first 9 molecules
     smis = [sample['smiles'][i] for i in range(len(labs))]

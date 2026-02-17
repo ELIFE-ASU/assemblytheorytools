@@ -2192,8 +2192,8 @@ def get_github_file(
 
 
 def sample_cbrdb(n_samples: int = 10_000,
-                 max_mw: float = 300.0,
-                 max_bonds: float = 30,
+                 max_mw: float = 350.0,
+                 max_bonds: float = 40,
                  c_select: List[str] | None = None) -> pd.DataFrame:
     """
     Sample a subset of compounds from the CBRdb dataset.
@@ -2207,9 +2207,9 @@ def sample_cbrdb(n_samples: int = 10_000,
     n_samples : int
         The number of samples to return. Default is 10,000.
     max_mw : float, optional
-        The maximum molecular weight allowed for the compounds. Default is 300.0.
+        The maximum molecular weight allowed for the compounds. Default is 350.0.
     max_bonds : float, optional
-        The maximum number of bonds allowed for the compounds. Default is 30.
+        The maximum number of bonds allowed for the compounds. Default is 40.
     c_select : List[str] or None, optional
         The columns to select from the dataset. If None, defaults to
         ['compound_id', 'nickname', 'smiles', 'molecular_weight', 'n_heavy_atoms'].
@@ -2255,8 +2255,6 @@ def sample_cbrdb(n_samples: int = 10_000,
     # Randomly sample the requested number of entries
     if n_samples < len(df):
         df = df.sample(n=n_samples, random_state=42)
-    else:
-        print(f"Requested {n_samples} samples, but only {len(df)} available after filtering.")
     # Return the sampled DataFrame
     return df.reset_index(drop=True)
 
