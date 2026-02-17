@@ -1070,3 +1070,35 @@ def test_calculate_assembly_index_pairwise_joint():
                      fig_size=(14, 7),
                      layout_style='crossmin_long')
     plt.show()
+
+def test_pathway_joining():
+    print(flush=True)
+    smis = ['CC(OC)C=C',
+            'CC(OC)C',
+            'CCC']
+    graphs = [att.smi_to_nx(smi) for smi in smis]
+    pathways = att.calculate_assembly_index_parallel(graphs, settings={'strip_hydrogen': True})[-1]
+
+    for i, pathway in enumerate(pathways):
+        print(f"Pathway for molecule {i}:", flush=True)
+        att.plot_pathway(pathway,
+                         frame_on=True,
+                         plot_type='mol',
+                         fig_size=(14, 7),
+                         layout_style='crossmin_long')
+        plt.show()
+
+    att.plot_pathway(nx.compose_all(pathways),
+                     frame_on=True,
+                     plot_type='mol',
+                     fig_size=(14, 7),
+                     layout_style='crossmin_long')
+    plt.show()
+
+    pathway = att.calculate_assembly_index_pairwise_joint(graphs, settings={'strip_hydrogen': True})
+    att.plot_pathway(pathway,
+                     frame_on=True,
+                     plot_type='mol',
+                     fig_size=(14, 7),
+                     layout_style='crossmin_long')
+    plt.show()

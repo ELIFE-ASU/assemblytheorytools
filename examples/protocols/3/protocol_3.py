@@ -1,54 +1,37 @@
 import assemblytheorytools as att
+import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
-    # Define a list of molecule names to analyze
-    mols_str = ["codeine",
-                "morphine"]
     # Set the timeout duration for assembly index calculations (in seconds)
-    timeout = 10.0 * 60.0
+    timeout = 5.0 * 60.0
+
+    # Define a list of molecule names to analyze
+    mols_str = ["papaverine",
+                "thebaine",
+                "codeine",
+                "morphine",
+                "diamorphine",
+                "fentanyl"]
     # Corresponding SMILES strings for the molecules
-    smis = ['CN1CC[C@]23[C@@H]4[C@H]1CC5=C2C(=C(C=C5)OC)O[C@H]3[C@H](C=C4)O',
-            'CN1CC[C@]23[C@@H]4[C@H]1CC5=C2C(=C(C=C5)O)O[C@H]3[C@H](C=C4)O']
-
-    # Visualize the common bonds between the molecules and display the image
-    img = att.show_common_bonds(*smis, legends=mols_str)
-    img.save("common_bonds.png")
-    img.show()
-
-    # Print the SMILES strings of the input molecules
-    print(f"Input SMILES strings: {smis}", flush=True)
+    smis = ['COc1ccc(cc1OC)Cc2c3cc(c(cc3ccn2)OC)OC',
+            'COC1=CC=C2[C@@H](C3)N(C)CC[C@@]24C5=C3C=CC(OC)=C5O[C@@H]14',
+            # 'CN1CC[C@]23[C@@H]4[C@H]1CC5=C2C(=C(C=C5)OC)O[C@H]3[C@H](C=C4)O',
+            # 'CN1CC[C@]23C4=C5C=CC(O)=C4O[C@H]2[C@@H](O)C=C[C@H]3[C@H]1C5',
+            # 'CC(OC1=C(O[C@@H]2[C@]34CCN(C)[C@@H]([C@@H]4C=C[C@@H]2OC(C)=O)C5)C3=C5C=C1)=O',
+            # 'O=C(CC)N(C1CCN(CC1)CCc2ccccc2)c3ccccc3',
+            ]
 
     # Convert the SMILES strings to NetworkX graph representations
     graphs = [att.smi_to_nx(smi) for smi in smis]
 
-    # Calculate the assembly indices for the individual molecules in parallel
-    # Settings:
-    # - strip_hydrogen: Removes hydrogen atoms from the graph
-    # - timeout: Maximum time allowed for the calculation per graph (in seconds)
-    ai_i = att.calculate_assembly_index_parallel(graphs,
-                                                 settings={'strip_hydrogen': True,
-                                                           'timeout': timeout})[0]
-    # Print the assembly indices for each individual molecule
-    print(f"Individual assembly indices:", flush=True)
-    for i, name in enumerate(mols_str):
-        print(f"{name}: {ai_i[i]}", flush=True)
-
-    # Combine the individual molecule graphs into a single graph
-    combined_graph = att.join_graphs(graphs)
-
-    # Calculate the assembly index, virtual objects, and pathway for the combined graph
-    # Settings:
-    # - strip_hydrogen: Removes hydrogen atoms from the graph
-    # - timeout: Maximum time allowed for the calculation (in seconds)
-    ai, virt_obj, pathway = att.calculate_assembly_index(combined_graph,
-                                                         strip_hydrogen=True,
-                                                         timeout=timeout)
-    # Convert the virtual objects (graphs) back to SMILES strings
-    virt_obj = [att.nx_to_smi(vo, add_hydrogens=False) for vo in virt_obj]
-
-    # Print the assembly index and virtual objects for the combined graph
-    print(f"Joint assembly index: {ai}", flush=True)
-    print(f"Virtual objects in pathway: {virt_obj}", flush=True)
+    pathway = att.calculate_assembly_index_pairwise_joint(graphs,
+                                                          settings={'strip_hydrogen': True,
+                                                                    'timeout': timeout})
+    att.plot_pathway(pathway,
+                     show_icons=True,
+                     fig_size=(14, 7),
+                     layout_style='crossmin_long')
+    plt.show()
 
     # Plot the directed graph representation of the assembly pathway. Display synonyms for virtual object names
-    att.plot_digraph_metro(pathway, vo_names='synonym')
+    att.plot_digraph_metro(pathway)
