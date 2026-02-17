@@ -240,3 +240,12 @@ def test_standardise_smiles():
 
     out = att.standardise_smiles(smi_in, add_hydrogens=False)
     assert out == 'O'
+
+
+def test_peptide_to_smiles():
+    print(flush=True)
+    peptide = "GGG"
+    smi_out = att.peptide_to_smiles(peptide)
+    print(smi_out, flush=True)
+    assert isinstance(smi_out, str)
+    assert smi_out == 'NCC(=O)NCC(=O)NCC(=O)O'

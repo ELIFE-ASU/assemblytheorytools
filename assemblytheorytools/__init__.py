@@ -172,7 +172,8 @@ from .tools_mol import (safe_standardize_mol,
                         split_mols,
                         get_element_set_from_mols,
                         standardise_smiles,
-                        smi_remove_implicit_hydrogen)
+                        smi_remove_implicit_hydrogen,
+                        peptide_to_smiles)
 from .tools_mp import (mp_calc,
                        mp_calc_star,
                        tp_calc,

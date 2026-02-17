@@ -491,3 +491,52 @@ def smi_remove_implicit_hydrogen(input_string: str) -> str:
         return f"[{group[0]}]"
 
     return re.sub(pattern, update_match, input_string)
+
+
+def peptide_to_smiles(seq: str, *, canonical: bool = True) -> str:
+    """
+    Convert a peptide sequence to a SMILES string.
+
+    This function takes a peptide sequence, validates it, and converts it into a
+    SMILES (Simplified Molecular Input Line Entry System) string using RDKit.
+
+    Parameters
+    ----------
+    seq : str
+        The peptide sequence to be converted. It should consist of single-letter
+        amino acid codes.
+    canonical : bool, optional
+        If True, generates a canonical SMILES string. Defaults to True.
+
+    Returns
+    -------
+    str
+        A SMILES string representing the peptide.
+
+    Raises
+    ------
+    ValueError
+        If the sequence is empty, contains invalid amino acid codes, or if RDKit
+        fails to parse/build the peptide.
+
+    Notes
+    -----
+    - The function only allows standard amino acid codes (ACDEFGHIKLMNPQRSTVWY).
+    - RDKit's `MolFromFASTA` is used to generate the molecule from the sequence.
+    """
+    _allowed_aa = set("ACDEFGHIKLMNPQRSTVWY")
+
+    s = "".join(seq.split()).upper()
+    if not s:
+        raise ValueError("Empty sequence")
+
+    bad = [(i, ch) for i, ch in enumerate(s, start=1) if ch not in _allowed_aa]
+    if bad:
+        raise ValueError(f"Invalid amino acid code(s)."
+                         f"Allowed: {''.join(sorted(_allowed_aa))}")
+
+    mol = Chem.MolFromFASTA(s)
+    if mol is None:
+        raise ValueError("RDKit could not parse/build the peptide from this sequence")
+
+    return Chem.MolToSmiles(mol, isomericSmiles=True, canonical=canonical)
