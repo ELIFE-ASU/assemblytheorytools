@@ -1044,13 +1044,29 @@ def test_int_chain():
     assert att.calculate_integer_chain(9998) == 16
     assert att.calculate_integer_chain(9999) == 16
 
-def test_tmp():
 
-    from rdkit import Chem
+def test_calculate_assembly_index_pairwise_joint():
+    print(flush=True)
+    smis = ['CC(OC)C=C',
+            'CC(OC)C',
+            'CCC']
+    graphs = [att.smi_to_nx(smi) for smi in smis]
+    pathway = att.calculate_assembly_index_pairwise_joint(graphs, settings={'strip_hydrogen': True})
+    assert pathway is not None, "Pathway calculation failed, returned None"
 
-    # Get a mol block from a molecule's SMILES representation.
-    anthracene = Chem.MolFromSmiles("c1ccc2cc3ccccc3cc2c1")
-    anthracene = Chem.MolToMolBlock(anthracene)
+    att.plot_pathway(pathway,
+                     frame_on=True,
+                     plot_type='mol',
+                     fig_size=(14, 7),
+                     layout_style='crossmin_long')
+    plt.show()
 
-    # Calculate the molecule's assembly index.
-    print(at.index(anthracene))  # 6
+    # Directly calculate the assembly index for the joined graph to ensure it matches the pathway calculation
+    joined_graph = att.join_graphs(graphs)
+    pathway = att.calculate_assembly_index(joined_graph, strip_hydrogen=True)[-1]
+    att.plot_pathway(pathway,
+                     frame_on=True,
+                     plot_type='mol',
+                     fig_size=(14, 7),
+                     layout_style='crossmin_long')
+    plt.show()

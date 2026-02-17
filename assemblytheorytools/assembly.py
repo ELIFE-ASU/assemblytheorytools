@@ -30,7 +30,8 @@ from .tools_graph import (write_ass_graph_file,
                           mol_to_nx,
                           nx_to_smi,
                           canonicalize_node_labels,
-                          join_graphs)
+                          join_graphs,
+                          compose_graphs)
 from .tools_mp import mp_calc
 from .tools_string import (prep_joint_string_ai,
                            get_dir_str_molecule,
@@ -2005,3 +2006,51 @@ def calculate_integer_chain(n: int) -> int:
             if i == n + 1:
                 return int(line.split()[3])
     return -1
+
+
+def calculate_assembly_index_pairwise_joint(graphs: List[nx.Graph],
+                                            settings: Optional[Dict[str, Any]] = None) -> nx.DiGraph:
+    """
+    Calculate the pairwise joint assembly index for a list of graphs.
+
+    This function computes the joint assembly index for all unique pairs of graphs
+    in the input list. It joins each pair of graphs, calculates their assembly index
+    in parallel, and then composes the resulting pathways into a directed graph.
+
+    Parameters
+    ----------
+    graphs : List[nx.Graph]
+        A list of NetworkX graphs representing molecular structures or other entities.
+    settings : Optional[Dict[str, Any]], optional
+        A dictionary of settings to configure the `calculate_assembly_index_parallel` function.
+        Defaults to an empty dictionary if not provided.
+
+    Returns
+    -------
+    nx.DiGraph
+        A directed graph composed of the pathways resulting from the pairwise joint
+        assembly index calculations.
+
+    Notes
+    -----
+    - The function uses `join_graphs` to combine each pair of graphs.
+    - The `calculate_assembly_index_parallel` function is used to calculate the assembly
+      index for the joined graphs in parallel.
+    - The pathways from the results are composed into a single directed graph using
+      `compose_graphs`.
+    """
+    # Use an empty dictionary if no settings are provided
+    settings = settings or {}
+
+    # Create a list of all unique pairs of graphs joined together
+    pairwise_joined_graphs = [
+        join_graphs([graphs[i], graphs[j]])
+        for i in range(len(graphs))
+        for j in range(i + 1, len(graphs))
+    ]
+
+    # Calculate the assembly index for each joined graph in parallel and extract pathways
+    pathways = calculate_assembly_index_parallel(pairwise_joined_graphs, settings)[-1]
+
+    # Compose the pathways into a single directed graph and return it
+    return compose_graphs(pathways)
