@@ -25,7 +25,7 @@ if __name__ == "__main__":
     plt.show()  # Display the plot
 
     # Convert the SMILES string of the selected molecule to atomic coordinates
-    smi= df['smiles'].iloc[view_idx]
+    smi = df['smiles'].iloc[view_idx]
     print(f"SMILES: {smi}", flush=True)
     atoms = att.smiles_to_atoms(smi)
 
@@ -74,7 +74,9 @@ if __name__ == "__main__":
                      "Assembly Index",
                      "IR-Predicted Assembly Index",
                      nbins=(len(set(ai_obs)),
-                            len(set(ai_pred))))
+                            len(set(ai_pred))),
+                     c_map='Greys',
+                     )
 
     # Overlay a diagonal line representing perfect correlation
     plt.plot([min(ai_obs), max(ai_obs)],

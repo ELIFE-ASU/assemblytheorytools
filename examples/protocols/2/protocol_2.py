@@ -31,7 +31,8 @@ if __name__ == "__main__":
         sample['assembly_index'].to_numpy(),
         "Molecular Weight, (MW), [Da]",
         "Assembly Index, (AI)",
-        nbins=(n_x_bins, n_y_bins)
+        nbins=(n_x_bins, n_y_bins),
+        c_map='Greys',
     )
 
     # Save the heatmap as a PNG file
