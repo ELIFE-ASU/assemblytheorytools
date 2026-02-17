@@ -158,7 +158,8 @@ from .tools_graph import (nx_to_mol,
                           relabel_digraph,
                           relabel_identifiers,
                           canonicalize_node_labels,
-                          get_graph_charges)
+                          get_graph_charges,
+                          compose_graphs)
 from .tools_mol import (safe_standardize_mol,
                         standardize_mol,
                         get_free_valence,

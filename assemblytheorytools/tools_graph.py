@@ -2,7 +2,7 @@ import os
 import random
 from functools import reduce
 from typing import Set
-from typing import Tuple, List
+from typing import Tuple, List, Iterable, Union
 
 import networkx as nx
 from rdkit import Chem
@@ -905,3 +905,38 @@ def get_graph_charges(graph: nx.Graph,
         charge = valence - bond_order_sum
         charges.append(charge)
     return charges
+
+
+def compose_graphs(graphs: Iterable[nx.Graph]) -> Union[nx.Graph, nx.DiGraph, nx.MultiGraph, nx.MultiDiGraph]:
+    """
+    Compose (merge) a list/iterable of NetworkX graphs into a single graph using nx.compose.
+
+    - Nodes/edges from all graphs are included.
+    - If the same node/edge exists in multiple graphs, attributes from later graphs in the
+      iterable will overwrite earlier ones (NetworkX compose behavior).
+
+    Parameters
+    ----------
+    graphs : Iterable[nx.Graph]
+        An iterable of NetworkX graph objects (Graph/DiGraph/MultiGraph/MultiDiGraph).
+
+    Returns
+    -------
+    nx.Graph (or subclass)
+        The composed graph.
+
+    Raises
+    ------
+    ValueError
+        If `graphs` is empty.
+    TypeError
+        If graph types are incompatible (e.g., mixing Graph and DiGraph).
+    """
+    graphs = list(graphs)
+    if not graphs:
+        raise ValueError("compose_graphs() requires at least one graph")
+
+    composed = graphs[0]
+    for g in graphs[1:]:
+        composed = nx.compose(composed, g)
+    return composed

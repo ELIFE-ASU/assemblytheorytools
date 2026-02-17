@@ -102,3 +102,15 @@ def test_join_graphs():
     # Check that the original graphs are equal to the split graphs
     assert nx.is_isomorphic(g1, g1_split)
     assert nx.is_isomorphic(g2, g2_split)
+
+
+def test_compose_graphs():
+    print(flush=True)
+    # Create a molecular graph for water
+    g1 = att.smi_to_nx('[H][O][H]')
+    # Create a molecular graph for oxygen
+    g2 = att.smi_to_nx('[O][O]')
+    # Compose the two graphs into a single graph
+    composed = att.compose_graphs([g1, g2])
+    assert composed.number_of_nodes() == 3
+    assert composed.number_of_edges() == 2
