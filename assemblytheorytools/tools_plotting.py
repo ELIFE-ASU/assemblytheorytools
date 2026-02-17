@@ -3331,6 +3331,7 @@ def draw_mol_grid(
 def draw_mol_grid_box(
         mols: Sequence[Union[Chem.Mol, str]],
         legends: Optional[Sequence[str]] = None,
+        sort_by: Optional[Sequence] = None,
         n_cols: int = 4,
         sub_img_size: Tuple[int, int] = (200, 200),
         max_mols: Optional[int] = None,
@@ -3339,58 +3340,17 @@ def draw_mol_grid_box(
         outer_margin: int = 12,
         inner_pad: int = 10,
 ):
-    """
-    Generate a grid image of molecular structures with customizable styling.
-
-    This function takes a sequence of RDKit `Mol` objects or SMILES strings, converts them
-    to RDKit `Mol` objects if necessary, and arranges them in a grid layout. Each molecule
-    is drawn inside a colored box with optional legends below. The grid layout, box styling,
-    and image dimensions are fully configurable.
-
-    Parameters
-    ----------
-    mols : Sequence[Union[Chem.Mol, str]]
-        A sequence of RDKit `Mol` objects or SMILES strings representing the molecules to be drawn.
-    legends : Optional[Sequence[str]], optional
-        A sequence of legend strings to display below each molecule. If `None`, no legends are added.
-    n_cols : int, optional
-        The number of columns in the grid. Must be a positive integer. Defaults to 4.
-    sub_img_size : Tuple[int, int], optional
-        The size of each sub-image (box) in the grid, specified as (width, height). Defaults to (200, 200).
-    max_mols : Optional[int], optional
-        The maximum number of molecules to include in the grid. If `None`, all molecules are included. Defaults to `None`.
-    box_bg : str, optional
-        The background color of the boxes in hexadecimal format. Defaults to "#E6E6E6".
-    gap : int, optional
-        The gap (in pixels) between adjacent boxes. Must be non-negative. Defaults to 12.
-    outer_margin : int, optional
-        The margin (in pixels) around the entire grid. Must be non-negative. Defaults to 12.
-    inner_pad : int, optional
-        The padding (in pixels) between the molecule drawing and the edges of the box. Must be non-negative. Defaults to 10.
-
-    Returns
-    -------
-    PIL.Image.Image
-        A PIL image object representing the grid of molecular structures.
-
-    Raises
-    ------
-    ValueError
-        If `n_cols` is not a positive integer, or if `gap`, `outer_margin`, or `inner_pad` are negative.
-        If the length of `legends` does not match the number of molecules.
-    TypeError
-        If an item in `mols` is neither an RDKit `Mol` object nor a SMILES string.
-
-    Notes
-    -----
-    - If a SMILES string cannot be converted to an RDKit `Mol` object, an empty molecule is used as a placeholder.
-    - The function uses RDKit's `MolToImage` for rendering individual molecules and PIL for assembling the grid.
-    - The grid layout is determined by the number of columns (`n_cols`) and the total number of molecules.
-    """
     if n_cols <= 0:
         raise ValueError("n_cols must be a positive integer")
     if gap < 0 or outer_margin < 0 or inner_pad < 0:
         raise ValueError("gap/outer_margin/inner_pad must be >= 0")
+
+
+    if sort_by is not None:
+        sorted_indices = sorted(range(len(mols)), key=lambda i: sort_by[i], reverse=False)
+        mols = [mols[i] for i in sorted_indices]
+        if legends is not None:
+            legends = [legends[i] for i in sorted_indices]
 
     # Convert inputs to RDKit Mol objects
     rdkit_mols: List[Chem.Mol] = []

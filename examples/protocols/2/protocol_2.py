@@ -48,7 +48,7 @@ if __name__ == "__main__":
     smis = [sample['smiles'][i] for i in range(len(labs))]
 
     # Create a grid of molecule images with legends
-    img = att.draw_mol_grid_box(smis, legends=labs, n_cols=3)
+    img = att.draw_mol_grid_box(smis, legends=labs, n_cols=3, sort_by=sample['assembly_index'])
 
     # Save the molecule grid as a PNG file
     img.save("molecule_grid.png")
