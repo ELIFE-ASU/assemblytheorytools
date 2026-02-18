@@ -942,6 +942,36 @@ def compose_graphs(graphs: Iterable[nx.Graph]) -> Union[nx.Graph, nx.DiGraph, nx
     return composed
 
 
+def set_graph_layer(digraph: nx.DiGraph) -> nx.DiGraph:
+    """
+    Assigns a "layer" attribute to each node in a directed acyclic graph (DAG) based on its topological generation.
+
+    This function iterates through the topological generations of the input directed graph
+    and assigns a "layer" attribute to each node. The layer number corresponds to the
+    topological step (generation) of the node, starting from 0 for the first generation.
+
+    Parameters
+    ----------
+    digraph : nx.DiGraph
+        A directed acyclic graph (DAG) whose nodes will be assigned a "layer" attribute.
+
+    Returns
+    -------
+    nx.DiGraph
+        The input graph with the "layer" attribute added to each node.
+
+    Notes
+    -----
+    - The graph must be a directed acyclic graph (DAG) for topological sorting to work.
+    - The "layer" attribute is an integer representing the topological generation of the node.
+    """
+    for l, nodes in enumerate(nx.topological_generations(digraph)):
+        for node in nodes:
+            digraph.nodes[node]["layer"] = l
+
+    return digraph
+
+
 def strip_digraph_layer(digraph: nx.DiGraph, layer: int) -> nx.DiGraph:
     """
     Remove all nodes and edges from a directed graph that belong to a specific layer.

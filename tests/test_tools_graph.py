@@ -116,6 +116,25 @@ def test_compose_graphs():
     assert composed.number_of_edges() == 2
 
 
+def test_set_graph_layer():
+    print(flush=True)
+    # Create a molecular graph for water
+    g1 = att.smi_to_nx('[H][O][H]')
+    # Create a molecular graph for oxygen
+    g2 = att.smi_to_nx('[O][O]')
+
+    # create a directed graph and add the two graphs as nodes
+    g = nx.DiGraph()
+    g.add_node(0, graph=g1)
+    g.add_node(1, graph=g2)
+    g.add_edge(0, 1)
+
+    g = att.set_graph_layer(g)
+
+    # Fixed assert statement
+    assert all(g.nodes[node]['layer'] == 1 or g.nodes[node]['layer'] == 0 for node in g.nodes)
+
+
 def test_strip_digraph_layer():
     print(flush=True)
     smis = ['CC(OC)C=C',

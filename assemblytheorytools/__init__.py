@@ -161,6 +161,7 @@ from .tools_graph import (nx_to_mol,
                           canonicalize_node_labels,
                           get_graph_charges,
                           compose_graphs,
+                          set_graph_layer,
                           strip_digraph_layer)
 from .tools_mol import (safe_standardize_mol,
                         standardize_mol,
