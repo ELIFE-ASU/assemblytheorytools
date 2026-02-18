@@ -132,3 +132,12 @@ def test_get_vos_on_layer():
     pathway = att.calculate_assembly_index(combined, strip_hydrogen=True)[-1]
     vos_layer_0 = att.get_vos_on_layer(pathway, 0)
     print("VOs on layer 0:", vos_layer_0, flush=True)
+    assert len(vos_layer_0) == 3
+
+    vos_layer_range = att.get_vos_on_layer(pathway, [0, 1])
+    print("VOs on layers 0 and 1:", vos_layer_range, flush=True)
+    assert len(vos_layer_range) == 2
+
+    vos_layer_all = att.get_vos_on_layer(pathway, 'all')
+    print("VOs on all layers:", vos_layer_all, flush=True)
+    assert len(vos_layer_all) == 4

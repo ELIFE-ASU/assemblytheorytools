@@ -1272,23 +1272,23 @@ def convert_digraph_vo_to_target(graph: nx.DiGraph,
 
 
 def get_vos_on_layer(digraph: nx.DiGraph,
-                     layer: int,
+                     layer: Union[int, List[int], str],
                      target='smi',
                      add_hydrogens: bool = False,
-                     sanitize: bool = True) -> List:
+                     sanitize: bool = True) -> Union[List, List[List]]:
     """
-    Retrieves virtual objects (VOs) from a specific layer in a directed graph.
+    Retrieves virtual objects (VOs) from specific layers in a directed graph.
 
     This function processes a directed graph to convert its virtual object (VO) representations
     to a specified format, assigns a "layer" attribute to each node, and extracts the VOs
-    from the nodes that belong to the specified layer.
+    from the nodes that belong to the specified layer(s).
 
     Parameters
     ----------
     digraph : nx.DiGraph
         A directed graph where nodes contain virtual object (VO) representations.
-    layer : int
-        The layer number from which to retrieve the VOs.
+    layer : int, list of int, or 'all'
+        The layer number(s) from which to retrieve the VOs. If 'all', VOs from all layers are returned.
     target : str, optional
         The target format for the VOs. Must be one of:
         - 'smi': Convert to SMILES format.
@@ -1302,19 +1302,40 @@ def get_vos_on_layer(digraph: nx.DiGraph,
 
     Returns
     -------
-    list
-        A list of VOs from the specified layer in the graph.
+    list or list of lists
+        A list of VOs if `layer` is an int. A list of lists of VOs if `layer` is a list of ints or 'all'.
 
     Raises
     ------
     ValueError
         If the specified target format is not one of 'smi', 'inchi', or 'mol'.
     """
-    digraph = convert_digraph_vo_to_target(digraph,
+    # Convert the virtual objects in the graph to the specified target format
+    digraph = convert_digraph_vo_to_target(digraph.copy(),
                                            target=target,
                                            add_hydrogens=add_hydrogens,
                                            sanitize=sanitize)
-
+    # Assign layer attributes to the nodes in the graph
     digraph = set_graph_layer(digraph)
-    idx = [node for node, data in digraph.nodes(data=True) if data.get("layer") == layer]
-    return [digraph.nodes[node].get('vo') for node in idx]
+
+    # If a single layer is specified, retrieve VOs from that layer
+    if isinstance(layer, int):
+        idx = [node for node, data in digraph.nodes(data=True) if data.get("layer") == layer]
+        return [digraph.nodes[node].get('vo') for node in idx]
+
+    # Determine the layers to retrieve VOs from
+    layers_to_get = []
+    if layer == 'all':
+        # If 'all' is specified, retrieve VOs from all layers
+        max_layer = max(data.get("layer", 0) for _, data in digraph.nodes(data=True))
+        layers_to_get = range(max_layer + 1)
+    elif isinstance(layer, list):
+        # If a list of layers is specified, use it directly
+        layers_to_get = layer
+
+    # Retrieve VOs from the specified layers
+    result = []
+    for l in layers_to_get:
+        idx = [node for node, data in digraph.nodes(data=True) if data.get("layer") == l]
+        result.append([digraph.nodes[node].get('vo') for node in idx])
+    return result
