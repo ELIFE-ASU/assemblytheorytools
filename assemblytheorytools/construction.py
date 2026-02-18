@@ -13,7 +13,8 @@ from .tools_graph import (bond_order_assout_to_int,
                           canonicalize_node_labels,
                           nx_to_smi,
                           nx_to_inchi,
-                          nx_to_mol)
+                          nx_to_mol,
+                          set_graph_layer)
 from .tools_mol import smi_remove_implicit_hydrogen
 
 
@@ -1268,3 +1269,52 @@ def convert_digraph_vo_to_target(graph: nx.DiGraph,
 
         graph.nodes[node]['vo'] = target_vo
     return graph
+
+
+def get_vos_on_layer(digraph: nx.DiGraph,
+                     layer: int,
+                     target='smi',
+                     add_hydrogens: bool = False,
+                     sanitize: bool = True) -> List:
+    """
+    Retrieves virtual objects (VOs) from a specific layer in a directed graph.
+
+    This function processes a directed graph to convert its virtual object (VO) representations
+    to a specified format, assigns a "layer" attribute to each node, and extracts the VOs
+    from the nodes that belong to the specified layer.
+
+    Parameters
+    ----------
+    digraph : nx.DiGraph
+        A directed graph where nodes contain virtual object (VO) representations.
+    layer : int
+        The layer number from which to retrieve the VOs.
+    target : str, optional
+        The target format for the VOs. Must be one of:
+        - 'smi': Convert to SMILES format.
+        - 'inchi': Convert to InChI format.
+        - 'mol': Convert to RDKit Mol object.
+        Default is 'smi'.
+    add_hydrogens : bool, optional
+        Whether to add hydrogens during the conversion process, by default False.
+    sanitize : bool, optional
+        Whether to sanitize the molecule during the conversion process, by default True.
+
+    Returns
+    -------
+    list
+        A list of VOs from the specified layer in the graph.
+
+    Raises
+    ------
+    ValueError
+        If the specified target format is not one of 'smi', 'inchi', or 'mol'.
+    """
+    digraph = convert_digraph_vo_to_target(digraph,
+                                           target=target,
+                                           add_hydrogens=add_hydrogens,
+                                           sanitize=sanitize)
+
+    digraph = set_graph_layer(digraph)
+    idx = [node for node, data in digraph.nodes(data=True) if data.get("layer") == layer]
+    return [digraph.nodes[node].get('vo') for node in idx]

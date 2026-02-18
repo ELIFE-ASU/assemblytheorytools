@@ -119,3 +119,16 @@ def test_convert_digraph_vo_to_target():
                'CCOC(=O)C1=C(C(=O)OCC)C=CC=C1']
 
     assert att.check_elements(smis, ref_smi)
+
+
+def test_get_vos_on_layer():
+    print(flush=True)
+    smis = ['CC(OC)C=C',
+            'CC(OC)C',
+            'CCC']
+    graphs = [att.smi_to_nx(smi) for smi in smis]
+    # combine the graphs into one graph
+    combined = att.join_graphs(graphs)
+    pathway = att.calculate_assembly_index(combined, strip_hydrogen=True)[-1]
+    vos_layer_0 = att.get_vos_on_layer(pathway, 0)
+    print("VOs on layer 0:", vos_layer_0, flush=True)

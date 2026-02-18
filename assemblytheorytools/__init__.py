@@ -52,7 +52,8 @@ from .construction import (parse_pathway_file,
                            assign_levels,
                            parse_string_pathway_file,
                            molstr_to_str,
-                           convert_digraph_vo_to_target)
+                           convert_digraph_vo_to_target,
+                           get_vos_on_layer)
 from .find_other_paths import (all_shortest_paths)
 from .neighborhood_enumeration import (enumerate_neighborhood,
                                        enumerate_up,
