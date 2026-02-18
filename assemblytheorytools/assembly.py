@@ -2050,31 +2050,8 @@ def calculate_assembly_index_pairwise_joint(graphs: List[nx.Graph],
     ]
 
     # Calculate the assembly index for each joined graph in parallel and extract pathways
-    #pathways = calculate_assembly_index_parallel(pairwise_joined_graphs, settings)[-1]
-    pathways = calculate_assembly_index_parallel(graphs, settings)[-1]
+    pathways = calculate_assembly_index_parallel(pairwise_joined_graphs, settings)[-1]
+    # pathways = calculate_assembly_index_parallel(graphs, settings)[-1]
 
     # Compose the pathways into a single directed graph and return it
-    # return filter_graph_by_vo_elements(nx.compose_all(pathways))
     return nx.compose_all(pathways)
-
-# def filter_graph_by_vo_elements(graph: nx.DiGraph) -> nx.DiGraph:
-#     edges_to_remove = []
-#     for u, v in graph.edges():
-#         vo_u = graph.nodes[u]['vo']
-#         vo_v = graph.nodes[v]['vo']
-#
-#         cols_u = ''
-#         for _, node_data in vo_u.nodes(data=True):
-#             cols_u += node_data['color']
-#         cols_u = set(cols_u)
-#
-#         cols_v = ''
-#         for _, node_data in vo_v.nodes(data=True):
-#             cols_v += node_data['color']
-#         cols_v = set(cols_v)
-#
-#         if not cols_u.issubset(cols_v):
-#             edges_to_remove.append((u, v))
-#
-#     graph.remove_edges_from(edges_to_remove)
-#     return graph

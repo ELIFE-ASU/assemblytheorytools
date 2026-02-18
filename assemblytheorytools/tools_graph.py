@@ -940,3 +940,38 @@ def compose_graphs(graphs: Iterable[nx.Graph]) -> Union[nx.Graph, nx.DiGraph, nx
     for g in graphs[1:]:
         composed = nx.compose(composed, g)
     return composed
+
+
+def strip_digraph_layer(digraph: nx.DiGraph, layer: int) -> nx.DiGraph:
+    """
+    Remove all nodes and edges from a directed graph that belong to a specific layer.
+
+    Parameters
+    ----------
+    digraph : nx.DiGraph
+        The input directed graph from which to remove the specified layer.
+    layer : int
+        The layer number to be removed. Nodes with a "label" attribute matching "Step {layer}"
+        will be removed along with their associated edges.
+
+    Returns
+    -------
+    nx.DiGraph
+        A new directed graph with the specified layer removed.
+
+    Notes
+    -----
+    - The function assumes that nodes have a "label" attribute in the format "Step {number}".
+    - All nodes and edges connected to the specified layer will be removed from the graph.
+    """
+
+    modified_graph = digraph.copy()
+
+    for l, nodes in enumerate(nx.topological_generations(modified_graph)):
+        for node in nodes:
+            modified_graph.nodes[node]["layer"] = l
+
+    # remove the nodes with layer 0 and plot the pathway
+    nodes_to_remove = [node for node, data in modified_graph.nodes(data=True) if data.get("layer") == layer]
+    modified_graph.remove_nodes_from(nodes_to_remove)
+    return modified_graph
