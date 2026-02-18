@@ -1053,8 +1053,6 @@ def test_calculate_assembly_index_pairwise_joint():
     graphs = [att.smi_to_nx(smi) for smi in smis]
     pathway = att.calculate_assembly_index_pairwise_joint(graphs, settings={'strip_hydrogen': True})
     assert pathway is not None, "Pathway calculation failed, returned None"
-    pathway = att.strip_digraph_layer(pathway, 0)
-
     att.plot_pathway(pathway,
                      frame_on=True,
                      plot_type='mol',
@@ -1071,6 +1069,7 @@ def test_calculate_assembly_index_pairwise_joint():
                      fig_size=(14, 7),
                      layout_style='crossmin_long')
     plt.show()
+
 
 def test_pathway_joining():
     print(flush=True)
