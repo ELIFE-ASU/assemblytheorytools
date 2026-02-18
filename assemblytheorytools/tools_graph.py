@@ -994,14 +994,7 @@ def strip_digraph_layer(digraph: nx.DiGraph, layer: int) -> nx.DiGraph:
     - The function assumes that nodes have a "label" attribute in the format "Step {number}".
     - All nodes and edges connected to the specified layer will be removed from the graph.
     """
-
-    modified_graph = digraph.copy()
-
-    for l, nodes in enumerate(nx.topological_generations(modified_graph)):
-        for node in nodes:
-            modified_graph.nodes[node]["layer"] = l
-
-    # remove the nodes with layer 0 and plot the pathway
+    modified_graph = set_graph_layer(digraph.copy())
     nodes_to_remove = [node for node, data in modified_graph.nodes(data=True) if data.get("layer") == layer]
     modified_graph.remove_nodes_from(nodes_to_remove)
     return modified_graph

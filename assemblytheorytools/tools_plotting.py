@@ -26,7 +26,7 @@ from scipy.stats import gaussian_kde
 
 from .tools_atoms import mol_to_atoms
 from .tools_data import pubchem_smi_to_name, enumerate_stereoisomers_shortest
-from .tools_graph import relabel_digraph, nx_to_smi
+from .tools_graph import relabel_digraph, nx_to_smi, set_graph_layer
 from .tools_mol import smi_to_mol, standardize_mol
 
 # set the plot axis
@@ -167,9 +167,7 @@ def plot_graph(graph: nx.Graph,
     elif layout == 'arf':
         pos = nx.arf_layout(graph)
     elif layout == 'topological':
-        for layer, nodes in enumerate(nx.topological_generations(graph)):
-            for node in nodes:
-                graph.nodes[node]["layer"] = layer
+        graph = set_graph_layer(graph)
         pos = nx.multipartite_layout(graph, subset_key="layer")
     else:
         pos = nx.kamada_kawai_layout(graph)
@@ -517,10 +515,7 @@ def plot_pathway(graph: nx.DiGraph,
             node_color = 'white'
 
     fig, ax = plt.subplots(figsize=fig_size)
-
-    for layer, nodes in enumerate(nx.topological_generations(graph)):
-        for node in nodes:
-            graph.nodes[node]["layer"] = layer
+    graph = set_graph_layer(graph)
 
     if layout_style == 'crossmin':
         pos = multipartite_layout_crossmin(graph, subset_key="layer")
