@@ -114,3 +114,15 @@ def test_compose_graphs():
     composed = att.compose_graphs([g1, g2])
     assert composed.number_of_nodes() == 3
     assert composed.number_of_edges() == 2
+
+
+def test_strip_digraph_layer():
+    print(flush=True)
+    smis = ['CC(OC)C=C',
+            'CC(OC)C',
+            'CCC']
+    graphs = [att.smi_to_nx(smi) for smi in smis]
+    pathway = att.calculate_assembly_index_pairwise_joint(graphs, settings={'strip_hydrogen': True})
+    pathway = att.strip_digraph_layer(pathway, 0)
+    # Check that the first layer has been stripped
+    assert all(pathway.nodes[node]['layer'] > 0 for node in pathway.nodes)
