@@ -164,7 +164,7 @@ def test_top_n_degree_subgraph():
                      fig_size=(14, 7),
                      layout_style='crossmin_long')
     plt.show()
-    pathway = att.calculate_assembly_index(joined_graph, strip_hydrogen=True)[-1]
+
     subgraph = att.top_n_degree_subgraph(pathway, n=3, must_keep=graphs)
     att.plot_pathway(subgraph,
                      frame_on=True,

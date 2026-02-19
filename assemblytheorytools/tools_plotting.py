@@ -151,6 +151,7 @@ def plot_graph(graph: nx.Graph,
     tuple of (matplotlib.figure.Figure, matplotlib.axes.Axes)
         Figure and axis objects containing the graph visualization.
     """
+    graph = graph.copy()  # Avoid modifying the original graph
     # Get the position of the nodes based on the specified layout
     if layout == 'kawai':
         pos = nx.kamada_kawai_layout(graph)
@@ -230,6 +231,7 @@ def plot_mol_graph(graph: nx.Graph,
     tuple of (matplotlib.figure.Figure, matplotlib.axes.Axes)
         Figure and axis objects containing the molecular graph visualization.
     """
+    graph = graph.copy()  # Avoid modifying the original graph
     # Get the position of the nodes based on the specified layout
     if layout == 'kawai':
         pos = nx.kamada_kawai_layout(graph)
@@ -325,6 +327,7 @@ def plot_interactive_graph(graph: nx.Graph,
     pyvis.network.Network
         PyVis Network object containing the interactive visualization.
     """
+    graph = graph.copy()  # Avoid modifying the original graph
     # Color each node based on its degree
     max_nbr = len(max(graph.adj.values(), key=lambda x: len(x)))
     blues = colormaps.get_cmap("Blues")
@@ -396,6 +399,7 @@ def plot_digraph_metro(digraph: nx.DiGraph,
     None
         The function saves the graph visualization to files and does not return any value.
     """
+    digraph = digraph.copy()  # Avoid modifying the original graph
     try:
         import cairosvg
         import dagviz
@@ -499,7 +503,7 @@ def plot_pathway(graph: nx.DiGraph,
     ValueError
         If arrow_style is not '1' or '2'.
     """
-
+    graph = graph.copy()  # Avoid modifying the original graph
     # If the input is a graph check if it contains molecule graphs and convert to smiles
     if plot_type == 'mol':
         for node in graph.nodes:
@@ -3430,7 +3434,6 @@ def plot_ir_spectrum(spectrum: np.ndarray,
     # Add highlighted background region
     if highlight_range:
         ax.axvspan(highlight_range[0], highlight_range[1], color='lightgrey', alpha=0.5, zorder=0)
-
 
     # Invert x-axis if requested (standard for IR)
     if flip_x:
