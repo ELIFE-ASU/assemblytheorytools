@@ -163,7 +163,8 @@ from .tools_graph import (nx_to_mol,
                           get_graph_charges,
                           compose_graphs,
                           set_graph_layer,
-                          strip_digraph_layer)
+                          strip_digraph_layer,
+                          top_n_degree_subgraph)
 from .tools_mol import (safe_standardize_mol,
                         standardize_mol,
                         get_free_valence,

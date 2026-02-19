@@ -998,3 +998,58 @@ def strip_digraph_layer(digraph: nx.DiGraph, layer: int) -> nx.DiGraph:
     nodes_to_remove = [node for node, data in modified_graph.nodes(data=True) if data.get("layer") == layer]
     modified_graph.remove_nodes_from(nodes_to_remove)
     return modified_graph
+
+
+def top_n_degree_subgraph(G: nx.DiGraph, n: int, must_keep: List[nx.Graph]) -> nx.DiGraph:
+    """
+    Extract a subgraph containing the top `n` nodes with the highest degrees,
+    while ensuring that specific subgraphs are retained.
+
+    This function creates a subgraph from the input directed graph `G` by selecting
+    the top `n` nodes based on their degree (sum of in-degree and out-degree).
+    Additionally, it ensures that nodes corresponding to the `must_keep` subgraphs
+    are included in the resulting subgraph.
+
+    Parameters
+    ----------
+    G : nx.DiGraph
+        The input directed graph.
+    n : int
+        The number of top-degree nodes to include in the subgraph.
+    must_keep : List[nx.Graph]
+        A list of subgraphs that must be retained in the resulting subgraph.
+
+    Returns
+    -------
+    nx.DiGraph
+        A subgraph of the input graph `G` containing the top `n` nodes by degree
+        and nodes corresponding to the `must_keep` subgraphs.
+
+    Notes
+    -----
+    - If the `must_keep` subgraphs contain hydrogen atoms ('H') but the input graph
+      does not, the hydrogen atoms are removed from the `must_keep` subgraphs.
+    - The function ensures that all nodes in the `must_keep` subgraphs are included
+      in the resulting subgraph, even if they are not among the top `n` nodes by degree.
+    """
+    # Create a copy of the input graph to avoid modifying the original
+    G = G.copy()
+
+    # Collect unique node colors from the input graph
+    symbols_g = {data['color'] for node in G.nodes() for _, data in G.nodes[node].get('vo', {}).nodes(data=True)}
+
+    # Collect unique node colors from the `must_keep` subgraphs
+    symbols_ref = {data['color'] for vo in must_keep for _, data in vo.nodes(data=True)}
+
+    # Remove hydrogen atoms from `must_keep` if not present in the input graph
+    if 'H' in symbols_ref and 'H' not in symbols_g:
+        must_keep = [remove_hydrogen_from_graph(g) for g in must_keep]
+
+    # Get top `n` nodes by degree
+    top_nodes = {u for u, _ in sorted(G.degree(), key=lambda x: x[1], reverse=True)[:n]}
+
+    # Identify nodes to keep based on `must_keep` subgraphs
+    keep_nodes = {node for node in G.nodes() if any(nx.is_isomorphic(G.nodes[node].get('vo'), g) for g in must_keep)}
+
+    # Return the subgraph containing top nodes and must-keep nodes
+    return G.subgraph(top_nodes | keep_nodes)
