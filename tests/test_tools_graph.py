@@ -1,3 +1,6 @@
+from typing import List
+
+import matplotlib.pyplot as plt
 import networkx as nx
 
 import assemblytheorytools as att
@@ -145,3 +148,61 @@ def test_strip_digraph_layer():
     pathway = att.strip_digraph_layer(pathway, 0)
     # Check that the first layer has been stripped
     assert all(pathway.nodes[node]['layer'] > 0 for node in pathway.nodes)
+
+
+def top_n_degree_subgraph(G: nx.DiGraph, n: int, must_keep: List[nx.Graph]) -> nx.DiGraph:
+    G = G.copy()
+
+    symbols_g = set()
+    for node in G.nodes():
+        vo = G.nodes[node].get('vo')
+        for node, data in vo.nodes(data=True):
+            symbols_g.add(data['color'])
+
+    symbols_ref = set()
+    for vo in must_keep:
+        for node, data in vo.nodes(data=True):
+            symbols_ref.add(data['color'])
+
+    if 'H' in symbols_ref and 'H' not in symbols_g:
+        must_keep = [att.remove_hydrogen_from_graph(g) for g in must_keep]
+
+    degrees = ((u, G.in_degree(u) + G.out_degree(u)) for u in G.nodes())
+    top_nodes = {u for u, _ in sorted(degrees, key=lambda x: x[1], reverse=True)[:n]}
+    keep_nodes = set()
+    for node in G.nodes():
+        vo = G.nodes[node].get('vo')
+        if vo is None:
+            continue
+        for g in must_keep:
+            if nx.is_isomorphic(vo, g):
+                keep_nodes.add(node)
+                break
+    return G.subgraph(top_nodes | keep_nodes)
+
+
+def test_top_n_degree_subgraph():
+    print(flush=True)
+    smis = ['CC(OC)C=C',
+            'CC(OC)C',
+            'CC(OC)CCC',
+            'CCC']
+    graphs = [att.smi_to_nx(smi) for smi in smis]
+
+    joined_graph = att.join_graphs(graphs)
+    pathway = att.calculate_assembly_index(joined_graph, strip_hydrogen=True)[-1]
+    att.plot_pathway(pathway,
+                     frame_on=True,
+                     plot_type='mol',
+                     fig_size=(14, 7),
+                     layout_style='crossmin_long')
+    plt.show()
+    pathway = att.calculate_assembly_index(joined_graph, strip_hydrogen=True)[-1]
+    subgraph = top_n_degree_subgraph(pathway, n=3, must_keep=graphs)
+    att.plot_pathway(subgraph,
+                     frame_on=True,
+                     plot_type='mol',
+                     fig_size=(14, 7),
+                     layout_style='crossmin_long')
+    plt.show()
+    assert len(subgraph) == 5
