@@ -835,26 +835,6 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
 
     """
 
-    log_file = None
-    if isinstance(input_data, str):
-        # Handle the case where input_data is a single string
-        string = input_data
-        delimiters = []
-    elif isinstance(input_data, list):
-        if len(input_data) > 95:
-            raise ValueError(
-                "Input list contains more than 95 objects. Joint assembly index calculations are only supported for up to 95 objects.")
-        # Handle joint assembly case
-        string, delimiters = prep_joint_string_ai(input_data)
-    else:
-        raise ValueError("Input must be either a single string or a list of strings")
-
-    # Check input types
-    assert (dir_code is None) or isinstance(dir_code, str), "Directory code must be a string"
-    assert isinstance(timeout, (int, float)), "Timeout must be an integer or float"
-    assert isinstance(debug, bool), "Debug must be a boolean"
-    assert isinstance(directed, bool), "Directed must be a boolean"
-
     if directed == False:
         if mode in ["str", "cfg"]:
             mode = "mol"  # Use the molecular assembly calculator for undirected strings
@@ -863,6 +843,40 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
     elif mode == "mol":
         mode = "str"  # Use the string assembly calculator for directed strings
         print("Warning: mode 'mol' is not currently supported for directed strings. Switching to 'str'.", flush=True)
+
+    log_file = None
+    if isinstance(input_data, str):
+        # Handle the case where input_data is a single string
+        string = input_data
+        delimiters = []
+        if len(string) == 1:
+            if return_log_file:
+                return 0, None, None, None
+            else:
+                return 0, None, None
+            
+    elif isinstance(input_data, list):
+        input_data = [s for s in input_data if len(s) > 1] # Remove elements of the list that are single characters
+        if len(input_data) == 0:
+            if return_log_file:
+                return 0, None, None, None
+            else:
+                return 0, None, None
+
+        if mode != "cfg":
+            if len(input_data) > 95:
+                raise ValueError(
+                    "Input list contains more than 95 objects. Joint assembly index calculations are only supported for up to 95 objects except in cfg (RePair) approximation mode.")
+            # Handle joint assembly case
+            string, delimiters = prep_joint_string_ai(input_data)
+    else:
+        raise ValueError("Input must be either a single string or a list of strings")
+
+    # Check input types
+    assert (dir_code is None) or isinstance(dir_code, str), "Directory code must be a string"
+    assert isinstance(timeout, (int, float)), "Timeout must be an integer or float"
+    assert isinstance(debug, bool), "Debug must be a boolean"
+    assert isinstance(directed, bool), "Directed must be a boolean"
 
     if mode == "mol":  # Use the molecular assembly cpp calculator
         if directed:

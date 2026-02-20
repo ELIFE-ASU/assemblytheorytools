@@ -255,7 +255,7 @@ def generate_random_strings(n_pool: int, n_length: int) -> list[str]:
     Generate a list of random strings of a specified length.
 
     This function creates `n_pool` random strings, each of length `n_length`,
-    using lowercase letters and digits.
+    using lowercase letters.
 
     Parameters
     ----------
@@ -269,8 +269,8 @@ def generate_random_strings(n_pool: int, n_length: int) -> list[str]:
     list[str]
         A list of randomly generated strings.
     """
-    # Define the character set to include lowercase letters and digits
-    chars = string.ascii_lowercase + string.digits
+    # Define the character set to include lowercase letters
+    chars = string.ascii_lowercase
 
     # Generate a list of random strings using the specified character set
     return [''.join(random.choices(chars, k=n_length)) for _ in range(n_pool)]

@@ -571,9 +571,9 @@ def plot_pathway(graph: nx.DiGraph,
                 if layer_diff > 1:
                     # flip a coin to decide the direction of the curve
                     if random.random() > 0.5:
-                        rad = -0.10 * layer_diff
+                        rad = 0. #-0.10 * layer_diff # HARDCODED, don't push this block!
                     else:
-                        rad = 0.10 * layer_diff
+                        rad = 0. # 0.10 * layer_diff
                 else:
                     rad = 0.0
 
