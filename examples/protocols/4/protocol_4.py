@@ -26,7 +26,7 @@ if __name__ == "__main__":
 
     # Convert the SMILES string of the selected molecule to atomic coordinates
     smi = df['smiles'].iloc[view_idx]
-    print(f"SMILES: {smi}", flush=True)
+    print(f"SMILES: {smi}", flush=True) # CCOC(=O)c1ccc(cc1)C=O
     atoms = att.smiles_to_atoms(smi)
 
     # Plot the 3D atomic structure and save it as a PNG file
@@ -79,10 +79,8 @@ if __name__ == "__main__":
                      )
 
     # Overlay a diagonal line representing perfect correlation
-    plt.plot([min(ai_obs), max(ai_obs)],
-             [min(ai_pred), max(ai_pred)],
-             color='black',
-             linestyle='--')
+    x_line = np.linspace(min(ai_obs), max(ai_obs), 2)
+    plt.plot(x_line, x_line, color='red', linestyle='--', linewidth=2)
     plt.savefig("ir_ai_correlation_heatmap.svg")  # Save the heatmap as an SVG file
     plt.savefig("ir_ai_correlation_heatmap.png", dpi=300)  # Save the heatmap as a PNG file
     plt.show()  # Display the heatmap

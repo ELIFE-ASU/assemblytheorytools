@@ -24,6 +24,12 @@ if __name__ == "__main__":
             'CN1CC[C@]23[C@@H]4[C@H]1CC5=C2C(=C(C=C5)OC)O[C@H]3[C@H](C=C4)O',
             ]
 
+    smis = ['C(C(=O)O)N',
+            'C[C@@H](C(=O)O)N',
+            'C1C[C@H](NC1)C(=O)O',
+            'CC(C)[C@@H](C(=O)O)N',
+            'O=C([C@H](CC1=CNC=N1)N)O']
+
     # Convert the SMILES strings to NetworkX graph representations
     graphs = [att.smi_to_nx(smi) for smi in smis]
 
@@ -55,14 +61,21 @@ if __name__ == "__main__":
 
     att.plot_pathway(pathway,
                      show_icons=True,
-                     fig_size=(30, 15),
+                     frame_on=True,
+                     fig_size=(16, 9),
                      layout_style='crossmin_long')
     plt.show()
 
-    pathway = strip_digraph_zero_indegree(pathway)
-    pathway = strip_digraph_zero_indegree(pathway)
-    att.plot_pathway(pathway,
-                     show_icons=True,
-                     fig_size=(18, 12),
-                     layout_style='crossmin_long')
-    plt.show()
+    # att.plot_pathway(pathway,
+    #                  show_icons=True,
+    #                  fig_size=(30, 15),
+    #                  layout_style='crossmin_long')
+    # plt.show()
+    #
+    # pathway = strip_digraph_zero_indegree(pathway)
+    # pathway = strip_digraph_zero_indegree(pathway)
+    # att.plot_pathway(pathway,
+    #                  show_icons=True,
+    #                  fig_size=(18, 12),
+    #                  layout_style='crossmin_long')
+    # plt.show()
