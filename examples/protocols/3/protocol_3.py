@@ -1,14 +1,6 @@
 import matplotlib.pyplot as plt
-import networkx as nx
 
 import assemblytheorytools as att
-
-
-def strip_digraph_zero_indegree(G: nx.DiGraph) -> nx.DiGraph:
-    G = G.copy()
-    nodes = [n for n, indeg in G.in_degree() if indeg > 0]
-    return G.subgraph(nodes)
-
 
 if __name__ == "__main__":
     # Set the timeout duration for assembly index calculations (in seconds)

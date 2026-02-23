@@ -1053,3 +1053,21 @@ def top_n_degree_subgraph(G: nx.DiGraph, n: int, must_keep: List[nx.Graph]) -> n
 
     # Return the subgraph containing top nodes and must-keep nodes
     return G.subgraph(top_nodes | keep_nodes)
+
+
+def strip_digraph_zero_indegree(G: nx.DiGraph) -> nx.DiGraph:
+    """
+    Create a subgraph of the input directed graph (DiGraph) by removing nodes with zero in-degree.
+
+    Parameters:
+        G (nx.DiGraph): The input directed graph.
+
+    Returns:
+        nx.DiGraph: A subgraph of the input graph containing only nodes with in-degree greater than zero.
+    """
+    # Create a copy of the input graph to avoid modifying the original graph
+    G = G.copy()
+    # Identify nodes with in-degree greater than zero
+    nodes = [n for n, indeg in G.in_degree() if indeg > 0]
+    # Return a subgraph containing only the identified nodes
+    return G.subgraph(nodes)
