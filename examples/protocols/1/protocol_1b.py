@@ -1,3 +1,5 @@
+import matplotlib.pyplot as plt
+
 import assemblytheorytools as att
 
 if __name__ == "__main__":
@@ -5,8 +7,6 @@ if __name__ == "__main__":
     s_inpt = "gggfhhhvg"
 
     # Calculate the assembly index, virtual objects, and pathway for the input string
-    # Parameters:
-    # - directed: Whether the graph is directed (False for undirected)
     ai, virt_obj, pathway = att.calculate_string_assembly_index(
         s_inpt,
         directed=False,
@@ -18,5 +18,11 @@ if __name__ == "__main__":
     # Print the virtual objects in the assembly pathway
     print(f"Virtual objects in pathway: {virt_obj}", flush=True)
 
-    # Plot the directed graph representation of the assembly pathway
-    att.plot_digraph_metro(pathway)
+    att.plot_pathway(pathway,
+                     plot_type="string",
+                     font_size=24,
+                     fig_size=(16, 10),
+                     layout_style='crossmin_long')
+    plt.savefig("str_pathway_example.svg")
+    plt.savefig("str_pathway_example.png", dpi=300)
+    plt.show()
