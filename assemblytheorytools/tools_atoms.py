@@ -483,8 +483,8 @@ def orca_calc_preset(orca_path: Optional[str] = None,
                      xc: str = 'r2SCAN-3c',
                      charge: int = 0,
                      multiplicity: int = 1,
-                     basis_set: str = 'def2-mTZVPP',
-                     n_procs: int = 10,
+                     basis_set: str = '',
+                     n_procs: int = 1,
                      f_solv: Union[bool, str] = False,
                      f_disp: Union[bool, str] = False,
                      atom_list: Optional[List[int]] = None,
@@ -511,7 +511,7 @@ def orca_calc_preset(orca_path: Optional[str] = None,
     basis_set : str, optional
         Basis set to use for the calculation. Default is 'def2-mTZVPP'.
     n_procs : int, optional
-        Number of processors to use. Default is 10.
+        Number of processors to use. Default is 1.
     f_solv : bool or str, optional
         Solvent model to use. If True, defaults to 'WATER'. Default is False (no solvent).
     f_disp : bool or str, optional
@@ -775,7 +775,7 @@ def calculate_ccsd_energy(atoms: Atoms,
                           multiplicity: int = 1,
                           orca_path: Optional[str] = None,
                           basis_set: str = 'def2-TZVPP',
-                          n_procs: int = 10) -> float:
+                          n_procs: int = 1) -> float:
     """
     Perform a CCSD energy calculation for a molecule.
 
@@ -796,7 +796,7 @@ def calculate_ccsd_energy(atoms: Atoms,
     basis_set : str, optional
         Basis set to use for the calculation. Default is 'def2-TZVPP'.
     n_procs : int, optional
-        Number of processors to use for the calculation. Default is 10.
+        Number of processors to use for the calculation. Default is 1.
 
     Returns
     -------
@@ -871,7 +871,7 @@ def calculate_free_energy(atoms: Atoms,
                           tight_scf: bool = False,
                           f_solv: bool = False,
                           f_disp: bool = False,
-                          n_procs: int = 10,
+                          n_procs: int = 1,
                           use_ccsd: bool = False,
                           ccsd_energy: Optional[float] = None) -> Tuple[float, float, float]:
     """
@@ -908,7 +908,7 @@ def calculate_free_energy(atoms: Atoms,
     f_disp : bool, optional
         Whether to include dispersion corrections in the calculation. Default is False.
     n_procs : int, optional
-        Number of processors to use for the calculation. Default is 10.
+        Number of processors to use for the calculation. Default is 1.
     use_ccsd : bool, optional
         Whether to use CCSD energy calculations. Default is False.
     ccsd_energy : float, optional
@@ -1040,7 +1040,7 @@ def calculate_hessian(atoms: Atoms,
                       tight_scf: bool = False,
                       f_solv: Union[bool, str] = False,
                       f_disp: Union[bool, str] = False,
-                      n_procs: int = 10) -> Tuple[Atoms, str]:
+                      n_procs: int = 1) -> Tuple[Atoms, str]:
     """
     Perform a Hessian matrix calculation for a molecule.
 
@@ -1070,7 +1070,7 @@ def calculate_hessian(atoms: Atoms,
     f_disp : bool or str, optional
         Dispersion correction to use. If True, defaults to 'D4'. Default is False (no dispersion correction).
     n_procs : int, optional
-        Number of processors to use for the calculation. Default is 10.
+        Number of processors to use for the calculation. Default is 1.
 
     Returns
     -------
@@ -1216,7 +1216,7 @@ def calculate_goat(atoms: Atoms,
                    charge: int = 0,
                    multiplicity: int = 1,
                    orca_path: Optional[str] = None,
-                   n_procs: int = 10) -> Tuple[List[Atoms], pd.DataFrame]:
+                   n_procs: int = 1) -> Tuple[List[Atoms], pd.DataFrame]:
     """
     Perform a GOAT (Global Optimization of Atomic Topologies) calculation using ORCA.
 
@@ -1234,7 +1234,7 @@ def calculate_goat(atoms: Atoms,
     orca_path : str, optional
         Path to the ORCA executable. If None, it will attempt to read from the environment variable 'ORCA_PATH'.
     n_procs : int, optional
-        Number of processors to use for the calculation. Default is 10.
+        Number of processors to use for the calculation. Default is 1.
 
     Returns
     -------
@@ -1300,7 +1300,7 @@ def get_virtual_objects_energy(mol_list: List[Mol],
                                basis_set: str = 'def2-mTZVPP',
                                f_solv: bool = False,
                                f_disp: bool = False,
-                               n_procs: int = 10,
+                               n_procs: int = 1,
                                ccsd_energy: bool = False) -> List[float]:
     """
     Calculate free energies for a list of RDKit molecules.
@@ -1323,7 +1323,7 @@ def get_virtual_objects_energy(mol_list: List[Mol],
     f_disp : bool, optional
         Whether to include dispersion corrections. Default is False.
     n_procs : int, optional
-        Number of processors to use. Default is 10.
+        Number of processors to use. Default is 1.
     ccsd_energy : bool, optional
         Whether to use CCSD energy calculations. Default is False.
 
