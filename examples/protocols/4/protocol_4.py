@@ -33,6 +33,11 @@ if __name__ == "__main__":
     att.plot_ase_atoms(atoms, 'example_atoms.png', rotation='30x,30y,0z')
     plt.show()  # Display the atomic structure
 
+    graph = att.smi_to_nx(smi)
+    ai = att.calculate_assembly_index(graph, strip_hydrogen=True)[0]
+    print(f"Assembly Index: {ai}", flush=True)
+
+
     # Calculate the number of peaks in each spectrum and filter the dataset
     # to include only molecules with 1 to 40 peaks
     df['n_peaks'] = np.array(att.mp_calc(att.find_n_peak_indices_in_range,
