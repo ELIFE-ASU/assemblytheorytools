@@ -8,13 +8,16 @@ It illustrates how to:
 
 1. **Data Processing & Filtering**: Loads and processes a Chemotion IR dataset, filters molecules based on bond
    constraints (max 30 NH bonds), and cleans spectral data using Savitzky-Golay filters.
-2. **Molecule Visualization**: Generates visualizations for a sample molecule:
+2. **Single Molecule Visualization**: For a selected example molecule, it:
     * Plots the **IR Spectrum** with identified peaks.
-    * Renders the **3D Atomic Structure** of the molecule.
-3. **Feature Extraction**: Automatically counts spectral peaks for each molecule, filtering the dataset to include only
-   those with 1 to 40 peaks.
-4. **Assembly Calculation**: Computes the ground truth Assembly Index for the dataset using parallel processing.
+    * Renders the **3D Atomic Structure**.
+    * Calculates and prints its individual **Assembly Index**.
+3. **Feature Extraction**: Automatically counts spectral peaks for each molecule in the entire dataset, filtering to
+   include only those with 1 to 40 peaks.
+4. **Large-Scale Assembly Calculation**: Computes the ground truth Assembly Index for the filtered dataset using
+   parallel processing.
 5. **Statistical Correlation**:
     * Fits a linear model to estimate the Assembly Index based on the number of IR peaks.
     * Evaluates the model using Pearson correlation (`r`) and RMSD.
     * Generates a heatmap comparing **Observed vs. Predicted Assembly Index** to visualize the correlation.
+
