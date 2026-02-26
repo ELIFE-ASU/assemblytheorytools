@@ -27,7 +27,7 @@ dependencies = [
     "pyvis>=0.3.2",
     "pubchempy>=1.0.5",
     "cairosvg>=2.8.2",
-    "CFG @ git+https://github.com/ELIFE-ASU/CFG.git",
+    "assemblycfg @ git+https://github.com/ELIFE-ASU/assemblycfg.git",
     "dagviz @ git+https://github.com/ELIFE-ASU/dagviz.git",
     "assembly-theory>=0.6.0",
 ]

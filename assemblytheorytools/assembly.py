@@ -18,7 +18,7 @@ import numpy as np
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 
-import CFG
+import assemblycfg
 from .construction import (parse_pathway_file,
                            parse_string_pathway_file,
                            molstr_to_str,
@@ -573,7 +573,7 @@ def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
       they are removed automatically unless ``debug`` is True.
     - In 'str' mode the function expects the string-assembly binary (set via
       environment variable ``ASS_STR_PATH`` or found by ``add_assembly_to_path``).
-    - In 'cfg' mode the function delegates to ``CFG.ai_with_pathways`` and
+    - In 'cfg' mode the function delegates to ``assemblycfg.ai_with_pathways`` and
       returns an upper bound; no external binary is invoked.
     - For reproducible behaviour consider using ``debug=True`` to preserve the
       temporary folder and log files.
@@ -828,7 +828,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
       they are removed automatically unless ``debug`` is True.
     - In 'str' mode the function expects the string-assembly binary (set via
       environment variable ``ASS_STR_PATH`` or found by ``add_assembly_to_path``).
-    - In 'cfg' mode the function delegates to ``CFG.ai_with_pathways`` and
+    - In 'cfg' mode the function delegates to ``assemblycfg.ai_with_pathways`` and
       returns an upper bound; no external binary is invoked.
     - For reproducible behaviour consider using ``debug=True`` to preserve the
       temporary folder and log files.
@@ -1095,7 +1095,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
 
     elif mode == "cfg":  # Use the RePair upper bound
         if directed:
-            path_len, virt_obj, path = CFG.ai_with_pathways(input_data, f_print=False)
+            path_len, virt_obj, path = assemblycfg.ai_with_pathways(input_data, f_print=False)
 
             # Convert to (joint) assembly index of directed strings
             return path_len, virt_obj, path  # Note: there is no log file for CFG
