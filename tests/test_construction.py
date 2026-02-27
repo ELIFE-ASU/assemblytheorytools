@@ -95,6 +95,20 @@ def test_assign_levels_empty_graph():
 
 
 def test_convert_digraph_vo_to_target():
+    """
+    Test the conversion of a digraph's virtual objects to target representations.
+
+    This function performs the following steps:
+    1. Retrieves the SMILES string for 'diethyl phthalate' from PubChem.
+    2. Converts the SMILES string to a NetworkX graph.
+    3. Calculates the assembly pathway for the graph.
+    4. Converts the virtual objects in the pathway to their target representations.
+    5. Extracts the SMILES strings of the converted virtual objects.
+    6. Asserts that the extracted SMILES strings match a reference list.
+
+    Asserts:
+        - The extracted SMILES strings match the reference list.
+    """
     smi = att.pubchem_name_to_smi('diethyl phthalate')
     print(f"SMILES: {smi}", flush=True)
     graph = att.smi_to_nx(smi, sanitize=True, add_hydrogens=True)
@@ -122,6 +136,22 @@ def test_convert_digraph_vo_to_target():
 
 
 def test_get_vos_on_layer():
+    """
+    Test the retrieval of virtual objects (VOs) from specific layers of an assembly pathway.
+
+    This function performs the following steps:
+    1. Defines a list of SMILES strings.
+    2. Converts the SMILES strings to NetworkX graphs and combines them.
+    3. Calculates the assembly pathway for the combined graph.
+    4. Retrieves VOs from layer 0 and asserts the count.
+    5. Retrieves VOs from a range of layers (0 and 1) and asserts the count.
+    6. Retrieves all VOs from the pathway and asserts the count.
+
+    Asserts:
+        - The number of VOs on layer 0 is 3.
+        - The number of VOs on layers 0 and 1 is 2.
+        - The total number of VOs on all layers is 4.
+    """
     print(flush=True)
     smis = ['CC(OC)C=C',
             'CC(OC)C',

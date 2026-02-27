@@ -112,6 +112,12 @@ def test_reset_mol_charge():
 
 
 def test_implicit_hydrogens():
+    """
+    Test the removal of implicit hydrogens from SMILES strings.
+
+    This function tests the `smi_remove_implicit_hydrogen` function with three
+    different SMILES strings and asserts that the output is as expected.
+    """
     str1 = '[H]-[C]'  # -> '[H]-[C]'
     str2 = '[H]-[CH](-[H])-[N]'  # -> '[H]-[C](-[H])-[N]'
     str3 = '[CH3]-[CH2]-[CH1]'  # -> '[C]-[C]'
@@ -243,6 +249,12 @@ def test_standardise_smiles():
 
 
 def test_peptide_to_smiles():
+    """
+    Test the conversion of a peptide sequence to a SMILES string.
+
+    This function converts the peptide "GGG" to its corresponding SMILES string
+    and asserts that the output is a string and matches the expected SMILES.
+    """
     print(flush=True)
     peptide = "GGG"
     smi_out = att.peptide_to_smiles(peptide)

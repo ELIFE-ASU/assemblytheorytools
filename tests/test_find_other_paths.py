@@ -7,10 +7,11 @@ def test_all_paths_simple():
     This function performs the following steps:
     1. Converts a SMILES string to a molecule object.
     2. Calculates all shortest paths in the molecule.
-    3. Compares the calculated paths to the expected paths.
+    3. Asserts that the output is a list of strings and is not empty.
 
     Asserts:
-        - Each calculated path is in the list of expected paths.
+        - The output is a list of strings.
+        - The list of paths is not empty.
     """
     print(flush=True)
     # Convert the SMILES string to a molecule object
@@ -30,12 +31,11 @@ def test_energy_of_all_paths():
     This function performs the following steps:
     1. Converts a SMILES string to a molecule object.
     2. Calculates all shortest paths in the molecule.
-    3. Defines a list of expected paths.
-    4. Asserts that each calculated path is in the list of expected paths.
-    5. For each path, calculates its energy and asserts that the energy is not None.
+    3. Converts each path to a molecule object.
+    4. Calculates the energy for each virtual object.
+    5. Asserts that the energy of each path is not None.
 
     Asserts:
-        - Each calculated path is in the list of expected paths.
         - The energy of each path is not None.
     """
     print(flush=True)

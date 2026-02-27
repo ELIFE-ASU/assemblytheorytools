@@ -10,6 +10,18 @@ import assemblytheorytools as att
 
 
 def test_readme_example():
+    """
+    Test function to generate the README example.
+
+    This function performs the following steps:
+    1. Defines a SMILES string for caffeine.
+    2. Converts the SMILES string to a NetworkX graph.
+    3. Calculates the assembly index, virtual object, and pathway for the graph.
+    4. Converts the virtual object graphs to SMILES strings.
+    5. Prints the assembly index and virtual object.
+    6. Plots the assembly pathway.
+    7. Displays the plot.
+    """
     print(flush=True)
     smi = 'CN1C=NC2=C1C(=O)N(C(=O)N2C)C'
     graph = att.smi_to_nx(smi)
@@ -1032,10 +1044,17 @@ def test_hand_graph():
 
 
 def test_compile_assembly_cpp():
+    """Test the compilation of the assembly C++ code."""
     att.compile_assembly_cpp()
 
 
 def test_int_chain():
+    """
+    Test the calculation of the integer chain.
+
+    This function asserts the correctness of the `calculate_integer_chain`
+    function for various integer inputs.
+    """
     assert att.calculate_integer_chain(1) == 0
     assert att.calculate_integer_chain(2) == 1
     assert att.calculate_integer_chain(3) == 2
@@ -1046,6 +1065,20 @@ def test_int_chain():
 
 
 def test_calculate_assembly_index_pairwise_joint():
+    """
+    Test the pairwise joint assembly index calculation.
+
+    This function performs the following steps:
+    1. Defines a list of SMILES strings.
+    2. Converts the SMILES strings to NetworkX graphs.
+    3. Calculates the pairwise joint assembly index pathway.
+    4. Asserts that the pathway calculation was successful.
+    5. Plots the pathway.
+    6. Displays the plot.
+    7. Calculates the assembly index for the joined graph directly.
+    8. Plots the resulting pathway.
+    9. Displays the plot.
+    """
     print(flush=True)
     smis = ['CC(OC)C=C',
             'CC(OC)C',
@@ -1072,6 +1105,17 @@ def test_calculate_assembly_index_pairwise_joint():
 
 
 def test_pathway_joining():
+    """
+    Test the joining of assembly pathways.
+
+    This function performs the following steps:
+    1. Defines a list of SMILES strings.
+    2. Converts the SMILES strings to NetworkX graphs.
+    3. Calculates the assembly index pathways in parallel.
+    4. Plots the individual pathways for each molecule.
+    5. Composes all pathways into a single pathway and plots it.
+    6. Calculates the pairwise joint assembly index pathway and plots it.
+    """
     print(flush=True)
     smis = ['CC(OC)C=C',
             'CC(OC)C',

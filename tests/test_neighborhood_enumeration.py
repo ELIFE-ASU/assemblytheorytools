@@ -253,6 +253,9 @@ def test_rTCA():
 
 
 def test_enum_up_C_2_O():
+    """
+    Test the enumerate_up function with a C=O bond.
+    """
     g = nx.Graph()
     g.add_edges_from([(0, 1), ])
     g.nodes[0]['color'] = 'C'
@@ -281,6 +284,9 @@ def test_enum_up_C_2_O():
 
 
 def test_C_2_O():
+    """
+    Test the neighborhood enumeration of a C=O bond.
+    """
     g = nx.Graph()
     g.add_edges_from([(0, 1), ])
     g.nodes[0]['color'] = 'C'
@@ -310,6 +316,9 @@ def test_C_2_O():
 
 
 def test_enum_up_S_2_O():
+    """
+    Test the enumerate_up function with a S=O bond and a custom valence table.
+    """
     custom_valence_table = {"S": 4}
 
     g = nx.Graph()
@@ -340,6 +349,9 @@ def test_enum_up_S_2_O():
 
 
 def test_S_2_O():
+    """
+    Test the neighborhood enumeration of a S=O bond with a custom valence table.
+    """
     custom_valence_table = {"S": 4}
 
     g = nx.Graph()

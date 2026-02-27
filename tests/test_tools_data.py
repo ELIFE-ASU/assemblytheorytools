@@ -9,6 +9,22 @@ import assemblytheorytools as att
 
 
 def test_pubchem():
+    """
+    Test PubChem data retrieval functions.
+
+    This function tests various functions for retrieving data from PubChem, including:
+    - `pubchem_name_to_smi`
+    - `pubchem_name_to_mol`
+    - `pubchem_name_to_nx`
+    - `pubchem_id_to_smi`
+    - `pubchem_id_to_mol`
+    - `pubchem_id_to_nx`
+    - `sample_random_pubchem`
+    - `sample_first_pubchem`
+
+    It asserts that the retrieved data is correct and that the sampling functions
+    return the expected number of samples.
+    """
     id_str = 'Aspirin'
     id = 2244
     n_sample = 3
@@ -54,6 +70,12 @@ def test_pubchem():
 
 
 def test_pubchem_smi_to_name():
+    """
+    Test the conversion of a SMILES string to a PubChem name.
+
+    This function converts a SMILES string for lidocaine to its name using
+    `pubchem_smi_to_name` and asserts that the result is 'lidocaine'.
+    """
     print(flush=True)
     smi = 'CCN(CC)CC(=O)NC1=C(C=CC=C1C)C'
     name = att.pubchem_smi_to_name(smi)
@@ -61,6 +83,12 @@ def test_pubchem_smi_to_name():
 
 
 def test_filter_by_n_bonds():
+    """
+    Test filtering a DataFrame of SMILES strings by the number of bonds.
+
+    This function creates a DataFrame of SMILES strings and filters it based on the
+    total number of bonds, asserting that the correct number of molecules remain.
+    """
     print(flush=True)
     smis = ['[Fe]',
             'CC(N(C(=O)Nc1cc2ccc1CCc1ccc(CC2)cc1)C(C)C)C',
@@ -73,6 +101,12 @@ def test_filter_by_n_bonds():
 
 
 def test_filter_by_nh_bonds():
+    """
+    Test filtering a DataFrame of SMILES strings by the number of non-hydrogen bonds.
+
+    This function creates a DataFrame of SMILES strings and filters it based on the
+    number of non-hydrogen bonds, asserting that the correct number of molecules remain.
+    """
     print(flush=True)
     smis = ['[Fe]',
             'CC(N(C(=O)Nc1cc2ccc1CCc1ccc(CC2)cc1)C(C)C)C',
@@ -86,6 +120,12 @@ def test_filter_by_nh_bonds():
 
 
 def test_filter_by_mw():
+    """
+    Test filtering a DataFrame of SMILES strings by molecular weight.
+
+    This function creates a DataFrame of SMILES strings and filters it based on
+    molecular weight, asserting that the correct number of molecules remain.
+    """
     print(flush=True)
     smis = ['[Fe]',
             'CC(N(C(=O)Nc1cc2ccc1CCc1ccc(CC2)cc1)C(C)C)C',
@@ -98,6 +138,13 @@ def test_filter_by_mw():
 
 
 def test_load_ir_jcamp_data():
+    """
+    Test loading of IR data from a JCAMP-DX file.
+
+    This function loads an IR spectrum from a JCAMP-DX file and asserts that the
+    resulting spectrum has the correct shape and that the wavenumbers and intensities
+    arrays have the same length.
+    """
     print(flush=True)
     ir_file = 'tests/data/ir_jcamp'
     spectrum = att.load_ir_jcamp_data(ir_file)
@@ -106,6 +153,13 @@ def test_load_ir_jcamp_data():
 
 
 def test_find_peak_indices_in_range():
+    """
+    Test finding peak indices in a given range of an IR spectrum.
+
+    This function loads an IR spectrum, applies a Savitzky-Golay filter, finds peaks
+    within a specified range, and asserts that the correct number of peaks are found.
+    It also visualizes the spectrum with the detected peaks.
+    """
     print(flush=True)
     ir_file = 'tests/data/ir_jcamp'
     spectrum = att.load_ir_jcamp_data(ir_file)
@@ -119,6 +173,12 @@ def test_find_peak_indices_in_range():
 
 
 def test_calc_n_peaks_in_range():
+    """
+    Test calculating the number of peaks in a given range of an IR spectrum.
+
+    This function loads an IR spectrum and calculates the number of peaks within a
+    specified range, asserting that the result is correct.
+    """
     print(flush=True)
     ir_file = 'tests/data/ir_jcamp'
     spectrum = att.load_ir_jcamp_data(ir_file)
@@ -127,6 +187,12 @@ def test_calc_n_peaks_in_range():
 
 
 def test_get_github_file():
+    """
+    Test downloading a file from a GitHub repository.
+
+    This function downloads a file from a specified GitHub repository and asserts that
+    the file path is not None. It then removes the downloaded file.
+    """
     print(flush=True)
     repo_url = "https://raw.githubusercontent.com/ELIFE-ASU/CBRdb/refs/heads/main"
     path = att.get_github_file("CBRdb_C.csv.zip", repo_url)
@@ -136,6 +202,12 @@ def test_get_github_file():
 
 
 def test_sample_cbrdb():
+    """
+    Test sampling from the CBRdb database.
+
+    This function samples a specified number of entries from the CBRdb database and
+    asserts that the resulting DataFrame is not None and has the correct length.
+    """
     print(flush=True)
     n_sample = 100
     df = att.sample_cbrdb(n_sample)
@@ -144,6 +216,12 @@ def test_sample_cbrdb():
 
 
 def test_enumerate_stereoisomers_shortest():
+    """
+    Test the enumeration of stereoisomers to find the one with the shortest name.
+
+    This function enumerates the stereoisomers of a given molecule and finds the one
+    with the shortest name, asserting that the name is 'Codeine'.
+    """
     print(flush=True)
     smi = 'COC1=C2OC3C(O)C=CC4C5CC(=C2C43CCN5C)C=C1'
     mol = Chem.MolFromSmiles(smi)
@@ -153,6 +231,20 @@ def test_enumerate_stereoisomers_shortest():
 
 
 def test_show_ir_data():
+    """
+    Test function to process and visualize IR data from Chemotion.
+
+    This function performs the following steps:
+    1. Processes a Chemotion IR data archive.
+    2. Filters the data by the number of non-hydrogen bonds and removes certain elements.
+    3. Samples 100 entries from the filtered data.
+    4. Calculates the assembly index for each molecule.
+    5. Sorts the data by assembly index.
+    6. Selects two molecules (one with low AI, one with high AI) for visualization.
+    7. Applies a Savitzky-Golay filter to the IR spectra.
+    8. For each selected molecule, it finds peaks in the IR spectrum, plots the spectrum,
+       and plots the 3D structure of the molecule.
+    """
     import time
     df = att.process_chemotion_ir_data('/home/louie/Downloads/10.22000-OGoEQGlsZGElrgst.tar')
     df = att.filter_by_nh_bonds(df, max_bonds=30)

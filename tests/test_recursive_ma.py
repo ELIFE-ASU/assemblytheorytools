@@ -469,10 +469,10 @@ def test_ma_estimator_mock_data():
     parent_ma = np.mean(estimator.estimate_ma(mock_data, 371.4))
 
     # Estimate the molecular assembly (MA) for the first child node
-    child1_ma = np.mean(estimator.estimate_ma(mock_data[371.4], 150.1))
+    child1_ma = np.mean(estimator.estimate_ma({150.1: mock_data[371.4][150.1]}, 150.1))
 
     # Estimate the molecular assembly (MA) for the second child node
-    child2_ma = np.mean(estimator.estimate_ma(mock_data[371.4], 221.3))
+    child2_ma = np.mean(estimator.estimate_ma({221.3: mock_data[371.4][221.3]}, 221.3))
 
     # Print the estimated MAs for the parent and child nodes
     print(f"Parent MA: {parent_ma}", flush=True)

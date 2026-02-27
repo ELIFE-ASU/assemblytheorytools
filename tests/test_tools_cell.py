@@ -6,6 +6,13 @@ import assemblytheorytools as att
 
 
 def test_cif_loading():
+    """
+    Test loading of CIF files.
+
+    This function iterates through a directory of CIF files, attempts to read each one
+    using `att.read_cif_file`, and then visualizes the resulting `atoms` object.
+    It skips files known to have invalid spacegroups.
+    """
     print(flush=True)
     target_dir = "tests/data/cif_files/"
     dirs = att.file_list_all(os.path.expanduser(os.path.abspath(target_dir)))
@@ -24,6 +31,12 @@ def test_cif_loading():
 
 
 def test_tile_cell():
+    """
+    Test the `tile_cell` and `tile_cell_shells` functions.
+
+    This function loads a CIF file, tiles the unit cell, and asserts the number of atoms
+    before and after tiling. It also visualizes the expanded cell and its shells.
+    """
     print(flush=True)
     dir = os.path.expanduser(os.path.abspath("tests/data/cif_files/"))
     file = os.path.join(dir, "Capgaronnite_0.cif")
@@ -49,6 +62,12 @@ def test_tile_cell():
 
 
 def test_cif_to_nx():
+    """
+    Test the conversion of a CIF file to a NetworkX graph.
+
+    This function loads a CIF file, converts it to a NetworkX graph using `att.cif_to_nx`,
+    and asserts that the number of nodes in the graph is correct.
+    """
     print(flush=True)
     dir = os.path.expanduser(os.path.abspath("tests/data/cif_files/"))
     file = os.path.join(dir, "Capgaronnite_0.cif")
@@ -58,6 +77,12 @@ def test_cif_to_nx():
 
 
 def test_cif_ai():
+    """
+    Test the calculation of the assembly index for a CIF file.
+
+    This function loads a CIF file, converts it to a NetworkX graph, calculates the
+    assembly index, and asserts that the assembly index is greater than 0.
+    """
     print(flush=True)
     dir = os.path.expanduser(os.path.abspath("tests/data/cif_files/"))
     file = os.path.join(dir, "Capgaronnite_0.cif")
@@ -68,6 +93,13 @@ def test_cif_ai():
 
 
 def test_guess_bond_orders():
+    """
+    Test the `guess_bond_orders` function.
+
+    This function tests the bond order guessing for several graphs, including one from a
+    CIF file, a water graph, a phosphine graph, a PH2+ graph, and a CO2 graph.
+    It asserts the success status and the resulting bond orders for each case.
+    """
     print(flush=True)
     dir = os.path.expanduser(os.path.abspath("tests/data/cif_files/"))
     file = os.path.join(dir, "Capgaronnite_0.cif")

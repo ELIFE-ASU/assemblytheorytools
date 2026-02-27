@@ -34,6 +34,24 @@ def test_smi_to_atoms():
     assert len(atoms) == 12
 
 
+def test_atoms_to_smi():
+    """
+    Test the conversion of an ASE Atoms object to a SMILES string.
+
+    This function performs the following steps:
+    1. Creates an ASE Atoms object for a water molecule.
+    2. Converts the Atoms object to a SMILES string using the `atoms_to_smiles` function.
+    3. Asserts that the resulting SMILES string is '[H]O[H]'.
+
+    Asserts:
+        - The SMILES string of the water molecule is '[H]O[H]'.
+    """
+    print(flush=True)
+    atoms = molecule('H2O')  # Create a water molecule
+    smi = att.atoms_to_smiles(atoms)  # Convert the Atoms object to a SMILES string
+    assert smi == '[H]O[H]'  # Assert that the SMILES string is correct
+
+
 def test_atoms_interconvert():
     """
     Test the interconversion between SMILES strings and ASE Atoms objects.

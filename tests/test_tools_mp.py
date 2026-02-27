@@ -36,11 +36,6 @@ def test_parallel_processing():
 
     Asserts:
         - The calculated assembly indices match the expected values for each method.
-
-    Notes:
-        - The `att.mp_calc`, `att.tp_calc`, and `att.mp_calc_chunked` functions are used for multiprocessing,
-          thread-based processing, and chunked multiprocessing, respectively.
-        - The `_get_ai` function is used to calculate the assembly index for a given SMILES string.
     """
     print(flush=True)
     smiles_list = [
@@ -108,10 +103,6 @@ def test_mp_calc_star():
 
     Asserts:
         - The results of the parallel computation are equal to the expected results.
-
-    Notes:
-        - The `_add` function is a helper function that adds two numbers.
-        - The `mp_calc_star` function is used for multiprocessing with multiple arguments.
     """
     args = [(1, 2), (3, 4), (5, 6), (7, 8)]
     expected_results = [3, 7, 11, 15]

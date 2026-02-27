@@ -65,7 +65,7 @@ def test_delimiter_chars():
     """
     s_in = ["a"] * 95
     a1, v1, p1 = att.calculate_string_assembly_index(s_in, directed=True)
-    a2, v2, p2 = att.calculate_string_assembly_index(s_in, directed=False) 
+    a2, v2, p2 = att.calculate_string_assembly_index(s_in, directed=False)
     a3, v3, p3 = att.calculate_string_assembly_index(s_in, mode='cfg')
     assert a1 == 0
     assert a2 == 0
@@ -113,6 +113,23 @@ def test_joint_cfg_str_ass():
 
 
 def test_string_early_exit():
+    """
+    Test the early exit functionality for string assembly calculation.
+
+    This function verifies that the assembly index calculation can be
+    interrupted by a timeout and still return an upper bound. It compares
+    a fast calculation with a short timeout to a slower one with a longer
+
+    timeout, asserting that the former provides a valid upper bound.
+
+    Steps:
+    1. Defines a complex string to ensure the calculation takes time.
+    2. Calculates the assembly index with a short timeout (2 seconds).
+    3. Calculates the assembly index with a longer timeout (20 seconds).
+    4. Asserts that the result from the shorter timeout is greater than
+       or equal to the result from the longer timeout, demonstrating that
+       it is a valid upper bound.
+    """
     # I am trying to figure out how to get the early exit to work
     # Right now I either get exact or -1. I want to get the early exit upper bound.
     # s = ''.join(random.choices('abcd', k=50))
@@ -151,14 +168,6 @@ def test_small_strs():
     assert a2 == 2
 
 
-def test_bug_08222025():
-    """
-    Tests the workaround for AssemblyCPP edgecolor output bug.
-    """
-    ai, vo, path = att.calculate_string_assembly_index('yydpetgtwy', mode='mol', directed=False, debug=True)
-    assert path
-
-
 def test_string_graph_conversion():
     """
     Test the consistency of the string to graph encoding and decoding functions.
@@ -168,4 +177,12 @@ def test_string_graph_conversion():
         s = att.generate_random_strings(1, 20)[0]
         assert s == att.molstr_to_str(att.get_dir_str_molecule(s))
         graph, edge_color_dict = att.get_undir_str_molecule(s)
-        assert s == att.molstr_to_str(graph, edge_color_dict = edge_color_dict)
+        assert s == att.molstr_to_str(graph, edge_color_dict=edge_color_dict)
+
+
+def test_bug_08222025():
+    """
+    Tests the workaround for AssemblyCPP edgecolor output bug.
+    """
+    ai, vo, path = att.calculate_string_assembly_index('yydpetgtwy', mode='mol', directed=False, debug=True)
+    assert path

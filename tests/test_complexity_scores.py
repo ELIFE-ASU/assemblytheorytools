@@ -365,6 +365,19 @@ def test_compression_zlib_graph():
 
 
 def test_compression_ratio_zlib_graph():
+    """
+    Test the compression ratio of a graph using zlib.
+
+    This function performs the following steps:
+    1. Defines a SMILES string for benzoic acid.
+    2. Converts the SMILES string to a molecule object and then to a NetworkX graph.
+    3. Calculates the compression ratio with and without hydrogens.
+    4. Asserts that the compression ratios match the expected values.
+
+    Asserts:
+        - The compression ratio with hydrogens is approximately 6.97.
+        - The compression ratio without hydrogens is approximately 5.95.
+    """
     print(flush=True)
     smi = "C1=CC=C(C=C1)C(=O)O"  # SMILES for benzoic acid
     mol = att.smi_to_mol(smi)  # Convert the SMILES string to a molecule object
@@ -379,6 +392,19 @@ def test_compression_ratio_zlib_graph():
 
 
 def test_calculate_assembly_ratio():
+    """
+    Test the calculation of the assembly ratio for a molecular graph.
+
+    This function performs the following steps:
+    1. Defines a SMILES string for benzoic acid.
+    2. Converts the SMILES string to a molecule object and then to a NetworkX graph.
+    3. Calculates the assembly ratio with and without hydrogen stripping.
+    4. Asserts that the calculated ratios match the expected values.
+
+    Asserts:
+        - The assembly ratio with hydrogen stripping is approximately 2.50.
+        - The assembly ratio without hydrogen stripping is approximately 1.50.
+    """
     print(flush=True)
     smi = "C1=CC=C(C=C1)C(=O)O"  # SMILES for benzoic acid
     mol = att.smi_to_mol(smi)  # Convert the SMILES string to a molecule object
@@ -393,6 +419,19 @@ def test_calculate_assembly_ratio():
 
 
 def test_calculate_jo_assembly_ratio():
+    """
+    Test the calculation of the joining operation assembly ratio for a molecular graph.
+
+    This function performs the following steps:
+    1. Defines a SMILES string for benzoic acid.
+    2. Converts the SMILES string to a molecule object and then to a NetworkX graph.
+    3. Calculates the joining operation assembly ratio with and without hydrogen stripping.
+    4. Asserts that the calculated ratios match the expected values.
+
+    Asserts:
+        - The joining operation assembly ratio with hydrogen stripping is approximately 2.14.
+        - The joining operation assembly ratio without hydrogen stripping is approximately 1.29.
+    """
     print(flush=True)
     smi = "C1=CC=C(C=C1)C(=O)O"  # SMILES for benzoic acid
     mol = att.smi_to_mol(smi)  # Convert the SMILES string to a molecule object
@@ -407,6 +446,18 @@ def test_calculate_jo_assembly_ratio():
 
 
 def test_fcfp4():
+    """
+    Test the FCFP4 fingerprint calculation for a molecule.
+
+    This function performs the following steps:
+    1. Defines a SMILES string for a molecule.
+    2. Converts the SMILES string to a molecule object.
+    3. Calculates the FCFP4 fingerprint using the `fcfp4` function.
+    4. Asserts that the calculated fingerprint matches the expected value.
+
+    Asserts:
+        - The FCFP4 fingerprint is equal to 29.
+    """
     print(flush=True)
     smi = "COC1=C(O)C=C(CC(=O)O)C=C1Br"
     mol = Chem.MolFromSmiles(smi)
@@ -414,6 +465,18 @@ def test_fcfp4():
 
 
 def test_bottcher():
+    """
+    Test the Böttcher complexity score calculation for a molecule.
+
+    This function performs the following steps:
+    1. Defines a SMILES string for a molecule.
+    2. Converts the SMILES string to a molecule object.
+    3. Calculates the Böttcher complexity score using the `bottcher` function.
+    4. Asserts that the calculated score matches the expected value.
+
+    Asserts:
+        - The Böttcher complexity score is equal to 161.80418485421137.
+    """
     print(flush=True)
     smi = "COC1=C(O)C=C(CC(=O)O)C=C1Br"
     mol = Chem.MolFromSmiles(smi)
@@ -421,6 +484,17 @@ def test_bottcher():
 
 
 def test_bottcher_batch():
+    """
+    Test the batch calculation of Böttcher complexity scores for a list of molecules.
+
+    This function performs the following steps:
+    1. Defines a list of SMILES strings and their corresponding expected Böttcher scores.
+    2. Calculates the Böttcher scores for each molecule in the list.
+    3. Asserts that the calculated scores match the expected scores.
+
+    Asserts:
+        - The calculated Böttcher scores match the expected scores.
+    """
     print(flush=True)
     smiles = [r"CC(/C=C/C1=CC=CC=C1)=O",
               r"Cl/C=C\C=C\Br",
@@ -439,6 +513,18 @@ def test_bottcher_batch():
 
 
 def test_proudfoot():
+    """
+    Test the Proudfoot complexity score calculation for a molecule.
+
+    This function performs the following steps:
+    1. Defines a SMILES string for a molecule.
+    2. Converts the SMILES string to a molecule object.
+    3. Calculates the Proudfoot complexity score using the `proudfoot` function.
+    4. Asserts that the calculated score matches the expected value.
+
+    Asserts:
+        - The Proudfoot complexity score is equal to 30.54277674961796.
+    """
     print(flush=True)
     smi = "COC1=C(O)C=C(CC(=O)O)C=C1Br"
     mol = Chem.MolFromSmiles(smi)
@@ -446,6 +532,18 @@ def test_proudfoot():
 
 
 def test_mc1():
+    """
+    Test the MC1 complexity score calculation for a molecule.
+
+    This function performs the following steps:
+    1. Defines a SMILES string for a molecule.
+    2. Converts the SMILES string to a molecule object.
+    3. Calculates the MC1 complexity score using the `mc1` function.
+    4. Asserts that the calculated score matches the expected value.
+
+    Asserts:
+        - The MC1 complexity score is equal to 0.7142857142857143.
+    """
     print(flush=True)
     smi = "COC1=C(O)C=C(CC(=O)O)C=C1Br"
     mol = Chem.MolFromSmiles(smi)
@@ -453,6 +551,18 @@ def test_mc1():
 
 
 def test_mc2():
+    """
+    Test the MC2 complexity score calculation for a molecule.
+
+    This function performs the following steps:
+    1. Defines a SMILES string for a molecule.
+    2. Converts the SMILES string to a molecule object.
+    3. Calculates the MC2 complexity score using the `mc2` function.
+    4. Asserts that the calculated score matches the expected value.
+
+    Asserts:
+        - The MC2 complexity score is equal to 8.
+    """
     print(flush=True)
     smi = "COC1=C(O)C=C(CC(=O)O)C=C1Br"
     mol = Chem.MolFromSmiles(smi)

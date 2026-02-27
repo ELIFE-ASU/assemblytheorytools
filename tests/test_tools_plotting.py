@@ -10,6 +10,12 @@ import assemblytheorytools as att
 
 
 def test_plot_graph():
+    """
+    Test the plotting of a simple graph.
+
+    This function creates a simple graph from a SMILES string and plots it using
+    `att.plot_graph`. It asserts that the figure and axes are created successfully.
+    """
     print(flush=True)
     # Create a simple graph
     smi = "C1=CC=CC=C1"
@@ -21,6 +27,12 @@ def test_plot_graph():
 
 
 def test_plot_mol_graph():
+    """
+    Test the plotting of a molecular graph.
+
+    This function creates a molecular graph from a SMILES string and plots it using
+    `att.plot_mol_graph`. It asserts that the figure and axes are created successfully.
+    """
     print(flush=True)
     # Create a simple graph
     smi = "C1=CC=CC=C1"
@@ -32,6 +44,13 @@ def test_plot_mol_graph():
 
 
 def test_plot_interactive_graph():
+    """
+    Test the plotting of an interactive graph.
+
+    This function creates a simple graph from a SMILES string and plots it interactively
+    using `att.plot_interactive_graph`. It asserts that the HTML file for the plot
+    is generated and then cleans up the created files.
+    """
     print(flush=True)
     # Create a simple graph
     smi = "C1=CC=CC=C1"
@@ -45,6 +64,12 @@ def test_plot_interactive_graph():
 
 
 def test_plot_digraph():
+    """
+    Test the plotting of a directed graph.
+
+    This function creates a directed graph with nodes and edges, and then plots it
+    using `att.plot_graph`. It asserts that the figure and axes are created successfully.
+    """
     print(flush=True)
     # Create a directed graph
     graph = nx.DiGraph()
@@ -63,6 +88,13 @@ def test_plot_digraph():
 
 
 def test_plot_digraph_metro_calc():
+    """
+    Test the plotting of a directed graph using the metro layout.
+
+    This function calculates the assembly pathway for a molecule (glycine) and plots
+    it using the metro layout. It runs only on Linux and asserts that the plot
+    files are generated.
+    """
     print(flush=True)
     if platform.system().lower() == "linux":
         # Define the SMILES string for glycine
@@ -92,6 +124,13 @@ def test_plot_digraph_metro_calc():
 
 
 def test_plot_digraph_topological():
+    """
+    Test the plotting of a directed graph using the topological layout.
+
+    This function calculates the assembly pathway for a molecule (glycine) and plots
+    it using the topological layout. It asserts that the figure and axes are created
+    successfully.
+    """
     print(flush=True)
 
     # Define the SMILES string for glycine
@@ -111,6 +150,13 @@ def test_plot_digraph_topological():
 
 
 def test_plot_pathway_mol():
+    """
+    Test the plotting of an assembly pathway.
+
+    This function calculates the assembly pathway for a molecule (glycine) in different
+    representations (mol, graph, atoms) and plots each of them. It asserts that the
+    figure and axes are created successfully for each plot type.
+    """
     print(flush=True)
 
     # Define the SMILES string for glycine
@@ -146,6 +192,13 @@ def test_plot_pathway_mol():
 
 
 def test_plot_assembly_circle():
+    """
+    Test the plotting of an assembly pathway in a circular layout.
+
+    This function creates a sample assembly pathway, calculates assembly indices, and
+    plots it in a circular layout using `att.plot_assembly_circle`. It asserts that
+    the plot file is generated and then cleans it up.
+    """
     nodes = ['b', 'a', 'd', 'c', 'ba', 'dc', 'baa', 'bad', 'badc', 'baab', 'baba', 'ddbcd', 'bcdda']
     os.environ["ASS_PATH"] = "/Users/ejanin/Desktop/assemblycpp/assemblyCpp_linux_v5_combined"
     n = len(nodes)
@@ -201,6 +254,13 @@ def test_plot_assembly_circle():
 
 
 def test_show_common_bonds():
+    """
+    Test the visualization of common bonds between two molecules.
+
+    This function takes two molecule names, retrieves their SMILES strings, and then
+    visualizes the common bonds between them using `att.show_common_bonds`. It asserts
+    that an image is generated.
+    """
     print(flush=True)
 
     mols_str = ["codeine",
@@ -213,6 +273,12 @@ def test_show_common_bonds():
 
 
 def test_draw_mol_grid():
+    """
+    Test the drawing of a grid of molecules.
+
+    This function takes a list of SMILES strings and draws them in a grid using
+    `att.draw_mol_grid`. It asserts that an image is generated.
+    """
     print(flush=True)
 
     mols_str = ["CCO", "CCN", "CCC", "CCCl", "CCBr", "CCI", "CCF", "CC=O"]
@@ -223,6 +289,12 @@ def test_draw_mol_grid():
 
 
 def test_plot_ase_atoms():
+    """
+    Test the plotting of an ASE Atoms object.
+
+    This function creates an ASE Atoms object from a SMILES string and plots it using
+    `att.plot_ase_atoms`. It asserts that the figure and axes are created successfully.
+    """
     print(flush=True)
 
     smi = "C1=CC=CC=C1"

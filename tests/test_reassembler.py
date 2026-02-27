@@ -8,6 +8,15 @@ import assemblytheorytools as att
 
 
 def test_origami():
+    """
+    Test the origami function.
+
+    This function performs the following steps:
+    1. Creates a molecule from a SMILES string.
+    2. Applies the origami function to the molecule.
+    3. Asserts that the resulting list of SMILES strings contains the expected cyclized products.
+    4. Applies the origami function to the first product and asserts that the output is the same.
+    """
     print(flush=True)
     mol = Chem.MolFromSmiles('OCC(O)CO')
     mol = att.origami(mol)
@@ -22,6 +31,15 @@ def test_origami():
 
 
 def test_get_num_atom():
+    """
+    Test the get_num_atom function.
+
+    This function performs the following steps:
+    1. Calls get_num_atom to count the number of carbon atoms in 'CH3'.
+    2. Asserts that the result is 1.
+    3. Calls get_num_atom to count the number of hydrogen atoms in 'CH3'.
+    4. Asserts that the result is 3.
+    """
     print(flush=True)
     res = att.get_num_atom('CH3', 'C')
     assert res == 1
@@ -30,6 +48,15 @@ def test_get_num_atom():
 
 
 def test_degree_unsaturation():
+    """
+    Test the degree_unsaturation function.
+
+    This function tests the degree of unsaturation for several molecules:
+    - Ethane (expected: 0.0)
+    - Ethene (expected: 1.0)
+    - Cyclopropane (expected: 1.0)
+    - Benzene (expected: 4.0)
+    """
     print(flush=True)
     # Ethane
     sat = att.degree_unsaturation(Chem.MolFromSmiles('CC'))
@@ -46,6 +73,13 @@ def test_degree_unsaturation():
 
 
 def test_assemble():
+    """
+    Test the assemble function.
+
+    This function performs the following steps:
+    1. Assembles two molecules ('OCC(O)CO' and 'C=C').
+    2. Asserts that the resulting molecule's SMILES string is 'C=C(O)C(O)CO'.
+    """
     print(flush=True)
     mol = att.assemble(Chem.MolFromSmiles('OCC(O)CO'), Chem.MolFromSmiles('C=C'), 1)
     if mol is not None:
@@ -54,6 +88,14 @@ def test_assemble():
 
 
 def test_reassemble_old():
+    """
+    Test the reassemble_old function.
+
+    This function performs the following steps:
+    1. Calculates the assembly index and virtual objects for a molecule.
+    2. Reassembles the original molecule from the virtual objects.
+    3. Prints the InChI strings of the reassembled molecules.
+    """
     print(flush=True)
     molecules = ['[H]OC(=O)C([H])([H])N([H])[H]']
     # Convert all the SMILES strings to molecule objects

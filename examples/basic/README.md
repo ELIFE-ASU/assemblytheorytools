@@ -91,3 +91,12 @@ Plots and saves a standard pathway visualisation as an SVG file
 Converts the same SMILES to a networkx graph, recomputes the assembly index, and:
 Plots the pathway with plot_type='graph'
 This script focuses on visualising assembly pathways for both molecule and graph representations.
+
+## 8_recursive_ma_example.py
+
+Demonstrates the use of the Mass Spectrometry Molecular Assembly (MA) Estimator.
+
+Creates a complex fragmentation tree.
+Estimates the molecular assembly (MA) for a given precursor mass-to-charge ratio (m/z).
+Prints the tree structure, tree depth, and the estimated MA.
+This script shows how to use the `MAEstimator` for fragmentation tree analysis.

@@ -106,6 +106,18 @@ def test_join_graphs():
 
 
 def test_compose_graphs():
+    """
+    Test the composition of two molecular graphs.
+
+    This function performs the following steps:
+    1. Creates two molecular graphs from SMILES strings (water and oxygen).
+    2. Composes the two graphs into a single graph using `att.compose_graphs`.
+    3. Asserts that the composed graph has the correct number of nodes and edges.
+
+    Asserts:
+        - The composed graph has 3 nodes.
+        - The composed graph has 2 edges.
+    """
     print(flush=True)
     # Create a molecular graph for water
     g1 = att.smi_to_nx('[H][O][H]')
@@ -118,6 +130,18 @@ def test_compose_graphs():
 
 
 def test_set_graph_layer():
+    """
+    Test the setting of layers for nodes in a directed graph.
+
+    This function performs the following steps:
+    1. Creates two molecular graphs from SMILES strings (water and oxygen).
+    2. Creates a directed graph where the nodes are the molecular graphs.
+    3. Sets the layer attribute for each node in the directed graph using `att.set_graph_layer`.
+    4. Asserts that all nodes have a 'layer' attribute with a value of either 0 or 1.
+
+    Asserts:
+        - All nodes in the graph have a 'layer' attribute with a value of 0 or 1.
+    """
     print(flush=True)
     # Create a molecular graph for water
     g1 = att.smi_to_nx('[H][O][H]')
@@ -137,6 +161,18 @@ def test_set_graph_layer():
 
 
 def test_strip_digraph_layer():
+    """
+    Test the stripping of a layer from a directed graph.
+
+    This function performs the following steps:
+    1. Creates a list of SMILES strings and converts them to graphs.
+    2. Calculates the pairwise joint assembly pathway for the graphs.
+    3. Strips the first layer (layer 0) from the pathway.
+    4. Asserts that all remaining nodes in the pathway have a layer greater than 0.
+
+    Asserts:
+        - All nodes in the stripped pathway have a layer greater than 0.
+    """
     print(flush=True)
     smis = ['CC(OC)C=C',
             'CC(OC)C',
@@ -149,6 +185,19 @@ def test_strip_digraph_layer():
 
 
 def test_top_n_degree_subgraph():
+    """
+    Test the creation of a subgraph containing the top N degree nodes.
+
+    This function performs the following steps:
+    1. Creates a list of SMILES strings and converts them to graphs.
+    2. Joins the graphs and calculates the assembly pathway.
+    3. Creates a subgraph containing the top 3 degree nodes, while keeping specified graphs.
+    4. Plots the original pathway and the subgraph.
+    5. Asserts that the subgraph has the correct number of nodes.
+
+    Asserts:
+        - The subgraph has 5 nodes.
+    """
     print(flush=True)
     smis = ['CC(OC)C=C',
             'CC(OC)C',
