@@ -9,10 +9,23 @@ T = TypeVar("T")
 
 
 def check_elements(input_list: Sequence[T], reference_list: Sequence[T]) -> bool:
-    """
-    Check if all elements in the input list are present in the reference list.
+    """Check if all elements in an input list are present in a reference list.
 
-    Returns False for an empty input list (preserves existing behavior).
+    This function returns ``False`` for an empty input list, preserving existing
+    behavior.
+
+    Parameters
+    ----------
+    input_list : Sequence[T]
+        The list of elements to check.
+    reference_list : Sequence[T]
+        The list of elements to check against.
+
+    Returns
+    -------
+    bool
+        ``True`` if all elements in ``input_list`` are in ``reference_list``,
+        ``False`` otherwise.
     """
     if not input_list:
         return False
@@ -20,18 +33,21 @@ def check_elements(input_list: Sequence[T], reference_list: Sequence[T]) -> bool
 
 
 def print_graph_details(graph: nx.Graph) -> None:
-    """
-    Print the details of a graph, including node indices, node colours, edge connections, and edge colours.
+    """Print the details of a graph.
+
+    This function prints the details of a graph, including node indices, node
+    colors, edge connections, and edge colors.
 
     Parameters
     ----------
-    graph : networkx.Graph
+    graph : nx.Graph
         The graph whose details are to be printed.
 
     Returns
     -------
     None
-        This function prints information and does not return a value.
+        This function prints information to the console and does not return a
+        value.
     """
     print("{", flush=True)
     for node in graph.nodes(data=True):
@@ -44,12 +60,11 @@ def print_graph_details(graph: nx.Graph) -> None:
 
 
 def water_graph() -> nx.Graph:
-    """
-    Constructs a graph representation of a water molecule.
+    """Construct a graph representation of a water molecule.
 
     The graph consists of three nodes representing the atoms in a water molecule:
-    one oxygen (O) and two hydrogens (H). Edges represent bonds between the atoms,
-    with bond types indicated by edge attributes.
+    one oxygen (O) and two hydrogens (H). Edges represent bonds between the
+    atoms, with bond types indicated by edge attributes.
 
     Returns
     -------
@@ -69,12 +84,11 @@ def water_graph() -> nx.Graph:
 
 
 def phosphine_graph() -> nx.Graph:
-    """
-    Constructs a graph representation of a phosphine molecule.
+    """Construct a graph representation of a phosphine molecule.
 
-    The graph consists of four nodes representing the atoms in a phosphine molecule:
-    one phosphorus (P) and three hydrogens (H). Edges represent bonds between the atoms,
-    with bond types indicated by edge attributes.
+    The graph consists of four nodes representing the atoms in a phosphine
+    molecule: one phosphorus (P) and three hydrogens (H). Edges represent
+    bonds between the atoms, with bond types indicated by edge attributes.
 
     Returns
     -------
@@ -96,12 +110,11 @@ def phosphine_graph() -> nx.Graph:
 
 
 def ph_2p_graph() -> nx.Graph:
-    """
-    Constructs a graph representation of a simple phosphine-like molecule.
-    
+    """Construct a graph representation of a simple phosphine-like molecule.
+
     The system is +2 charged, with two phosphorus atoms and one hydrogen atom.
-    The graph consists of two nodes representing the atoms: one phosphorus (P) 
-    and one hydrogen (H). An edge represents the bond between the phosphorus 
+    The graph consists of two nodes representing the atoms: one phosphorus (P)
+    and one hydrogen (H). An edge represents the bond between the phosphorus
     and hydrogen atoms, with the bond type indicated by an edge attribute.
 
     Returns
@@ -120,12 +133,11 @@ def ph_2p_graph() -> nx.Graph:
 
 
 def co2_graph() -> nx.Graph:
-    """
-    Constructs a graph representation of a carbon dioxide (CO2) molecule.
+    """Construct a graph representation of a carbon dioxide (CO2) molecule.
 
     The graph consists of three nodes representing the atoms in a CO2 molecule:
-    one carbon (C) and two oxygens (O). Edges represent bonds between the atoms,
-    with bond types indicated by edge attributes.
+    one carbon (C) and two oxygens (O). Edges represent bonds between the
+    atoms, with bond types indicated by edge attributes.
 
     Returns
     -------
@@ -146,24 +158,25 @@ def co2_graph() -> nx.Graph:
 
 @dataclass(frozen=True)
 class Molecule:
-    """
-    Container for molecule metadata.
+    """A container for molecule metadata.
 
     Attributes
     ----------
     name : str
-        Molecule name (typically stored lowercased by the loader).
+        The molecule name, typically stored in lowercase by the loader.
     category : str
-        Category or type of the molecule.
+        The category or type of the molecule.
     smiles : str
-        SMILES (Simplified Molecular Input Line Entry System) string.
+        The SMILES (Simplified Molecular Input Line Entry System) string.
     inchi : str or None
-        InChI (International Chemical Identifier) string, or ``None`` if not provided.
+        The InChI (International Chemical Identifier) string, or ``None`` if
+        not provided.
     assembly_index : int or None
-        Optional assembly index parsed from the CSV; ``None`` if absent.
+        An optional assembly index parsed from the CSV, or ``None`` if absent.
     test_include : bool
-        Flag indicating whether this molecule should be included in tests.
+        A flag indicating whether this molecule should be included in tests.
     """
+
     name: str
     category: str
     smiles: str
@@ -173,26 +186,31 @@ class Molecule:
 
 
 def _load_molecules() -> dict[str, Molecule]:
-    """
-    Load molecule records from the CSV at ``DATA_PATH`` and return a mapping.
+    """Load molecule records from a CSV and return a mapping.
 
-    The CSV is expected to contain the following columns (whitespace is trimmed):
-    - ``name``: molecule name (used as the dictionary key, lowercased)
-    - ``category``: category/type
-    - ``smiles``: SMILES string
-    - ``inchi``: optional InChI string
-    - ``assembly_index``: optional integer
-    - ``test_include``: optional boolean represented as 'True'/'False'
+    The CSV is expected to contain the following columns (whitespace is
+    trimmed):
+
+    - ``name``: The molecule name (used as the dictionary key, lowercased).
+    - ``category``: The category or type of the molecule.
+    - ``smiles``: The SMILES string.
+    - ``inchi``: An optional InChI string.
+    - ``assembly_index``: An optional integer.
+    - ``test_include``: An optional boolean represented as 'True'/'False'.
 
     Returns
     -------
     dict[str, Molecule]
-        Mapping from lowercase molecule name to corresponding ``Molecule`` instance.
+        A mapping from lowercase molecule names to their corresponding
+        :class:`Molecule` instances.
 
     Raises
     ------
     ValueError
-        If a non-empty ``assembly_index`` field cannot be converted to an integer.
+        If a non-empty ``assembly_index`` field cannot be converted to an
+        integer.
+    FileNotFoundError
+        If the data file cannot be found at the expected path.
     """
     mols: dict[str, Molecule] = {}
 

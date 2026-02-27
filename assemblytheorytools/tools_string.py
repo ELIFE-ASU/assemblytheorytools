@@ -38,21 +38,24 @@ def load_fasta(file_path: str) -> str:
     return sequence_content
 
 
-def prep_joint_string_ai(input_list: List[str]) -> Tuple[str, List[str]]:
-    """
-    Combine a list of strings by concatenating them with unique delimiters.
+def prep_joint_string_ai(input_list: list[str]) -> tuple[str, list[str]]:
+    """Combine a list of strings by concatenating them with unique delimiters.
 
     Parameters
     ----------
-    input_list : List[str]
-        List of input strings to be concatenated.
+    input_list : list[str]
+        A list of input strings to be concatenated.
 
     Returns
     -------
-    Tuple[str, List[str]]
-        A tuple containing the concatenated string and a list of unique 
-        delimiters used. The joint assembly index can be calculated using:
-        ai(amalgam_string) - 2 * len(delimiters) = joint_ai(input_list)
+    tuple[str, list[str]]
+        A tuple containing:
+
+        - The concatenated string.
+        - A list of the unique delimiters used.
+
+        The joint assembly index can be calculated using the formula:
+        ``ai(amalgam_string) - 2 * len(delimiters) = joint_ai(input_list)``
 
     Raises
     ------
@@ -74,8 +77,7 @@ def prep_joint_string_ai(input_list: List[str]) -> Tuple[str, List[str]]:
 
 
 def get_unique_char(input_str: str) -> str:
-    """
-    Find a unique character that is not present in the given input string.
+    """Find a unique character that is not present in the given input string.
 
     This function first attempts to find a unique character from the set of
     printable ASCII characters. If no unique character is found, it falls
@@ -94,8 +96,8 @@ def get_unique_char(input_str: str) -> str:
     Raises
     ------
     ValueError
-        If no unique character can be found within the specified
-        ranges of characters.
+        If no unique character can be found within the specified ranges of
+        characters.
     """
     # Try ASCII printable characters first
     for char in string.printable:
@@ -112,26 +114,28 @@ def get_unique_char(input_str: str) -> str:
     raise ValueError("Ran out of delimiter symbols. Try broadening the range of allowable symbols.")
 
 
-def get_undir_str_molecule(undir_str: str, debug: bool = False) -> tuple[nx.Graph, dict[str, str]]:
-    """
-    Make a molecule that corresponds to an undirected string.
-    
-    The string will have the same assembly index as the molecular graph, 
-    and the paths will correspond as well.
+def get_undir_str_molecule(
+    undir_str: str, debug: bool = False
+) -> tuple[nx.Graph, dict[str, str]]:
+    """Create a molecular graph from an undirected string.
+
+    The resulting molecular graph has the same assembly index as the string,
+    and the paths correspond between the two.
 
     Parameters
     ----------
     undir_str : str
-        The undirected string.
+        The undirected string to convert.
     debug : bool, optional
-        If True, print debug information. Default is False.
+        If ``True``, print debug information. Defaults to ``False``.
 
     Returns
     -------
     tuple[nx.Graph, dict[str, str]]
         A tuple containing:
-        - A networkx graph of the corresponding molecule
-        - A dictionary mapping characters to edge colours (as strings)
+
+        - A NetworkX graph of the corresponding molecule.
+        - A dictionary mapping characters to edge colors (as strings).
     """
 
     # Create a dictionary to map each unique character in the undirected string to a unique edge colour
@@ -163,21 +167,20 @@ def get_undir_str_molecule(undir_str: str, debug: bool = False) -> tuple[nx.Grap
 
 
 def get_dir_str_molecule(dir_str: str) -> nx.Graph:
-    """
-    Make a molecule that corresponds to a directed string.
-    
-    The string will have an assembly index determined by that of the 
-    molecular graph, and the shortest paths will correspond.
+    """Create a molecular graph from a directed string.
+
+    The assembly index of the string is determined by the molecular graph,
+    and the shortest paths correspond.
 
     Parameters
     ----------
     dir_str : str
-        The directed string.
+        The directed string to convert.
 
     Returns
     -------
     nx.Graph
-        A networkx graph of the corresponding molecule.
+        A NetworkX graph of the corresponding molecule.
     """
     blank = 'null'
     graph = nx.Graph()
@@ -196,13 +199,12 @@ def get_dir_str_molecule(dir_str: str) -> nx.Graph:
 
 
 def generate_and_visualize_cfg_pathway(file_path: str) -> nx.DiGraph:
-    """
-    Generate and visualise a directed graph from CFG pathway data.
+    """Generate and visualize a directed graph from CFG pathway data.
 
     Parameters
     ----------
     file_path : str
-        Path to the file containing pathway data.
+        The path to the file containing the pathway data.
 
     Returns
     -------
@@ -239,7 +241,6 @@ def generate_and_visualize_cfg_pathway(file_path: str) -> nx.DiGraph:
             node_size=700,
             node_color="skyblue",
             font_size=10,
-            font_color="black",
             font_weight="bold",
             arrows=True,
             arrowstyle="-|>",
