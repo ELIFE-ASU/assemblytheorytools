@@ -793,7 +793,6 @@ def calculate_string_assembly(strings: List[str],
     return sum(np.exp(ai) * ((n - 1) / n_t) for ai, n in zip(ai_list, n_i))
 
 
-
 def calculate_string_assembly_index(input_data: Union[str, List[str]],
                                     dir_code: Optional[str] = None,
                                     timeout: float = 100.0,

@@ -1,6 +1,7 @@
 from .assembly import (calculate_assembly_index,
                        calculate_assembly,
                        calculate_string_assembly_index,
+                       calculate_string_assembly,
                        joint_assembly_index_correction,
                        load_assembly_output,
                        calculate_assembly_index_semi_metric,
