@@ -27,9 +27,9 @@ dependencies = [
     "pyvis>=0.3.2",
     "pubchempy>=1.0.5",
     "cairosvg>=2.8.2",
-    "assemblycfg @ git+https://github.com/ELIFE-ASU/assemblycfg.git",
     "dagviz @ git+https://github.com/ELIFE-ASU/dagviz.git",
     "assembly-theory>=0.6.0",
+    "assemblycfg>=1.2.2"
 ]
 
 classifiers = [
