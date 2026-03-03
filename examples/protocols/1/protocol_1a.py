@@ -6,11 +6,11 @@ if __name__ == "__main__":
     # Set the timeout duration for assembly index calculations (in seconds)
     timeout = 5.0 * 60.0
 
-    mols_str = ["Glycine",
-                "Alanine",
-                "Proline",
-                "Valine",
-                "Histidine"]
+    mols_str = ['Glycine',
+                'Alanine',
+                'Proline',
+                'Valine',
+                'Histidine']
 
     smis = ['C(C(=O)O)N',
             'C[C@@H](C(=O)O)N',
