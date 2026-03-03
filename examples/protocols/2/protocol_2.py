@@ -4,7 +4,7 @@ import assemblytheorytools as att
 
 if __name__ == "__main__":
     # Sample n entries from the CBRDB database,
-    sample = att.sample_cbrdb()
+    sample = att.sample_cbrdb(n=10_000)
 
     # Convert SMILES strings to NetworkX graph representations in parallel
     graphs = att.mp_calc(att.smi_to_nx, sample['smiles'])
@@ -37,7 +37,7 @@ if __name__ == "__main__":
 
     # Save the heatmap as a PNG file
     plt.savefig("assembly_index_heatmap.png", dpi=300)
-    plt.savefig("assembly_index_heatmap.svg", dpi=300)
+    plt.savefig("assembly_index_heatmap.svg")
 
     # Display the heatmap
     plt.show()
