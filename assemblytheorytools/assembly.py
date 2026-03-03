@@ -752,6 +752,47 @@ def calculate_assembly(graphs: List[Union[nx.Graph, Chem.Mol]],
     # Compute the weighted sum of the exponential of the assembly indices
     return sum(np.exp(ai) * ((n - 1) / n_t) for ai, n in zip(ai_list, n_i))
 
+def calculate_string_assembly(strings: List[str],
+                       n_i: List[float],
+                       settings: Optional[Dict[str, Any]] = None) -> float:
+    """
+    Calculate the assembly index for a list of strings.
+
+    This function computes the assembly index for each string in the input list
+    (strings) using the calculate_string_assembly_index function. It then regularizes
+    the assembly indices to ensure non-negative values and computes the weighted
+    sum of the exponential of the assembly indices.
+
+    Parameters
+    ----------
+    strings : List[str]
+        A list of strings to analyze.
+    n_i : List[float]
+        A list of weights corresponding to each string, used for weighted sum calculation.
+    settings : Optional[Dict[str, Any]], optional
+        A dictionary of settings forwarded to calculate_string_assembly_index.
+        If None, an empty dictionary is used. Default is None.
+
+    Returns
+    -------
+    float
+        The overall assembly index for the combined system of strings.
+
+    Raises
+    ------
+    ValueError
+        If the input strings are not of the same type or if the list lengths do not match.
+    """
+    settings = settings or {}
+    
+    ai_list = [calculate_string_assembly_index(s, **settings)[0] for s in strings]
+    # Regularize the assembly indices to ensure non-negative values
+    ai_list = [regularise_assembly_index(ai) for ai in ai_list]
+    n_t = sum(n_i)  # Total weight of all strings
+    # Compute the weighted sum of the exponential of the assembly indices
+    return sum(np.exp(ai) * ((n - 1) / n_t) for ai, n in zip(ai_list, n_i))
+
+
 
 def calculate_string_assembly_index(input_data: Union[str, List[str]],
                                     dir_code: Optional[str] = None,
