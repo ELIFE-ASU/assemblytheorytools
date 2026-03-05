@@ -6,30 +6,26 @@ if __name__ == "__main__":
     # Set the timeout duration for assembly index calculations (in seconds)
     timeout = 5.0 * 60.0
 
-    mols_str = ['Glycine',
-                'Alanine',
-                'Proline',
-                'Valine',
-                'Histidine']
-
-    smis = ['C(C(=O)O)N',
-            'C[C@@H](C(=O)O)N',
-            'C1C[C@H](NC1)C(=O)O',
-            'CC(C)[C@@H](C(=O)O)N',
-            'O=C([C@H](CC1=CNC=N1)N)O']
+    molecules = {
+        'Glycine': 'C(C(=O)O)N',
+        'Alanine': 'C[C@@H](C(=O)O)N',
+        'Proline': 'C1C[C@H](NC1)C(=O)O',
+        'Valine': 'CC(C)[C@@H](C(=O)O)N',
+        'Histidine': 'O=C([C@H](CC1=CNC=N1)N)O'
+    }
 
     # Convert the SMILES strings to NetworkX graph representations
-    graphs = [att.smi_to_nx(smi) for smi in smis]
+    graphs = [att.smi_to_nx(smi) for smi in molecules.values()]
 
     # Print the SMILES strings of the input molecules
-    print(f"Input SMILES strings: {smis}", flush=True)
+    print(f"Input SMILES strings: {list(molecules.values())}", flush=True)
     # Calculate the assembly index for each individual molecule in parallel
     ai_i = att.calculate_assembly_index_parallel(graphs,
                                                  settings={'strip_hydrogen': True,
                                                            'timeout': timeout})[0]
     # Print the assembly indices for each individual molecule
     print(f"Individual assembly indices:", flush=True)
-    for i, name in enumerate(mols_str):
+    for i, name in enumerate(molecules.keys()):
         print(f"    {name}: {ai_i[i]}", flush=True)
 
     # Combine the individual molecule graphs into a single graph
