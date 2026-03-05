@@ -1,5 +1,7 @@
-import assemblytheorytools as att
 import numpy as np
+
+import assemblytheorytools as att
+
 
 def test_undirected_str_ass():
     """
@@ -187,12 +189,13 @@ def test_bug_08222025():
     ai, vo, path = att.calculate_string_assembly_index('yydpetgtwy', mode='mol', directed=False, debug=True)
     assert path
 
+
 def test_bigA():
     """
     Tests calculate_string_assembly
     """
     input_strings = ["abab", "cdcdcdcd", "c"]
-    input_ns = [10,100,40]
+    input_ns = [10, 100, 40]
     nt = sum(input_ns)
     answer = np.exp(2) * ((10 - 1) / nt) + np.exp(3) * ((100 - 1) / nt) + np.exp(0) * ((40 - 1) / nt)
-    assert answer == att.calculate_string_assembly(strings = input_strings, n_i = input_ns)
+    assert answer == att.calculate_string_assembly(strings=input_strings, n_i=input_ns)

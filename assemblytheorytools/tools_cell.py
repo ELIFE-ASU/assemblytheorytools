@@ -1,6 +1,5 @@
 import warnings
-from typing import Dict, Tuple, Optional, Iterable
-from typing import List
+from typing import List, Dict, Tuple, Optional, Iterable
 
 import ase
 import networkx as nx

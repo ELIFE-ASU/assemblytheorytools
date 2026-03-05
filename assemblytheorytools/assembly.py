@@ -30,8 +30,7 @@ from .tools_graph import (write_ass_graph_file,
                           mol_to_nx,
                           nx_to_smi,
                           canonicalize_node_labels,
-                          join_graphs,
-                          compose_graphs)
+                          join_graphs)
 from .tools_mp import mp_calc
 from .tools_string import (prep_joint_string_ai,
                            get_dir_str_molecule,
@@ -752,9 +751,10 @@ def calculate_assembly(graphs: List[Union[nx.Graph, Chem.Mol]],
     # Compute the weighted sum of the exponential of the assembly indices
     return sum(np.exp(ai) * ((n - 1) / n_t) for ai, n in zip(ai_list, n_i))
 
+
 def calculate_string_assembly(strings: List[str],
-                       n_i: List[float],
-                       settings: Optional[Dict[str, Any]] = None) -> float:
+                              n_i: List[float],
+                              settings: Optional[Dict[str, Any]] = None) -> float:
     """
     Calculate the assembly index for a list of strings.
 
@@ -784,7 +784,7 @@ def calculate_string_assembly(strings: List[str],
         If the input strings are not of the same type or if the list lengths do not match.
     """
     settings = settings or {}
-    
+
     ai_list = [calculate_string_assembly_index(s, **settings)[0] for s in strings]
     # Regularize the assembly indices to ensure non-negative values
     ai_list = [regularise_assembly_index(ai) for ai in ai_list]
@@ -894,9 +894,9 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
                 return 0, None, None, None
             else:
                 return 0, None, None
-            
+
     elif isinstance(input_data, list):
-        input_data = [s for s in input_data if len(s) > 1] # Remove elements of the list that are single characters
+        input_data = [s for s in input_data if len(s) > 1]  # Remove elements of the list that are single characters
         if len(input_data) == 0:
             if return_log_file:
                 return 0, None, None, None
@@ -990,7 +990,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
             dir_code = add_assembly_to_path(str_mode=True)
 
         # Create working directory
-        #temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}" if debug else tempfile.mkdtemp()
+        # temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}" if debug else tempfile.mkdtemp()
         temp_dir = tempfile.mkdtemp()
         temp_dir = os.path.abspath(temp_dir)
         os.makedirs(temp_dir, exist_ok=True)
@@ -1002,7 +1002,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
 
         # Define output and log file paths
         file_path_out = file_path_in + "Out"
-        #file_path_pathway = file_path_in + "_0_Pathway" # There is an issue with CPP str file output, so we will search for this later
+        # file_path_pathway = file_path_in + "_0_Pathway" # There is an issue with CPP str file output, so we will search for this later
         log_file = os.path.join(temp_dir, "assembly_output.log")
 
         if debug:

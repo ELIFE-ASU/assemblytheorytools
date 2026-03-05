@@ -1,5 +1,6 @@
 import assemblytheorytools as att
 
+
 def test_all_paths_simple():
     """
     Test the calculation of all shortest paths in a molecule.

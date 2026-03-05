@@ -2,7 +2,7 @@ import random
 import re
 import string
 from typing import Any
-from typing import List, Tuple
+from typing import List
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -115,7 +115,7 @@ def get_unique_char(input_str: str) -> str:
 
 
 def get_undir_str_molecule(
-    undir_str: str, debug: bool = False
+        undir_str: str, debug: bool = False
 ) -> tuple[nx.Graph, dict[str, str]]:
     """Create a molecular graph from an undirected string.
 

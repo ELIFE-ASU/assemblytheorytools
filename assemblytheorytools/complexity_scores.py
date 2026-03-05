@@ -11,8 +11,7 @@ import networkx as nx
 import numpy as np
 import rdkit
 from networkx.readwrite import json_graph
-from rdkit import Chem
-from rdkit import DataStructs
+from rdkit import Chem, DataStructs
 from rdkit.Chem import AllChem as Chem
 from rdkit.Chem import Descriptors, rdMolDescriptors
 from rdkit.Chem.GraphDescriptors import BertzCT

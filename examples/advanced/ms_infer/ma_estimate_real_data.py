@@ -1,6 +1,8 @@
 import pickle
 from pathlib import Path
+
 import numpy as np
+
 import assemblytheorytools as att
 
 if __name__ == "__main__":

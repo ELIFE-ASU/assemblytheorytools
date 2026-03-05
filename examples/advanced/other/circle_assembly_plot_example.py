@@ -1,6 +1,6 @@
+import CFG
 import numpy as np
 
-import CFG
 import assemblytheorytools as att
 
 '''

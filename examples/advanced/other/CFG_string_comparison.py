@@ -1,10 +1,10 @@
 import random
 import time
 
+import CFG
 import matplotlib.pyplot as plt
 import numpy as np
 
-import CFG
 import assemblytheorytools as att
 
 # Setting plot aesthetics for better visibility

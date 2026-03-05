@@ -11,7 +11,7 @@ plt.rcParams['axes.linewidth'] = 2.0
 
 
 def get_ai(smi):
-    ai, _, _ = att.calculate_assembly_index(att.smi_to_nx(smi), strip_hydrogen=True, timeout=60.0*5)
+    ai, _, _ = att.calculate_assembly_index(att.smi_to_nx(smi), strip_hydrogen=True, timeout=60.0 * 5)
     return ai
 
 
@@ -55,7 +55,6 @@ if __name__ == "__main__":
     # Write the dataframe to a csv file
     df.to_csv("kegg_c_assembly_index.csv", index=False)
     df.to_csv("kegg_c_assembly_index.csv.zip", index=False)
-
 
     att.scatter_plot(df['n_heavy_atoms'],
                      df['assembly_index'],

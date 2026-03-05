@@ -245,7 +245,6 @@ def test_show_ir_data():
     8. For each selected molecule, it finds peaks in the IR spectrum, plots the spectrum,
        and plots the 3D structure of the molecule.
     """
-    import time
     df = att.process_chemotion_ir_data('/home/louie/Downloads/10.22000-OGoEQGlsZGElrgst.tar')
     df = att.filter_by_nh_bonds(df, max_bonds=30)
 

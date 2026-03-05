@@ -17,11 +17,11 @@ from rdkit import Chem, RDLogger
 from rdkit.Chem import AllChem, Draw, MolFromSmiles, rdMolDescriptors
 from rdkit.Chem.SimpleEnum import Enumerator
 
-RDLogger.DisableLog('rdApp.*')
-
 from .assembly import add_assembly_to_path
 from .construction import parse_pathway_file
 from .tools_mol import safe_standardize_mol
+
+RDLogger.DisableLog('rdApp.*')
 
 
 def assemble_smarts() -> Tuple[List[List[str]], List[List[Optional[Any]]]]:

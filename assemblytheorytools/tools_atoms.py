@@ -13,8 +13,7 @@ from ase.calculators.orca import ORCA, OrcaProfile
 from ase.io import read
 from ase.units import Hartree, Rydberg
 from rdkit import Chem as Chem
-from rdkit.Chem import AllChem
-from rdkit.Chem import rdDetermineBonds
+from rdkit.Chem import AllChem, rdDetermineBonds
 from rdkit.Chem.rdchem import Mol
 from rdkit.Geometry import Point3D
 
