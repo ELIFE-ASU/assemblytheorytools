@@ -11,7 +11,7 @@ The aim is that this package provides a platform to do assembly theory calculati
 We currently interface with [C++](https://github.com/croningp/assemblycpp-v5) [\[2\]](#ref2)
 and [Rust](https://github.com/DaymudeLab/assembly-theory) [\[3\]](#ref3) assembly calculators, and this package comes
 with precompiled versions of both.
-This version works best on Unix-based systems, and to use this package, it is strongly suggested that you use the Linux
+This version works best on Unix-based systems, and to use this package, it is strongly suggested that you use Linux
 subsystem if you are using Windows.
 
 AssemblyTheoryTools (ATT) is a Python package that facilitates assembly theory calculations
@@ -46,19 +46,12 @@ simple as,
 pip install assemblytheorytools
 ```
 
-When asked for a password, you will need your GitHub username and 'personal access token' (found in developer settings
-in your GitHub settings).
-See `https://stackoverflow.com/questions/2505096/clone-a-private-repository-github`
-This is because the package is private and requires authentication to access.
-Further instructions can be found on
-this [GitHub page](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository).
-
 The code needs a compiled assemblyCPP, which is included in this package by default.
 However, if you want to use your version, you can set the `ASS_PATH` environmental
 variable to the path of your AssemblyCPP installation.
 For example, put `export ASS_PATH=/home/user/asscpp` in your submission
 script or your `.bashrc`.
-For compilation instructions to make your version from source, check out AssemblyCPP for instructions.
+For compilation instructions to build your version from source, check out AssemblyCPP.
 
 ### ORCA - Optional
 
@@ -268,10 +261,6 @@ Then, install AssemblyTheoryTools.
 pip install assemblytheorytools
 ```
 
-When asked for a password, you will need your GitHub username AND 'personal access token' (found in developer settings
-in your GitHub settings).
-See `https://stackoverflow.com/questions/2505096/clone-a-private-repository-github`
-
 </details>
 
 <details>
@@ -358,8 +347,6 @@ Install AssemblyTheoryTools.
 pip install assemblytheorytools
 ```
 
-Once again, you will need your username AND 'personal access token' entered as your password.
-
 When running on an HPC, you should run Python using the absolute path to the directory, for example:
 `srun $HOME/.conda/envs/myEnv/bin/python3`
 
@@ -369,7 +356,7 @@ When running on an HPC, you should run Python using the absolute path to the dir
 <summary>Manual assemblycpp instructions using Intel oneAPI</summary>
 <br>
 
-Manually compiling assemblycpp using the oneAPI, if you have an Intel chipset, can result in significantly faster code.
+Manually compiling assemblycpp using the oneAPI can result in significantly faster code if you have an Intel chipset.
 Installing Intel oneAPI, look for an
 offline [installer](https://www.intel.com/content/www/us/en/developer/tools/oneapi/dpc-compiler-download.html?operatingsystem=linux&distribution-linux=offline)
 
