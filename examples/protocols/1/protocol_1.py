@@ -37,15 +37,14 @@ if __name__ == "__main__":
 
     # Calculate the assembly index, virtual objects, and pathway for the combined graph
     jai, virt_obj, pathway = att.calculate_assembly_index(combined_graph,
-                                                         strip_hydrogen=True,
-                                                         timeout=timeout)
+                                                          strip_hydrogen=True,
+                                                          timeout=timeout)
     # Convert the virtual objects (graphs) back to SMILES strings
     virt_obj = [att.nx_to_smi(vo, add_hydrogens=False) for vo in virt_obj]
     print(f"Joint assembly index: {jai}", flush=True)
     print(f"Virtual objects in pathway:", flush=True)
     for vo in virt_obj:
         print(f"    {vo}", flush=True)
-
 
     att.plot_pathway(pathway,
                      show_icons=True,
@@ -55,4 +54,29 @@ if __name__ == "__main__":
     # Save the pathway plot as SVG and PNG files
     plt.savefig("mol_pathway_example.svg")
     plt.savefig("mol_pathway_example.png", dpi=300)
+    plt.show()
+
+    # Demo string assembly index calculation
+    # Define the input string for which the assembly index will be calculated
+    s_inpt = "gggfhhhvg"
+
+    # Calculate the assembly index, virtual objects, and pathway for the input string
+    ai, virt_obj, pathway = att.calculate_string_assembly_index(
+        s_inpt,
+        directed=False,
+    )
+
+    # Print the calculated assembly index
+    print(f"Assembly index: {ai}", flush=True)
+
+    # Print the virtual objects in the assembly pathway
+    print(f"Virtual objects in pathway: {virt_obj}", flush=True)
+
+    att.plot_pathway(pathway,
+                     plot_type="string",
+                     font_size=24,
+                     fig_size=(16, 10),
+                     layout_style='crossmin_long')
+    plt.savefig("str_pathway_example.svg")
+    plt.savefig("str_pathway_example.png", dpi=300)
     plt.show()

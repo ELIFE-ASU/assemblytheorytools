@@ -4,9 +4,7 @@ This directory contains examples demonstrating the fundamental operations for ca
 different types of data. This is a partial recapitulation of Figure 1 from Sharma et al. (2023)
 10.1038/s41586-023-06600-9
 
-## Protocol 1a: Molecular Assembly Index
-
-This script (`protocol_1a.py`) demonstrates how to calculate the Assembly Index for a set of molecules, both
+The first part of script (`protocol_1.py`) demonstrates how to calculate the Assembly Index for a set of molecules, both
 individually and as a combined system. It performs the following steps:
 
 1. **Input**: Defines a list of molecules by their names and SMILES strings.
@@ -18,9 +16,7 @@ individually and as a combined system. It performs the following steps:
 5. **Visualization**: Generates a molecular pathway plot for the combined system and saves it as
    `mol_pathway_example.svg` and `mol_pathway_example.png`.
 
-## Protocol 1b: String Assembly Index
-
-This script (`protocol_1b.py`) extends the concept to arbitrary data sequences. It demonstrates how to:
+The second part of script (`protocol_1.py`) extends the concept to arbitrary data sequences. It demonstrates how to:
 
 1. **Input**: Takes a raw string input (e.g., `'gggfhhhvg'`).
 2. **Calculation**: Calculates the Assembly Index, extracting the **virtual objects** (reused parts) found within the
