@@ -3,6 +3,7 @@
 # `AssemblyTheoryTools` <!-- [![Stars](https://img.shields.io/github/stars/ELIFE-ASU/assemblytheorytools.svg?style=social&maxAge=3600&label=Star)](https://github.com/ELIFE-ASU/assemblytheorytools/stargazers)-->
 
 A centralised set of tools for doing assembly theory calculations [\[1\]](#ref1) written in Python.
+Reference coming soon!
 
 ## 🗺️ Overview
 
@@ -29,7 +30,7 @@ Currently, ATT supports and connects to:
 - General undirected graphs via NetworkX.
 - Molecules via RDKit.
 - Directed and undirected strings.
-- Approximate fast methods [CFGs](https://github.com/ELIFE-ASU/CFG).
+- Approximate fast methods [assemblycfg](https://github.com/ELIFE-ASU/assemblycfg).
 
 If you find this package useful, please cite the following papers:
 Sharma _et al._ 2023 [\[1\]](#ref1) and Seet _et al._ 2024 [\[2\]](#ref2), found in the paper.bib.
@@ -42,7 +43,7 @@ The simplest way to install ATT is to use pip, which is the recommended package 
 simple as,
 
 ```
-pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git
+pip install assemblytheorytools
 ```
 
 When asked for a password, you will need your GitHub username and 'personal access token' (found in developer settings
@@ -258,13 +259,13 @@ conda install numpy scipy matplotlib networkx rdkit pyvis ase -y
 Then, install the ELIFE packages.
 
 ```
-pip install git+https://github.com/ELIFE-ASU/dagviz.git git+https://github.com/ELIFE-ASU/CFG.git
+pip install git+https://github.com/ELIFE-ASU/dagviz.git assemblycfg
 ```
 
 Then, install AssemblyTheoryTools.
 
 ```
-pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git
+pip install assemblytheorytools
 ```
 
 When asked for a password, you will need your GitHub username AND 'personal access token' (found in developer settings
@@ -316,7 +317,7 @@ conda install numpy scipy matplotlib networkx rdkit pyvis ase pytest -y
 Then, install the ELIFE packages.
 
 ```
-pip install git+https://github.com/ELIFE-ASU/dagviz.git git+https://github.com/ELIFE-ASU/CFG.git
+pip install git+https://github.com/ELIFE-ASU/dagviz.git assemblycfg
 ```
 
 Clone the repo using Git or GitKraken. Then, open your favourite IDE (PyCharm/VS Code) and the cloned repo.
@@ -326,12 +327,6 @@ Clone the repo using Git or GitKraken. Then, open your favourite IDE (PyCharm/VS
 <details>
 <summary>HPC-SOL</summary>
 <br>
-
-Set up GitHub SSH keys, or use GitHub access tokens. On the cluster, you use this command:
-
-```
-unset SSH_ASKPASS
-```
 
 Load Mamba
 
@@ -360,7 +355,7 @@ mamba install -c conda-forge numpy scipy matplotlib networkx rdkit pyvis ase -y
 Install AssemblyTheoryTools.
 
 ```
-pip install git+https://github.com/ELIFE-ASU/assemblytheorytools.git
+pip install assemblytheorytools
 ```
 
 Once again, you will need your username AND 'personal access token' entered as your password.
