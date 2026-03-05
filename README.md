@@ -1,4 +1,4 @@
-<img width="2096" height="934" alt="Frame - 1 (2)" src="https://github.com/user-attachments/assets/4cc72e01-3ea4-4c0e-abd8-ba1af100b79b" />
+<img width="800" height="270" alt="Frame - 1 (2)" src="https://github.com/user-attachments/assets/4cc72e01-3ea4-4c0e-abd8-ba1af100b79b" />
 
 # `AssemblyTheoryTools` <!-- [![Stars](https://img.shields.io/github/stars/ELIFE-ASU/assemblytheorytools.svg?style=social&maxAge=3600&label=Star)](https://github.com/ELIFE-ASU/assemblytheorytools/stargazers)-->
 
