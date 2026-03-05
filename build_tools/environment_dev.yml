@@ -20,6 +20,6 @@ dependencies:
   - pubchempy
   - cairosvg
   - pip:
-      - "dagviz @ git+https://github.com/ELIFE-ASU/dagviz.git"
+      - dagviz
       - assemblycfg
       - assembly-theory
