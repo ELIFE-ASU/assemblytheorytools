@@ -2,35 +2,27 @@ import io
 import re
 import sys
 import tarfile
-import types
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-import pandas as pd
 from IPython.display import display
-
-# Fix for pandas compatibility with older pickle files
-mod = types.ModuleType('pandas.core.indexes.numeric')
-mod.Int64Index = pd.Index
-mod.UInt64Index = pd.Index
-mod.Float64Index = pd.Index
-sys.modules['pandas.core.indexes.numeric'] = mod
 from rdkit import Chem
 from rdkit.Chem import Draw
+
 import assemblytheorytools as att
 
 if __name__ == "__main__":
-    SMILES = 'COC(=O)C(NC(=O)OC(C)(C)C)P(=O)(OC)OC'
-    MW = 297.2
-    MA_REFERENCE = 14
-    TARGET_PARENT_MZ = 296.26
+    smiles = 'COC(=O)C(NC(=O)OC(C)(C)C)P(=O)(OC)OC'
+    mw = 297.2
+    ma_reference = 14
+    target_parent_mz = 296.26
 
-    print(f"Compound: {SMILES}")
-    print(f"Molecular Weight: {MW}")
-    print(f"Reference MA: {MA_REFERENCE}")
-    print(f"Target Parent m/z: {TARGET_PARENT_MZ}")
+    print(f"Compound: {smiles}", flush=True)
+    print(f"Molecular Weight: {mw}", flush=True)
+    print(f"Reference MA: {ma_reference}", flush=True)
+    print(f"Target Parent m/z: {target_parent_mz}", flush=True)
 
-    mol = Chem.MolFromSmiles(SMILES)
+    mol = Chem.MolFromSmiles(smiles)
     display(Draw.MolToImage(mol, size=(320, 220)))
 
     with tarfile.open('Sample_#15_Stepped_MS3.tar.xz', "r:xz") as tar:
@@ -52,39 +44,39 @@ if __name__ == "__main__":
     json_file = output_dir / f"ripper_{mzml_file.stem}.json"
 
     # Process JSON to structured DataFrames
-    print("Converting JSON to DataFrames...")
+    print("Converting JSON to DataFrames...", flush=True)
     raw_data = att.process_mzml_json(json_file)
 
-    print(f"✓ MS levels: {list(raw_data.keys())}")
+    print(f"✓ MS levels: {list(raw_data.keys())}", flush=True)
     for level, df in raw_data.items():
-        print(f"  MS{level}: {len(df):,} peaks")
+        print(f"  MS{level}: {len(df):,} peaks", flush=True)
 
     # Processing parameters (matching original pickle files)
-    MIN_REL_INTENSITY = 0.01
-    MAX_NUM_PEAKS = 20
-    MASS_TOL = 0.05
-    MS_N_DIGITS = 3
-    MIN_ABS_INTENSITY = {
+    min_rel_intensity = 0.01
+    max_num_peaks = 20
+    mass_tol = 0.05
+    ms_n_digits = 3
+    min_abs_intensity = {
         1: 10 ** 6,
         2: 10 ** 4,
         3: 10 ** 3
     }
     processed_data = att.rma_process(
         sample=raw_data,
-        max_num_peaks=MAX_NUM_PEAKS,
-        min_abs_intensity=MIN_ABS_INTENSITY,
-        min_rel_intensity=MIN_REL_INTENSITY,
-        n_digits=MS_N_DIGITS
+        max_num_peaks=max_num_peaks,
+        min_abs_intensity=min_abs_intensity,
+        min_rel_intensity=min_rel_intensity,
+        n_digits=ms_n_digits
     )
 
     for level, df in processed_data.items():
-        print(f"  MS{level}: {len(df):,} peaks (filtered from {len(raw_data[level]):,})")
+        print(f"  MS{level}: {len(df):,} peaks (filtered from {len(raw_data[level]):,})", flush=True)
 
     # Link parent-child relationships
     rooted_data = att.rma_identify_parents(
         processed_data,
-        mass_tol=MASS_TOL,
-        ms_n_digits=MS_N_DIGITS
+        mass_tol=mass_tol,
+        ms_n_digits=ms_n_digits
     )
 
     # Build tree structure
@@ -96,7 +88,7 @@ if __name__ == "__main__":
     # Find the parent closest to our target
     parent_mz = None
     for mz in tree.keys():
-        if abs(mz - TARGET_PARENT_MZ) < 0.01:
+        if abs(mz - target_parent_mz) < 0.01:
             parent_mz = mz
             break
 
@@ -105,8 +97,8 @@ if __name__ == "__main__":
 
     n_fragments = len(tree[parent_mz]) if parent_mz in tree else 0
 
-    print(f"✓ Tree created: {len(tree)} parent(s) with MS2 fragments")
-    print(f"  Parent m/z: {parent_mz:.4f} ({n_fragments} MS2 fragments)")
+    print(f"✓ Tree created: {len(tree)} parent(s) with MS2 fragments", flush=True)
+    print(f"  Parent m/z: {parent_mz:.4f} ({n_fragments} MS2 fragments)", flush=True)
 
     # Plot MS2 spectrum - showing all fragments after processing (that go into the tree)
     ms2_processed = processed_data[2]
@@ -115,11 +107,11 @@ if __name__ == "__main__":
     if len(parent_data) > 0:
         plot_df = parent_data.sort_values('mz')
         plt.vlines(plot_df['mz'], 0, plot_df['intensity'], color='black', linewidth=1.5)
-        print(f"Plotting all {len(plot_df)} processed MS2 fragments")
+        print(f"Plotting all {len(plot_df)} processed MS2 fragments", flush=True)
     else:
         fragments = sorted(tree[parent_mz].keys())
         plt.vlines(fragments, 0, 1, color='black', linewidth=1.5)
-        print(f"Plotting {len(fragments)} MS2 fragments from tree")
+        print(f"Plotting {len(fragments)} MS2 fragments from tree", flush=True)
     plt.axhline(y=0, color='gray', linewidth=1)
     plt.xlabel('MS2 m/z', fontsize=11)
     plt.ylabel('Intensity', fontsize=11)
@@ -147,15 +139,15 @@ if __name__ == "__main__":
     ]
 
     if interesting:
-        print("Numbers in [brackets] are shared sub-fragments from both MS2 fragments.")
-        print("Common precursors found:")
+        print("Numbers in [brackets] are shared sub-fragments from both MS2 fragments.", flush=True)
+        print("Common precursors found:", flush=True)
 
         for line in interesting:
             formatted_line = re.sub(r"(\d+\.\d{3})\d+", r"\1", line)
             print(f"  {formatted_line}")
 
-    print(f"Parent m/z: {parent_mz:.4f}")
-    print(f"First approximation (mass-only):       {ma_first:.2f} Da")
-    print(f"Recursive MA (fragment-informed):      {ma_recursive:.2f} Da")
-    print(f"Reference MA (known value):            {MA_REFERENCE} Da")
-    print(tree)
+    print(f"Parent m/z: {parent_mz:.4f}", flush=True)
+    print(f"First approximation (mass-only):       {ma_first:.2f} Da", flush=True)
+    print(f"Recursive MA (fragment-informed):      {ma_recursive:.2f} Da", flush=True)
+    print(f"Reference MA (known value):            {ma_reference} Da", flush=True)
+    print(tree, flush=True)
