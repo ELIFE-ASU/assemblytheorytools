@@ -52,11 +52,13 @@ def _try_parse(parser, default):
     callable
         Function that takes a value and returns the parsed value or the default.
     """
+
     def inner(value):
         try:
             return parser(value)
         except ValueError:
             return default
+
     return inner
 
 

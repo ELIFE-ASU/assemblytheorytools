@@ -226,4 +226,6 @@ from .tools_test import (check_elements,
                          co2_graph,
                          test_mols)
 
+from .tools_ms_json import process_mzml_json
+
 __version__ = "1.13.0"
