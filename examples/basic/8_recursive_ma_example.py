@@ -66,10 +66,10 @@ if __name__ == "__main__":
 
     # Print the tree structure to the console
     print("\nTree structure:", flush=True)
-    att.print_tree(simple_tree)
+    att.rma_print_tree(simple_tree)
 
     # Calculate and print the depth of the tree
-    print(f"\nTree depth: {att.tree_depth(simple_tree)}", flush=True)
+    print(f"\nTree depth: {att.rma_tree_depth(simple_tree)}", flush=True)
 
     # Create an instance of the MAEstimator class
     # Parameters:

@@ -700,7 +700,7 @@ class _MzmlParser:
         for ms_level in sorted(list(self.ms.keys())):
             for pos, spec in enumerate(self.ms[ms_level]):
                 if not spec.serialized:
-                    spec.process()
+                    spec.rma_process()
                 if spec.serialized["mass_list"]:
                     output["ms" + ms_level][
                         f"spectrum_{pos + 1}"

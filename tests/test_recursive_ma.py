@@ -102,21 +102,21 @@ def test_unify_trees():
 
     # Print the first tree
     print("\nTree 1:", flush=True)
-    att.print_tree(tree1)
+    att.rma_print_tree(tree1)
 
     # Print the second tree
     print("\nTree 2:", flush=True)
-    att.print_tree(tree2)
+    att.rma_print_tree(tree2)
 
     # Unify the two trees and print the unified tree
     print("\nUnified tree:", flush=True)
-    unified = att.unify_trees([tree1, tree2])
+    unified = att.rma_unify_trees([tree1, tree2])
     assert unified == {400.0: {100.0: {}, 200.0: {}, 300.0: {}}}
-    att.print_tree(unified)
+    att.rma_print_tree(unified)
 
     # Calculate and print the depth of the unified tree
-    print(f"\nDepth of unified tree: {att.tree_depth(unified)}", flush=True)
-    assert att.tree_depth(unified) == 2
+    print(f"\nDepth of unified tree: {att.rma_tree_depth(unified)}", flush=True)
+    assert att.rma_tree_depth(unified) == 2
 
 
 def test_meta_tree():
@@ -140,16 +140,16 @@ def test_meta_tree():
 
     # Print the first tree
     print("\nTree 1:", flush=True)
-    att.print_tree(tree1)
+    att.rma_print_tree(tree1)
 
     # Print the second tree
     print("\nTree 2:", flush=True)
-    att.print_tree(tree2)
+    att.rma_print_tree(tree2)
 
     # Combine the trees into a meta tree and print the resulting structure
     print("\nMeta tree (combining multiple samples):", flush=True)
-    meta = att.meta_tree([tree1, tree2], meta_parent_mz=1e6)
-    att.print_tree(meta)
+    meta = att.rma_meta_tree([tree1, tree2], meta_parent_mz=1e6)
+    att.rma_print_tree(meta)
 
     # Assert that the meta tree matches the expected structure
     assert meta == {1000000.0: {400.0: {200.0: {}, 100.0: {}}, 500.0: {300.0: {}, 100.0: {}}}}
@@ -177,8 +177,8 @@ def test_ma_estimator_simple():
 
     # Print the tree structure and its depth
     print("\nTree structure:", flush=True)
-    att.print_tree(simple_tree)
-    print(f"\nTree depth: {att.tree_depth(simple_tree)}", flush=True)
+    att.rma_print_tree(simple_tree)
+    print(f"\nTree depth: {att.rma_tree_depth(simple_tree)}", flush=True)
 
     # Initialize the MAEstimator with specific parameters
     estimator = att.MAEstimator(
@@ -237,8 +237,8 @@ def test_ma_estimator_complex():
 
     # Print the tree structure and its depth
     print("\nTree structure:", flush=True)
-    att.print_tree(simple_tree)
-    print(f"\nTree depth: {att.tree_depth(simple_tree)}", flush=True)
+    att.rma_print_tree(simple_tree)
+    print(f"\nTree depth: {att.rma_tree_depth(simple_tree)}", flush=True)
 
     # Create an MAEstimator with specific parameters
     estimator = att.MAEstimator(
@@ -363,7 +363,7 @@ def test_ma_estimator_detailed_tree():
 
     # Print the tree structure
     print("\nTree structure:", flush=True)
-    att.print_tree(detailed_tree)
+    att.rma_print_tree(detailed_tree)
 
     # Estimate the molecular assembly (MA) for the precursor
     ma_estimate = estimator.estimate_ma(
@@ -417,8 +417,8 @@ def test_ma_estimator_joint():
 
     # Combine the trees into a meta tree and print the structure
     print("\nMeta tree (combining multiple samples):")
-    meta = att.meta_tree([tree1, tree2], meta_parent_mz=1e6)
-    att.print_tree(meta)
+    meta = att.rma_meta_tree([tree1, tree2], meta_parent_mz=1e6)
+    att.rma_print_tree(meta)
 
     # Estimate the molecular assembly (MA) for the meta tree
     ma_estimate = estimator.estimate_ma(
