@@ -9,7 +9,7 @@ import zlib
 from threading import Thread
 from typing import Dict, List, Optional
 
-ANSI_COLORS = {
+_ANSI_COLORS = {
     "black": "\u001b[30m",
     "red": "\u001b[31m",
     "green": "\u001b[32m",
@@ -22,24 +22,24 @@ ANSI_COLORS = {
     "reset": "\u001b[0m",
 }
 
-NON_MASS_KEYS = ["mass_list", "retention_time", "parent", "scan", "parent_scan", "hcd"]
+_NON_MASS_KEYS = ["mass_list", "retention_time", "parent", "scan", "parent_scan", "hcd"]
 
-BANNED_PHRASES = ["<userParam"]
+_BANNED_PHRASES = ["<userParam"]
 
 
-def colour_item(
+def _colour_item(
         msg: str, color: Optional[str] = "", bold: Optional[bool] = False
 ) -> str:
-    color = ANSI_COLORS[color] if color in ANSI_COLORS else ""
+    color = _ANSI_COLORS[color] if color in _ANSI_COLORS else ""
 
     return (
-        f'{color}{ANSI_COLORS["bold"]}{msg}{ANSI_COLORS["reset"]}'
+        f'{color}{_ANSI_COLORS["bold"]}{msg}{_ANSI_COLORS["reset"]}'
         if bold
-        else f'{color}{msg}{ANSI_COLORS["reset"]}'
+        else f'{color}{msg}{_ANSI_COLORS["reset"]}'
     )
 
 
-def make_logger(
+def _make_logger(
         name: str, filename: Optional[str] = "", debug: Optional[bool] = False
 ) -> logging.Logger:
     # Get logger and set level
@@ -48,7 +48,7 @@ def make_logger(
     logger.setLevel(level)
 
     # Custom ANSI colour formatter
-    formatter = ProtoFormatter()
+    formatter = _ProtoFormatter()
 
     # Using file logging, add FileHandler
     if filename:
@@ -68,36 +68,36 @@ def make_logger(
     return logger
 
 
-class ProtoFormatter(logging.Formatter):
+class _ProtoFormatter(logging.Formatter):
     def __init__(self):
         super().__init__()
 
     def format(self, record: logging.LogRecord) -> str:
         level, levelno, msg = record.levelname, record.levelno, record.msg
         if levelno == logging.DEBUG:
-            level = colour_item(level, color="red")
+            level = _colour_item(level, color="red")
         elif levelno == logging.INFO:
-            level = colour_item(level, color="green")
+            level = _colour_item(level, color="green")
         elif levelno == logging.WARN:
-            level = colour_item(level, color="yellow", bold=True)
-            msg = colour_item(msg, color="yellow")
+            level = _colour_item(level, color="yellow", bold=True)
+            msg = _colour_item(msg, color="yellow")
         elif levelno == logging.ERROR:
-            level = colour_item(level, color="red", bold=True)
-            msg = colour_item(msg, color="red", bold=True)
+            level = _colour_item(level, color="red", bold=True)
+            msg = _colour_item(msg, color="red", bold=True)
         elif levelno == logging.CRITICAL:
-            level = colour_item(level, color="red", bold=True)
-            msg = colour_item(msg, color="red")
+            level = _colour_item(level, color="red", bold=True)
+            msg = _colour_item(msg, color="red")
         timestamp = time.strftime("%d-%m-%Y|%H:%M:%S")
-        name = colour_item(record.name, color="cyan")
+        name = _colour_item(record.name, color="cyan")
         return f"[{timestamp}] - {name}::{level} -- {msg}"
 
 
-class UnsupportedCompressionMethod(Exception):
+class _UnsupportedCompressionMethod(Exception):
     """Compression type is not yet supported
     """
 
 
-class Spectrum(object):
+class _Spectrum(object):
     """Class for representing a Spectrum object from mzML
 
     Arguments:
@@ -161,7 +161,7 @@ class Spectrum(object):
             self.mz = self.decompress(self.mz)
             self.intensity = self.decompress(self.intensity)
         else:
-            raise UnsupportedCompressionMethod(
+            raise _UnsupportedCompressionMethod(
                 f"Compression method {self.compression} is not supported."
             )
 
@@ -274,15 +274,15 @@ class Spectrum(object):
         all_ions = sorted([
             [float(mass), float(intensity)]
             for mass, intensity in spectrum_dict.items()
-            if mass not in NON_MASS_KEYS], key=lambda x: x[1])
+            if mass not in _NON_MASS_KEYS], key=lambda x: x[1])
 
         #  get the base peak - most intense ion
         base_peak = all_ions[-1]
 
-        #  make sure all NON_MASS_KEYS remain unchanged in spectrum_dict
+        #  make sure all _NON_MASS_KEYS remain unchanged in spectrum_dict
         spectrum_dict = {
             key: value for key, value in spectrum_dict.items()
-            if key in NON_MASS_KEYS
+            if key in _NON_MASS_KEYS
         }
 
         #  iterate through ions, readding to spectrum_dict with relative
@@ -294,7 +294,7 @@ class Spectrum(object):
         return spectrum_dict
 
 
-def create_regex_mapper() -> dict:
+def _create_regex_mapper() -> dict:
     """Creates a mapping of tags to RegEx strings
 
     Returns:
@@ -311,7 +311,7 @@ def create_regex_mapper() -> dict:
     }
 
 
-def value_finder(regex: str, line: str) -> str:
+def _value_finder(regex: str, line: str) -> str:
     """Finds a value using RegEx from a given line
 
     Returns None if nothing found
@@ -331,7 +331,7 @@ def value_finder(regex: str, line: str) -> str:
     return None
 
 
-def write_json(data: dict, filename: str):
+def _write_json(data: dict, filename: str):
     """Writes data to JSON file
 
     Arguments:
@@ -343,7 +343,7 @@ def write_json(data: dict, filename: str):
         json.dump(data, f_d, indent=4)
 
 
-def banned_phrases(line: str) -> bool:
+def _banned_phrases(line: str) -> bool:
     """Small check to determine if any banned phrase is in a given line.
     Banned phrases are phrases that can interfere with the parsing and indicate
     that the parser should ignore said line.
@@ -356,7 +356,7 @@ def banned_phrases(line: str) -> bool:
     """
 
     # Iterate through all banned phrases
-    for phrase in BANNED_PHRASES:
+    for phrase in _BANNED_PHRASES:
         # Phrase is banned
         if phrase in line:
             return True
@@ -365,11 +365,11 @@ def banned_phrases(line: str) -> bool:
     return False
 
 
-class InvalidInputFile(Exception):
+class _InvalidInputFile(Exception):
     """Exception for invalid file formats"""
 
 
-class MzmlParser:
+class _MzmlParser:
     """Class for parsing an mzML file.
 
     Extracts all MS1 and MS2 data, along with retention time and parent mass
@@ -392,15 +392,15 @@ class MzmlParser:
             int_threshold: Optional[int] = 1000,
             relative_intensity: Optional[bool] = False,
     ):
-        self.logger = make_logger("MzMLRipper")
+        self.logger = _make_logger("MzMLRipper")
         self.filename = filename
         self.output_dir = os.path.abspath(output_dir)
         self.in_spectrum = False
-        self.re_expr = create_regex_mapper()
+        self.re_expr = _create_regex_mapper()
         self.spectra = []
         self.ms = {}
 
-        self.spec = Spectrum(
+        self.spec = _Spectrum(
             intensity_threshold=int_threshold, relative=relative_intensity
         )
         self.relative = relative_intensity
@@ -419,7 +419,7 @@ class MzmlParser:
         if not os.path.isfile(self.filename) or not self.filename.endswith(
                 ".mzML"
         ):
-            raise InvalidInputFile(f"File {self.filename} is not valid!")
+            raise _InvalidInputFile(f"File {self.filename} is not valid!")
 
     def parse_file(self) -> Dict:
         """Reads the file line by line and obtains all information
@@ -436,14 +436,14 @@ class MzmlParser:
         # Open the file and process each line individually
         with open(self.filename) as f_d:
             self.logger.info(
-                f"Parsing file: {colour_item(self.filename, 'yellow')}..."
+                f"Parsing file: {_colour_item(self.filename, 'yellow')}..."
             )
             for line in f_d.readlines():
                 self.process_line(line)
 
         self.logger.info(
             f"Parsing complete!\nTotal Spectra:\
- {colour_item(str(len(self.spectra)), 'green')}"
+ {_colour_item(str(len(self.spectra)), 'green')}"
         )
         self.logger.info("Processing spectra...")
 
@@ -456,15 +456,15 @@ class MzmlParser:
         # Process and write out to file
         self.bulk_process(*ms_levels)
         output = self.write_out_to_file()
-        self.logger.info(f"{colour_item('Complete', 'green')}")
+        self.logger.info(f"{_colour_item('Complete', 'green')}")
 
         return output
 
-    def bulk_process(self, *ms_levels: List[Spectrum]):
+    def bulk_process(self, *ms_levels: List[_Spectrum]):
         """Creates threads for processing MS1 and MS2 data simultaneously
 
         Arguments:
-            ms_levels (List[Spectrum]): Collection of MS spectra
+            ms_levels (List[_Spectrum]): Collection of MS spectra
         """
 
         pool = [
@@ -474,11 +474,11 @@ class MzmlParser:
         [thread.start() for thread in pool]
         [thread.join() for thread in pool]
 
-    def process_spectra(self, spectra: List[Spectrum]):
+    def process_spectra(self, spectra: List[_Spectrum]):
         """Processes spectra from a list and serialises the data
 
         Arguments:
-            spectra (List[Spectrum]): List of Spectra
+            spectra (List[_Spectrum]): List of Spectra
         """
 
         for spec in spectra:
@@ -534,7 +534,7 @@ class MzmlParser:
 
         if not os.path.exists(os.path.dirname(out_path)):
             os.makedirs(os.path.dirname(out_path))
-        write_json(output, out_path)
+        _write_json(output, out_path)
 
         return output
 
@@ -563,12 +563,12 @@ class MzmlParser:
             if "</spectrum>" in line:
                 self.spectra.append(self.spec)
                 self.in_spectrum = False
-                self.spec = Spectrum(
+                self.spec = _Spectrum(
                     intensity_threshold=self.spec_int_threshold,
                     relative=self.relative,
                 )
             else:
-                if banned_phrases(line):
+                if _banned_phrases(line):
                     return
 
                 self.extract_information(line)
@@ -585,7 +585,7 @@ class MzmlParser:
         """
 
         # Extract the spectrum ID
-        spec_id = value_finder(self.re_expr["spec_index"], line)
+        spec_id = _value_finder(self.re_expr["spec_index"], line)
         if not spec_id:
             return
 
@@ -594,9 +594,7 @@ class MzmlParser:
         self.spec.id = spec_id
 
         # Find the size of the data array
-        self.spec.array_length = value_finder(
-            self.re_expr["array_length"], line
-        )
+        self.spec.array_length = _value_finder(self.re_expr["array_length"], line)
 
     def extract_information(self, line: str):
         """Attempts to extract information from a given line
@@ -618,13 +616,13 @@ class MzmlParser:
 
         # MS Level
         if "MS:1000511" in line:
-            self.spec.ms_level = value_finder(self.re_expr["value"], line)
+            self.spec.ms_level = _value_finder(self.re_expr["value"], line)
             if self.spec.ms_level not in self.ms:
                 self.ms[self.spec.ms_level] = []
 
         # Scan Number
         elif "MS:1000796" in line:
-            self.spec.scan = value_finder(self.re_expr["scan"], line)
+            self.spec.scan = _value_finder(self.re_expr["scan"], line)
 
         # Retention time
         elif "MS:1000016" in line:
@@ -632,42 +630,42 @@ class MzmlParser:
             if self.rt_units == "sec":
                 rt_converter = 60
             self.spec.retention_time = str(
-                float(value_finder(self.re_expr["value"], line)) / rt_converter
+                float(_value_finder(self.re_expr["value"], line)) / rt_converter
             )
 
         # Fragmentation energy
         elif "MS:1000512" in line:
             self.spec.hcd = (
-                value_finder(self.re_expr["value"], line)
+                _value_finder(self.re_expr["value"], line)
                 .split("hcd")[-1]
                 .split(" ")[0]
             )
 
         # Data type (32 or 64 bit)
         elif "MS:1000521" in line or "MS:1000523" in line:
-            self.spec.d_type = value_finder(self.re_expr["name"], line)
+            self.spec.d_type = _value_finder(self.re_expr["name"], line)
 
         # Compression type
         elif "MS:1000574" in line:
-            self.spec.compression = value_finder(self.re_expr["name"], line)
+            self.spec.compression = _value_finder(self.re_expr["name"], line)
 
         # Parent mass
         elif "MS:1000744" in line:
-            self.spec.parent_mass = value_finder(self.re_expr["value"], line)
+            self.spec.parent_mass = _value_finder(self.re_expr["value"], line)
             self.spec.precursors.append(
-                value_finder(self.re_expr["value"], line)
+                _value_finder(self.re_expr["value"], line)
             )
 
         # Parent Scan
         elif "<precursor spectrumRef" in line:
-            self.spec.parent_scan = value_finder(self.re_expr["scan"], line)
+            self.spec.parent_scan = _value_finder(self.re_expr["scan"], line)
             self.spec.precursors_scans.append(
-                value_finder(self.re_expr["scan"], line)
+                _value_finder(self.re_expr["scan"], line)
             )
 
         # Suggested parent mass
         elif "MS:1000512" in line:
-            suggested_parent = value_finder(self.re_expr["value"], line)
+            suggested_parent = _value_finder(self.re_expr["value"], line)
             self.update_parent(suggested_parent)
 
         # MZ data
@@ -680,7 +678,7 @@ class MzmlParser:
 
         # Binary blob
         elif "<binary>" in line:
-            binary_text = value_finder(self.re_expr["binary"], line)
+            binary_text = _value_finder(self.re_expr["binary"], line)
 
             # Looking at MZ values
             if self.curr_spec_bin_type == 0:
@@ -727,7 +725,7 @@ def process_mzml_file(
         int_threshold=1000,
         relative=False,
 ):
-    return MzmlParser(
+    return _MzmlParser(
         filename,
         out_dir,
         rt_units=rt_units,
