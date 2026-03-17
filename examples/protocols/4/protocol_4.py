@@ -1,6 +1,7 @@
 import io
 import re
 import sys
+import tarfile
 import types
 from pathlib import Path
 
@@ -31,6 +32,9 @@ if __name__ == "__main__":
 
     mol = Chem.MolFromSmiles(SMILES)
     display(Draw.MolToImage(mol, size=(320, 220)))
+
+    with tarfile.open('Sample_#15_Stepped_MS3.tar.xz', "r:xz") as tar:
+        tar.extractall(path='.')
 
     # Parse the mzML file
     mzml_file = Path('Sample_#15_Stepped_MS3.mzML')
