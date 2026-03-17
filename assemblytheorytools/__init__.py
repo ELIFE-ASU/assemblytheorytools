@@ -227,5 +227,6 @@ from .tools_test import (check_elements,
                          test_mols)
 
 from .tools_ms_json import process_mzml_json
+from .tools_mzml import process_mzml_file
 
 __version__ = "1.13.0"
