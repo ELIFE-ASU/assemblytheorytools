@@ -214,7 +214,8 @@ from .tools_plotting import (n_plot,
                              draw_mol_grid,
                              draw_mol_grid_box,
                              plot_ir_spectrum,
-                             plot_ase_atoms)
+                             plot_ase_atoms,
+                             plot_ms2_spectrum)
 from .tools_string import (load_fasta,
                            prep_joint_string_ai,
                            get_unique_char,

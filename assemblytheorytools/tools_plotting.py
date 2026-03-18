@@ -3507,3 +3507,54 @@ def plot_ase_atoms(
 
     # Return the Matplotlib figure and axis
     return fig, ax
+
+
+def plot_ms2_spectrum(ms2_processed, parent_mz, tree, figsize: Tuple[float, float] = (8, 5), ):
+    """
+    Plot the MS2 spectrum for a given parent m/z value, using processed MS2 data or a fragmentation tree.
+
+    This function visualizes the MS2 fragment ions associated with a specified parent m/z.
+    If processed MS2 data is available for the parent, it plots the fragment m/z values
+    and their intensities as vertical lines. If no processed data is found, it falls back
+    to plotting the fragment m/z values from the provided fragmentation tree, with unit intensity.
+
+    Parameters
+    ----------
+    ms2_processed : pandas.DataFrame
+        DataFrame containing processed MS2 fragment data. Must include columns 'parent', 'mz', and 'intensity'.
+    parent_mz : float
+        The m/z value of the parent ion for which to plot the MS2 spectrum.
+    tree : dict
+        Fragmentation tree structure, where keys are parent m/z values and values are dicts of fragment m/z values.
+    figsize : tuple of float, optional
+        Size of the figure in inches as (width, height). Defaults to (8, 5).
+
+    Returns
+    -------
+    None
+        The function creates and displays a matplotlib plot of the MS2 spectrum.
+
+    Notes
+    -----
+    - If processed MS2 data for the parent m/z is found, fragment intensities are plotted.
+    - If no processed data is found, fragment m/z values from the tree are plotted with intensity 1.
+    - The function applies standard axis styling and layout for publication-quality figures.
+    """
+    parent_data = ms2_processed[ms2_processed['parent'].between(parent_mz - 0.01, parent_mz + 0.01)]
+    plt.figure(figsize=figsize)
+    plot_df = None
+    if len(parent_data) > 0:
+        plot_df = parent_data.sort_values('mz')
+        plt.vlines(plot_df['mz'], 0, plot_df['intensity'], color='black', linewidth=1.5)
+        print(f"Plotting all {len(plot_df)} processed MS2 fragments", flush=True)
+    else:
+        fragments = sorted(tree[parent_mz].keys())
+        plt.vlines(fragments, 0, 1, color='black', linewidth=1.5)
+        print(f"Plotting {len(fragments)} MS2 fragments from tree", flush=True)
+    plt.axhline(y=0, color='gray', linewidth=1)
+    plt.title(f'Processed Fragments (parent m/z {parent_mz:.2f})', fontsize=12,
+              fontweight='bold')
+    plt.xlim(0, max(plot_df['mz']) + 20 if len(plot_df) > 0 else 300)
+    plt.grid(alpha=0.3)
+    n_plot('MS2 m/z', 'Intensity')
+    plt.tight_layout()
