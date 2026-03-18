@@ -22,8 +22,11 @@ if __name__ == "__main__":
     print(f"Reference MA: {ma_reference}", flush=True)
     print(f"Target Parent m/z: {target_parent_mz}", flush=True)
 
-    mol = Chem.MolFromSmiles(smiles)
-    display(Draw.MolToImage(mol, size=(320, 220)))
+    atoms = att.smiles_to_atoms(smiles)
+    # Plot the 3D atomic structure and save it as a PNG file
+    att.plot_ase_atoms(atoms, 'example_atoms.png', rotation='30x,30y,0z')
+    plt.show()  # Display the atomic structure
+
 
     with tarfile.open('Sample_#15_Stepped_MS3.tar.xz', "r:xz") as tar:
         tar.extractall(path='.')
@@ -103,7 +106,7 @@ if __name__ == "__main__":
     # Plot MS2 spectrum - showing all fragments after processing (that go into the tree)
     ms2_processed = processed_data[2]
     parent_data = ms2_processed[ms2_processed['parent'].between(parent_mz - 0.01, parent_mz + 0.01)]
-    plt.figure(figsize=(10, 4))
+    plt.figure(figsize=(8, 5))
     if len(parent_data) > 0:
         plot_df = parent_data.sort_values('mz')
         plt.vlines(plot_df['mz'], 0, plot_df['intensity'], color='black', linewidth=1.5)
@@ -113,13 +116,15 @@ if __name__ == "__main__":
         plt.vlines(fragments, 0, 1, color='black', linewidth=1.5)
         print(f"Plotting {len(fragments)} MS2 fragments from tree", flush=True)
     plt.axhline(y=0, color='gray', linewidth=1)
-    plt.xlabel('MS2 m/z', fontsize=11)
-    plt.ylabel('Intensity', fontsize=11)
-    plt.title(f'Sample #15 MS2 Spectrum - Processed Fragments (parent m/z {parent_mz:.2f})', fontsize=12,
+    plt.title(f'Processed Fragments (parent m/z {parent_mz:.2f})', fontsize=12,
               fontweight='bold')
     plt.xlim(0, max(plot_df['mz']) + 20 if len(plot_df) > 0 else 300)
     plt.grid(alpha=0.3)
+    att.n_plot('MS2 m/z','Intensity')
     plt.tight_layout()
+    plt.savefig("processed_MS2.svg")
+    plt.savefig("processed_MS2.png", dpi=300)
+    plt.show()
     plt.show()
 
     # Initialize MA estimator
