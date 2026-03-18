@@ -126,6 +126,6 @@ if __name__ == "__main__":
             print(f"  {formatted_line}")
 
     print(f"Parent m/z: {parent_mz:.4f}", flush=True)
-    print(f"First approximation (mass-only):       {ma_first:.2f} Da", flush=True)
-    print(f"Recursive MA (fragment-informed):      {ma_recursive:.2f} Da", flush=True)
-    print(f"Reference MA (known value):            {ma_reference} Da", flush=True)
+    print(f"First approximation (mass-only):       {ma_first:.2f}", flush=True)
+    print(f"Recursive MA (fragment-informed):      {ma_recursive:.2f}", flush=True)
+    print(f"Reference MA (known value):            {ma_reference}", flush=True)
