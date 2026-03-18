@@ -5,11 +5,14 @@ import tarfile
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-from IPython.display import display
-from rdkit import Chem
-from rdkit.Chem import Draw
 
 import assemblytheorytools as att
+
+
+
+
+
+
 
 if __name__ == "__main__":
     smiles = 'COC(=O)C(NC(=O)OC(C)(C)C)P(=O)(OC)OC'
@@ -25,8 +28,7 @@ if __name__ == "__main__":
     atoms = att.smiles_to_atoms(smiles)
     # Plot the 3D atomic structure and save it as a PNG file
     att.plot_ase_atoms(atoms, 'example_atoms.png', rotation='30x,30y,0z')
-    plt.show()  # Display the atomic structure
-
+    plt.show()
 
     with tarfile.open('Sample_#15_Stepped_MS3.tar.xz', "r:xz") as tar:
         tar.extractall(path='.')
@@ -54,7 +56,7 @@ if __name__ == "__main__":
     for level, df in raw_data.items():
         print(f"  MS{level}: {len(df):,} peaks", flush=True)
 
-    # Processing parameters (matching original pickle files)
+    # Processing parameters
     min_rel_intensity = 0.01
     max_num_peaks = 20
     mass_tol = 0.05
@@ -104,33 +106,17 @@ if __name__ == "__main__":
     print(f"  Parent m/z: {parent_mz:.4f} ({n_fragments} MS2 fragments)", flush=True)
 
     # Plot MS2 spectrum - showing all fragments after processing (that go into the tree)
-    ms2_processed = processed_data[2]
-    parent_data = ms2_processed[ms2_processed['parent'].between(parent_mz - 0.01, parent_mz + 0.01)]
-    plt.figure(figsize=(8, 5))
-    if len(parent_data) > 0:
-        plot_df = parent_data.sort_values('mz')
-        plt.vlines(plot_df['mz'], 0, plot_df['intensity'], color='black', linewidth=1.5)
-        print(f"Plotting all {len(plot_df)} processed MS2 fragments", flush=True)
-    else:
-        fragments = sorted(tree[parent_mz].keys())
-        plt.vlines(fragments, 0, 1, color='black', linewidth=1.5)
-        print(f"Plotting {len(fragments)} MS2 fragments from tree", flush=True)
-    plt.axhline(y=0, color='gray', linewidth=1)
-    plt.title(f'Processed Fragments (parent m/z {parent_mz:.2f})', fontsize=12,
-              fontweight='bold')
-    plt.xlim(0, max(plot_df['mz']) + 20 if len(plot_df) > 0 else 300)
-    plt.grid(alpha=0.3)
-    att.n_plot('MS2 m/z','Intensity')
-    plt.tight_layout()
+    att.plot_ms2_spectrum(processed_data[2], parent_mz, tree)
     plt.savefig("processed_MS2.svg")
     plt.savefig("processed_MS2.png", dpi=300)
-    plt.show()
     plt.show()
 
     # Initialize MA estimator
     est = att.MAEstimator(same_level=True, n_samples=300, tol=0.05)
+
     # First approximation (mass-only)
     ma_first = float(est.estimate_by_MW(parent_mz, has_children=False).mean())
+
     # Recursive MA (fragment-informed)
     old_stdout = sys.stdout
     sys.stdout = buffer = io.StringIO()
@@ -155,4 +141,3 @@ if __name__ == "__main__":
     print(f"First approximation (mass-only):       {ma_first:.2f} Da", flush=True)
     print(f"Recursive MA (fragment-informed):      {ma_recursive:.2f} Da", flush=True)
     print(f"Reference MA (known value):            {ma_reference} Da", flush=True)
-    print(tree, flush=True)
