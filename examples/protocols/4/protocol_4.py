@@ -8,12 +8,6 @@ import matplotlib.pyplot as plt
 
 import assemblytheorytools as att
 
-
-
-
-
-
-
 if __name__ == "__main__":
     smiles = 'COC(=O)C(NC(=O)OC(C)(C)C)P(=O)(OC)OC'
     mw = 297.2
@@ -41,9 +35,6 @@ if __name__ == "__main__":
     att.process_mzml_file(
         filename=str(mzml_file),
         out_dir=str(output_dir),
-        rt_units='min',
-        int_threshold=1000,
-        relative=False
     )
 
     json_file = output_dir / f"ripper_{mzml_file.stem}.json"
@@ -60,7 +51,6 @@ if __name__ == "__main__":
     min_rel_intensity = 0.01
     max_num_peaks = 20
     mass_tol = 0.05
-    ms_n_digits = 3
     min_abs_intensity = {
         1: 10 ** 6,
         2: 10 ** 4,
@@ -71,7 +61,6 @@ if __name__ == "__main__":
         max_num_peaks=max_num_peaks,
         min_abs_intensity=min_abs_intensity,
         min_rel_intensity=min_rel_intensity,
-        n_digits=ms_n_digits
     )
 
     for level, df in processed_data.items():
@@ -81,7 +70,6 @@ if __name__ == "__main__":
     rooted_data = att.rma_identify_parents(
         processed_data,
         mass_tol=mass_tol,
-        ms_n_digits=ms_n_digits
     )
 
     # Build tree structure
@@ -93,7 +81,7 @@ if __name__ == "__main__":
     # Find the parent closest to our target
     parent_mz = None
     for mz in tree.keys():
-        if abs(mz - target_parent_mz) < 0.01:
+        if abs(mz - target_parent_mz) < mass_tol:
             parent_mz = mz
             break
 
@@ -112,7 +100,7 @@ if __name__ == "__main__":
     plt.show()
 
     # Initialize MA estimator
-    est = att.MAEstimator(same_level=True, n_samples=300, tol=0.05)
+    est = att.MAEstimator(tol=mass_tol)
 
     # First approximation (mass-only)
     ma_first = float(est.estimate_by_MW(parent_mz, has_children=False).mean())

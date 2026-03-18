@@ -914,7 +914,7 @@ class _MzmlParser:
 def process_mzml_file(
         filename: str,
         out_dir: str,
-        rt_units=None,
+        rt_units='min',
         int_threshold=1000,
         relative=False,
 ):

@@ -214,7 +214,7 @@ class MAEstimator:
         Array of zeros used when a fragment matches an isotope (MA = 0).
     """
 
-    def __init__(self, same_level=True, tol=0.01, adduct_masses=COMMON_PRECURSORS, n_samples=20):
+    def __init__(self, same_level=True, tol=0.01, adduct_masses=COMMON_PRECURSORS, n_samples=500):
         """
         Initialize the MAEstimator with configuration options.
 
@@ -227,7 +227,7 @@ class MAEstimator:
         adduct_masses : list of float, optional
             List of adduct ion masses to consider. Defaults to COMMON_PRECURSORS.
         n_samples : int, optional
-            Number of random samples for MA estimation. Defaults to 20.
+            Number of random samples for MA estimation. Defaults to 500.
         """
         self.same_level = same_level
         self.tol = tol
@@ -674,7 +674,7 @@ def rma_process(
     return sample
 
 
-def rma_identify_parents(dataset, mass_tol: float, ms_n_digits: int):
+def rma_identify_parents(dataset, mass_tol: float, ms_n_digits: int=3):
     """
     Assign parent-child relationships between MS levels in a mass spectrometry dataset.
 
@@ -896,5 +896,4 @@ def rma_meta_tree(samples: List[Dict], meta_parent_mz: float = 1e6) -> Dict[floa
         A dictionary representing the unified tree structure, with the 'meta' parent precursor
         as the root node.
     """
-    tree = rma_unify_trees(samples)
-    return {meta_parent_mz: tree}
+    return {meta_parent_mz: rma_unify_trees(samples)}
