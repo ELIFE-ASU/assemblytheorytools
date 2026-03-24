@@ -161,29 +161,35 @@ for more details.
 
 Louie Slocombe, orchestration, development, and conceptualisation.
 
+Gage Siebert, string assembly index calculations and CFG integration.
+
+Estelle Janin, bonding and joint assembly index calculations.
+
 Joey Fedrow, development, maintenance, and documentation.
 
 Veronica Mierzejewski, integration of reassembly calculations.
 
 Mohammadreza Shahjahan, branding, development.
 
-Amit Kahana, recursive MA integration.
-
-Estelle Janin, bonding and joint assembly index calculations.
-
-Stuart Marshall, debugging and optimization.
-
 Marina Fernandez-Ruz, visualisation and circle plots.
-
-Ian Seet, joining operations index calculations.
-
-Gage Siebert, string assembly index calculations and CFG integration.
 
 Sebastian Pagel, reassembly calculations and visualisation.
 
+Amit Kahana, recursive MA integration.
+
+Stuart Marshall, debugging and optimization.
+
+Ian Seet, joining operations index calculations.
+
 Keith Patarroyo, assembly path reconstruction and visualisation.
 
+Michael Jirasek, mass spectrometry measurement pipeline.
+
 Abhishek Sharma, administrative support.
+
+Lee Cronin, conceptual, funding, and administrative support.
+
+Sara Walker, conceptual, funding, and administrative support.
 
 ## ⚖️ License
 
