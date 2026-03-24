@@ -3,12 +3,13 @@ import re
 import sys
 import tarfile
 from pathlib import Path
-
+import time
 import matplotlib.pyplot as plt
 
 import assemblytheorytools as att
 
 if __name__ == "__main__":
+    t0 = time.time()
     smiles = 'COC(=O)C(NC(=O)OC(C)(C)C)P(=O)(OC)OC'
     mw = 297.2
     ma_reference = 14
@@ -95,7 +96,6 @@ if __name__ == "__main__":
 
     # Plot MS2 spectrum - showing all fragments after processing (that go into the tree)
     att.plot_ms2_spectrum(processed_data[2], parent_mz, tree)
-    plt.savefig("processed_MS2.svg")
     plt.savefig("processed_MS2.png", dpi=300)
     plt.show()
 
@@ -129,3 +129,4 @@ if __name__ == "__main__":
     print(f"First approximation (mass-only):       {ma_first:.2f}", flush=True)
     print(f"Recursive MA (fragment-informed):      {ma_recursive:.2f}", flush=True)
     print(f"Reference MA (known value):            {ma_reference}", flush=True)
+    print(f"Total execution time: {time.time() - t0:.2f} seconds", flush=True)
