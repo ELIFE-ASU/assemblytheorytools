@@ -419,3 +419,10 @@ export ASS_PATH=$HOME/assemblycpp-v5/v5/asscpp
 ```
 
 </details>
+
+<details>
+   <summary>Dependencies</summary>
+   <br>
+   All testing performed in python 3.12. Dependent packages are as follows:
+   ase>=3.23.0, numpy>=2.1.3, scipy>=1.15.1, pandas>=2.2.3, matplotlib>=3.9.2, networkx>=3.4.2, rdkit>=2024.03.5, ipython>=8.30.0, pyvis>=0.3.2, pubchempy>=1.0.5, cairosvg>=2.8.2, dagviz>=0.5.0, assembly-theory>=0.6.0, assemblycfg>=1.2.2
+</details>
