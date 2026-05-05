@@ -97,6 +97,7 @@ if __name__ == "__main__":
     # Plot MS2 spectrum - showing all fragments after processing (that go into the tree)
     att.plot_ms2_spectrum(processed_data[2], parent_mz, tree)
     plt.savefig("processed_MS2.png", dpi=300)
+    plt.savefig("processed_MS2.svg")
     plt.show()
 
     # Initialize MA estimator
