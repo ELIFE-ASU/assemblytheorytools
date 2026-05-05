@@ -145,7 +145,6 @@ def add_assembly_to_path(str_mode: bool = False) -> str:
         # Default executable name for Linux systems
 
         if str_mode:
-            #exec_name = "asscpp_combined_static_strings"
             exec_name = "asscpp_public_static_linux"
         else:
             exec_name = "asscpp_combined_static_linux"
