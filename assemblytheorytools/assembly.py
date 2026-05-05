@@ -145,7 +145,8 @@ def add_assembly_to_path(str_mode: bool = False) -> str:
         # Default executable name for Linux systems
 
         if str_mode:
-            exec_name = "asscpp_combined_static_strings"
+            #exec_name = "asscpp_combined_static_strings"
+            exec_name = "asscpp_public_static_linux"
         else:
             exec_name = "asscpp_combined_static_linux"
 
@@ -1017,11 +1018,11 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
 
                 # Start the process
                 process = subprocess.Popen(
-                    [dir_code, file_path_in, str(int(directed == 0)), "1"],
+                    [dir_code, file_path_in, "-runStrings=1"], # Ian purged the directed string code from asscpp_public
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     cwd=temp_dir
-                )
+                ) 
 
                 try:
                     # Wait for process to finish or timeout
