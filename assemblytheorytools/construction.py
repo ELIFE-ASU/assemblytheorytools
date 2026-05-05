@@ -1147,19 +1147,19 @@ def parse_string_pathway_file(file_path_pathway: str) -> Tuple[Dict[str, Any], n
         with open(file_path_pathway) as f:
             data = json.load(f)
 
-    VOs = dict()
-    VOs["file_string"] = data["file_graph"][0]["Fragments"][0]
-    VOs["remnant"] = data["remnant"][0]["Fragments"]
-    dups = [data["duplicates"][i]["Left"] for i in range(len(data["duplicates"]))]
-    VOs["duplicates"] = [VOs["file_string"][dup[0]:sum(dup)] for dup in dups]
+    file_string = data["file_graph"][0]["Fragments"][0]
 
     path = nx.DiGraph()
 
     # We will build the string from left to right, constructing duplicates as needed
-    for char in list(set(VOs["file_string"])):
+    for char in list(set(file_string)):
         path.add_node(char)  # Add units
 
-    path = build_str([0, len(VOs["file_string"])], data, path)  # Build the string from the pathway data
+    path = build_str([0, len(file_string)], data, path)  # Build the string from the pathway data
+
+    VOs = []
+    for node in path.nodes(data=True):
+        VOs.append(node[0])
 
     return VOs, path
 

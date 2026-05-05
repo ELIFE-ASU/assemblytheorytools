@@ -991,7 +991,6 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
             dir_code = add_assembly_to_path(str_mode=True)
 
         # Create working directory
-        # temp_dir = f"ai_calc_{datetime.now().strftime('%H_%M_%f')}" if debug else tempfile.mkdtemp()
         temp_dir = tempfile.mkdtemp()
         temp_dir = os.path.abspath(temp_dir)
         os.makedirs(temp_dir, exist_ok=True)
@@ -1003,7 +1002,6 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
 
         # Define output and log file paths
         file_path_out = file_path_in + "Out"
-        # file_path_pathway = file_path_in + "_0_Pathway" # There is an issue with CPP str file output, so we will search for this later
         log_file = os.path.join(temp_dir, "assembly_output.log")
 
         if debug:
@@ -1031,7 +1029,6 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
                 except subprocess.TimeoutExpired:
                     print("Warning: Assembly calculation timed out. Terminating...")
 
-                    # process.terminate()
                     # Send SIGINT to simulate Ctrl+C
                     process.send_signal(signal.SIGINT)
                     process.wait()

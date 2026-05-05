@@ -199,3 +199,24 @@ def test_bigA():
     nt = sum(input_ns)
     answer = np.exp(2) * ((10 - 1) / nt) + np.exp(3) * ((100 - 1) / nt) + np.exp(0) * ((40 - 1) / nt)
     assert answer == att.calculate_string_assembly(strings=input_strings, n_i=input_ns)
+
+def test_directed_str_data():
+    """
+    Test that data is properly returned after assembly index calculation of a directed string.
+
+    This function performs the following steps:
+    1. Defines an input string.
+    2. Calculates the assembly index of the input string.
+    3. Validates the output data.
+
+    Asserts:
+        - The calculated assembly index is equal to the expected value.
+        - The virtual objects and path are consistent.
+    """
+    s_inpt = "abracadabra"
+    ai_ref = 7
+    ai, vo, path = att.calculate_string_assembly_index(s_inpt, directed=True, mode='str')
+    assert ai == ai_ref
+    assert len(vo) == 12 # 12 = 7 steps + 5 units
+    assert len(path.nodes()) == len(vo)
+    assert len(path.edges()) == ai_ref * 2
