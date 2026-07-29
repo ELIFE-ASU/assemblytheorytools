@@ -693,7 +693,9 @@ def inchi_to_nx(inchi: str, add_hydrogens: bool = False, sanitize: bool = True) 
     return mol_to_nx(mol, add_hydrogens=add_hydrogens, sanitize=sanitize)
 
 
-def create_ionic_molecule(smiles: str) -> Tuple[nx.Graph, List[Chem.Mol]]:
+def create_ionic_molecule(smiles: str,
+                          add_hydrogens: bool = True,
+                          sanitize: bool = True) -> Tuple[nx.Graph, List[Chem.Mol]]:
     """
     Create a combined graph for an ionic molecule from dot-separated SMILES.
 
@@ -701,6 +703,10 @@ def create_ionic_molecule(smiles: str) -> Tuple[nx.Graph, List[Chem.Mol]]:
     ----------
     smiles : str
         The SMILES string representing the ionic molecule, with parts separated by dots.
+    add_hydrogens : bool, optional
+        If True, adds explicit hydrogens to each component during sanitization. Defaults to True.
+    sanitize : bool, optional
+        If True, sanitizes each component before conversion. Defaults to True.
 
     Returns
     -------
@@ -709,8 +715,8 @@ def create_ionic_molecule(smiles: str) -> Tuple[nx.Graph, List[Chem.Mol]]:
     """
     # Split the SMILES into components
     smi_list = smiles.split('.')
-    mols = [smi_to_mol(smi) for smi in smi_list]
-    graphs = [mol_to_nx(mol) for mol in mols]
+    mols = [smi_to_mol(smi, add_hydrogens=add_hydrogens, sanitize=sanitize) for smi in smi_list]
+    graphs = [mol_to_nx(mol, add_hydrogens=add_hydrogens, sanitize=sanitize) for mol in mols]
 
     # Find the positively and negatively charged atoms
     pos_idx, neg_idx = None, None
