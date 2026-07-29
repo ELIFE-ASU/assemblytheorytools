@@ -1,3 +1,12 @@
+"""
+Interoperability with ASE ``Atoms`` objects.
+
+This module converts between SMILES strings, RDKit molecules, NetworkX graphs and
+ASE ``Atoms`` objects, and provides electronic-structure helpers: charge and spin
+multiplicity determination, CP2K and ORCA calculator presets, geometry
+optimisation, and CCSD and free-energy evaluation for virtual objects.
+"""
+
 import os
 import re
 import tempfile

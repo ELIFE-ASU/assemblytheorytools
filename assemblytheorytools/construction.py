@@ -1,3 +1,13 @@
+"""
+Parsing and construction of assembly pathways.
+
+This module reads the pathway files emitted by the assembly calculators and
+turns them into NetworkX directed graphs. It assigns hierarchical levels to
+virtual objects, converts between molecule-string and graph representations, and
+provides the :class:`AssemblyConstruction` class for generating pathways and
+assembly digraphs from a target structure.
+"""
+
 import copy
 import json
 import os
@@ -180,14 +190,12 @@ def fix_repeated_equiv(edge_list: List[Any],
 
     Returns
     -------
-    tuple
-        A tuple containing:
-        - edge_list : list
-            The updated edge list.
-        - repeated_equiv : list
-            The updated repeated equivalences.
-        - equivalences : list
-            The updated equivalences.
+    edge_list : list
+        The updated edge list.
+    repeated_equiv : list
+        The updated repeated equivalences.
+    equivalences : list
+        The updated equivalences.
     """
     global new_val, target_val, source_val
     equivalences = np.unique(equivalences, axis=0).tolist()
@@ -351,6 +359,28 @@ def tables_to_nx(tables: Tuple[List[Tuple[int, str]], List[Tuple[int, int, int]]
 
 
 class AssemblyConstruction:
+    """
+    Construction of assembly pathways and digraphs from pathway data.
+
+    Wraps the pathway data emitted by the assembly calculator and rebuilds the
+    corresponding assembly pathway: it generates the virtual objects, joins them
+    consistently, and assembles the result into a NetworkX directed graph
+    suitable for plotting and further analysis.
+
+    Parameters
+    ----------
+    data : dict
+        The pathway data from assemblycpp, containing graph information,
+        remnants, duplicates and other assembly metadata.
+    if_string : bool, optional
+        Whether to sort combined pieces during construction. Default is False.
+    vo_type : str, optional
+        Type of virtual object representation to use. Default is ``"graph"``.
+    input_graph : nx.Graph, optional
+        The original target graph, used to recover node attributes. Default is
+        None.
+    """
+
     def __init__(self,
                  data: Dict[str, Any],
                  if_string: bool = False,
@@ -445,16 +475,14 @@ class AssemblyConstruction:
 
         Returns
         -------
-        tuple
-            A tuple containing:
-            - pieces_mod : list
-                Updated fragment list after possible merging.
-            - steps_mod : list
-                Updated list of transformation steps.
-            - step : int
-                Updated step count.
-            - digraph : list
-                Updated digraph with new transformation links.
+        pieces_mod : list
+            Updated fragment list after possible merging.
+        steps_mod : list
+            Updated list of transformation steps.
+        step : int
+            Updated step count.
+        digraph : list
+            Updated digraph with new transformation links.
         """
         left_sort = [rep[0] for rep in repeated_mo1_cp]
         right_sort = [rep[1] for rep in repeated_mo1_cp]
@@ -555,20 +583,18 @@ class AssemblyConstruction:
 
         Returns
         -------
-        tuple
-            A tuple containing:
-            - pieces_mod : list
-                Updated list of pathway fragments after integration.
-            - steps_mod : list
-                Updated list of pathway steps.
-            - sorted_repeated_mod1_cp : list
-                Deep copy of the original motif list for reference.
-            - step : int
-                Updated step counter.
-            - digraph : list
-                Updated digraph structure.
-            - indexes : list
-                Index mapping of added fragments to step references.
+        pieces_mod : list
+            Updated list of pathway fragments after integration.
+        steps_mod : list
+            Updated list of pathway steps.
+        sorted_repeated_mod1_cp : list
+            Deep copy of the original motif list for reference.
+        step : int
+            Updated step counter.
+        digraph : list
+            Updated digraph structure.
+        indexes : list
+            Index mapping of added fragments to step references.
         """
         step_ind = [1] * len(sorted_repeated_mod1)
         indexes = [0] * len(sorted_repeated_mod1)
@@ -771,12 +797,10 @@ class AssemblyConstruction:
 
         Returns
         -------
-        tuple
-            A tuple containing:
-            - graph : nx.DiGraph
-                A directed graph representing the assembly pathway.
-            - unique_molecules : list
-                List of unique virtual objects from the pathway.
+        graph : nx.DiGraph
+            A directed graph representing the assembly pathway.
+        unique_molecules : list
+            List of unique virtual objects from the pathway.
         
         Raises
         ------
@@ -1128,12 +1152,10 @@ def parse_string_pathway_file(file_path_pathway: str) -> Tuple[Dict[str, Any], n
     
     Returns
     -------
-    tuple
-        A tuple containing:
-        - VOs : dict
-            Dictionary of virtual objects in calculated pathway.
-        - path : nx.DiGraph
-            NetworkX directed graph representing the pathway.
+    VOs : dict
+        Dictionary of virtual objects in calculated pathway.
+    path : nx.DiGraph
+        NetworkX directed graph representing the pathway.
     
     Raises
     ------

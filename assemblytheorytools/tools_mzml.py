@@ -1,3 +1,11 @@
+"""
+Parsing of mzML mass spectrometry files.
+
+This module decodes the binary data arrays embedded in mzML documents, handling
+the supported compression methods and precisions, and exposes the resulting
+spectra for downstream assembly analysis.
+"""
+
 import base64
 import json
 import logging
@@ -573,6 +581,25 @@ class _MzmlParser:
             int_threshold: Optional[int] = 1000,
             relative_intensity: Optional[bool] = False,
     ):
+        """
+        Initialise the mzML parser.
+
+        Parameters
+        ----------
+        filename : str
+            Path to the mzML file to parse.
+        output_dir : str
+            Directory the extracted spectra are written to. The path is
+            resolved to an absolute path.
+        rt_units : int, optional
+            Retention time units used by the source file. Default is None,
+            which infers the units from the document.
+        int_threshold : int, optional
+            Minimum intensity for a peak to be retained. Default is 1000.
+        relative_intensity : bool, optional
+            If True, report intensities relative to the base peak rather than
+            as absolute values. Default is False.
+        """
         self.logger = _make_logger("MzMLRipper")
         self.filename = filename
         self.output_dir = os.path.abspath(output_dir)

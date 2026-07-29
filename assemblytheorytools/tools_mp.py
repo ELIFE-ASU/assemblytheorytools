@@ -1,3 +1,12 @@
+"""
+Parallel execution helpers.
+
+This module provides thin wrappers around ``multiprocessing`` and
+``concurrent.futures`` for mapping a function over an iterable, including
+starmap-style calls for multi-argument functions, a thread-pool variant, and a
+chunked variant for large workloads.
+"""
+
 import multiprocessing as mp
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial

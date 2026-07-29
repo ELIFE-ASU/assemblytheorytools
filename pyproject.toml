@@ -42,6 +42,10 @@ classifiers = [
 dev = [
     "pytest>=8.4.2",
 ]
+docs = [
+    "sphinx>=8.0",
+    "sphinx-rtd-theme>=3.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/ELIFE-ASU/assemblytheorytools"

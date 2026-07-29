@@ -1,3 +1,12 @@
+"""
+Enumeration of the graph neighbourhood of a molecule.
+
+This module generates the molecular graphs that lie one edit away from a given
+structure: ``enumerate_up`` adds an atom or bond, ``enumerate_down`` removes one,
+and ``enumerate_neighborhood`` combines both. Results are deduplicated by graph
+isomorphism using colour-matched node and edge comparisons.
+"""
+
 import itertools
 import sys
 from typing import List, Dict, Set, Tuple, Optional, Any, FrozenSet, Union, Iterable
@@ -182,7 +191,7 @@ def enumerate_down(graph: nx.Graph, allow_dots: bool = True) -> List[List[List[T
     Notes
     -----
     This is a brute-force method that enumerates all possible edge subsets.
-    Time complexity is O(2^|E|) where |E| is the number of edges.
+    Time complexity is ``O(2^|E|)``, where ``|E|`` is the number of edges.
     """
     partition_pairs = []
     edges = list(graph.edges())
@@ -283,21 +292,21 @@ def enumerate_up(graph1: nx.Graph,
         List of graphs formed by valid vertex identifications between
         graph1 and graph2.
     
-    Notes
-    -----
-    Algorithm:
-    
-    1. Enumerate vertex colors shared by both graphs
-    2. For each color, enumerate valid vertex identification combinations
-    3. Filter combinations that produce multi-edges or violate valence rules
-    4. Compute outer product of combinations across all colors
-    5. Filter out combinations that create multi-edges
-    6. Generate output graphs from valid vertex identifications
-    
     Raises
     ------
     ValueError
         If nodes lack 'color' attributes when obey_valence is True.
+
+    Notes
+    -----
+    The algorithm proceeds as follows:
+
+    1. Enumerate vertex colors shared by both graphs.
+    2. For each color, enumerate valid vertex identification combinations.
+    3. Filter combinations that produce multi-edges or violate valence rules.
+    4. Compute the outer product of combinations across all colors.
+    5. Filter out combinations that create multi-edges.
+    6. Generate output graphs from the valid vertex identifications.
     """
 
     # Check that we have the information for valence checks

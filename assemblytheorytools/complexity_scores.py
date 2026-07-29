@@ -1,3 +1,14 @@
+"""
+Molecular complexity and similarity measures.
+
+This module collects scalar descriptors used to compare molecules against the
+assembly index. It covers simple counts (bonds, molecular weight), graph
+invariants (Bertz, Wiener, Balaban, Randic and Kirchhoff indices), published
+complexity scores (spacial score, Boettcher, Proudfoot, MC1 and MC2),
+compression-based proxies using ``zlib``, ``bz2`` and ``lzma``, and fingerprint
+similarity measures.
+"""
+
 import bz2
 import json
 import lzma
@@ -33,12 +44,12 @@ def count_unique_bonds(mol: Mol) -> int:
     A bond is considered unique if the pair of atom types (sorted alphabetically)
     and the bond type are distinct.
 
-    Parameters:
+    Parameters
     ----------
     mol : rdkit.Chem.rdchem.Mol
         The RDKit molecule object whose bonds are to be analyzed.
 
-    Returns:
+    Returns
     -------
     int
         The number of unique bonds in the molecule.
@@ -62,13 +73,13 @@ def count_bonds(mol: Mol) -> int:
     This function simply returns the total number of bonds present
     in the given RDKit molecule object.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     mol : rdkit.Chem.rdchem.Mol
         The RDKit molecule object whose bonds are to be counted.
 
-    Returns:
-    --------
+    Returns
+    -------
     int
         The total number of bonds in the molecule.
     """
@@ -83,13 +94,13 @@ def count_non_h_bonds(mol: Mol) -> int:
     checks if either of the bonded atoms is a hydrogen atom, and counts only those
     bonds where neither atom is hydrogen.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     mol : rdkit.Chem.rdchem.Mol
         The RDKit molecule object whose non-hydrogen bonds are to be counted.
 
-    Returns:
-    --------
+    Returns
+    -------
     int
         The number of bonds in the molecule that do not involve hydrogen atoms.
     """
@@ -109,13 +120,13 @@ def molecular_weight(mol: Mol) -> float:
     This function uses RDKit's molecular descriptors to compute the
     molecular weight of the given molecule.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     mol : rdkit.Chem.rdchem.Mol
         The RDKit molecule object for which the molecular weight is to be calculated.
 
-    Returns:
-    --------
+    Returns
+    -------
     float
         The molecular weight of the molecule.
     """
@@ -131,13 +142,13 @@ def bertz_complexity(mol: Mol) -> float:
     and considers factors such as the number of atoms, bonds, and
     branching in the molecular structure.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     mol : rdkit.Chem.rdchem.Mol
         The RDKit molecule object for which the Bertz complexity is to be calculated.
 
-    Returns:
-    --------
+    Returns
+    -------
     float
         The Bertz complexity of the molecule.
     """
@@ -153,13 +164,13 @@ def wiener_index(mol: Mol) -> int:
     It is used in cheminformatics to study molecular structure-activity
     relationships and predict physicochemical properties.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     mol : rdkit.Chem.rdchem.Mol
         The RDKit molecule object for which the Wiener index is to be calculated.
 
-    Returns:
-    --------
+    Returns
+    -------
     int
         The Wiener index of the molecule.
     """
@@ -186,13 +197,13 @@ def balaban_index(mol: Mol) -> float:
     molecular connectivity. It is used in cheminformatics to study molecular
     structure-activity relationships and predict physicochemical properties.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     mol : rdkit.Chem.rdchem.Mol
         The RDKit molecule object for which the Balaban index is to be calculated.
 
-    Returns:
-    --------
+    Returns
+    -------
     float
         The Balaban index of the molecule.
     """
@@ -404,8 +415,8 @@ def compression_zlib_smi(mol: Mol,
     compresses the string using zlib, and optionally removes compression overhead.
     It can also verify the integrity of the compressed data.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     mol : rdkit.Chem.rdchem.Mol
         The RDKit molecule object to be compressed.
     add_hydrogens : bool, optional
@@ -417,13 +428,13 @@ def compression_zlib_smi(mol: Mol,
     rm_overhead : bool, optional
         Whether to remove the overhead of compressing an empty string (default is True).
 
-    Returns:
-    --------
+    Returns
+    -------
     int
         The length of the compressed SMILES string, adjusted for overhead if specified.
 
-    Raises:
-    -------
+    Raises
+    ------
     Exception
         If decompression fails during the integrity check.
     """
@@ -472,8 +483,8 @@ def compression_bz2_smi(mol: Mol,
     compresses the string using bz2, and optionally removes compression overhead.
     It can also verify the integrity of the compressed data.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     mol : rdkit.Chem.rdchem.Mol
         The RDKit molecule object to be compressed.
     add_hydrogens : bool, optional
@@ -483,13 +494,13 @@ def compression_bz2_smi(mol: Mol,
     rm_overhead : bool, optional
         Whether to remove the overhead of compressing an empty string (default is True).
 
-    Returns:
-    --------
+    Returns
+    -------
     int
         The length of the compressed SMILES string, adjusted for overhead if specified.
 
-    Raises:
-    -------
+    Raises
+    ------
     Exception
         If decompression fails during the integrity check.
     """
@@ -538,8 +549,8 @@ def compression_lzma_smi(mol: Mol,
     compresses the string using lzma, and optionally removes compression overhead.
     It can also verify the integrity of the compressed data.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     mol : rdkit.Chem.rdchem.Mol
         The RDKit molecule object to be compressed.
     add_hydrogens : bool, optional
@@ -549,13 +560,13 @@ def compression_lzma_smi(mol: Mol,
     rm_overhead : bool, optional
         Whether to remove the overhead of compressing an empty string (default is True).
 
-    Returns:
-    --------
+    Returns
+    -------
     int
         The length of the compressed SMILES string, adjusted for overhead if specified.
 
-    Raises:
-    -------
+    Raises
+    ------
     Exception
         If decompression fails during the integrity check.
     """
@@ -662,8 +673,8 @@ def compression_zlib_graph(graph: nx.Graph,
     and optionally removes compression overhead. It can also verify the integrity of the
     compressed data.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     graph : nx.Graph
         The NetworkX graph object to be compressed.
     add_hydrogens : bool, optional
@@ -675,13 +686,13 @@ def compression_zlib_graph(graph: nx.Graph,
     rm_overhead : bool, optional
         Whether to remove the overhead of compressing an empty graph (default is True).
 
-    Returns:
-    --------
+    Returns
+    -------
     int
         The length of the compressed graph data, adjusted for overhead if specified.
 
-    Raises:
-    -------
+    Raises
+    ------
     Exception
         If decompression fails during the integrity check.
     """
@@ -727,7 +738,7 @@ def compression_ratio_zlib_graph(graph: nx.Graph,
     from the graph, verifying the integrity of the compressed data, and
     adjusting for compression overhead.
 
-    Parameters:
+    Parameters
     ----------
     graph : nx.Graph
         The NetworkX graph object to be compressed.
@@ -740,14 +751,14 @@ def compression_ratio_zlib_graph(graph: nx.Graph,
     rm_overhead : bool, optional
         Whether to remove the overhead of compressing an empty graph (default is True).
 
-    Returns:
-    --------
+    Returns
+    -------
     float
         The compression ratio of the graph, calculated as the size of the
         uncompressed graph divided by the size of the compressed graph.
 
-    Raises:
-    -------
+    Raises
+    ------
     Exception
         If decompression fails during the integrity check.
     """
@@ -790,13 +801,13 @@ def fcfp4(mol: Mol) -> int:
     Morgan fingerprinting method. The fingerprint is generated with a radius of 2
     and 2048 bits, focusing on functional groups by setting `useFeatures=True`.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     mol : rdkit.Chem.rdchem.Mol
         The RDKit molecule object for which the FCFP_4 fingerprint is to be generated.
 
-    Returns:
-    --------
+    Returns
+    -------
     int
         The number of bits set to 1 in the generated FCFP_4 fingerprint.
     """
@@ -814,7 +825,7 @@ def _determine_atom_substituents(atom_id, mol, distance_matrix):
     for a given atom in a molecule based on the distance matrix. It also tracks
     shared neighbors and the maximum shell distance for each substituent.
 
-    Parameters:
+    Parameters
     ----------
     atom_id : int
         The index of the atom in the molecule for which substituents are to be determined.
@@ -824,7 +835,7 @@ def _determine_atom_substituents(atom_id, mol, distance_matrix):
         The distance matrix of the molecule, where each element represents the
         shortest path distance between two atoms.
 
-    Returns:
+    Returns
     -------
     tuple
         A tuple containing:
@@ -875,14 +886,14 @@ def _get_chemical_non_equivs(atom: Chem.rdchem.Atom, mol: Mol) -> float:
     in a molecule. It uses the distance matrix of the molecule and the atom's substituents
     to identify unique groups based on their atomic symbols.
 
-    Parameters:
+    Parameters
     ----------
     atom : Chem.rdchem.Atom
         The RDKit atom object for which chemical non-equivalence is to be calculated.
     mol : Mol
         The RDKit molecule object containing the atom.
 
-    Returns:
+    Returns
     -------
     float
         The number of unique substituent groups attached to the atom.
@@ -917,12 +928,12 @@ def _get_bottcher_local_diversity(atom: Chem.rdchem.Atom) -> float:
     neighboring atom types. It adds an additional value of 1.0 if the atom's
     own type is not present among its neighbors.
 
-    Parameters:
+    Parameters
     ----------
     atom : Chem.rdchem.Atom
         The RDKit atom object for which the Bottcher local diversity is to be calculated.
 
-    Returns:
+    Returns
     -------
     float
         The Bottcher local diversity score of the atom.
@@ -941,12 +952,12 @@ def _get_num_isomeric_possibilities(atom: Chem.rdchem.Atom) -> float:
     the presence of stereochemical information. If the property exists, the atom
     has two isomeric possibilities (e.g., R/S or E/Z). Otherwise, it has only one.
 
-    Parameters:
+    Parameters
     ----------
     atom : Chem.rdchem.Atom
         The RDKit atom object for which the number of isomeric possibilities is to be determined.
 
-    Returns:
+    Returns
     -------
     float
         The number of isomeric possibilities: 2.0 if the '_CIPCode' property exists, otherwise 1.0.
@@ -961,14 +972,14 @@ def _get_num_valence_electrons(atom: Chem.rdchem.Atom, pt: Chem.rdchem.PeriodicT
     This function uses the periodic table to determine the number of outer-shell
     (valence) electrons for the specified atom based on its atomic number.
 
-    Parameters:
+    Parameters
     ----------
     atom : Chem.rdchem.Atom
         The RDKit atom object for which the number of valence electrons is to be calculated.
     pt : Chem.rdchem.PeriodicTable
         The RDKit periodic table object used to retrieve atomic properties.
 
-    Returns:
+    Returns
     -------
     float
         The number of valence electrons for the given atom.
@@ -984,17 +995,17 @@ def _get_bottcher_bond_index(atom: Chem.rdchem.Atom) -> float:
     Each bond type is assigned a specific weight, and additional adjustments are made
     for aromatic bonds involving carbon or nitrogen atoms.
 
-    Parameters:
+    Parameters
     ----------
     atom : Chem.rdchem.Atom
         The RDKit atom object for which the Bottcher bond index is to be calculated.
 
-    Returns:
+    Returns
     -------
     float
         The Bottcher bond index for the given atom.
 
-    Raises:
+    Raises
     ------
     ValueError
         If an unsupported bond type is encountered.
@@ -1034,12 +1045,12 @@ def bottcher(mol: Mol) -> float:
     local diversity, isomeric possibilities, valence electrons, and bond indices
     for each atom in the molecule.
 
-    Parameters:
+    Parameters
     ----------
     mol : rdkit.Chem.rdchem.Mol
         The RDKit molecule object for which the Bottcher complexity is to be calculated.
 
-    Returns:
+    Returns
     -------
     float
         The Bottcher complexity of the molecule.
@@ -1081,12 +1092,12 @@ def proudfoot(mol: Mol) -> float:
     complexity of a molecule. It is based on the distribution of molecular paths,
     atomic complexity, molecular complexity, log-sum complexity, and structural entropy.
 
-    Parameters:
+    Parameters
     ----------
     mol : rdkit.Chem.rdchem.Mol
         The RDKit molecule object for which the Proudfoot complexity is to be calculated.
 
-    Returns:
+    Returns
     -------
     float
         The Proudfoot complexity of the molecule.
@@ -1139,12 +1150,12 @@ def mc1(mol: Mol) -> float:
     in a molecule. It is calculated as 1 minus the ratio of divalent nodes
     to the total number of atoms in the molecule.
 
-    Parameters:
+    Parameters
     ----------
     mol : rdkit.Chem.rdchem.Mol
         The RDKit molecule object for which the MC1 index is to be calculated.
 
-    Returns:
+    Returns
     -------
     float
         The MC1 index of the molecule.
@@ -1166,12 +1177,12 @@ def mc2(mol: Mol) -> int:
     number of non-divalent atoms that are not part of these specific C=O-X
     double bonds.
 
-    Parameters:
+    Parameters
     ----------
     mol : rdkit.Chem.rdchem.Mol
         The RDKit molecule object for which the MC2 index is to be calculated.
 
-    Returns:
+    Returns
     -------
     int
         The count of non-divalent atoms not involved in C=O-X double bonds.

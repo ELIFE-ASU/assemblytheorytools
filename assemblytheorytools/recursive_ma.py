@@ -1,3 +1,12 @@
+"""
+Recursive molecular assembly (RMA) estimation.
+
+This module implements a recursive decomposition of a molecule into a tree of
+subunits and estimates the molecular assembly index from that tree. It provides
+tree construction, depth measurement, unification of equivalent subtrees, parent
+identification, and the :class:`MAEstimator` driver class.
+"""
+
 import functools
 import logging
 from collections import defaultdict
@@ -146,8 +155,9 @@ def rma_unify_trees(trees: list[dict]):
     and merges them into a single tree. If the list is empty, it returns an empty dictionary.
     If there is only one tree, it returns that tree. If there are multiple trees, it merges
     them by:
-      - Taking all unique keys from each tree and including their subtrees as-is.
-      - For keys present in more than one tree, recursively merging their subtrees.
+
+    - Taking all unique keys from each tree and including their subtrees as-is.
+    - For keys present in more than one tree, recursively merging their subtrees.
 
     This is useful for combining results from multiple samples or experiments into a single
     hierarchical structure for further analysis.
