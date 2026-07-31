@@ -638,28 +638,25 @@ class AssemblyConstruction:
         Construct the reaction pathway by combining initial fragments and resolving overlaps.
 
         This method builds the overall pathway graph by:
-            - Initializing edges as disjoint fragments (`pieces`)
-            - Applying equivalence mappings to handle duplicate structures
-            - Sorting and incorporating repeated motifs using a construction algorithm
-            - Iteratively merging consistent fragments until convergence
 
-        Intermediate steps and the resulting pathway are stored as attributes 
-        on the instance for downstream use (e.g., visualization, logging, or graph generation).
+        - Initializing edges as disjoint fragments (``pieces``).
+        - Applying equivalence mappings to handle duplicate structures.
+        - Sorting and incorporating repeated motifs using a construction
+          algorithm.
+        - Iteratively merging consistent fragments until convergence.
 
-        Parameters
-        ----------
-        None
+        Intermediate steps and the resulting pathway are stored as attributes
+        on the instance for downstream use, such as visualization, logging or
+        graph generation.
 
         Returns
         -------
         None
-            The results are stored in the following instance attributes:
-            - self.steps : list
-                Sequence of transformation steps forming the pathway.
-            - self.digraph : list
-                Final digraph structure representing stepwise assembly.
-            - self.pieces_mod : list
-                Remaining or modified substructures after construction.
+            The results are stored on the instance: ``self.steps`` holds the
+            sequence of transformation steps forming the pathway,
+            ``self.digraph`` the final digraph structure representing stepwise
+            assembly, and ``self.pieces_mod`` the remaining or modified
+            substructures after construction.
         """
         step = 0
         digraph = []
@@ -696,28 +693,22 @@ class AssemblyConstruction:
         """
         Generate virtual objects (VOs) and transformation steps based on the specified VO type.
 
-        This method processes the list of atoms and steps from a pathway to create their 
-        corresponding molecular representations in one of several formats: NetworkX graph, 
-        RDKit molecule, SMILES, or InChI. The generated data is stored as attributes on 
-        the class instance for further use in graph construction or analysis.
-
-        Parameters
-        ----------
-        None
+        This method processes the list of atoms and steps from a pathway to
+        create their corresponding molecular representations in one of several
+        formats: NetworkX graph, RDKit molecule, SMILES, or InChI. The generated
+        data is stored as attributes on the class instance for further use in
+        graph construction or analysis.
 
         Returns
         -------
         None
-            All generated data is stored in the instance attributes:
-            - self.molecules_vo : list
-                List of individual molecule representations per atom.
-            - self.molecules_steps : list
-                List of molecule representations per transformation step.
-            - self.steps_indx_s : list
-                Indexed and encoded transformation step data.
-            - self.vs_atoms : list
-                Vertex (atom) labels for each step.
-    
+            All generated data is stored on the instance:
+            ``self.molecules_vo`` holds the individual molecule representations
+            per atom, ``self.molecules_steps`` the molecule representations per
+            transformation step, ``self.steps_indx_s`` the indexed and encoded
+            transformation step data, and ``self.vs_atoms`` the vertex (atom)
+            labels for each step.
+
         Raises
         ------
         ValueError
@@ -947,18 +938,13 @@ def parse_pathway_file(file: str,
 
     Returns
     -------
-    tuple
-        If log is False:
-            (graph, vo_list) where:
-            - graph : nx.DiGraph
-                The constructed assembly directed graph.
-            - vo_list : list
-                List of virtual objects used in the graph.
-        
-        If log is True:
-            (graph, vo_list, log_string) where:
-            - log_string : str
-                A summary log string of the pathway steps.
+    graph : nx.DiGraph
+        The constructed assembly directed graph.
+    vo_list : list
+        List of virtual objects used in the graph.
+    log_string : str
+        A summary log string of the pathway steps. Only returned when ``log``
+        is True.
     """
     # # Load the pathway file
     with open(file) as f:

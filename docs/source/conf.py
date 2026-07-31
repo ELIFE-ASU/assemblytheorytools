@@ -65,7 +65,10 @@ napoleon_include_special_with_doc = False
 napoleon_use_admonition_for_examples = False
 napoleon_use_admonition_for_notes = False
 napoleon_use_admonition_for_references = False
-napoleon_use_ivar = False
+# Render class `Attributes` sections as :ivar: fields. Without this, autodoc
+# also emits an attribute directive per dataclass field, and the two collide as
+# duplicate object descriptions.
+napoleon_use_ivar = True
 napoleon_use_param = True
 napoleon_use_rtype = True
 napoleon_preprocess_types = True
