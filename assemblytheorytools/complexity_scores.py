@@ -165,6 +165,13 @@ def wiener_index(mol: Mol) -> int:
     -------
     int
         The Wiener index of the molecule.
+
+    Notes
+    -----
+    - Every atom present in ``mol`` is a vertex of the graph, so molecules
+      carrying explicit hydrogens give a larger index than the heavy-atom
+      skeleton alone. Strip the hydrogens first if the heavy-atom value is
+      wanted.
     """
     distance_matrix = Chem.rdmolops.GetDistanceMatrix(mol)
     n_atoms = len(distance_matrix)
