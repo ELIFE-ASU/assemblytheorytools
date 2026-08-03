@@ -31,7 +31,7 @@ from matplotlib.axes import Axes
 from matplotlib.cm import ScalarMappable
 from matplotlib.figure import Figure
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
-from matplotlib.patches import Circle
+from matplotlib.patches import Circle, FancyArrowPatch
 from pyvis.network import Network
 from rdkit import Chem
 from rdkit.Chem import Draw, rdFMCS
@@ -461,6 +461,77 @@ def plot_digraph_metro(digraph: nx.DiGraph,
     return None
 
 
+def _draw_edge_arrowhead(ax: Axes,
+                         edge_patch: FancyArrowPatch,
+                         position: float,
+                         color: str,
+                         plt_arrow_style,
+                         arrow_size: int,
+                         width: float = 2.5) -> None:
+    """
+    Draw a single arrowhead part way along an edge that has already been drawn.
+
+    The edge patch is asked for its path in data coordinates, so the head follows
+    the curvature of the edge and its node margins rather than the straight line
+    between the two nodes.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        Axis holding the edge.
+    edge_patch : matplotlib.patches.FancyArrowPatch
+        Edge as returned by `networkx.draw_networkx_edges`, drawn without a head.
+    position : float
+        Fraction along the edge at which to place the head, from 0 at the source
+        to 1 at the target.
+    color : str
+        Colour of the arrowhead.
+    plt_arrow_style : str or ArrowStyle object from matplotlib.patches
+        Style of the arrowhead.
+    arrow_size : int
+        Size of the arrowhead (matplotlib mutation scale).
+    width : float, optional
+        Line width of the arrowhead, by default 2.5.
+
+    Returns
+    -------
+    None
+        The arrowhead is added to the axis in place.
+    """
+    # Poly-line approximation of the drawn edge, in data coordinates
+    verts = np.asarray([v for v, _ in edge_patch.get_path().iter_segments(curves=False)])
+    if len(verts) < 2:
+        return None
+
+    steps = np.diff(verts, axis=0)
+    lengths = np.hypot(steps[:, 0], steps[:, 1])
+    # Drop repeated vertices, they carry no direction
+    keep = lengths > 0.0
+    if not keep.any():
+        return None
+    starts, steps, lengths = verts[:-1][keep], steps[keep], lengths[keep]
+
+    # Walk along the arc length, so the head sits part way along the curve
+    # rather than part way between the two nodes
+    arc = np.concatenate(([0.0], np.cumsum(lengths)))
+    target = float(np.clip(position, 0.0, 1.0)) * arc[-1]
+    i = int(np.clip(np.searchsorted(arc, target) - 1, 0, len(lengths) - 1))
+    point = starts[i] + steps[i] * (target - arc[i]) / lengths[i]
+
+    # Stub pointing along the edge, short enough to hide under the head itself
+    stub = 1e-3 * arc[-1] * steps[i] / lengths[i]
+    ax.add_patch(FancyArrowPatch(point - stub,
+                                 point + stub,
+                                 arrowstyle=plt_arrow_style,
+                                 mutation_scale=arrow_size,
+                                 color=color,
+                                 linewidth=width,
+                                 shrinkA=0,
+                                 shrinkB=0,
+                                 zorder=edge_patch.get_zorder()))
+    return None
+
+
 def plot_pathway(graph: nx.DiGraph,
                  fig_size: tuple = (12, 7),
                  show_icons: bool = True,
@@ -471,7 +542,9 @@ def plot_pathway(graph: nx.DiGraph,
                  frame_on: bool = True,
                  font_size: int = 11,
                  arrow_color: str = '#264f70',
-                 plt_arrow_style='->') -> tuple[Figure, Axes]:
+                 plt_arrow_style='->',
+                 arrow_pos: float = 1.0,
+                 arrow_size: int = 20) -> tuple[Figure, Axes]:
     """
     Visualize a directed acyclic graph as a pathway with customizable layout.
     
@@ -505,12 +578,20 @@ def plot_pathway(graph: nx.DiGraph,
         Color for arrows in hex format, by default '#264f70'.
     plt_arrow_style : str or ArrowStyle object from matplotlib.patches, optional
         Style of the arrowheads in the plot, by default '->'.
+    arrow_pos : float, optional
+        Fraction along each edge at which the arrowhead is drawn, from 0 at the
+        source to 1 at the target, by default 1.0 (head at the target node).
+        Only used with arrow_style '1'; see `plot_pathway_mid_arrow` for heads
+        half way along the edges.
+    arrow_size : int, optional
+        Size of the arrowhead (matplotlib mutation scale) when it is placed part
+        way along an edge, by default 20. Unused when arrow_pos is 1.
 
     Returns
     -------
     tuple of (matplotlib.figure.Figure, matplotlib.axes.Axes)
         Figure and axis objects containing the pathway visualization.
-    
+
     Raises
     ------
     ValueError
@@ -564,6 +645,7 @@ def plot_pathway(graph: nx.DiGraph,
                      arrowstyle="->",
                      width=2.0)
 
+    edge_patches = []
     if arrow_style == '1':
         if show_icons:
             arrow_margin = 70
@@ -590,13 +672,15 @@ def plot_pathway(graph: nx.DiGraph,
                 else:
                     rad = 0.0
 
-            nx.draw_networkx_edges(
+            # A head part way along the edge is added afterwards, so the edge
+            # itself is drawn without one
+            edge_patches += nx.draw_networkx_edges(
                 graph,
                 pos=pos,
                 edgelist=[edge],
                 ax=ax,
                 arrows=True,
-                arrowstyle=plt_arrow_style,
+                arrowstyle=plt_arrow_style if arrow_pos >= 1.0 else '-',
                 width=2.5,
                 edge_color=edge_color,
                 connectionstyle=f"arc3,rad={rad}",
@@ -677,7 +761,86 @@ def plot_pathway(graph: nx.DiGraph,
                [pos[node][1] for node in graph.nodes()],
                s=0, color='red')
 
+    if edge_patches and arrow_pos < 1.0:
+        # The edge paths are built in display space, so the view has to be
+        # settled before they are read back, and frozen so the heads stay on them
+        fig.canvas.draw()
+        ax.set_xlim(*ax.get_xlim())
+        ax.set_ylim(*ax.get_ylim())
+        for edge_patch in edge_patches:
+            _draw_edge_arrowhead(ax, edge_patch, arrow_pos, edge_color,
+                                 plt_arrow_style, arrow_size)
+
     return fig, ax
+
+
+def plot_pathway_mid_arrow(graph: nx.DiGraph,
+                           fig_size: tuple = (12, 7),
+                           show_icons: bool = True,
+                           node_color: str = '#264f70',
+                           plot_type: str = 'mol',
+                           layout_style: str = 'crossmin_long',
+                           frame_on: bool = True,
+                           font_size: int = 11,
+                           arrow_color: str = '#264f70',
+                           plt_arrow_style='->',
+                           arrow_pos: float = 0.5,
+                           arrow_size: int = 20) -> tuple[Figure, Axes]:
+    """
+    Visualize a directed acyclic graph as a pathway with mid-edge arrowheads.
+
+    Same as `plot_pathway` with the white edge style, except that each edge is
+    drawn as a plain line and its arrowhead is placed half way along it instead
+    of at the target node. Useful when the icons are large enough that heads at
+    the target node crowd them.
+
+    Parameters
+    ----------
+    graph : networkx.DiGraph
+        Directed acyclic graph representing a pathway or assembly process.
+    fig_size : tuple of float, optional
+        Figure size in inches as (width, height), by default (12, 7).
+    show_icons : bool, optional
+        If True, displays molecular structure icons on nodes, by default True.
+    node_color : str, optional
+        Color for nodes in hex format, by default '#264f70'.
+    plot_type : str, optional
+        Type of plot visualization ('mol' for molecules), by default 'mol'.
+    layout_style : str, optional
+        Layout algorithm: 'crossmin', 'crossmin_long', 'sa', or default
+        multipartite, by default 'crossmin_long'.
+    frame_on : bool, optional
+        If True, displays axis frame, by default True.
+    font_size : int, optional
+        Font size for string assembly paths, by default 11.
+    arrow_color : str, optional
+        Color for arrows in hex format, by default '#264f70'.
+    plt_arrow_style : str or ArrowStyle object from matplotlib.patches, optional
+        Style of the arrowheads in the plot, by default '->'.
+    arrow_pos : float, optional
+        Fraction along each edge at which the arrowhead is drawn, from 0 at the
+        source to 1 at the target, by default 0.5 (half way).
+    arrow_size : int, optional
+        Size of the arrowheads (matplotlib mutation scale), by default 20.
+
+    Returns
+    -------
+    tuple of (matplotlib.figure.Figure, matplotlib.axes.Axes)
+        Figure and axis objects containing the pathway visualization.
+    """
+    return plot_pathway(graph,
+                        fig_size=fig_size,
+                        show_icons=show_icons,
+                        node_color=node_color,
+                        plot_type=plot_type,
+                        arrow_style='1',
+                        layout_style=layout_style,
+                        frame_on=frame_on,
+                        font_size=font_size,
+                        arrow_color=arrow_color,
+                        plt_arrow_style=plt_arrow_style,
+                        arrow_pos=arrow_pos,
+                        arrow_size=arrow_size)
 
 
 def _average_angles(angles: np.ndarray) -> float:

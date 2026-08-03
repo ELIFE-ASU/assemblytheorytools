@@ -5,6 +5,7 @@ import shutil
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
+from matplotlib.patches import FancyArrowPatch
 
 import assemblytheorytools as att
 
@@ -189,6 +190,37 @@ def test_plot_pathway_mol():
     plt.show()
     assert fig is not None, "Failed to create the figure."
     assert ax is not None, "Failed to create the axes."
+
+
+def test_plot_pathway_mid_arrow():
+    """
+    Test the plotting of an assembly pathway with mid-edge arrowheads.
+
+    This function calculates the assembly pathway for a molecule (glycine) and plots
+    it with the arrowheads half way along the edges. It asserts that the figure and
+    axes are created successfully, and that every edge carries an arrowhead.
+    """
+    print(flush=True)
+
+    # Define the SMILES string for glycine
+    smi = "C(C(=O)O)N"
+
+    # Convert the SMILES string to an RDKit Mol object
+    mol = att.smi_to_mol(smi)
+    # Compute the assembly index and associated data
+    _, _, pathway = att.calculate_assembly_index(mol, strip_hydrogen=True)
+
+    fig, ax = att.plot_pathway_mid_arrow(pathway, plot_type='mol')
+    plt.show()
+    assert fig is not None, "Failed to create the figure."
+    assert ax is not None, "Failed to create the axes."
+
+    # The mid-edge version carries one extra arrow patch per edge, the head that
+    # is no longer drawn as part of the edge itself
+    _, ax_ref = att.plot_pathway(pathway, plot_type='mol')
+    n_arrows = len([p for p in ax.patches if isinstance(p, FancyArrowPatch)])
+    n_ref = len([p for p in ax_ref.patches if isinstance(p, FancyArrowPatch)])
+    assert n_arrows == n_ref + pathway.number_of_edges(), "Missing mid-edge arrowheads."
 
 
 def test_plot_assembly_circle():
