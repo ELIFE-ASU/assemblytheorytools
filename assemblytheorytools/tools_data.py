@@ -1,3 +1,13 @@
+"""
+Dataset acquisition, sampling and fitting utilities.
+
+This module gathers the data-handling helpers used to build and analyse
+molecular datasets: resampling strategies (bootstrapping, KDE and importance
+sampling), filtering by bond count and molecular weight, PubChem name, CID and
+SMILES lookups, bulk PubChem and CBRDB sampling, JCAMP infrared spectrum
+loading and peak finding, polynomial fitting, and goodness-of-fit metrics.
+"""
+
 import json
 import os
 import random
@@ -483,6 +493,23 @@ _ROMAN_RE = re.compile(r"^(?=[MDCLXVI])M{0,4}(CM|CD|D?C{0,3})"
 
 
 def _standardize_common_name(name: Optional[str]) -> Optional[str]:
+    """
+    Normalise a common chemical name to a consistent form.
+
+    Whitespace is collapsed, spacing around commas, semicolons, parentheses and
+    hyphens is regularised, and each token is recased, preserving short
+    all-caps acronyms and surrounding punctuation.
+
+    Parameters
+    ----------
+    name : str or None
+        The common name to normalise.
+
+    Returns
+    -------
+    str or None
+        The normalised name, or ``None`` if ``name`` was ``None`` or blank.
+    """
     if name is None:
         return None
     s = str(name).strip().lower()
@@ -502,6 +529,21 @@ def _standardize_common_name(name: Optional[str]) -> Optional[str]:
     tokens = s.split(" ")
 
     def _fix_token(tok: str) -> str:
+        """
+        Recase a single token of a common name.
+
+        Parameters
+        ----------
+        tok : str
+            The token to recase, which may carry leading or trailing
+            punctuation.
+
+        Returns
+        -------
+        str
+            The recased token. Short all-caps acronyms of two to six characters
+            are left unchanged, and surrounding punctuation is preserved.
+        """
         if not tok:
             return tok
 
@@ -802,6 +844,20 @@ def sample_random_pubchem(
     attempts = 0
 
     def _is_valid_smiles(smi: str) -> bool:
+        """
+        Check that a SMILES string is a single, valid, small-enough molecule.
+
+        Parameters
+        ----------
+        smi : str
+            The SMILES string to validate.
+
+        Returns
+        -------
+        bool
+            True if the string parses to a single connected molecule with no
+            more than ``max_bonds`` bonds, False otherwise.
+        """
         if not smi or "." in smi:
             return False
         mol = smi_to_mol(smi, sanitize=True, add_hydrogens=True)
@@ -920,6 +976,20 @@ def sample_first_pubchem(
     next_cid = start_cid
 
     def _is_valid_smiles(smi: str) -> bool:
+        """
+        Check that a SMILES string is a single, valid, small-enough molecule.
+
+        Parameters
+        ----------
+        smi : str
+            The SMILES string to validate.
+
+        Returns
+        -------
+        bool
+            True if the string parses to a single connected molecule with no
+            more than ``max_bonds`` bonds, False otherwise.
+        """
         if not smi or "." in smi:
             return False
         mol = smi_to_mol(smi, sanitize=True, add_hydrogens=True)
@@ -1793,8 +1863,8 @@ def linear_func(x, m, b):
     """
     Linear function to model a straight line.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     x : float or array-like
         The independent variable.
     m : float
@@ -1802,8 +1872,8 @@ def linear_func(x, m, b):
     b : float
         The y-intercept of the line.
 
-    Returns:
-    --------
+    Returns
+    -------
     float or array-like
         The dependent variable calculated as m * x + b.
     """
@@ -1814,8 +1884,8 @@ def quadratic_func(x, a, b, c):
     """
     Quadratic function to model a parabola.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     x : float or array-like
         The independent variable.
     a : float
@@ -1825,8 +1895,8 @@ def quadratic_func(x, a, b, c):
     c : float
         The constant term.
 
-    Returns:
-    --------
+    Returns
+    -------
     float or array-like
         The dependent variable calculated as a * x^2 + b * x + c.
     """
@@ -1837,8 +1907,8 @@ def cubic_func(x, a, b, c, d):
     """
     Cubic function to model a polynomial of degree 3.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     x : float or array-like
         The independent variable.
     a : float
@@ -1850,8 +1920,8 @@ def cubic_func(x, a, b, c, d):
     d : float
         The constant term.
 
-    Returns:
-    --------
+    Returns
+    -------
     float or array-like
         The dependent variable calculated as a * x^3 + b * x^2 + c * x + d.
     """
@@ -1862,8 +1932,8 @@ def quartic_func(x, a, b, c, d, e):
     """
     Quartic function to model a polynomial of degree 4.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     x : float or array-like
         The independent variable.
     a : float
@@ -1877,8 +1947,8 @@ def quartic_func(x, a, b, c, d, e):
     e : float
         The constant term.
 
-    Returns:
-    --------
+    Returns
+    -------
     float or array-like
         The dependent variable calculated as a * x^4 + b * x^3 + c * x^2 + d * x + e.
     """
@@ -1889,8 +1959,8 @@ def quintic_func(x, a, b, c, d, e):
     """
     Quintic function to model a polynomial of degree 5.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     x : float or array-like
         The independent variable.
     a : float
@@ -1904,8 +1974,8 @@ def quintic_func(x, a, b, c, d, e):
     e : float
         The coefficient for the linear term (x).
 
-    Returns:
-    --------
+    Returns
+    -------
     float or array-like
         The dependent variable calculated as a * x^5 + b * x^4 + c * x^3 + d * x^2 + e * x.
     """
@@ -2101,17 +2171,15 @@ def estimate_ai_from_ir_peaks(peaks_data,
 
     Returns
     -------
-    tuple
-        A tuple containing:
-        - res.x : numpy.ndarray
-            The optimized model parameters.
-        - data_pred : numpy.ndarray
-            The predicted assembly indices as integers.
+    params : numpy.ndarray
+        The optimized model parameters.
+    data_pred : numpy.ndarray
+        The predicted assembly indices as integers.
 
     Notes
     -----
-    - The optimization is performed using the Nelder-Mead method.
-    - The tolerance for the optimization is set to 1e-6.
+    The optimization is performed using the Nelder-Mead method, with the
+    tolerance set to 1e-6.
     """
     res = minimize(_func_min_helper,
                    np.array(params_0),

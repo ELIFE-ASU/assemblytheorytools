@@ -1,3 +1,23 @@
+"""
+Tools for assembly theory calculations.
+
+This package provides a centralised set of utilities for computing assembly
+indices of molecules, strings and arbitrary graphs, reconstructing and
+enumerating assembly pathways, scoring molecular complexity, and plotting the
+results.
+
+The public functions of every submodule are re-exported at the package root, so
+``from assemblytheorytools import calculate_assembly_index`` and
+``from assemblytheorytools.assembly import calculate_assembly_index`` are
+equivalent.
+
+See Also
+--------
+assemblytheorytools.assembly : Assembly index calculation.
+assemblytheorytools.construction : Assembly pathway parsing and construction.
+assemblytheorytools.complexity_scores : Molecular complexity measures.
+"""
+
 from .assembly import (calculate_assembly_index,
                        calculate_assembly,
                        calculate_string_assembly_index,

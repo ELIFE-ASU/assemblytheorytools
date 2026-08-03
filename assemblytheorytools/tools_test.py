@@ -1,3 +1,12 @@
+"""
+Shared test molecules and graph fixtures.
+
+This module exposes the reference molecule set loaded from
+``tests/data/test_molecule_data.csv`` as the ``test_mols`` mapping, together with
+small hand-built NetworkX graphs (water, phosphine, PH2+ and carbon dioxide) and
+helpers for inspecting graph contents in tests.
+"""
+
 import csv
 from dataclasses import dataclass
 from pathlib import Path

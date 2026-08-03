@@ -1,3 +1,12 @@
+"""
+Handling of crystal structures and periodic cells.
+
+This module reads CIF files into ASE ``Atoms`` objects, identifies bonded
+clusters within a periodic cell, tiles cells and shells to build finite
+neighbourhoods, converts cells to NetworkX graphs, and guesses bond orders for
+the resulting connectivity.
+"""
+
 import warnings
 from typing import List, Dict, Tuple, Optional, Iterable
 
@@ -274,6 +283,21 @@ def tile_cell_shells(
 
     # Neighbor helper that returns a set (symmetric neighbors)
     def neighbors_of_set(index_set: set[int]) -> set[int]:
+        """
+        Find every atom bonded to any atom in a set.
+
+        Parameters
+        ----------
+        index_set : set of int
+            Atom indices whose neighbours are wanted.
+
+        Returns
+        -------
+        set of int
+            Indices of all atoms sharing a bond with a member of
+            ``index_set``. The input indices may themselves appear in the
+            result and are removed by the caller.
+        """
         if not index_set:
             return set()
         idx_arr = np.fromiter(index_set, dtype=int)
@@ -294,6 +318,20 @@ def tile_cell_shells(
 
     # Helper to subset while preserving cell/PBC
     def subset_atoms(indices: np.ndarray) -> Atoms:
+        """
+        Extract a subset of the supercell as a new ``Atoms`` object.
+
+        Parameters
+        ----------
+        indices : np.ndarray
+            Indices of the atoms to keep.
+
+        Returns
+        -------
+        ase.Atoms
+            The selected atoms, carrying the cell and periodic boundary
+            conditions of the supercell and wrapped back into it.
+        """
         mask = np.zeros(len(sup), dtype=bool)
         mask[indices] = True
         sub = sup[mask]
@@ -407,6 +445,31 @@ def guess_bond_orders(
 
     # Helper to pick a plausible target valence given degree constraints
     def choose_target_valence(Z: int, needed_min: int, q: int) -> int:
+        """
+        Pick a plausible target valence for an atom.
+
+        Parameters
+        ----------
+        Z : int
+            Atomic number of the atom.
+        needed_min : int
+            Minimum valence required to satisfy the atom's bonded degree.
+        q : int
+            Formal charge on the atom.
+
+        Returns
+        -------
+        int
+            The smallest valence from the element's valence list that meets
+            ``needed_min``, biased upward by one for positively charged atoms.
+
+        Notes
+        -----
+        The charge adjustment is a rough heuristic: a positive charge typically
+        raises the valence capacity by about one, as in ``[NH4]+``, while a
+        negative charge can reduce the number of sigma bonds required, as in
+        ``[O-]``.
+        """
         # RDKit's valence list already accounts (approximately) for common valence states.
         vlist: Iterable[int] = pt.GetValenceList(Z)
         vlist = sorted(set(int(v) for v in vlist if v > 0))
@@ -448,11 +511,46 @@ def guess_bond_orders(
 
     # Initialize each edge's domain: 1..max_bond_order, limited by each endpoint's residual
     def edge_domain(u, v):
+        """
+        List the bond orders still assignable to an edge.
+
+        Parameters
+        ----------
+        u : node
+            First endpoint of the edge.
+        v : node
+            Second endpoint of the edge.
+
+        Returns
+        -------
+        list of int
+            The bond orders that fit within the residual valence of both
+            endpoints and within ``max_bond_order``.
+        """
         r = min(residual[u], residual[v], max_bond_order)
         return [o for o in (1, 2, 3) if o <= r]
 
     # Feasibility check after tentative assignment: can each node still be satisfied?
     def feasible_after(u, v, order) -> bool:
+        """
+        Test whether assigning a bond order leaves the problem satisfiable.
+
+        Parameters
+        ----------
+        u : node
+            First endpoint of the edge being assigned.
+        v : node
+            Second endpoint of the edge being assigned.
+        order : int
+            Bond order tentatively assigned to the edge.
+
+        Returns
+        -------
+        bool
+            True if both endpoints keep a non-negative residual valence and
+            their remaining unassigned edges can still absorb it, False
+            otherwise.
+        """
         # Tentatively reduce residuals
         ru = residual[u] - order
         rv = residual[v] - order
@@ -489,6 +587,18 @@ def guess_bond_orders(
 
     # Select next edge (MRV: smallest domain)
     def select_edge():
+        """
+        Choose the next edge to assign, by minimum remaining values.
+
+        Returns
+        -------
+        edge : tuple or None
+            The unassigned edge with the smallest domain, or ``None`` when
+            every edge has been assigned.
+        domain : list of int
+            The bond orders available for that edge. An empty list signals a
+            dead end that the search must backtrack from.
+        """
         best = None
         best_domain = None
         for (u, v) in H.edges():
@@ -507,9 +617,32 @@ def guess_bond_orders(
     best_score = -1  # number of atoms fully satisfied
 
     def score_solution() -> int:
+        """
+        Score a partial assignment by how many atoms are fully satisfied.
+
+        Returns
+        -------
+        int
+            The number of atoms whose residual valence has reached zero.
+        """
         return sum(1 for n in H.nodes() if residual[n] == 0)
 
     def search() -> bool:
+        """
+        Search recursively for a complete bond order assignment.
+
+        Edges are selected by smallest remaining domain and each candidate
+        order is tested for feasibility before recursing, backtracking when a
+        branch cannot be completed. The best partial assignment seen is kept so
+        that a usable result is available even when no complete solution
+        exists.
+
+        Returns
+        -------
+        bool
+            True if a complete assignment satisfying every atom was found,
+            False otherwise.
+        """
         nonlocal tried_edges, backtracks, best_partial, best_score
         edge, dom = select_edge()
         if edge is None:

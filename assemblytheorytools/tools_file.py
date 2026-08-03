@@ -1,3 +1,10 @@
+"""
+Filesystem helpers.
+
+This module provides directory listing and filtering, concurrency-safe appends to
+a shared file using file locking, and guarded removal of files and directories.
+"""
+
 import fcntl
 import glob
 import json
@@ -224,7 +231,8 @@ def remove_file_pattern(pattern: str):
     Parameters
     ----------
     pattern : str
-        The glob pattern to match files (e.g., "*.txt" for all text files).
+        The glob pattern to match files, for example ``*.txt`` for all text
+        files.
 
     Returns
     -------

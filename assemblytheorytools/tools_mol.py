@@ -1,3 +1,13 @@
+"""
+RDKit molecule helpers.
+
+This module wraps the RDKit operations used throughout the package:
+standardisation and sanitisation, free-valence and formal-charge handling,
+construction from SMILES, InChI and mol files, combining and splitting
+multi-fragment molecules, V2000 mol file writing, and peptide sequence
+conversion.
+"""
+
 import re
 import warnings
 from typing import List, Union
@@ -81,8 +91,8 @@ def get_free_valence(atom: Chem.Atom,
     """
     Calculate the free valence of an atom based on the specified method.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     atom : Chem.Atom
         The RDKit atom object for which the free valence is calculated.
     pt : Chem.rdchem.PeriodicTable, optional
@@ -93,18 +103,18 @@ def get_free_valence(atom: Chem.Atom,
         - '2': Uses the default valence minus the atom's explicit valence.
         - '3': Uses the number of outer electrons of the atom.
 
-    Returns:
-    --------
+    Returns
+    -------
     int
         The calculated free valence of the atom.
 
-    Raises:
-    -------
+    Raises
+    ------
     ValueError
         If an unknown method is provided.
 
-    Notes:
-    ------
+    Notes
+    -----
     - The free valence is calculated differently depending on the method specified.
     - The periodic table is used to retrieve atomic properties such as valence and outer electrons.
     """
@@ -128,20 +138,20 @@ def reset_mol_charge(mol: Chem.Mol,
     """
     Adjusts the formal charges of atoms in a molecule to match their free valence.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     mol : Chem.Mol
         An RDKit molecule object whose atom charges need to be reset.
     pt : Chem.rdchem.PeriodicTable, optional
         The RDKit periodic table object. If not provided, it defaults to the global periodic table.
 
-    Returns:
-    --------
+    Returns
+    -------
     Chem.Mol
         A new RDKit molecule object with updated formal charges.
 
-    Notes:
-    ------
+    Notes
+    -----
     - The function iterates over all atoms in the molecule and sets their formal charge
       based on the free valence calculated using the `get_free_valence` function.
     - The molecule's property cache is updated after modifying the charges.
@@ -218,8 +228,8 @@ def smi_to_mol(smi: str, add_hydrogens: bool = True, sanitize: bool = True) -> C
     and converts it into an RDKit molecule object. Optionally, the molecule can be
     sanitized and explicit hydrogens can be added.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     smi : str
         A SMILES string representing the molecular structure.
     add_hydrogens : bool, optional
@@ -227,18 +237,18 @@ def smi_to_mol(smi: str, add_hydrogens: bool = True, sanitize: bool = True) -> C
     sanitize : bool, optional
         If True, sanitizes the molecule after conversion. Defaults to True.
 
-    Returns:
-    --------
+    Returns
+    -------
     Chem.Mol
         An RDKit molecule object representing the input SMILES string.
 
-    Raises:
-    -------
+    Raises
+    ------
     Warning
         If the SMILES string contains disconnected molecules (indicated by a '.' character).
 
-    Notes:
-    ------
+    Notes
+    -----
     - The function uses RDKit's `MolFromSmiles` to create the molecule object.
     - Sanitization ensures the molecule is chemically valid and standardized.
     - Disconnected molecules in the SMILES string are flagged with a warning.
@@ -262,8 +272,8 @@ def inchi_to_mol(inchi: str, add_hydrogens: bool = True, sanitize: bool = True) 
     and converts it into an RDKit molecule object. Optionally, the molecule
     can be sanitized and explicit hydrogens can be added.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     inchi : str
         An InChI string representing the molecular structure.
     add_hydrogens : bool, optional
@@ -271,18 +281,18 @@ def inchi_to_mol(inchi: str, add_hydrogens: bool = True, sanitize: bool = True) 
     sanitize : bool, optional
         If True, sanitizes the molecule after conversion. Defaults to True.
 
-    Returns:
-    --------
+    Returns
+    -------
     Chem.Mol
         An RDKit molecule object representing the input InChI string.
 
-    Raises:
-    -------
+    Raises
+    ------
     ValueError
         If the InChI string is invalid or the molecule could not be created.
 
-    Notes:
-    ------
+    Notes
+    -----
     - The function uses RDKit's `MolFromInchi` to create the molecule object.
     - Sanitization ensures the molecule is chemically valid and standardized.
     """
@@ -302,8 +312,8 @@ def molfile_to_mol(mol: str, add_hydrogens: bool = True, sanitize: bool = True) 
     reads it, and converts it into an RDKit molecule object. Optionally, the molecule
     can be sanitized and explicit hydrogens can be added.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     mol : str
         The path to the Molfile containing the molecular structure.
     add_hydrogens : bool, optional
@@ -311,18 +321,18 @@ def molfile_to_mol(mol: str, add_hydrogens: bool = True, sanitize: bool = True) 
     sanitize : bool, optional
         If True, sanitizes the molecule after conversion. Defaults to True.
 
-    Returns:
-    --------
+    Returns
+    -------
     Chem.Mol
         An RDKit molecule object representing the input Molfile.
 
-    Raises:
-    -------
+    Raises
+    ------
     ValueError
         If the Molfile is invalid or the molecule could not be created.
 
-    Notes:
-    ------
+    Notes
+    -----
     - The function uses RDKit's `MolFromMolFile` to create the molecule object.
     - Sanitization ensures the molecule is chemically valid and standardized.
     """
@@ -386,6 +396,10 @@ def write_v2k_mol_file(mol: Chem.Mol, file_path: str) -> None:
         The RDKit molecule to be written to the file.
     file_path : str
         The path to the file where the molecule will be written.
+
+    Returns
+    -------
+    None
     """
     # Need to force rdkit to use V2k mol block format
     with open(file_path, "w") as f:
@@ -423,8 +437,8 @@ def standardise_smiles(smi: str, add_hydrogens: bool = True, sanitize: bool = Tr
     into a standardized format using RDKit. Optionally, explicit hydrogens can be added
     and the molecule can be sanitized.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     smi : str
         A SMILES string representing the molecular structure.
     add_hydrogens : bool, optional
@@ -432,18 +446,18 @@ def standardise_smiles(smi: str, add_hydrogens: bool = True, sanitize: bool = Tr
     sanitize : bool, optional
         If True, sanitizes the molecule during conversion. Defaults to True.
 
-    Returns:
-    --------
+    Returns
+    -------
     str
         A standardized SMILES string with isomeric, kekule, and canonical options enabled.
 
-    Raises:
-    -------
+    Raises
+    ------
     ValueError
         If the SMILES string is invalid or the molecule could not be created.
 
-    Notes:
-    ------
+    Notes
+    -----
     - The function uses RDKit's `MolFromSmiles` to create the molecule object.
     - Sanitization ensures the molecule is chemically valid and standardized.
     - The standardized SMILES string is returned with specified options.
@@ -469,24 +483,38 @@ def smi_remove_implicit_hydrogen(input_string: str) -> str:
     This function processes a SMILES (Simplified Molecular Input Line Entry System) string
     and removes implicit hydrogen counts from atomic symbols enclosed in square brackets.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     input_string : str
         A SMILES string containing atomic symbols with implicit hydrogen counts.
 
-    Returns:
-    --------
+    Returns
+    -------
     str
         A modified SMILES string with implicit hydrogen counts removed.
 
-    Notes:
-    ------
+    Notes
+    -----
     - The function uses a regular expression to identify atomic symbols with implicit hydrogen counts.
     - Only the atomic symbol is retained, and the hydrogen count is removed.
     """
     pattern = r'\[([a-zA-Z]+[0-9]*)\]'
 
     def update_match(match):
+        """
+        Reduce a bracketed atom token to its bare element symbol.
+
+        Parameters
+        ----------
+        match : re.Match
+            Match of the bracketed-atom pattern, whose first group holds the
+            atom token, for example ``"CH3"``.
+
+        Returns
+        -------
+        str
+            The bracketed element symbol alone, for example ``"[C]"``.
+        """
         group = match.group(1)
         return f"[{group[0]}]"
 

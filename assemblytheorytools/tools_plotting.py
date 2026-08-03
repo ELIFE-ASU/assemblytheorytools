@@ -1,3 +1,16 @@
+"""
+Plotting helpers for graphs, pathways and spectra.
+
+This module provides the matplotlib and pyvis figures used to present assembly
+theory results: molecular and assembly graph drawings, interactive and metro-map
+pathway layouts, assembly circles, scatter, contour, heatmap, hexbin, histogram
+and KDE plots, crossing-minimised multipartite layouts, molecule grids, and
+infrared and MS2 spectrum plots.
+
+Importing this module sets a small number of global matplotlib ``rcParams`` to
+give the figures a consistent appearance.
+"""
+
 import math
 import random
 import tempfile
@@ -801,6 +814,20 @@ def _plot_directed_network(nodes: List[str],
 
     # helper radius mapping consistent with plot_assembly_circle
     def _radius(idx: int) -> float:
+        """
+        Map a layer index to a radial distance.
+
+        Parameters
+        ----------
+        idx : int
+            Zero-based layer index.
+
+        Returns
+        -------
+        float
+            The radius for the layer. Under ``"hyperbolic"`` spacing this grows
+            as ``idx + factor * sinh(idx)``; otherwise it equals ``idx``.
+        """
         base = float(idx)
         if spacing_mode == "hyperbolic":
             mapped = float(base + spacing_hyperbolic_factor * np.sinh(base))
@@ -2023,16 +2050,63 @@ def multipartite_layout_crossmin(G: nx.Graph,
 
     # Helper function to create a mapping of node indices within a layer
     def index_map(nodes):
+        """
+        Map each node to its position within a layer.
+
+        Parameters
+        ----------
+        nodes : list
+            Nodes of a layer, in their current order.
+
+        Returns
+        -------
+        dict
+            Mapping from node to its zero-based index.
+        """
         return {u: i for i, u in enumerate(nodes)}
 
     # Helper function to calculate edge weights
     def edge_w(u, v):
+        """
+        Return the weight of the edge between two nodes.
+
+        Parameters
+        ----------
+        u : node
+            Source node.
+        v : node
+            Target node.
+
+        Returns
+        -------
+        float
+            The edge weight, or 1.0 when no weight attribute is in use.
+        """
         if weight is None:
             return 1.0
         return G[u][v].get(weight, 1.0)
 
     # Order nodes in a layer based on the barycenter heuristic
     def ordered_by_barycenter(target_nodes, neighbor_nodes):
+        """
+        Order a layer by the barycenter heuristic.
+
+        Each node is scored by the weighted mean position of its neighbours in
+        the adjacent layer; nodes without neighbours keep their current
+        position, and ties are broken by the existing order.
+
+        Parameters
+        ----------
+        target_nodes : list
+            Nodes of the layer being reordered.
+        neighbor_nodes : list
+            Nodes of the adjacent layer, in their fixed order.
+
+        Returns
+        -------
+        list
+            ``target_nodes`` sorted by increasing barycenter score.
+        """
         neigh_idx = index_map(neighbor_nodes)
         current_idx = index_map(target_nodes)
 
@@ -2056,6 +2130,25 @@ def multipartite_layout_crossmin(G: nx.Graph,
 
     # Order nodes in a layer based on the median heuristic
     def ordered_by_median(target_nodes, neighbor_nodes):
+        """
+        Order a layer by the median heuristic.
+
+        Each node is scored by the median position of its neighbours in the
+        adjacent layer; nodes without neighbours keep their current position,
+        and ties are broken by the existing order.
+
+        Parameters
+        ----------
+        target_nodes : list
+            Nodes of the layer being reordered.
+        neighbor_nodes : list
+            Nodes of the adjacent layer, in their fixed order.
+
+        Returns
+        -------
+        list
+            ``target_nodes`` sorted by increasing median score.
+        """
         neigh_idx = index_map(neighbor_nodes)
         current_idx = index_map(target_nodes)
 
@@ -2203,6 +2296,7 @@ def multipartite_layout_crossmin_long(G: nx.Graph,
         When one or more of ``return_order``, ``return_dummies`` or ``return_routes`` is True,
         a tuple is returned with the primary ``pos`` as the first element followed by the
         requested auxiliary structures in this order: ``orders``, ``dummies``, ``routes``.
+
         - orders : dict mapping layer value -> list of nodes in final order (may include dummies
           if ``return_dummies`` is True).
         - dummies : set or list of dummy node identifiers and their positions (present when
@@ -2272,13 +2366,19 @@ def multipartite_layout_crossmin_long(G: nx.Graph,
         """
         Calculates the weight of an edge.
 
-        Parameters:
-        u (node): Source node.
-        v (node): Target node.
-        data (dict, optional): Edge data dictionary. Defaults to None.
+        Parameters
+        ----------
+        u : node
+            Source node.
+        v : node
+            Target node.
+        data : dict, optional
+            Edge data dictionary. Defaults to None.
 
-        Returns:
-        float: Weight of the edge.
+        Returns
+        -------
+        float
+            Weight of the edge.
         """
         if weight is None:
             return 1.0
@@ -2295,10 +2395,14 @@ def multipartite_layout_crossmin_long(G: nx.Graph,
         """
         Adds an undirected edge to the neighbors dictionary, accumulating weights.
 
-        Parameters:
-        u (node): Source node.
-        v (node): Target node.
-        w (float): Weight of the edge.
+        Parameters
+        ----------
+        u : node
+            Source node.
+        v : node
+            Target node.
+        w : float
+            Weight of the edge.
         """
         neighbors[u][v] += w
         neighbors[v][u] += w
@@ -2369,11 +2473,15 @@ def multipartite_layout_crossmin_long(G: nx.Graph,
         """
         Creates a mapping of node indices within a layer.
 
-        Parameters:
-        nodes (list): List of nodes in the layer.
+        Parameters
+        ----------
+        nodes : list
+            List of nodes in the layer.
 
-        Returns:
-        dict: Mapping of nodes to their indices.
+        Returns
+        -------
+        dict
+            Mapping of nodes to their indices.
         """
         return {u: i for i, u in enumerate(nodes)}
 
@@ -2381,12 +2489,17 @@ def multipartite_layout_crossmin_long(G: nx.Graph,
         """
         Orders nodes in a layer based on the barycenter heuristic.
 
-        Parameters:
-        target_nodes (list): Nodes in the target layer.
-        neighbor_nodes (list): Nodes in the neighboring layer.
+        Parameters
+        ----------
+        target_nodes : list
+            Nodes in the target layer.
+        neighbor_nodes : list
+            Nodes in the neighboring layer.
 
-        Returns:
-        list: Ordered list of nodes in the target layer.
+        Returns
+        -------
+        list
+            Ordered list of nodes in the target layer.
         """
         neigh_idx = index_map(neighbor_nodes)
         cur_idx = index_map(target_nodes)
@@ -2407,12 +2520,17 @@ def multipartite_layout_crossmin_long(G: nx.Graph,
         """
         Orders nodes in a layer based on the median heuristic.
 
-        Parameters:
-        target_nodes (list): Nodes in the target layer.
-        neighbor_nodes (list): Nodes in the neighboring layer.
+        Parameters
+        ----------
+        target_nodes : list
+            Nodes in the target layer.
+        neighbor_nodes : list
+            Nodes in the neighboring layer.
 
-        Returns:
-        list: Ordered list of nodes in the target layer.
+        Returns
+        -------
+        list
+            Ordered list of nodes in the target layer.
         """
         neigh_idx = index_map(neighbor_nodes)
         cur_idx = index_map(target_nodes)
@@ -2502,14 +2620,33 @@ def multipartite_layout_crossmin_long(G: nx.Graph,
 
 
 class _BIT:
-    # Fenwick tree for prefix sums of floats (weights).
+    """
+    Fenwick tree (binary indexed tree) over float weights.
+
+    Supports point updates and prefix-sum queries in logarithmic time, which is
+    used to count weighted edge crossings while sweeping a layered layout.
+
+    Parameters
+    ----------
+    n : int
+        Number of elements the tree must hold.
+
+    Attributes
+    ----------
+    n : int
+        Number of elements the tree holds.
+    t : list of float
+        Internal one-based tree array of length ``n + 1``.
+    """
 
     def __init__(self, n: int) -> None:
         """
         Initializes the Fenwick tree.
 
-        Parameters:
-        n (int): The size of the tree (number of elements).
+        Parameters
+        ----------
+        n : int
+            The size of the tree (number of elements).
         """
         self.n = n
         self.t = [0.0] * (n + 1)
@@ -2518,9 +2655,12 @@ class _BIT:
         """
         Adds a value to the element at index `i`.
 
-        Parameters:
-        i (int): The index (0-based) to which the value will be added.
-        delta (float): The value to add.
+        Parameters
+        ----------
+        i : int
+            The index (0-based) to which the value will be added.
+        delta : float
+            The value to add.
         """
         i += 1
         while i <= self.n:
@@ -2531,11 +2671,15 @@ class _BIT:
         """
         Computes the prefix sum from index 0 to `i` (inclusive).
 
-        Parameters:
-        i (int): The index (0-based) up to which the prefix sum is calculated.
+        Parameters
+        ----------
+        i : int
+            The index (0-based) up to which the prefix sum is calculated.
 
-        Returns:
-        float: The sum of elements from index 0 to `i`. Returns 0.0 if `i` is negative.
+        Returns
+        -------
+        float
+            The sum of elements from index 0 to `i`. Returns 0.0 if `i` is negative.
         """
         if i < 0:
             return 0.0
@@ -2788,13 +2932,19 @@ def multipartite_layout_sa(G: nx.Graph,
         """
         Calculates the weight of an edge.
 
-        Parameters:
-        u (node): Source node.
-        v (node): Target node.
-        data (dict, optional): Edge data dictionary. Defaults to None.
+        Parameters
+        ----------
+        u : node
+            Source node.
+        v : node
+            Target node.
+        data : dict, optional
+            Edge data dictionary. Defaults to None.
 
-        Returns:
-        float: Weight of the edge.
+        Returns
+        -------
+        float
+            Weight of the edge.
         """
         if weight is None:
             return 1.0
@@ -2817,11 +2967,16 @@ def multipartite_layout_sa(G: nx.Graph,
         """
         Adds an edge between two nodes in adjacent layers.
 
-        Parameters:
-        i_left (int): Index of the left layer.
-        u (node): Source node in the left layer.
-        v (node): Target node in the right layer.
-        w (float): Weight of the edge.
+        Parameters
+        ----------
+        i_left : int
+            Index of the left layer.
+        u : node
+            Source node in the left layer.
+        v : node
+            Target node in the right layer.
+        w : float
+            Weight of the edge.
         """
         if i_left < 0 or i_left >= L - 1:
             return
@@ -2884,11 +3039,15 @@ def multipartite_layout_sa(G: nx.Graph,
         """
         Calculates the weighted crossings between two adjacent layers.
 
-        Parameters:
-        i (int): Index of the layer pair.
+        Parameters
+        ----------
+        i : int
+            Index of the layer pair.
 
-        Returns:
-        float: Total weighted crossings for the layer pair.
+        Returns
+        -------
+        float
+            Total weighted crossings for the layer pair.
         """
         if i < 0 or i >= L - 1:
             return 0.0
@@ -2902,8 +3061,10 @@ def multipartite_layout_sa(G: nx.Graph,
         """
         Calculates the total weighted crossings for all layer pairs.
 
-        Returns:
-        float: Total weighted crossings.
+        Returns
+        -------
+        float
+            Total weighted crossings.
         """
         return sum(pair_cross(i) for i in range(L - 1))
 
@@ -2912,11 +3073,15 @@ def multipartite_layout_sa(G: nx.Graph,
         """
         Estimates the initial temperature for simulated annealing.
 
-        Parameters:
-        samples (int, optional): Number of random swaps to sample. Defaults to 64.
+        Parameters
+        ----------
+        samples : int, optional
+            Number of random swaps to sample. Defaults to 64.
 
-        Returns:
-        float: Estimated initial temperature.
+        Returns
+        -------
+        float
+            Estimated initial temperature.
         """
         if L == 0:
             return 1.0
@@ -2958,11 +3123,15 @@ def multipartite_layout_sa(G: nx.Graph,
         """
         Proposes a swap of two nodes in a layer.
 
-        Parameters:
-        i (int): Index of the layer.
+        Parameters
+        ----------
+        i : int
+            Index of the layer.
 
-        Returns:
-        tuple: A tuple (i, a, b) representing the layer index and the indices of the nodes to swap.
+        Returns
+        -------
+        tuple
+            A tuple (i, a, b) representing the layer index and the indices of the nodes to swap.
         """
         n = len(layers[i])
         if n < 2:
@@ -3046,11 +3215,15 @@ def multipartite_layout_sa(G: nx.Graph,
         """
         Checks if a node is a dummy node.
 
-        Parameters:
-        n (node): The node to check.
+        Parameters
+        ----------
+        n : node
+            The node to check.
 
-        Returns:
-        bool: True if the node is a dummy node, False otherwise.
+        Returns
+        -------
+        bool
+            True if the node is a dummy node, False otherwise.
         """
         return isinstance(n, str) and n.startswith(dummy_prefix)
 
@@ -3339,6 +3512,58 @@ def draw_mol_grid_box(
         outer_margin: int = 12,
         inner_pad: int = 10,
 ):
+    """
+    Draw a grid of molecules, each on its own shaded tile.
+
+    Every molecule is rendered into a padded coloured box, and the boxes are
+    tiled onto a white canvas with a configurable gap between them.
+
+    Parameters
+    ----------
+    mols : sequence of Chem.Mol or str
+        The molecules to draw, given as RDKit molecules or SMILES strings.
+    legends : sequence of str, optional
+        Labels drawn beneath each molecule. Must be the same length as ``mols``.
+        Default is None, which draws no labels.
+    sort_by : sequence, optional
+        Values used to sort the molecules in ascending order before drawing.
+        ``legends`` is reordered to match. Default is None, which preserves the
+        input order.
+    n_cols : int, optional
+        Number of columns in the grid. Default is 4.
+    sub_img_size : tuple of (int, int), optional
+        Width and height in pixels of each tile. Default is ``(200, 200)``.
+    max_mols : int, optional
+        Maximum number of molecules to draw. Default is None, meaning no limit.
+    box_bg : str, optional
+        Background colour of each tile. Default is ``"#E6E6E6"``.
+    gap : int, optional
+        Gap in pixels between adjacent tiles. Default is 12.
+    outer_margin : int, optional
+        Margin in pixels around the outside of the grid. Default is 12.
+    inner_pad : int, optional
+        Padding in pixels between a tile edge and its molecule drawing. Default
+        is 10.
+
+    Returns
+    -------
+    PIL.Image.Image
+        The assembled grid image. A blank image is returned when ``mols`` is
+        empty.
+
+    Raises
+    ------
+    ValueError
+        If ``n_cols`` is not positive, if any of ``gap``, ``outer_margin`` or
+        ``inner_pad`` is negative, or if ``legends`` has a different length from
+        ``mols``.
+    TypeError
+        If an item of ``mols`` is neither an RDKit molecule nor a SMILES string.
+
+    See Also
+    --------
+    draw_mol_grid : Grid drawing without the shaded tile background.
+    """
     if n_cols <= 0:
         raise ValueError("n_cols must be a positive integer")
     if gap < 0 or outer_margin < 0 or inner_pad < 0:
@@ -3419,6 +3644,44 @@ def plot_ir_spectrum(spectrum: np.ndarray,
                      flip_x: bool = True,
                      figsize: Tuple[float, float] = (8, 5),
                      fontsize: int = 16) -> Tuple[Figure, Axes]:
+    """
+    Plot an infrared spectrum, optionally marking detected peaks.
+
+    Parameters
+    ----------
+    spectrum : np.ndarray
+        Two-column array whose first column holds wavenumbers and whose second
+        column holds intensities.
+    peaks : np.ndarray, optional
+        Indices into ``spectrum`` marking the peaks to highlight in red.
+        Default is None, which marks no peaks.
+    highlight_range : tuple of (float, float), optional
+        Wavenumber range shaded in the background, typically the fingerprint
+        region. Default is ``(400.0, 1500.0)``. Pass None to disable shading.
+    xlab : str, optional
+        Label for the x-axis. Default is ``'Wavenumber (cm⁻¹)'``.
+    ylab : str, optional
+        Label for the y-axis. Default is ``'Intensity'``.
+    flip_x : bool, optional
+        If True, invert the x-axis, which is the standard convention for
+        infrared spectra. Default is True.
+    figsize : tuple of (float, float), optional
+        Figure size in inches. Default is ``(8, 5)``.
+    fontsize : int, optional
+        Font size used for the axis labels and ticks. Default is 16.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        The created figure.
+    ax : matplotlib.axes.Axes
+        The axes holding the spectrum.
+
+    See Also
+    --------
+    assemblytheorytools.tools_data.load_ir_jcamp_data : Load spectra from JCAMP files.
+    assemblytheorytools.tools_data.find_peak_indices_in_range : Locate peak indices.
+    """
     freq = spectrum.T[0]
     intensity = spectrum.T[1]
     # Create a figure and axis

@@ -1,3 +1,10 @@
+"""
+Processing of mass spectrometry data in JSON form.
+
+This module reads the JSON representation produced from mzML files and extracts
+the spectra and peak lists used for downstream assembly analysis.
+"""
+
 import json
 
 import pandas as pd
@@ -54,6 +61,20 @@ def _try_parse(parser, default):
     """
 
     def inner(value):
+        """
+        Parse a value, falling back to the default on failure.
+
+        Parameters
+        ----------
+        value : Any
+            The value to pass to the wrapped parser.
+
+        Returns
+        -------
+        Any
+            The parsed value, or the captured default if parsing raised
+            ``ValueError``.
+        """
         try:
             return parser(value)
         except ValueError:

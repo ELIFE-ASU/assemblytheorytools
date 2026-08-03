@@ -1,3 +1,14 @@
+"""
+Assembly index calculation for molecules, strings and graphs.
+
+This module wraps the external assembly calculators and exposes them through a
+uniform interface. Three backends are supported: the bundled C++ ``assembly``
+executable, the ``assembly_theory`` Rust extension, and ``assemblycfg`` for
+context-free-grammar upper bounds. Helpers are provided for locating and
+compiling the C++ binary, parsing its output, correcting joint assembly indices,
+and deriving bounds, ratios and similarity measures.
+"""
+
 import json
 import os
 import platform
@@ -1734,6 +1745,27 @@ def _parse_pathway_file(data: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _calculate_jo_from_pathway(json_file: str) -> int:
+    """
+    Derive the joint assembly correction from a saved pathway file.
+
+    The original graph is rebuilt from the first ``file_graph`` entry of the
+    pathway JSON, and its connected component count is used to work out the
+    joint-object offset that must be applied to the raw assembly index.
+
+    Parameters
+    ----------
+    json_file : str
+        Path to the JSON pathway file written by the assembly calculator.
+
+    Returns
+    -------
+    int
+        The joint-object correction implied by the pathway.
+
+    See Also
+    --------
+    joint_assembly_index_correction : Apply the correction to an assembly index.
+    """
     # Load JSON pathway data
     with open(json_file, 'r', encoding='utf-8') as f:
         data = json.load(f)

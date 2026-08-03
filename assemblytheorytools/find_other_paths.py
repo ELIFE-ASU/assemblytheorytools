@@ -1,3 +1,11 @@
+"""
+Enumeration of alternative assembly pathways.
+
+This module finds the complete set of shortest paths through an assembly graph,
+which is used to identify degenerate pathways that reach the same target with an
+equal number of joining steps.
+"""
+
 from typing import List, Optional, Dict, Any
 
 import numpy as np

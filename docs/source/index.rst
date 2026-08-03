@@ -1,18 +1,37 @@
-.. assemblytheorytools documentation master file, created by
-   sphinx-quickstart on Mon Dec 29 15:05:09 2025.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 assemblytheorytools documentation
 =================================
 
-Add your content using ``reStructuredText`` syntax. See the
-`reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
-documentation for details.
+A centralised set of tools for doing assembly theory calculations: computing
+assembly indices for molecules, strings and arbitrary graphs, reconstructing and
+enumerating assembly pathways, scoring molecular complexity, and plotting the
+results.
 
+Installation
+------------
+
+.. code-block:: bash
+
+   pip install assemblytheorytools
+
+Quick start
+-----------
+
+.. code-block:: python
+
+   from assemblytheorytools import calculate_assembly_index, smi_to_nx
+
+   graph = smi_to_nx("CCO")
+   assembly_index, virtual_objects, pathway = calculate_assembly_index(graph)
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
    modules
+
+Indices and tables
+------------------
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`

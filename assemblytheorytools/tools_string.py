@@ -1,3 +1,12 @@
+"""
+String assembly helpers.
+
+This module supports assembly index calculations on sequences rather than
+molecules. It loads FASTA files, concatenates strings with unique delimiters for
+joint assembly calculations, generates random test strings, and builds the
+directed and undirected graph representations of a string.
+"""
+
 import random
 import re
 import string
