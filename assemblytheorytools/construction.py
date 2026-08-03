@@ -27,6 +27,9 @@ from .tools_graph import (bond_order_assout_to_int,
                           set_graph_layer)
 from .tools_mol import smi_remove_implicit_hydrogen
 
+# Raised wherever an unrecognised virtual object representation is requested
+_VO_TYPE_ERROR = "Invalid vo_type. Choose from 'graph', 'mol', 'smiles', or 'inchi'."
+
 
 def transform_array(target_array: List[List[int]],
                     comp_array: List[List[int]],
@@ -82,8 +85,7 @@ def repeated_sizes(repeated: List[Tuple[Any, Any]]) -> List[int]:
     list
         Sorted list of unique sizes of the second element in each tuple.
     """
-    rep = sorted(set(len(rep[1]) for rep in repeated))
-    return rep
+    return sorted(set(len(rep[1]) for rep in repeated))
 
 
 def equal_list(list_a: List[List[Any]], list_b: List[List[Any]]) -> bool:
@@ -127,10 +129,10 @@ def check_edge_in_list(edges: List[Any], list_in: List[List[Any]]) -> bool:
     Returns
     -------
     bool
-        True if the given list of edges is present in any of the lists within the input 
+        True if the given list of edges is present in any of the lists within the input
         list of lists, otherwise False.
     """
-    return any(equal_list(l, edges) for l in list_in)
+    return any(equal_list(candidate, edges) for candidate in list_in)
 
 
 def equivalence(remnant_pieces: List[List[Any]], equivalences: List[List[int]]) -> List[List[Any]]:
@@ -222,9 +224,9 @@ def fix_repeated_equiv(edge_list: List[Any],
                 target_val, source_val = sort_repeated_eq_1[2 * i][1], sort_repeated_eq_1[2 * i][0]
                 add += [[source_val, new_val], sort_repeated_eq_1[2 * i + 1].tolist()]
                 edge_list = transform_array(edge_list, trans_edges, source_val, target_val, new_val, edge_pairs)
-                for i, rep in enumerate(repeated_mod):
-                    for j, _ in enumerate(rep):
-                        repeated_equiv[i][j] = transform_array(repeated_equiv[i][j], repeated_mod[i][j], source_val,
+                for k, rep in enumerate(repeated_mod):
+                    for j in range(len(rep)):
+                        repeated_equiv[k][j] = transform_array(repeated_equiv[k][j], repeated_mod[k][j], source_val,
                                                                target_val, new_val, edge_pairs)
             equivalences = remove.tolist() + add
         else:
@@ -233,9 +235,9 @@ def fix_repeated_equiv(edge_list: List[Any],
                     new_val, target_val, source_val = item[1], inter[1], item[0]
             equivalences = remove.tolist() + np.delete(repeated_eq_1, repeated_eq_1.index(inter), axis=0).tolist()
             edge_list = transform_array(edge_list, trans_edges, source_val, target_val, new_val, edge_pairs)
-            for i, rep in enumerate(repeated_mod):
-                for j, _ in enumerate(rep):
-                    repeated_equiv[i][j] = transform_array(repeated_equiv[i][j], repeated_mod[i][j], source_val,
+            for k, rep in enumerate(repeated_mod):
+                for j in range(len(rep)):
+                    repeated_equiv[k][j] = transform_array(repeated_equiv[k][j], repeated_mod[k][j], source_val,
                                                            target_val, new_val, edge_pairs)
 
             sorted_eq = np.array(equivalences)[np.array(equivalences)[:, 0].argsort()]
@@ -253,7 +255,7 @@ def index_set(lists: List[List[Any]], list_in: List[Any]) -> Optional[int]:
     Finds the index of a list within a list of lists that matches the given list.
 
     This function converts the input list and each list within the list of lists to a set of tuples.
-    It then checks if any of these sets match the set of the input list and returns the index (1-based) 
+    It then checks if any of these sets match the set of the input list and returns the index (1-based)
     of the matching list.
 
     Parameters
@@ -272,6 +274,7 @@ def index_set(lists: List[List[Any]], list_in: List[Any]) -> Optional[int]:
     for i, i_list in enumerate(lists):
         if set(tuple(row) for row in i_list) == list_in_set:
             return i + 1
+    return None
 
 
 def select_length(dict_array: Dict[str, Any]) -> Union[int, float]:
@@ -321,8 +324,7 @@ def tables_to_mol(tables: Tuple[List[Tuple[int, str]], List[Tuple[int, int, int]
     for e in bonds_info:
         edit_mol.AddBond(e[0], e[1], bond_order_int_to_rdkit(e[2]))
 
-    mol = edit_mol.GetMol()
-    return mol  # reset_mol_charge(mol) # mol  #
+    return edit_mol.GetMol()
 
 
 def tables_to_nx(tables: Tuple[List[Tuple[int, str]], List[Tuple[int, int, int]]]) -> nx.Graph:
@@ -358,6 +360,41 @@ def tables_to_nx(tables: Tuple[List[Tuple[int, str]], List[Tuple[int, int, int]]
     return canonicalize_node_labels(graph)
 
 
+def _tables_to_vo(tables: Tuple[List[Tuple[int, str]], List[Tuple[int, int, int]]],
+                  vo_type: str) -> Any:
+    """
+    Render one (atoms, bonds) table pair as the requested virtual object type.
+
+    Parameters
+    ----------
+    tables : tuple
+        A tuple of ``(atoms_info, bonds_info)`` as accepted by
+        :func:`tables_to_nx` and :func:`tables_to_mol`.
+    vo_type : {'graph', 'mol', 'smiles', 'inchi'}
+        The representation to build.
+
+    Returns
+    -------
+    nx.Graph, Chem.Mol or str
+        A NetworkX graph, an RDKit molecule, or a SMILES/InChI string.
+
+    Raises
+    ------
+    ValueError
+        If *vo_type* is not one of 'graph', 'mol', 'smiles', or 'inchi'.
+    """
+    if vo_type == "graph":
+        return tables_to_nx(tables)
+    if vo_type == "mol":
+        return tables_to_mol(tables)
+    if vo_type == "smiles":
+        smiles = Chem.MolToSmiles(tables_to_mol(tables), allHsExplicit=True, isomericSmiles=True)
+        return smi_remove_implicit_hydrogen(smiles)
+    if vo_type == "inchi":
+        return Chem.MolToInchi(tables_to_mol(tables))
+    raise ValueError(_VO_TYPE_ERROR)
+
+
 class AssemblyConstruction:
     """
     Construction of assembly pathways and digraphs from pathway data.
@@ -375,10 +412,17 @@ class AssemblyConstruction:
     if_string : bool, optional
         Whether to sort combined pieces during construction. Default is False.
     vo_type : str, optional
-        Type of virtual object representation to use. Default is ``"graph"``.
+        Type of virtual object representation to use ("graph", "mol", "smiles"
+        or "inchi"). Default is ``"graph"``.
     input_graph : nx.Graph, optional
-        The original target graph, used to recover node attributes. Default is
-        None.
+        The original target graph, used to recover edge colours when
+        AssemblyCpp fails to print them beyond index 5. Default is None.
+
+    Notes
+    -----
+    The constructor initialises all internal data structures needed for pathway
+    construction, including vertices, edges, vertex/edge labels, remnant edges,
+    duplicates, and equivalences.
     """
 
     def __init__(self,
@@ -386,37 +430,16 @@ class AssemblyConstruction:
                  if_string: bool = False,
                  vo_type: str = "graph",
                  input_graph: Optional[nx.Graph] = None) -> None:
-        """
-        Initialize the AssemblyConstruction object with pathway data.
-
-        Parameters
-        ----------
-        data : dict
-            The pathway data from assemblycpp containing graph information,
-            remnants, duplicates, and other assembly metadata.
-        if_string : bool, optional
-            Whether to sort combined pieces during construction, by default False.
-        vo_type : str, optional
-            Type of virtual object representation to use ("graph", "mol", 
-            "smiles", or "inchi"), by default "graph".
-        input_graph : nx.Graph, optional
-            Input graph to read edge colors from when AssemblyCpp fails to 
-            output edge colors beyond index 5, by default None.
-
-        Notes
-        -----
-        This constructor initializes all internal data structures needed for 
-        pathway construction, including vertices, edges, vertex/edge labels,
-        remnant edges, duplicates, and equivalences.
-        """
         self.v = data["file_graph"][0]['Vertices']
         self.e = data["file_graph"][0]['Edges']
         self.v_l = data["file_graph"][0]['VertexColours']
         if input_graph is None:
             self.e_l = data["file_graph"][0]['EdgeColours']
-        else:  # AssemblyCpp fails to print edge colors beyond index 5 to pathway json. This is a workaround to read the colors from the original input graph.
-            self.e_l = [input_graph[u][v]['color'] for u, v in
-                        self.e]  # CAUTION: This assumes assemblycpp does not permute vertex labels.
+        else:
+            # AssemblyCpp fails to print edge colors beyond index 5 to the pathway json, so read
+            # them from the original input graph instead.
+            # CAUTION: this assumes assemblycpp does not permute vertex labels.
+            self.e_l = [input_graph[u][v]['color'] for u, v in self.e]
         self.remnant_e = data["remnant"][0]["Edges"] + data["removed_edges"]
         self.duplicates = [[dup["Right"], dup['Left']] for dup in data["duplicates"]]
         self.equivalences = [[1, 1]]
@@ -443,6 +466,22 @@ class AssemblyConstruction:
                 self.atoms_list_index.append(atom_list_index)
             self.full_atoms_list.append(atom_list)
 
+    def _virtual_object_index(self, edge: List[int]) -> int:
+        """
+        Look up the virtual object index of a single edge.
+
+        Parameters
+        ----------
+        edge : list
+            A two-element edge ``[u, v]`` from the target graph.
+
+        Returns
+        -------
+        int
+            Index of the matching entry in ``self.atoms``.
+        """
+        return self.atoms.index([{self.v_l[edge[0]], self.v_l[edge[1]]}, self.e_l[self.e.index(edge)]])
+
     def consistent_join(self,
                         pieces_mod: List[List[Any]],
                         steps_mod: List[List[Any]],
@@ -453,9 +492,9 @@ class AssemblyConstruction:
         """
         Attempt to merge overlapping pathway fragments into a consistent transformation step.
 
-        This method scans the current list of disjoint molecular fragments (`pieces_mod`) 
-        and looks for overlapping components (shared atoms or edges). When such overlaps 
-        are detected, the method merges the fragments, appends the result as a new step, 
+        This method scans the current list of disjoint molecular fragments (`pieces_mod`)
+        and looks for overlapping components (shared atoms or edges). When such overlaps
+        are detected, the method merges the fragments, appends the result as a new step,
         and updates the digraph to reflect the transformation lineage.
 
         Parameters
@@ -489,14 +528,14 @@ class AssemblyConstruction:
 
         def add_digraph_entry(piece: List[Any], step: int) -> None:
             """
-            Append an edge to the digraph indicating a dependency between a prior step or 
+            Append an edge to the digraph indicating a dependency between a prior step or
             virtual object (`piece`) and the current step.
 
             This helper function attempts to identify the origin of `piece` by checking:
                 - If it's a known left-side repeated motif (`left_sort`)
                 - If it's a right-side repeated motif (`right_sort`)
                 - If it's already part of a previously constructed step (`steps_mod`)
-    
+
             If no match is found, an "_error" label is used as a fallback source in the digraph.
 
             Parameters
@@ -512,13 +551,38 @@ class AssemblyConstruction:
                 Modifies the `digraph` list in-place by appending a [source, target] entry.
             """
             if piece in left_sort:
-                digraph.append(["step_{}".format(indexes[left_sort.index(piece)]), "step_{}".format(step)])
+                source = f"step_{indexes[left_sort.index(piece)]}"
             elif piece in right_sort:
-                digraph.append(["step_{}".format(indexes[right_sort.index(piece)]), "step_{}".format(step)])
+                source = f"step_{indexes[right_sort.index(piece)]}"
             elif piece in steps_mod:
-                digraph.append(["step_{}".format(steps_mod.index(piece) + 1), "step_{}".format(step)])
+                source = f"step_{steps_mod.index(piece) + 1}"
             else:
-                digraph.append(["step_{}".format("_error"), "step_{}".format(step)])
+                source = "step__error"
+            digraph.append([source, f"step_{step}"])
+
+        def add_source(piece: List[Any], step: int) -> None:
+            """
+            Record *piece* as a parent of *step*, as either a step or a virtual object.
+
+            Fragments holding more than one edge are traced back through
+            ``add_digraph_entry``; single-edge fragments are virtual objects.
+
+            Parameters
+            ----------
+            piece : list
+                The fragment being recorded as a source.
+            step : int
+                The current step index being constructed as the target node.
+
+            Returns
+            -------
+            None
+                Modifies the `digraph` list in-place.
+            """
+            if len(piece) > 1:
+                add_digraph_entry(piece, step)
+            else:
+                digraph.append([f"virtual_object_{self._virtual_object_index(piece[0])}", f"step_{step}"])
 
         for pic in pieces_mod:
             for pic_i in pieces_mod:
@@ -530,19 +594,8 @@ class AssemblyConstruction:
                     combined = np.sort(pic + pic_i, axis=0).tolist() if self.if_string else pic + pic_i
                     steps_mod.append(combined)
 
-                    if len(pic) > 1:
-                        add_digraph_entry(pic, step)
-                    else:
-                        v_object1 = self.atoms.index(
-                            [{self.v_l[pic[0][0]], self.v_l[pic[0][1]]}, self.e_l[self.e.index(pic[0])]])
-                        digraph.append(["virtual_object_{}".format(v_object1), "step_{}".format(step)])
-
-                    if len(pic_i) > 1:
-                        add_digraph_entry(pic_i, step)
-                    else:
-                        v_object1 = self.atoms.index(
-                            [{self.v_l[pic_i[0][0]], self.v_l[pic_i[0][1]]}, self.e_l[self.e.index(pic_i[0])]])
-                        digraph.append(["virtual_object_{}".format(v_object1), "step_{}".format(step)])
+                    add_source(pic, step)
+                    add_source(pic_i, step)
 
                     pieces_mod.remove(pic)
                     pieces_mod.remove(pic_i)
@@ -565,7 +618,7 @@ class AssemblyConstruction:
             - Append them directly to the current set of pathway pieces if no conflicts exist,
             - Or integrate them by merging overlapping pieces through consistent joining logic.
 
-        The method also tracks which fragments have been added and associates them with 
+        The method also tracks which fragments have been added and associates them with
         their corresponding indices for downstream pathway construction.
 
         Parameters
@@ -687,8 +740,6 @@ class AssemblyConstruction:
         self.digraph = digraph
         self.pieces_mod = pieces_mod
 
-        return None
-
     def generate_vo(self) -> None:
         """
         Generate virtual objects (VOs) and transformation steps based on the specified VO type.
@@ -713,25 +764,18 @@ class AssemblyConstruction:
         ------
         ValueError
             If `self.vo_type` is not one of 'graph', 'mol', 'smiles', or 'inchi'.
+
+        Notes
+        -----
+        Steps are rendered as SMILES when ``vo_type`` is ``"mol"``, whereas the
+        per-atom virtual objects are kept as RDKit molecules.
         """
         # Generate the virtual objects
-        molecules_vo = []
-        for atom in self.atoms_list:
-            if self.vo_type == "graph":
-                mol = tables_to_nx(([(0, atom[0][0]), (1, atom[0][1])], [(0, 1, bond_order_assout_to_int(atom[1]))]))
-            elif self.vo_type == "mol":
-                mol = tables_to_mol(([(0, atom[0][0]), (1, atom[0][1])], [(0, 1, bond_order_assout_to_int(atom[1]))]))
-            elif self.vo_type == "smiles":
-                mol = tables_to_mol(([(0, atom[0][0]), (1, atom[0][1])], [(0, 1, bond_order_assout_to_int(atom[1]))]))
-                mol = Chem.MolToSmiles(mol, allHsExplicit=True, isomericSmiles=True)
-                mol = smi_remove_implicit_hydrogen(mol)
-            elif self.vo_type == "inchi":
-                mol = tables_to_mol(([(0, atom[0][0]), (1, atom[0][1])], [(0, 1, bond_order_assout_to_int(atom[1]))]))
-                mol = Chem.MolToInchi(mol)
-            else:
-                raise ValueError("Invalid vo_type. Choose from 'graph', 'mol', 'smiles', or 'inchi'.")
-
-            molecules_vo.append(mol)
+        molecules_vo = [
+            _tables_to_vo(([(0, atom[0][0]), (1, atom[0][1])],
+                           [(0, 1, bond_order_assout_to_int(atom[1]))]), self.vo_type)
+            for atom in self.atoms_list
+        ]
 
         # Generate the steps
         steps_index_s = []
@@ -742,36 +786,47 @@ class AssemblyConstruction:
                 [[indices.index(edge[0]), indices.index(edge[1]), self.e_l[self.e.index(edge)]] for edge in step])
             vs_atoms.append([self.v_l[at] for at in indices])
 
-        # Generate the molecules for each step
-        molecules_steps = []
-        for i, step in enumerate(steps_index_s):
-            if self.vo_type == "graph":
-                mol = tables_to_nx(([(i, at) for at in vs_atoms[i]],
-                                    [(edge[0], edge[1], bond_order_assout_to_int(edge[2])) for edge in step]))
-            elif self.vo_type == "mol":
-                mol = tables_to_mol(([(i, at) for at in vs_atoms[i]],
-                                     [(edge[0], edge[1], bond_order_assout_to_int(edge[2])) for edge in step]))
-                mol = Chem.MolToSmiles(mol, allHsExplicit=True, isomericSmiles=True)
-                mol = smi_remove_implicit_hydrogen(mol)
-            elif self.vo_type == "smiles":
-                mol = tables_to_mol(([(i, at) for at in vs_atoms[i]],
-                                     [(edge[0], edge[1], bond_order_assout_to_int(edge[2])) for edge in step]))
-                mol = Chem.MolToSmiles(mol, allHsExplicit=True, isomericSmiles=True)
-                mol = smi_remove_implicit_hydrogen(mol)
-            elif self.vo_type == "inchi":
-                mol = tables_to_mol(([(i, at) for at in vs_atoms[i]],
-                                     [(edge[0], edge[1], bond_order_assout_to_int(edge[2])) for edge in step]))
-                mol = Chem.MolToInchi(mol)
-            else:
-                raise ValueError("Invalid vo_type. Choose from 'graph', 'mol', 'smiles', or 'inchi'.")
-            molecules_steps.append(mol)
+        # Generate the molecules for each step. Note "mol" steps are rendered as
+        # SMILES, unlike the per-atom virtual objects above.
+        step_vo_type = "smiles" if self.vo_type == "mol" else self.vo_type
+        molecules_steps = [
+            _tables_to_vo(([(i, at) for at in vs_atoms[i]],
+                           [(edge[0], edge[1], bond_order_assout_to_int(edge[2])) for edge in step]), step_vo_type)
+            for i, step in enumerate(steps_index_s)
+        ]
 
         self.molecules_vo = molecules_vo
         self.molecules_steps = molecules_steps
         self.steps_indx_s = steps_index_s
         self.vs_atoms = vs_atoms
 
-        return None
+    def _add_pathway_node(self, graph: nx.DiGraph, name: str) -> None:
+        """
+        Add a virtual object or step node to *graph* with its molecule payload.
+
+        Nodes whose index falls outside the generated molecule lists are skipped,
+        leaving them to be created attribute-free by ``add_edges_from``.
+
+        Parameters
+        ----------
+        graph : nx.DiGraph
+            The graph being built.
+        name : str
+            Node name, of the form ``virtual_object_<i>`` or ``step_<i>``.
+
+        Returns
+        -------
+        None
+        """
+        if name.startswith("virtual_object_"):
+            vo_index = int(name.split("_")[-1])
+            if vo_index < len(self.molecules_vo):
+                graph.add_node(name, type="virtual_object", vo=self.molecules_vo[vo_index])
+        elif name.startswith("step_"):
+            if name.split("_")[-1].isdigit():
+                step_index = int(name.split("_")[-1]) - 1
+                if 0 <= step_index < len(self.molecules_steps):
+                    graph.add_node(name, type="step", vo=self.molecules_steps[step_index])
 
     def get_assembly_digraph(self) -> Tuple[nx.DiGraph, List[Any]]:
         """
@@ -782,17 +837,13 @@ class AssemblyConstruction:
         - vo: The corresponding molecule representation from molecules_vo or molecules_steps
         - label: String representation for visualization
 
-        Parameters
-        ----------
-        None
-
         Returns
         -------
         graph : nx.DiGraph
             A directed graph representing the assembly pathway.
         unique_molecules : list
             List of unique virtual objects from the pathway.
-        
+
         Raises
         ------
         ValueError
@@ -804,64 +855,27 @@ class AssemblyConstruction:
         graph = nx.DiGraph()
 
         # Add all nodes with their corresponding molecule information
-        for edge in self.digraph:
-            source, target = edge
-
-            # Handle virtual object nodes
-            if source.startswith("virtual_object_"):
-                vo_index = int(source.split("_")[-1])
-                if vo_index < len(self.molecules_vo):
-                    graph.add_node(source,
-                                   type="virtual_object",
-                                   vo=self.molecules_vo[vo_index])
-
-            # Handle step nodes
-            if source.startswith("step_"):
-                if source.split("_")[-1].isdigit():
-                    step_index = int(source.split("_")[-1]) - 1
-                    if 0 <= step_index < len(self.molecules_steps):
-                        graph.add_node(source,
-                                       type="step",
-                                       vo=self.molecules_steps[step_index])
-
-            # Do the same for target nodes
-            if target.startswith("virtual_object_"):
-                vo_index = int(target.split("_")[-1])
-                if vo_index < len(self.molecules_vo):
-                    graph.add_node(target,
-                                   type="virtual_object",
-                                   vo=self.molecules_vo[vo_index])
-
-            if target.startswith("step_"):
-                if target.split("_")[-1].isdigit():
-                    step_index = int(target.split("_")[-1]) - 1
-                    if 0 <= step_index < len(self.molecules_steps):
-                        graph.add_node(target,
-                                       type="step",
-                                       vo=self.molecules_steps[step_index])
+        for source, target in self.digraph:
+            self._add_pathway_node(graph, source)
+            self._add_pathway_node(graph, target)
 
         # Add all edges from digraph
         graph.add_edges_from(self.digraph)
 
         # Add the label attribute to the nodes
-        for node in graph.nodes(data=True):
+        for name, data in graph.nodes(data=True):
             if self.vo_type == "graph":
-                graph.nodes[node[0]]["label"] = node[0]
+                graph.nodes[name]["label"] = name
             elif self.vo_type == "mol":
-                mol = node[1]["vo"]
-                mol = Chem.MolToSmiles(mol, allHsExplicit=True, isomericSmiles=True)
-                graph.nodes[node[0]]["label"] = smi_remove_implicit_hydrogen(mol)
-
-            elif self.vo_type == "smiles":
-                graph.nodes[node[0]]["label"] = node[1]["vo"]
-            elif self.vo_type == "inchi":
-                graph.nodes[node[0]]["label"] = node[1]["vo"]
+                smiles = Chem.MolToSmiles(data["vo"], allHsExplicit=True, isomericSmiles=True)
+                graph.nodes[name]["label"] = smi_remove_implicit_hydrogen(smiles)
+            elif self.vo_type in ("smiles", "inchi"):
+                graph.nodes[name]["label"] = data["vo"]
             else:
-                raise ValueError("Invalid vo_type. Choose from 'graph', 'mol', 'smiles', or 'inchi'.")
+                raise ValueError(_VO_TYPE_ERROR)
 
         # Combine molecules_vo and molecules_steps into a single list and find the set of unique elements
-        all_molecules = self.molecules_vo + self.molecules_steps
-        unique_molecules = set(all_molecules)
+        unique_molecules = set(self.molecules_vo + self.molecules_steps)
 
         return graph, list(unique_molecules)
 
@@ -869,8 +883,8 @@ class AssemblyConstruction:
         """
         Generate a formatted string summarizing the pathway construction.
 
-        This method builds a multi-section string that summarizes the graph 
-        structure, atoms involved, transformation steps, and the digraph 
+        This method builds a multi-section string that summarizes the graph
+        structure, atoms involved, transformation steps, and the digraph
         representation associated with the pathway.
 
         Sections included:
@@ -879,28 +893,23 @@ class AssemblyConstruction:
             - Step descriptions (`self.steps`)
             - Digraph structure (`self.digraph`)
 
-        Parameters
-        ----------
-        None
-
         Returns
         -------
         str
-            A multi-line formatted string representing the internal state 
+            A multi-line formatted string representing the internal state
             of the pathway and its graph structure.
         """
-        pathway_file = []
-        pathway_file.append("#####Graph#####\n")
-        pathway_file.append(str(self.v) + "\n")
-        pathway_file.append(str(self.e) + "\n")
-        pathway_file.append(str(self.v_l) + "\n")
-        pathway_file.append(str(self.e_l) + "\n")
-        pathway_file.append("#####Atoms#####\n")
+        pathway_file = ["#####Graph#####\n",
+                        str(self.v) + "\n",
+                        str(self.e) + "\n",
+                        str(self.v_l) + "\n",
+                        str(self.e_l) + "\n",
+                        "#####Atoms#####\n"]
         for index, a in enumerate(self.atoms_list):
-            pathway_file.append("atom{}={}\n".format(index, a))
+            pathway_file.append(f"atom{index}={a}\n")
         pathway_file.append("#####Steps#####\n")
         for index, ste in enumerate(self.steps):
-            pathway_file.append("step{}={}\n".format(index + 1, ste))
+            pathway_file.append(f"step{index + 1}={ste}\n")
         pathway_file.append("#####Digraph#####\n")
         for i in self.digraph:
             pathway_file.append(str(i) + "\n")
@@ -925,16 +934,17 @@ def parse_pathway_file(file: str,
     file : str
         Path to the JSON pathway file.
     vo_type : str, optional
-        Type of virtual object representation to use (e.g., "smiles", "graph", 
+        Type of virtual object representation to use (e.g., "smiles", "graph",
         "mol", "inchi"), by default "smiles".
     debug : bool, optional
         If True, prints debug information about each node, by default False.
     log : bool, optional
-        If True, returns an additional string describing the pathway log, 
+        If True, returns an additional string describing the pathway log,
         by default False.
     input_graph : nx.Graph, optional
-        Input graph to read edge colors from. If None, edge colors are read 
-        from the pathway file, by default None.
+        Input graph to read edge colors from. If None, edge colors are read
+        from the pathway file, by default None. AssemblyCpp drops colour
+        output after index 5, so a general graph must supply its own colours.
 
     Returns
     -------
@@ -946,15 +956,12 @@ def parse_pathway_file(file: str,
         A summary log string of the pathway steps. Only returned when ``log``
         is True.
     """
-    # # Load the pathway file
+    # Load the pathway file
     with open(file) as f:
         data = json.load(f)
 
     # Make the construction object
-    if input_graph == None:
-        construction_object = AssemblyConstruction(data, vo_type=vo_type)
-    else:  # If the input is a general graph, we need to pass the input graph to read the edge colors (AssemblyCpp drops color output after 5; bug is only in output.)
-        construction_object = AssemblyConstruction(data, vo_type=vo_type, input_graph=input_graph)
+    construction_object = AssemblyConstruction(data, vo_type=vo_type, input_graph=input_graph)
     graph, vo_list = construction_object.get_assembly_digraph()
 
     if debug:
@@ -962,10 +969,8 @@ def parse_pathway_file(file: str,
         for node in graph.nodes(data=True):
             print(f"Node: {node[0]}, Type: {node[1]['type']}, VO: {node[1]['vo']}", flush=True)
     if log:
-        log_string = construction_object.pathway_log_string()
-        return graph, vo_list, log_string
-    else:
-        return graph, vo_list
+        return graph, vo_list, construction_object.pathway_log_string()
+    return graph, vo_list
 
 
 def get_level(G: nx.DiGraph, node: str) -> int | None:
@@ -978,27 +983,22 @@ def get_level(G: nx.DiGraph, node: str) -> int | None:
         A directed graph where nodes represent (sub-)objects and edges represent assembly steps.
     node : str
         The node for which to determine the assembly depth.
+
     Returns
     -------
     int
-        The assembly depth of the node, or None if the depth cannot be determined.
+        The assembly depth of the node: one more than the deepest predecessor,
+        or 0 when the node has no predecessors.
+
     Raises
     ------
-    ValueError
-        If the node is not present in the graph.
+    KeyError
+        If a predecessor has not yet been assigned a level.
     """
-    preds = [
-        edge[0] for edge in list(G.in_edges(node))
-    ]
-    if len(preds) > 0:
-        return max([G.nodes[pred]["level"] for pred in preds]) + 1
-    elif len(preds) == 0:
+    preds = [edge[0] for edge in G.in_edges(node)]
+    if not preds:
         return 0
-    no_pred = [pred for pred in preds if "level" not in G.nodes[pred]]
-    try:
-        return get_level(G, no_pred[0])
-    except Exception:
-        return None
+    return max(G.nodes[pred]["level"] for pred in preds) + 1
 
 
 def assign_levels(G: nx.DiGraph, inplace: bool = True) -> None | nx.DiGraph:
@@ -1011,7 +1011,7 @@ def assign_levels(G: nx.DiGraph, inplace: bool = True) -> None | nx.DiGraph:
     G : nx.DiGraph
         A directed graph where nodes represent (sub-)objects and edges represent assembly steps.
     inplace : bool, optional
-        If True, modifies the graph in place. If False, returns a modified copy, 
+        If True, modifies the graph in place. If False, returns a modified copy,
         by default True.
 
     Returns
@@ -1019,11 +1019,16 @@ def assign_levels(G: nx.DiGraph, inplace: bool = True) -> None | nx.DiGraph:
     None or nx.DiGraph
         If inplace is True, modifies the graph in place and returns None.
         If inplace is False, returns a new graph with updated node attributes.
-    
+
     Raises
     ------
     TypeError
         If the input graph G is not a directed graph (DiGraph).
+
+    Notes
+    -----
+    Nodes are visited in insertion order, so a predecessor must appear before
+    its successors for the levels to resolve.
     """
     if not isinstance(G, nx.DiGraph):
         raise TypeError("Graph G must be a directed graph (DiGraph).")
@@ -1031,11 +1036,7 @@ def assign_levels(G: nx.DiGraph, inplace: bool = True) -> None | nx.DiGraph:
         G = G.copy()
 
     for node in G.nodes:
-        if not list(G.predecessors(node)):
-            G.nodes[node].update({"level": 0})
-        else:
-            _ = get_level(G, node)
-            G.nodes[node].update({"level": get_level(G, node)})
+        G.nodes[node]["level"] = get_level(G, node)
 
     if not inplace:
         return G
@@ -1045,40 +1046,44 @@ def assign_levels(G: nx.DiGraph, inplace: bool = True) -> None | nx.DiGraph:
 def immediate_predecessors(data: Dict[str, Any], interval: Tuple[int, int]) -> List[str]:
     """
     Extract immediate predecessors in the pathway for a given interval.
-    
+
     For example, if we have the abracadabra data, and we want the whole interval,
     then it will return ["abra", "c", "a", "d", "abra"].
-    
+
     Parameters
     ----------
     data : dict
         The pathway data from assemblycpp (JSON format).
     interval : tuple
         A tuple of the form (start, length) indicating the interval.
-    
+
     Returns
     -------
     list
         A list of strings representing the immediate predecessors in the pathway.
     """
     output = []
+    fragment = data["file_graph"][0]["Fragments"][0]
 
     c_idx = interval[0]
     while c_idx < sum(interval):
         parent = ""
         for dup in data["duplicates"]:
-            if dup["Left"][1] < interval[1]:  # Make sure the duplicate can fit in the interval
-                if c_idx in range(dup["Left"][0], sum(dup["Left"])):  # If duplicate contains c_idx
-                    if dup["Left"][1] > len(parent):  # If this duplicate is larger than the current parent
-                        if dup["Left"][0] >= interval[0] and sum(dup["Left"]) <= sum(
-                                interval):  # If this duplicate is within the interval
-                            parent = data["file_graph"][0]["Fragments"][0][dup["Left"][0]:sum(dup["Left"])]
-                elif c_idx in range(dup["Right"][0], sum(dup["Right"])):  # now check the right copy
-                    if dup["Right"][1] > len(parent):
-                        if dup["Right"][0] >= interval[0] and sum(dup["Right"]) <= sum(interval):
-                            parent = data["file_graph"][0]["Fragments"][0][dup["Right"][0]:sum(dup["Right"])]
+            if dup["Left"][1] >= interval[1]:  # The duplicate cannot fit in the interval
+                continue
+            if c_idx in range(dup["Left"][0], sum(dup["Left"])):  # If duplicate contains c_idx
+                # Take it only if it beats the current parent and sits inside the interval
+                if (dup["Left"][1] > len(parent)
+                        and dup["Left"][0] >= interval[0]
+                        and sum(dup["Left"]) <= sum(interval)):
+                    parent = fragment[dup["Left"][0]:sum(dup["Left"])]
+            elif c_idx in range(dup["Right"][0], sum(dup["Right"])):  # now check the right copy
+                if (dup["Right"][1] > len(parent)
+                        and dup["Right"][0] >= interval[0]
+                        and sum(dup["Right"]) <= sum(interval)):
+                    parent = fragment[dup["Right"][0]:sum(dup["Right"])]
         if parent == "":
-            output.append(data["file_graph"][0]["Fragments"][0][c_idx])
+            output.append(fragment[c_idx])
             c_idx += 1
         else:
             output.append(parent)
@@ -1090,7 +1095,7 @@ def immediate_predecessors(data: Dict[str, Any], interval: Tuple[int, int]) -> L
 def build_str(interval: Union[List[int], Tuple[int, int]], data: Dict[str, Any], path: nx.DiGraph) -> nx.DiGraph:
     """
     Builds the string from the pathway data and adds it to the path.
-    
+
     Parameters
     ----------
     interval : tuple
@@ -1099,7 +1104,7 @@ def build_str(interval: Union[List[int], Tuple[int, int]], data: Dict[str, Any],
         The pathway data from assemblycpp (JSON format).
     path : nx.DiGraph
         The current pathway graph.
-    
+
     Returns
     -------
     nx.DiGraph
@@ -1110,39 +1115,41 @@ def build_str(interval: Union[List[int], Tuple[int, int]], data: Dict[str, Any],
     c_idx = interval[0]
     for sub_str in ledger:
         if sub_str not in path.nodes:
-            path = build_str([c_idx, c_idx + len(sub_str)], data,
-                             path)  # Recursively build the duplicate strings if not already in the path
+            # Recursively build the duplicate strings if not already in the path
+            path = build_str([c_idx, c_idx + len(sub_str)], data, path)
         c_idx += len(sub_str)
 
+    # Builds string from left to right. The membership checks below are only
+    # relevant when the path is not minimum.
     str_in_progress = ledger[0]
-    for idx in range(1, len(ledger)):  # Builds string from left to right
+    for idx in range(1, len(ledger)):
         str_in_progress_new = str_in_progress + ledger[idx]
-        if str_in_progress_new not in path.nodes:  # Only relevant if the path is not minimum
+        if str_in_progress_new not in path.nodes:
             path.add_node(str_in_progress_new)
-        if (str_in_progress, str_in_progress_new) not in path.edges:  # Only relevant if the path is not minimum
+        if (str_in_progress, str_in_progress_new) not in path.edges:
             path.add_edge(str_in_progress, str_in_progress_new)
-        if (ledger[idx], str_in_progress_new) not in path.edges:  # Only relevant if the path is not minimum
+        if (ledger[idx], str_in_progress_new) not in path.edges:
             path.add_edge(ledger[idx], str_in_progress_new)
         str_in_progress = str_in_progress_new
     return path
 
 
-def parse_string_pathway_file(file_path_pathway: str) -> Tuple[Dict[str, Any], nx.DiGraph]:
+def parse_string_pathway_file(file_path_pathway: str) -> Tuple[List[str], nx.DiGraph]:
     """
     Parses a pathway file and returns the pathway as a list of virtual objects.
-    
+
     Parameters
     ----------
     file_path_pathway : str
         Path to the pathway file.
-    
+
     Returns
     -------
-    VOs : dict
-        Dictionary of virtual objects in calculated pathway.
+    VOs : list
+        List of virtual objects in the calculated pathway.
     path : nx.DiGraph
         NetworkX directed graph representing the pathway.
-    
+
     Raises
     ------
     FileNotFoundError
@@ -1150,26 +1157,22 @@ def parse_string_pathway_file(file_path_pathway: str) -> Tuple[Dict[str, Any], n
     """
     if not os.path.isfile(file_path_pathway):
         raise FileNotFoundError(f"Pathway file not found: {file_path_pathway}")
-    else:
-        # Load the pathway file
-        with open(file_path_pathway) as f:
-            data = json.load(f)
+
+    # Load the pathway file
+    with open(file_path_pathway) as f:
+        data = json.load(f)
 
     file_string = data["file_graph"][0]["Fragments"][0]
 
     path = nx.DiGraph()
 
     # We will build the string from left to right, constructing duplicates as needed
-    for char in list(set(file_string)):
+    for char in set(file_string):
         path.add_node(char)  # Add units
 
     path = build_str([0, len(file_string)], data, path)  # Build the string from the pathway data
 
-    VOs = []
-    for node in path.nodes(data=True):
-        VOs.append(node[0])
-
-    return VOs, path
+    return list(path.nodes), path
 
 
 def molstr_to_str(molstr: nx.Graph, edge_color_dict: Optional[Dict[str, str]] = None) -> str:
@@ -1181,7 +1184,7 @@ def molstr_to_str(molstr: nx.Graph, edge_color_dict: Optional[Dict[str, str]] = 
     molstr : nx.Graph
         The molecular graph to translate.
     edge_color_dict : dict, optional
-        Dictionary mapping edges to colors. If None, the function assumes 
+        Dictionary mapping edges to colors. If None, the function assumes
         the mol string is directed, by default None.
 
     Returns
@@ -1193,24 +1196,19 @@ def molstr_to_str(molstr: nx.Graph, edge_color_dict: Optional[Dict[str, str]] = 
     out_str = ""
     if edge_color_dict is None:  # Directed
         odd = int(molstr.nodes(data=True)[0]['color'] == 'null')  # True if encoding was respected
-        for n_idx, node in enumerate(molstr.nodes(
-                data=True)):  # Loop over nodes in molstr with odd indices (even if fragment broke the encoding scheme)
+        # Loop over nodes in molstr with odd indices (even if the fragment broke the encoding scheme)
+        for n_idx, node in enumerate(molstr.nodes(data=True)):
             if n_idx % 2 == odd:
                 out_str += node[1]['color']
     else:  # Undirected
         # Prep the edge_color_dict
         edge_color_dict = {v: k for k, v in edge_color_dict.items()}
-        if "1" in edge_color_dict.keys():
-            edge_color_dict["single"] = edge_color_dict["1"]
-        if "2" in edge_color_dict.keys():
-            edge_color_dict["double"] = edge_color_dict["2"]
-        if "3" in edge_color_dict.keys():
-            edge_color_dict["triple"] = edge_color_dict["3"]
-        if "4" in edge_color_dict.keys():
-            edge_color_dict["quadruple"] = edge_color_dict["4"]
+        for digit, name in (("1", "single"), ("2", "double"), ("3", "triple"), ("4", "quadruple")):
+            if digit in edge_color_dict:
+                edge_color_dict[name] = edge_color_dict[digit]
         edge_color_dict["0"] = "!"
 
-        for u, v, data in molstr.edges(data=True):
+        for _, _, data in molstr.edges(data=True):
             out_str += edge_color_dict[str(data.get('color'))]
 
     return out_str
@@ -1258,24 +1256,15 @@ def convert_digraph_vo_to_target(graph: nx.DiGraph,
       are used to perform the conversions.
     - The `add_hydrogens` and `sanitize` parameters are passed to the conversion functions.
     """
-    for node in graph.nodes():
-        node_graph = graph.nodes[node]['vo']
-        if target == 'smi':
-            target_vo = nx_to_smi(node_graph,
-                                  add_hydrogens=add_hydrogens,
-                                  sanitize=sanitize)
-        elif target == 'inchi':
-            target_vo = nx_to_inchi(node_graph,
-                                    add_hydrogens=add_hydrogens,
-                                    sanitize=sanitize)
-        elif target == 'mol':
-            target_vo = nx_to_mol(node_graph,
-                                  add_hydrogens=add_hydrogens,
-                                  sanitize=sanitize)
-        else:
-            raise ValueError("Target must be 'smi', 'inchi', or 'mol'")
+    converters = {'smi': nx_to_smi, 'inchi': nx_to_inchi, 'mol': nx_to_mol}
+    if target not in converters:
+        raise ValueError("Target must be 'smi', 'inchi', or 'mol'")
+    convert = converters[target]
 
-        graph.nodes[node]['vo'] = target_vo
+    for node in graph.nodes():
+        graph.nodes[node]['vo'] = convert(graph.nodes[node]['vo'],
+                                          add_hydrogens=add_hydrogens,
+                                          sanitize=sanitize)
     return graph
 
 
@@ -1326,10 +1315,13 @@ def get_vos_on_layer(digraph: nx.DiGraph,
     # Assign layer attributes to the nodes in the graph
     digraph = set_graph_layer(digraph)
 
+    def vos_on(layer_id: int) -> List[Any]:
+        """Collect the 'vo' attribute of every node sitting on *layer_id*."""
+        return [data.get('vo') for _, data in digraph.nodes(data=True) if data.get("layer") == layer_id]
+
     # If a single layer is specified, retrieve VOs from that layer
     if isinstance(layer, int):
-        idx = [node for node, data in digraph.nodes(data=True) if data.get("layer") == layer]
-        return [digraph.nodes[node].get('vo') for node in idx]
+        return vos_on(layer)
 
     # Determine the layers to retrieve VOs from
     layers_to_get = []
@@ -1342,8 +1334,4 @@ def get_vos_on_layer(digraph: nx.DiGraph,
         layers_to_get = layer
 
     # Retrieve VOs from the specified layers
-    result = []
-    for l in layers_to_get:
-        idx = [node for node, data in digraph.nodes(data=True) if data.get("layer") == l]
-        result.append([digraph.nodes[node].get('vo') for node in idx])
-    return result
+    return [vos_on(layer_id) for layer_id in layers_to_get]
