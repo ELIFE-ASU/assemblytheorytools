@@ -16,11 +16,10 @@ import math
 import traceback
 import zlib
 from collections import Counter, defaultdict
-from typing import Dict, Any, Optional
+from typing import Callable, Dict, Any, Optional, Tuple
 
 import networkx as nx
 import numpy as np
-import rdkit
 from networkx.readwrite import json_graph
 from rdkit import Chem, DataStructs
 from rdkit.Chem import AllChem as Chem
@@ -58,10 +57,8 @@ def count_unique_bonds(mol: Mol) -> int:
     for bond in mol.GetBonds():
         # Get the atom types (symbols) of the bonded atoms and sort them
         atom_types = tuple(sorted([bond.GetBeginAtom().GetSymbol(), bond.GetEndAtom().GetSymbol()]))
-        # Get the bond type (e.g., single, double, etc.)
-        bond_type = bond.GetBondType()
         # Add the unique bond (atom types and bond type) to the set
-        unique_bonds.add((atom_types, bond_type))
+        unique_bonds.add((atom_types, bond.GetBondType()))
     # Return the count of unique bonds
     return len(unique_bonds)
 
@@ -104,13 +101,8 @@ def count_non_h_bonds(mol: Mol) -> int:
     int
         The number of bonds in the molecule that do not involve hydrogen atoms.
     """
-    non_h_bond_count = 0
-    for bond in mol.GetBonds():
-        begin_atom = bond.GetBeginAtom()
-        end_atom = bond.GetEndAtom()
-        if begin_atom.GetSymbol() != 'H' and end_atom.GetSymbol() != 'H':
-            non_h_bond_count += 1
-    return non_h_bond_count
+    return sum(1 for bond in mol.GetBonds()
+               if bond.GetBeginAtom().GetSymbol() != 'H' and bond.GetEndAtom().GetSymbol() != 'H')
 
 
 def molecular_weight(mol: Mol) -> float:
@@ -182,9 +174,18 @@ def wiener_index(mol: Mol) -> int:
       wanted.
     """
     distance_matrix = Chem.rdmolops.GetDistanceMatrix(mol)
-    # The distance matrix is symmetric with a zero diagonal, so summing every
-    # entry counts each unordered pair of atoms exactly twice.
-    return int(distance_matrix.sum()) // 2
+    n_atoms = len(distance_matrix)
+    graph = nx.Graph()
+
+    # Add nodes to the graph
+    graph.add_nodes_from(range(n_atoms))
+
+    # Add edges with weights based on the distance matrix
+    for i in range(n_atoms):
+        for j in range(i + 1, n_atoms):
+            graph.add_edge(i, j, weight=distance_matrix[i, j])
+
+    return nx.wiener_index(graph)
 
 
 def balaban_index(mol: Mol) -> float:
@@ -234,6 +235,7 @@ def randic_index(mol: Mol) -> float:
         for j, val in enumerate(row):
             if val == 1:
                 randic_sum += 1 / (degrees[i] * degrees[j]) ** 0.5
+    # Each bond is visited twice in the adjacency matrix
     return randic_sum / 2
 
 
@@ -288,7 +290,7 @@ def spacial_score(mol: Mol, normalise: bool = False) -> float:
     float
         The spacial score of the molecule.
     """
-    return rdkit.Chem.SpacialScore.SPS(mol, normalise)
+    return SPS(mol, normalise)
 
 
 def get_mol_descriptors(mol: Mol, missingval: Optional[Any] = None) -> Dict[str, Any]:
@@ -318,7 +320,7 @@ def get_mol_descriptors(mol: Mol, missingval: Optional[Any] = None) -> Dict[str,
     for nm, fn in Descriptors._descList:
         try:
             res[nm] = fn(mol)
-        except:
+        except Exception:
             traceback.print_exc()
             res[nm] = missingval
     return res
@@ -345,9 +347,8 @@ def tanimoto_similarity(mol1: Mol, mol2: Mol) -> float:
         The Tanimoto similarity between the two molecules.
     """
     fpgen = Chem.GetRDKitFPGenerator()
-    fp1 = fpgen.GetFingerprint(mol1)
-    fp2 = fpgen.GetFingerprint(mol2)
-    return DataStructs.TanimotoSimilarity(fp1, fp2)
+    return DataStructs.TanimotoSimilarity(fpgen.GetFingerprint(mol1),
+                                          fpgen.GetFingerprint(mol2))
 
 
 def dice_morgan_similarity(mol1: Mol, mol2: Mol, radius: int = 3) -> float:
@@ -373,9 +374,8 @@ def dice_morgan_similarity(mol1: Mol, mol2: Mol, radius: int = 3) -> float:
         The Dice similarity between the two molecules.
     """
     fpgen = Chem.GetMorganGenerator(radius=radius)
-    fp1 = fpgen.GetSparseCountFingerprint(mol1)
-    fp2 = fpgen.GetSparseCountFingerprint(mol2)
-    return DataStructs.DiceSimilarity(fp1, fp2)
+    return DataStructs.DiceSimilarity(fpgen.GetSparseCountFingerprint(mol1),
+                                      fpgen.GetSparseCountFingerprint(mol2))
 
 
 def get_chirality(mol: Mol) -> int:
@@ -394,11 +394,91 @@ def get_chirality(mol: Mol) -> int:
     int
         The number of chiral centres in the molecule.
     """
-    nc = len(Chem.FindMolChiralCenters(mol,
-                                       useLegacyImplementation=False,
-                                       includeUnassigned=True,
-                                       includeCIP=False))
-    return nc
+    return len(Chem.FindMolChiralCenters(mol,
+                                         useLegacyImplementation=False,
+                                         includeUnassigned=True,
+                                         includeCIP=False))
+
+
+def _standardised_smiles(mol: Mol, add_hydrogens: bool) -> str:
+    """
+    Standardise a molecule and render it as a canonical SMILES string.
+
+    Parameters
+    ----------
+    mol : rdkit.Chem.rdchem.Mol
+        The RDKit molecule object to convert.
+    add_hydrogens : bool
+        Whether to keep explicit hydrogens. When False, hydrogens are removed
+        after standardisation.
+
+    Returns
+    -------
+    str
+        The canonical, kekulised, isomeric SMILES string.
+    """
+    # Standardise the molecule
+    mol = standardize_mol(mol, add_hydrogens=add_hydrogens)
+
+    # Remove all hydrogens from the molecule
+    if not add_hydrogens:
+        mol = Chem.RemoveHs(mol)
+
+    return Chem.MolToSmiles(mol,
+                            canonical=True,
+                            kekuleSmiles=True,
+                            isomericSmiles=True,
+                            allHsExplicit=add_hydrogens)
+
+
+def _compressed_length(payload: bytes,
+                       compress: Callable[[bytes], bytes],
+                       decompress: Callable[[bytes], Any],
+                       check: bool,
+                       rm_overhead: bool) -> int:
+    """
+    Compress a payload and report its length, optionally net of fixed overhead.
+
+    Parameters
+    ----------
+    payload : bytes
+        The data to compress.
+    compress : callable
+        Compression function taking bytes and returning bytes.
+    decompress : callable
+        Inverse of *compress*, used only for the integrity check.
+    check : bool
+        Whether to verify that the compressed data round-trips.
+    rm_overhead : bool
+        Whether to subtract the length of the compressed empty string, which
+        is the fixed container overhead of the codec.
+
+    Returns
+    -------
+    int
+        The length of the compressed payload, adjusted for overhead if requested.
+
+    Raises
+    ------
+    Exception
+        If decompression fails during the integrity check.
+    """
+    compressed = compress(payload)
+    val = len(compressed)
+
+    # Check if the compressed data can be decompressed and matches the original data
+    if check:
+        try:
+            decompress(compressed)
+        except Exception as e:
+            print(f"Decompression failed: {e}")
+            raise
+
+    # Calculate the overhead of the compression
+    if rm_overhead:
+        val -= len(compress(b""))
+
+    return val
 
 
 def compression_zlib_smi(mol: Mol,
@@ -436,38 +516,12 @@ def compression_zlib_smi(mol: Mol,
     Exception
         If decompression fails during the integrity check.
     """
-    # Standardise the molecule
-    mol = standardize_mol(mol, add_hydrogens=add_hydrogens)
-
-    # Remove all hydrogens from the molecule
-    if not add_hydrogens:
-        mol = Chem.RemoveHs(mol)
-
-    # Convert the molecule to SMILES
-    smiles = Chem.MolToSmiles(mol,
-                              canonical=True,
-                              kekuleSmiles=True,
-                              isomericSmiles=True,
-                              allHsExplicit=add_hydrogens)
-
-    # Compress the SMILES string using zlib
-    compressed = zlib.compress(smiles.encode("utf-8"), level=level)
-    val = len(compressed)
-
-    # Check if the compressed data can be decompressed and matches the original data
-    if check:
-        try:
-            zlib.decompress(compressed).decode("utf-8")
-        except Exception as e:
-            print(f"Decompression failed: {e}")
-            raise
-
-    # Calculate the overhead of the compression
-    if rm_overhead:
-        overhead = zlib.compress("".encode("utf-8"), level=level)
-        val -= len(overhead)
-
-    return val
+    return _compressed_length(
+        _standardised_smiles(mol, add_hydrogens).encode("utf-8"),
+        compress=lambda data: zlib.compress(data, level=level),
+        decompress=lambda data: zlib.decompress(data).decode("utf-8"),
+        check=check,
+        rm_overhead=rm_overhead)
 
 
 def compression_bz2_smi(mol: Mol,
@@ -502,38 +556,12 @@ def compression_bz2_smi(mol: Mol,
     Exception
         If decompression fails during the integrity check.
     """
-    # Standardise the molecule
-    mol = standardize_mol(mol, add_hydrogens=add_hydrogens)
-
-    # Remove all hydrogens from the molecule
-    if not add_hydrogens:
-        mol = Chem.RemoveHs(mol)
-
-    # Convert the molecule to SMILES
-    smiles = Chem.MolToSmiles(mol,
-                              canonical=True,
-                              kekuleSmiles=True,
-                              isomericSmiles=True,
-                              allHsExplicit=add_hydrogens)
-
-    # Compress the SMILES string using bz2
-    compressed = bz2.compress(smiles.encode("utf-8"))
-    val = len(compressed)
-
-    # Check if the compressed data can be decompressed and matches the original data
-    if check:
-        try:
-            bz2.decompress(compressed).decode("utf-8")
-        except Exception as e:
-            print(f"Decompression failed: {e}")
-            raise
-
-    # Calculate the overhead of the compression
-    if rm_overhead:
-        overhead = bz2.compress("".encode("utf-8"))
-        val -= len(overhead)
-
-    return val
+    return _compressed_length(
+        _standardised_smiles(mol, add_hydrogens).encode("utf-8"),
+        compress=bz2.compress,
+        decompress=lambda data: bz2.decompress(data).decode("utf-8"),
+        check=check,
+        rm_overhead=rm_overhead)
 
 
 def compression_lzma_smi(mol: Mol,
@@ -568,46 +596,20 @@ def compression_lzma_smi(mol: Mol,
     Exception
         If decompression fails during the integrity check.
     """
-    # Standardize the molecule
-    mol = standardize_mol(mol, add_hydrogens=add_hydrogens)
-
-    # Remove all hydrogens from the molecule
-    if not add_hydrogens:
-        mol = Chem.RemoveHs(mol)
-
-    # Convert the molecule to SMILES
-    smiles = Chem.MolToSmiles(mol,
-                              canonical=True,
-                              kekuleSmiles=True,
-                              isomericSmiles=True,
-                              allHsExplicit=add_hydrogens)
-
-    # Compress the SMILES string using lzma
-    compressed = lzma.compress(smiles.encode("utf-8"))
-    val = len(compressed)
-
-    # Check if the compressed data can be decompressed and matches the original data
-    if check:
-        try:
-            lzma.decompress(compressed).decode("utf-8")
-        except Exception as e:
-            print(f"Decompression failed: {e}")
-            raise
-
-    # Calculate the overhead of the compression
-    if rm_overhead:
-        overhead = lzma.compress("".encode("utf-8"))
-        val -= len(overhead)
-
-    return val
+    return _compressed_length(
+        _standardised_smiles(mol, add_hydrogens).encode("utf-8"),
+        compress=lzma.compress,
+        decompress=lambda data: lzma.decompress(data).decode("utf-8"),
+        check=check,
+        rm_overhead=rm_overhead)
 
 
 def compress_zlib_graph(graph: nx.Graph, level: int = 9) -> bytes:
     """
     Compress a NetworkX graph using zlib compression.
 
-    This function converts a NetworkX graph into a JSON-serializable 
-    node-link format, encodes it to a UTF-8 JSON string, and compresses 
+    This function converts a NetworkX graph into a JSON-serializable
+    node-link format, encodes it to a UTF-8 JSON string, and compresses
     it using zlib.
 
     Parameters
@@ -622,11 +624,8 @@ def compress_zlib_graph(graph: nx.Graph, level: int = 9) -> bytes:
     bytes
         The compressed graph data as a byte string.
     """
-    # Convert graph to node-link data (JSON-serialisable)
-    data = json_graph.node_link_data(graph)
-
-    # Serialise to JSON string
-    json_str = json.dumps(data)
+    # Convert graph to node-link data (JSON-serialisable) and serialise to JSON
+    json_str = json.dumps(json_graph.node_link_data(graph))
 
     # Compress the JSON bytes
     return zlib.compress(json_str.encode('utf-8'), level)
@@ -636,8 +635,8 @@ def decompress_zlib_graph(compressed_data: bytes) -> nx.Graph:
     """
     Decompress a zlib-compressed NetworkX graph.
 
-    This function takes zlib-compressed bytes representing a 
-    NetworkX graph in JSON node-link format, decompresses and 
+    This function takes zlib-compressed bytes representing a
+    NetworkX graph in JSON node-link format, decompresses and
     decodes them, and reconstructs the original graph.
 
     Parameters
@@ -654,8 +653,55 @@ def decompress_zlib_graph(compressed_data: bytes) -> nx.Graph:
     json_str = zlib.decompress(compressed_data).decode('utf-8')
 
     # Parse JSON back to node-link format and rebuild graph
-    data = json.loads(json_str)
-    return json_graph.node_link_graph(data)
+    return json_graph.node_link_graph(json.loads(json_str))
+
+
+def _compressed_zlib_graph_size(graph: nx.Graph,
+                                level: int,
+                                check: bool,
+                                rm_overhead: bool) -> int:
+    """
+    Compress a graph with zlib and report the resulting size.
+
+    Parameters
+    ----------
+    graph : nx.Graph
+        The graph to compress. Hydrogens are expected to have been stripped
+        already by the caller if required.
+    level : int
+        The zlib compression level applied to *graph*.
+    check : bool
+        Whether to verify that the compressed data round-trips.
+    rm_overhead : bool
+        Whether to subtract the size of a compressed empty graph. Note this
+        baseline is always taken at the default compression level, not *level*.
+
+    Returns
+    -------
+    int
+        The length of the compressed graph, adjusted for overhead if requested.
+
+    Raises
+    ------
+    Exception
+        If decompression fails during the integrity check.
+    """
+    comp = compress_zlib_graph(graph, level=level)
+    size = len(comp)
+
+    # Check if the compressed data can be decompressed and matches the original data
+    if check:
+        try:
+            decompress_zlib_graph(comp)
+        except Exception as e:
+            print(f"Decompression failed: {e}")
+            raise
+
+    # Calculate the overhead of the compression
+    if rm_overhead:
+        size -= len(compress_zlib_graph(nx.Graph()))
+
+    return size
 
 
 def compression_zlib_graph(graph: nx.Graph,
@@ -698,26 +744,7 @@ def compression_zlib_graph(graph: nx.Graph,
     if not add_hydrogens:
         graph = remove_hydrogen_from_graph(graph)
 
-    # Compress the graph using zlib
-    comp = compress_zlib_graph(graph, level=level)
-
-    # Get the length of the compressed data
-    val = len(comp)
-
-    # Check if the compressed data can be decompressed and matches the original data
-    if check:
-        try:
-            decompress_zlib_graph(comp)
-        except Exception as e:
-            print(f"Decompression failed: {e}")
-            raise
-
-    # Calculate the overhead of the compression
-    if rm_overhead:
-        overhead = compress_zlib_graph(nx.Graph())
-        val -= len(overhead)
-
-    return val
+    return _compressed_zlib_graph_size(graph, level, check, rm_overhead)
 
 
 def compression_ratio_zlib_graph(graph: nx.Graph,
@@ -767,24 +794,7 @@ def compression_ratio_zlib_graph(graph: nx.Graph,
     # Get the size of the original graph in bytes
     uncompressed_size = len(json.dumps(json_graph.node_link_data(graph)).encode('utf-8'))
 
-    # Compress the graph using zlib
-    comp = compress_zlib_graph(graph, level=level)
-
-    # Get the length of the compressed data
-    compressed_size = len(comp)
-
-    # Check if the compressed data can be decompressed and matches the original data
-    if check:
-        try:
-            decompress_zlib_graph(comp)
-        except Exception as e:
-            print(f"Decompression failed: {e}")
-            raise
-
-    # Calculate the overhead of the compression
-    if rm_overhead:
-        overhead = compress_zlib_graph(nx.Graph())
-        compressed_size -= len(overhead)
+    compressed_size = _compressed_zlib_graph_size(graph, level, check, rm_overhead)
 
     return uncompressed_size / compressed_size
 
@@ -815,7 +825,9 @@ def fcfp4(mol: Mol) -> int:
     return fp.GetNumOnBits()
 
 
-def _determine_atom_substituents(atom_id, mol, distance_matrix):
+def _determine_atom_substituents(atom_id: int,
+                                 mol: Mol,
+                                 distance_matrix: np.ndarray) -> Tuple[Dict[int, list], Dict[int, int], Dict[int, int]]:
     """
     Determines the substituents of an atom in a molecule.
 
@@ -894,7 +906,8 @@ def _get_chemical_non_equivs(atom: Chem.rdchem.Atom, mol: Mol) -> float:
     Returns
     -------
     float
-        The number of unique substituent groups attached to the atom.
+        The number of unique substituent groups attached to the atom, or 0.0 if the
+        calculation fails.
     """
     # Initialize a list to store substituents for up to 4 groups
     substituents = [[] for _ in range(4)]
@@ -1023,6 +1036,7 @@ def _get_bottcher_bond_index(atom: Chem.rdchem.Atom) -> float:
         if bond not in bond_weights and bond != 'AROMATIC':
             raise ValueError(f"Unsupported bond type {bond}")
 
+    # Aromatic bonds are weighted by the ring atom they belong to
     if 'AROMATIC' in bonds:
         if atom.GetSymbol() == 'C':
             b_sub_i_ranking += 3.0
@@ -1058,7 +1072,7 @@ def bottcher(mol: Mol) -> float:
     Chem.AssignStereochemistry(mol, cleanIt=True, force=True, flagPossibleStereoCenters=True)
     pt = Chem.GetPeriodicTable()
 
-    # Filter atoms to correct for symmetry
+    # Filter atoms to correct for symmetry: keep one representative per CIP rank
     atoms_corrected_for_symmetry = []
     atom_stereo_classes = set()
     for atom in mol.GetAtoms():
@@ -1082,13 +1096,13 @@ def bottcher(mol: Mol) -> float:
 
 def proudfoot(mol: Mol) -> float:
     """
-    Calculates the Proudfoot complexity of a molecule.
+    Calculates the Proudfoot molecular complexity (C_M) of a molecule.
 
     https://doi.org/10.1016/j.bmcl.2017.03.008
 
-    The Proudfoot complexity is a molecular descriptor that quantifies the structural
-    complexity of a molecule. It is based on the distribution of molecular paths,
-    atomic complexity, molecular complexity, log-sum complexity, and structural entropy.
+    The atomic complexity C_A of each atom environment is the Shannon entropy of
+    its Morgan path distribution plus ``log2`` of its total path count. This
+    function returns C_M, the sum of C_A over all atom environments.
 
     Parameters
     ----------
@@ -1098,7 +1112,12 @@ def proudfoot(mol: Mol) -> float:
     Returns
     -------
     float
-        The Proudfoot complexity of the molecule.
+        The Proudfoot molecular complexity C_M of the molecule.
+
+    Notes
+    -----
+    The paper also defines a log-sum complexity (C_M*) and a structural entropy
+    term (C_SE); neither is returned here.
     """
     # Generate the Morgan fingerprint for the molecule with a radius of 2
     fingerprint = rdMolDescriptors.GetMorganFingerprint(mol, 2)
@@ -1111,31 +1130,17 @@ def proudfoot(mol: Mol) -> float:
         atoms_in_path = path % mol.GetNumAtoms()
         atom_paths[atoms_in_path].append(count)
 
-    # Step 1: Calculate atomic complexity (C_A)
+    # Calculate atomic complexity (C_A) for each atom environment
     c_a_values = {}
     for atom, path_counts in atom_paths.items():
         total_paths = sum(path_counts)
         # Calculate the fraction of each path
         path_fractions = [count / total_paths for count in path_counts]
         # Compute atomic complexity using Shannon entropy
-        ca = -sum(p * math.log2(p) for p in path_fractions) + math.log2(total_paths)
-        c_a_values[atom] = ca
+        c_a_values[atom] = -sum(p * math.log2(p) for p in path_fractions) + math.log2(total_paths)
 
-    # Step 2: Calculate molecular complexity (C_M)
-    c_m = sum(c_a_values.values())
-
-    # Step 3: Calculate log-sum complexity (C_M*)
-    c_m_star = math.log2(sum(2 ** ca for ca in c_a_values.values()))
-
-    # Step 4: Calculate structural entropy complexity (C_SE)
-    atom_types = [atom.GetAtomicNum() for atom in mol.GetAtoms()]
-    total_atoms = len(atom_types)
-    # Calculate the frequency of each atom type
-    type_frequencies = {atype: atom_types.count(atype) / total_atoms for atype in set(atom_types)}
-    # Compute structural entropy using Shannon entropy
-    c_se = -sum(freq * math.log2(freq) for freq in type_frequencies.values())
-
-    return c_m
+    # Molecular complexity (C_M) is the sum of the atomic complexities
+    return sum(c_a_values.values())
 
 
 def mc1(mol: Mol) -> float:
@@ -1158,7 +1163,7 @@ def mc1(mol: Mol) -> float:
     float
         The MC1 index of the molecule.
     """
-    total_atoms = len(mol.GetAtoms())
+    total_atoms = mol.GetNumAtoms()
     divalent_nodes = sum(1 for atom in mol.GetAtoms() if atom.GetDegree() == 2)
     return 1.0 - (divalent_nodes / total_atoms)
 
@@ -1228,9 +1233,10 @@ def shannon_entropy(s: str) -> float:
     if n == 0:
         return 0.0
 
-    counts = Counter(s)
+    # Accumulated term by term rather than via sum(), whose compensated
+    # summation would shift results in the last bit
     entropy = 0.0
-    for c in counts.values():
+    for c in Counter(s).values():
         p = c / n
         entropy -= p * math.log2(p)
     return entropy
