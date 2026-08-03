@@ -173,20 +173,18 @@ def wiener_index(mol: Mol) -> int:
     -------
     int
         The Wiener index of the molecule.
+
+    Notes
+    -----
+    - Every atom present in ``mol`` is a vertex of the graph, so molecules
+      carrying explicit hydrogens give a larger index than the heavy-atom
+      skeleton alone. Strip the hydrogens first if the heavy-atom value is
+      wanted.
     """
     distance_matrix = Chem.rdmolops.GetDistanceMatrix(mol)
-    graph = nx.Graph()
-
-    # Add nodes to the graph
-    for i in range(len(distance_matrix)):
-        graph.add_node(i)
-
-    # Add edges with weights based on the distance matrix
-    for i in range(len(distance_matrix)):
-        for j in range(i + 1, len(distance_matrix)):
-            graph.add_edge(i, j, weight=distance_matrix[i, j])
-
-    return nx.wiener_index(graph)
+    # The distance matrix is symmetric with a zero diagonal, so summing every
+    # entry counts each unordered pair of atoms exactly twice.
+    return int(distance_matrix.sum()) // 2
 
 
 def balaban_index(mol: Mol) -> float:
