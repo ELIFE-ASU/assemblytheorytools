@@ -1832,8 +1832,11 @@ def calculate_assembly_index_jo(mol: Union[nx.Graph, Chem.Mol],
       returns -1 for the JO index.
     """
 
-    # Ensure pathway output is requested, without mutating the caller's dictionary
-    settings = {**(settings or {}), "save_dir": True}
+    # Copy so the save_dir override below does not leak back into the caller's dict
+    settings = dict(settings or {})
+
+    # Ensure pathway output is requested
+    settings["save_dir"] = True
 
     # Run the assembly index calculation to produce pathway output in a temp folder
     _, vo, pathway = calculate_assembly_index(mol, **settings)
@@ -1964,7 +1967,10 @@ def calculate_assembly_index_jo_ratio(graph: Union[nx.Graph, Chem.Mol], settings
     - This function does not modify the input graph or molecule.
     """
     # Determine number of edges (bonds) depending on input type
-    n_edges = _count_edges(graph)
+    n_edges = graph.number_of_edges() if isinstance(graph, nx.Graph) else graph.GetNumBonds()
+
+    # Compute the joining-operation index (JO) using existing function
+    jo = calculate_assembly_index_jo(graph, settings=settings)[0]
 
     # Avoid division by zero when there are no edges
     if n_edges == 0:
