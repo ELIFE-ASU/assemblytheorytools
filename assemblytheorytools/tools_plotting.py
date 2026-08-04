@@ -49,11 +49,11 @@ plt.rcParams['axes.linewidth'] = 2.0
 def n_plot(xlab: str, ylab: str, xs: int = 14, ys: int = 14) -> None:
     """
     Configure plot aesthetics with axis labels, ticks, and tight layout.
-    
+
     Sets up matplotlib plot formatting including minor ticks, tick parameters,
     axis labels with custom font sizes, and applies tight layout for optimal
     spacing.
-    
+
     Parameters
     ----------
     xlab : str
@@ -64,7 +64,7 @@ def n_plot(xlab: str, ylab: str, xs: int = 14, ys: int = 14) -> None:
         Font size for x-axis label, by default 14.
     ys : int, optional
         Font size for y-axis label, by default 14.
-    
+
     Returns
     -------
     None
@@ -77,17 +77,16 @@ def n_plot(xlab: str, ylab: str, xs: int = 14, ys: int = 14) -> None:
     plt.xlabel(xlab, fontsize=xs)
     plt.ylabel(ylab, fontsize=ys)
     plt.tight_layout()
-    return None
 
 
 def ax_plot(fig: plt.Figure, ax: plt.Axes, xlab: str, ylab: str, xs: int = 14, ys: int = 14) -> None:
     """
     Configure axis aesthetics with labels, ticks, and tight layout.
-    
+
     Sets up matplotlib axis formatting including minor ticks, tick parameters,
     axis labels with custom font sizes, and applies tight layout for optimal
     spacing. Similar to n_plot but operates on specific figure and axis objects.
-    
+
     Parameters
     ----------
     fig : matplotlib.figure.Figure
@@ -102,7 +101,7 @@ def ax_plot(fig: plt.Figure, ax: plt.Axes, xlab: str, ylab: str, xs: int = 14, y
         Font size for x-axis label, by default 14.
     ys : int, optional
         Font size for y-axis label, by default 14.
-    
+
     Returns
     -------
     None
@@ -115,7 +114,6 @@ def ax_plot(fig: plt.Figure, ax: plt.Axes, xlab: str, ylab: str, xs: int = 14, y
     ax.set_xlabel(xlab, fontsize=xs)
     ax.set_ylabel(ylab, fontsize=ys)
     fig.tight_layout()
-    return None
 
 
 def plot_graph(graph: nx.Graph,
@@ -130,11 +128,11 @@ def plot_graph(graph: nx.Graph,
                seed: int = 42) -> tuple[Figure, Axes]:
     """
     Visualize a NetworkX graph with customizable layout and styling options.
-    
+
     Creates a matplotlib visualization of a NetworkX graph using various layout
     algorithms. Supports multiple layout types including force-directed, circular,
     spectral, and topological layouts.
-    
+
     Parameters
     ----------
     graph : networkx.Graph
@@ -158,7 +156,7 @@ def plot_graph(graph: nx.Graph,
         Line width for node borders, by default 2.
     seed : int, optional
         Random seed for spring layout reproducibility, by default 42.
-    
+
     Returns
     -------
     tuple of (matplotlib.figure.Figure, matplotlib.axes.Axes)
@@ -213,11 +211,11 @@ def plot_mol_graph(graph: nx.Graph,
                    seed: int = 42) -> tuple[Figure, Axes]:
     """
     Visualize a molecular graph with atom-specific coloring.
-    
+
     Creates a matplotlib visualization of a molecular NetworkX graph where
     nodes are colored according to their atomic element type. Uses standard
     CPK coloring convention for chemical elements.
-    
+
     Parameters
     ----------
     graph : networkx.Graph
@@ -238,7 +236,7 @@ def plot_mol_graph(graph: nx.Graph,
         Line width for node borders, by default 2.
     seed : int, optional
         Random seed for spring layout reproducibility, by default 42.
-    
+
     Returns
     -------
     tuple of (matplotlib.figure.Figure, matplotlib.axes.Axes)
@@ -318,12 +316,12 @@ def plot_interactive_graph(graph: nx.Graph,
                            filename: str = "interactive_graph.html") -> Network:
     """
     Create an interactive HTML visualization of a NetworkX graph using PyVis.
-    
+
     Generates an interactive graph visualization with node coloring based on
     degree (number of connections). Higher degree nodes appear in darker shades
     of blue. The visualization can be displayed in a Jupyter notebook or saved
     as an HTML file.
-    
+
     Parameters
     ----------
     graph : networkx.Graph
@@ -332,9 +330,9 @@ def plot_interactive_graph(graph: nx.Graph,
         If True, displays the graph in a Jupyter notebook using an iframe.
         If False, saves to HTML file, by default False.
     filename : str, optional
-        Name of the HTML file to save when show=False, 
+        Name of the HTML file to save when show=False,
         by default "interactive_graph.html".
-    
+
     Returns
     -------
     pyvis.network.Network
@@ -458,7 +456,6 @@ def plot_digraph_metro(digraph: nx.DiGraph,
 
     # Convert the SVG to a PNG file
     cairosvg.svg2png(bytestring=r.encode('utf-8'), write_to=f"{filename}.png")
-    return None
 
 
 def _draw_edge_arrowhead(ax: Axes,
@@ -529,7 +526,6 @@ def _draw_edge_arrowhead(ax: Axes,
                                  shrinkA=0,
                                  shrinkB=0,
                                  zorder=edge_patch.get_zorder()))
-    return None
 
 
 def plot_pathway(graph: nx.DiGraph,
@@ -547,11 +543,11 @@ def plot_pathway(graph: nx.DiGraph,
                  arrow_size: int = 20) -> tuple[Figure, Axes]:
     """
     Visualize a directed acyclic graph as a pathway with customizable layout.
-    
+
     Creates a layered pathway visualization with topological ordering. Supports
     molecular structure icons, optimized crossing minimization layouts, and
     customizable arrow styles.
-    
+
     Parameters
     ----------
     graph : networkx.DiGraph
