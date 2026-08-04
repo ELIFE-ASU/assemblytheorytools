@@ -74,12 +74,15 @@ def test_pubchem_smi_to_name():
     Test the conversion of a SMILES string to a PubChem name.
 
     This function converts a SMILES string for lidocaine to its name using
-    `pubchem_smi_to_name` and asserts that the result is 'lidocaine'.
+    `pubchem_smi_to_name` and asserts that the result is 'Lidocaine'.
+    Title-cased, matching `_standardize_common_name`'s recasing of plain
+    common names -- the same convention `test_enumerate_stereoisomers_shortest`
+    below relies on ('Codeine', not 'codeine').
     """
     print(flush=True)
     smi = 'CCN(CC)CC(=O)NC1=C(C=CC=C1C)C'
     name = att.pubchem_smi_to_name(smi)
-    assert name == 'lidocaine'
+    assert name == 'Lidocaine'
 
 
 def test_filter_by_n_bonds():
