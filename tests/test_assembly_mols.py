@@ -1043,6 +1043,31 @@ def test_hand_graph():
     assert ai == 3
 
 
+def test_run_command():
+    """
+    Test that run_command executes a command and returns None.
+
+    run_command's docstring used to claim it returned the command's
+    captured standard output as bytes, but subprocess.run() was called
+    without capture_output=True, so it always returned None regardless --
+    the output was actually streaming straight to the console the whole
+    time. The fix made the function's signature and docstring match that
+    actual (and, for every current caller, desired) behavior.
+
+    Asserts:
+        - A valid command runs without raising and returns None.
+        - Passing None as the command raises ValueError.
+    """
+    result = att.run_command('echo hello')
+    assert result is None
+
+    try:
+        att.run_command(None)
+        assert False, "Expected ValueError for a None command"
+    except ValueError:
+        pass
+
+
 def test_compile_assembly_cpp():
     """Test the compilation of the assembly C++ code."""
     att.compile_assembly_cpp()

@@ -191,9 +191,13 @@ def load_assembly_output(file_path: str) -> int:
         return next(int(line.split(":")[-1].strip().strip('\n')) for line in f if "assembly index" in line)
 
 
-def run_command(command: str) -> Optional[bytes]:
+def run_command(command: str) -> None:
     """
-    Run a command in the subprocess.
+    Run a command in a subprocess, streaming its output to the console.
+
+    The subprocess inherits this process's stdout/stderr rather than having
+    them captured, so output (e.g. from a long-running compile) is visible
+    live rather than buffered until the command finishes.
 
     Parameters
     ----------
@@ -202,8 +206,9 @@ def run_command(command: str) -> Optional[bytes]:
 
     Returns
     -------
-    bytes
-        The standard output of the command.
+    None
+        The command's output goes straight to the console; nothing is
+        captured or returned.
 
     Raises
     ------
@@ -213,8 +218,7 @@ def run_command(command: str) -> Optional[bytes]:
     if command is None:
         raise ValueError("Command must be provided")
 
-    result = subprocess.run(command.split())
-    return result.stdout
+    subprocess.run(command.split())
 
 
 def add_to_bashrc(export_line: str, file: str = ".bashrc") -> None:
