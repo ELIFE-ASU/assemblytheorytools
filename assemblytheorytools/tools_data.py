@@ -23,7 +23,6 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 import pubchempy as pcp
-from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 from rdkit.Chem.EnumerateStereoisomers import EnumerateStereoisomers, StereoEnumerationOptions
 from scipy.optimize import minimize
@@ -61,7 +60,7 @@ def random_argmin(arr: np.ndarray) -> int:
 def get_close_random_index(data: np.ndarray, point: Union[float, np.ndarray]) -> int:
     """
     Find the index of the data point closest to the given point.
-    
+
     If there are multiple closest points, return a random index among them.
 
     Parameters
@@ -109,7 +108,7 @@ def sample_boostrapping(data: np.ndarray, n_sample: int) -> Tuple[np.ndarray, np
 def sample_kde_resampling(data: np.ndarray, n_sample: int) -> Tuple[np.ndarray, np.ndarray]:
     """
     Perform KDE-based resampling on the given dataset.
-    
+
     If the dataset is 1D, use 1D KDE resampling. If the dataset is 2D, use 2D KDE resampling.
 
     Parameters
@@ -125,7 +124,7 @@ def sample_kde_resampling(data: np.ndarray, n_sample: int) -> Tuple[np.ndarray, 
         The sampled values.
     sample_indices : numpy.ndarray
         The indices of the sampled values in the original dataset.
-        
+
     Raises
     ------
     ValueError
@@ -166,7 +165,7 @@ def sample_importance_sampling(data: np.ndarray, n_sample: int, n_bins: int = 50
         The sampled values.
     sample_indices : numpy.ndarray
         The indices of the sampled values in the original dataset.
-        
+
     Raises
     ------
     ValueError
@@ -393,13 +392,13 @@ def pubchem_name_to_nx(name: str, add_hydrogens: bool = True, sanitize: bool = T
     return smi_to_nx(smiles, add_hydrogens=add_hydrogens, sanitize=sanitize)
 
 
-def pubchem_id_to_smi(id: int) -> str:
+def pubchem_id_to_smi(cid: int) -> str:
     """
     Retrieve the SMILES string of a compound from PubChem by its CID.
 
     Parameters
     ----------
-    id : int
+    cid : int
         The PubChem Compound ID (CID) of the compound.
 
     Returns
@@ -412,16 +411,16 @@ def pubchem_id_to_smi(id: int) -> str:
     pubchempy.PubChemHTTPError
         If the compound with the given CID is not found.
     """
-    return pcp.Compound.from_cid(id).smiles
+    return pcp.Compound.from_cid(cid).smiles
 
 
-def pubchem_id_to_mol(id: int, add_hydrogens: bool = True, sanitize: bool = True) -> Chem.Mol:
+def pubchem_id_to_mol(cid: int, add_hydrogens: bool = True, sanitize: bool = True) -> Chem.Mol:
     """
     Retrieve an RDKit Mol object of a compound from PubChem by its CID.
 
     Parameters
     ----------
-    id : int
+    cid : int
         The PubChem Compound ID (CID) of the compound.
     add_hydrogens : bool, optional
         Whether to add explicit hydrogens to the molecule. Default is True.
@@ -438,17 +437,17 @@ def pubchem_id_to_mol(id: int, add_hydrogens: bool = True, sanitize: bool = True
     pubchempy.PubChemHTTPError
         If the compound with the given CID is not found.
     """
-    smiles = pubchem_id_to_smi(id)
+    smiles = pubchem_id_to_smi(cid)
     return smi_to_mol(smiles, add_hydrogens=add_hydrogens, sanitize=sanitize)
 
 
-def pubchem_id_to_nx(id: int, add_hydrogens: bool = True, sanitize: bool = True) -> nx.Graph:
+def pubchem_id_to_nx(cid: int, add_hydrogens: bool = True, sanitize: bool = True) -> nx.Graph:
     """
     Retrieve a NetworkX Graph of a compound from PubChem by its CID.
 
     Parameters
     ----------
-    id : int
+    cid : int
         The PubChem Compound ID (CID) of the compound.
     add_hydrogens : bool, optional
         Whether to add explicit hydrogens to the molecule. Default is True.
@@ -465,7 +464,7 @@ def pubchem_id_to_nx(id: int, add_hydrogens: bool = True, sanitize: bool = True)
     pubchempy.PubChemHTTPError
         If the compound with the given CID is not found.
     """
-    smiles = pubchem_id_to_smi(id)
+    smiles = pubchem_id_to_smi(cid)
     return smi_to_nx(smiles, add_hydrogens=add_hydrogens, sanitize=sanitize)
 
 
@@ -778,6 +777,31 @@ def pubchem_smi_to_name(smiles: str,
         return None
 
 
+def _is_valid_sampled_smiles(smi: str, max_bonds: int) -> bool:
+    """
+    Check that a SMILES string is a single, valid, small-enough molecule.
+
+    Parameters
+    ----------
+    smi : str
+        The SMILES string to validate.
+    max_bonds : int
+        The maximum number of bonds a valid molecule may have.
+
+    Returns
+    -------
+    bool
+        True if the string parses to a single connected molecule with no
+        more than ``max_bonds`` bonds, False otherwise.
+    """
+    if not smi or "." in smi:
+        return False
+    mol = smi_to_mol(smi, sanitize=True, add_hydrogens=True)
+    if mol is None:
+        return False
+    return mol.GetNumBonds() <= max_bonds
+
+
 def sample_random_pubchem(
         n: int,
         *,
@@ -843,28 +867,6 @@ def sample_random_pubchem(
 
     attempts = 0
 
-    def _is_valid_smiles(smi: str) -> bool:
-        """
-        Check that a SMILES string is a single, valid, small-enough molecule.
-
-        Parameters
-        ----------
-        smi : str
-            The SMILES string to validate.
-
-        Returns
-        -------
-        bool
-            True if the string parses to a single connected molecule with no
-            more than ``max_bonds`` bonds, False otherwise.
-        """
-        if not smi or "." in smi:
-            return False
-        mol = smi_to_mol(smi, sanitize=True, add_hydrogens=True)
-        if mol is None:
-            return False
-        return mol.GetNumBonds() <= max_bonds
-
     while len(smi_list) < n:
         remaining = n - len(smi_list)
         target_gen = min(batch_size, max(remaining * 5, remaining))
@@ -897,7 +899,7 @@ def sample_random_pubchem(
                 continue
 
             try:
-                if _is_valid_smiles(smi):
+                if _is_valid_sampled_smiles(smi, max_bonds):
                     ids.append(int(cid))
                     smi_list.append(smi)
             except Exception:
@@ -975,28 +977,6 @@ def sample_first_pubchem(
     attempts = 0
     next_cid = start_cid
 
-    def _is_valid_smiles(smi: str) -> bool:
-        """
-        Check that a SMILES string is a single, valid, small-enough molecule.
-
-        Parameters
-        ----------
-        smi : str
-            The SMILES string to validate.
-
-        Returns
-        -------
-        bool
-            True if the string parses to a single connected molecule with no
-            more than ``max_bonds`` bonds, False otherwise.
-        """
-        if not smi or "." in smi:
-            return False
-        mol = smi_to_mol(smi, sanitize=True, add_hydrogens=True)
-        if mol is None:
-            return False
-        return mol.GetNumBonds() <= max_bonds
-
     while len(smi_list) < n:
         if attempts >= max_attempts:
             raise RuntimeError(
@@ -1032,7 +1012,7 @@ def sample_first_pubchem(
                 continue
 
             try:
-                if _is_valid_smiles(smi):
+                if _is_valid_sampled_smiles(smi, max_bonds):
                     ids.append(int(cid))
                     smi_list.append(smi)
             except Exception:
