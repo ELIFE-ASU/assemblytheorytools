@@ -34,6 +34,63 @@ from .tools_mol import safe_standardize_mol
 
 RDLogger.DisableLog('rdApp.*')
 
+# SMARTS patterns for strained rings, cumulative double bonds and other
+# chemically unstable substructures rejected by filter_mol.
+_EVIL_SUBSTRUCTURE_SMARTS = [
+    '[*]1~[*]#[*]~1',
+    '[*]1~[*]~[*]#[*]~1',
+    '[*]1~[*]~[*]#[*]~[*]~1',
+    '[*]1~[*]~[*]~[*]#[*]~[*]~1',
+    '[*]1~[*]~[*]~[*]#[*]~[*]~[*]~1',
+    '[*]1=[*]=[*]~1',
+    '[*]1~[*]=[*]=[*]~1',
+    '[*]1~[*]~[*]=[*]=[*]~1',
+    '[*]1~[*]~[*]=[*]=[*]~[*]~1',
+    '[*]1~[*]~[*]~[*]=[*]=[*]~[*]~1',
+    '[*]1~[*]~[*]~[*]=[*]=[*]~[*]~[*]~1',
+    '[*]1~[*]2~[*]=[*]~1~2',
+    '[*]1~[*]2=[*]~1~[*]~2',
+    '[*]1~[*]~[*]2=[*]~[*]~1~2',
+    '[*]1~[*]=[*]2~[*]~[*]~1~2',
+    '[*]1~[*]~[*]2=[*]~1~[*]~2',
+    '[*]1~[*]~[*]2~[*]=[*]~2~[*]~1',
+    '[*]1~[*]~[*]2~[*]~[*]~2=[*]~1',
+    '[*]1~[*]~[*]2=[*](~[*]~1)~[*]~2',
+    '[*]1~[*]~[*]~[*]2=[*]~[*]~2~[*]~1',
+    '[*]1~[*]~[*]=[*]2~[*]~[*]~2~[*]~1',
+    '[*]1~[*]~[*]2=[*]~[*]~[*]~1~2',
+    '[*]1~[*]~[*]2~[*]~[*]=[*]~2~[*]~1',
+    '[*]1~[*]~[*]2~[*]~[*]~[*]~2=[*]~1',
+    '[*]1~[*]2~[*]~[*]~1=[*]~2',
+    '[*]1~[*]~[*]2=[*]~[*]~1~[*]~2',
+    '[*]1~[*]=[*]2~[*]~[*]~1~[*]~2',
+    '[*]1~[*]~[*]2~[*]~[*](=[*]~2)~[*]~1',
+    '[*]1~[*]~[*]2~[*]~[*](=[*]~1)~[*]~2',
+    '[*]1~[*]~[*]2=[*]~[*]~1~[*]~[*]~2',
+    '[*]1~[*]~[*]2=[*]~[*]~[*]~1~[*]~2',
+    '[*]1~[*]~[*]2~[*]~[*]~[*](=[*]~2)~[*]~1',
+    '[*]1~[*]~[*]2~[*]~[*]=[*](~[*]~1)~[*]~2',
+    '[*]1~[*]~[*]2~[*]~[*]~[*](=[*]~1)~[*]~2',
+    '[*]1~[*]~[*]2=[*]~[*]~[*]~1~[*]~[*]~2',
+    '[*]1~[*]2~[*]3~[*]~[*]~1~2~3',
+    '[*]1~[*]~[*]23~[*]4~[*]~2~[*]~1~3~4',
+    '[*]1~[*]23~[*]~[*]~1(~[*]~2)~[*]~3',
+    '[*]1~[*]2:[*]:[*]:[*]:[*]:[*]:2~1',
+    '[*]1~[*]~[*]2:[*]:[*]:[*]:[*]:[*]:2~1',
+    '[*]1~[*]2:[*]:[*]:[*]:[*]~1:[*]:2',
+    '[*]1~[*]~[*]2:[*]:[*]:[*]:[*]~1:[*]:2',
+    '[*]1~[*]~[*]2:[*]:[*]:[*]:[*](:[*]:2)~[*]~1',
+    '[*]1~[*]2:[*]:[*]:[*]~1:[*]:[*]:2',
+    '[*]1~[*]~[*]2:[*]:[*]:[*]~1:[*]:[*]:2',
+    '[*]1~[*]~[*]2:[*]:[*]:[*](:[*]:[*]:2)~[*]~1',
+    '[*]1:[*]:[*]2:[*]:[*]~2:[*]:1',
+    '[*]1:[*]:[*]2:[*]:[*]:[*]:1~2',
+    '[*]1~[*]~[*]~[*]2:[*]:[*]:[*]:[*](:[*]:2)~[*]~1',
+    '[*]1~[*]~[*]~[*]2:[*]:[*]:[*]:[*](:[*]:2)~[*]~[*]~1',
+    '[*]1~[*]~[*]~[*]2:[*]:[*]:[*](:[*]:[*]:2)~[*]~1',
+]
+_EVIL_SUBSTRUCTURE_MOLS = [Chem.MolFromSmarts(s) for s in _EVIL_SUBSTRUCTURE_SMARTS]
+
 
 def assemble_smarts() -> Tuple[List[List[str]], List[List[Optional[Any]]]]:
     """
@@ -1123,12 +1180,52 @@ def assemble_smarts() -> Tuple[List[List[str]], List[List[Optional[Any]]]]:
     return smarts, rxn
 
 
+def _enumerate_assemble_products(rxns: List[Any],
+                                 mol1: List[Union[Chem.Mol, str]],
+                                 mol2: List[Union[Chem.Mol, str]]) -> Optional[Chem.Mol]:
+    """
+    Enumerate products of a list of reactions over both fragment orderings.
+
+    Every reaction in *rxns* is applied to both ``(mol1, mol2)`` and
+    ``(mol2, mol1)``, and the unique resulting SMILES are collected.
+
+    Parameters
+    ----------
+    rxns : list
+        RDKit reaction objects to apply, as produced by
+        ``AllChem.ReactionFromSmarts``.
+    mol1 : list
+        Single-element list wrapping the first fragment.
+    mol2 : list
+        Single-element list wrapping the second fragment.
+
+    Returns
+    -------
+    rdkit.Chem.Mol or None
+        A randomly selected product, or None if no reaction produced one.
+    """
+    products = []
+    for rxn in rxns:
+        for mol_pair in [(mol1, mol2), (mol2, mol1)]:
+            pass_products = Enumerator.EnumerateReaction(rxn, mol_pair, uniqueProductsOnly=True)
+            for product in pass_products:
+                smiles = Chem.MolToSmiles(product[0])
+                if smiles not in products:
+                    products.append(smiles)
+
+    result = sorted(products)
+    if not result:
+        return None
+    smiles = result[random.randint(0, len(result) - 1)]
+    return Chem.MolFromSmiles(smiles)
+
+
 def assemble(molecule1: Union[Chem.Mol, str],
              molecule2: Union[Chem.Mol, str],
              sites: int) -> Optional[Chem.Mol]:
     """
     Assemble two molecular fragments using SMARTS reaction patterns.
-    
+
     This function combines two molecular fragments through chemical reactions based on
     the specified number of reaction sites. It uses predefined SMARTS reaction patterns
     to enumerate possible products and returns a randomly selected valid product.
@@ -1154,7 +1251,7 @@ def assemble(molecule1: Union[Chem.Mol, str],
         - 1: Uses basic intermolecular reactions (rxn[0])
         - 2: Uses complex cross-reactions (rxn[1])
         - >2: Not supported, returns None
-    
+
     Returns
     -------
     rdkit.Chem.Mol or None
@@ -1173,75 +1270,31 @@ def assemble(molecule1: Union[Chem.Mol, str],
             rxn[i][j] = AllChem.ReactionFromSmarts(smarts[i][j])
 
     if sites == 1:
-        # =============================================
-        # For n=1 (i.e. sites==1) Reassembler runs the simplest loop.
-        # It cycles through all n=1 reactions listed in rxn[0].
-        # =============================================
-
-        products = []
-
-        for i in range(len(rxn[0])):
-            for mol_pair in [(mol1, mol2), (mol2, mol1)]:
-                pass_products = Enumerator.EnumerateReaction(rxn[0][i],
-                                                             mol_pair,
-                                                             uniqueProductsOnly=True)
-                for product in list(pass_products):
-                    smiles = Chem.MolToSmiles(product[0])
-                    if smiles not in products:
-                        products.append(smiles)
-
-        result = (sorted([product for product in products]))
-        print(result)
-
-        if len(result) == 0:
-            return None
-        else:
-            smiles = result[random.randint(0, len(result) - 1)]
-            return Chem.MolFromSmiles(smiles)
+        # For n=1 (i.e. sites==1) Reassembler cycles through all n=1 reactions listed in rxn[0].
+        return _enumerate_assemble_products(rxn[0], mol1, mol2)
 
     if sites == 2:
-        # =============================================
-        # For n=2 (i.e. sites==2) Reassembler runs the simplest loop.
-        # It cycles through all n=2 reactions listed in rxn[1].
-        # =============================================
+        # For n=2 (i.e. sites==2) Reassembler cycles through all n=2 reactions listed in rxn[1].
+        return _enumerate_assemble_products(rxn[1], mol1, mol2)
 
-        products = []
-
-        for i in range(len(rxn[1])):
-            for mol_pair in [(mol1, mol2), (mol2, mol1)]:
-                pass_products = list(Enumerator.EnumerateReaction(rxn[1][i], mol_pair, uniqueProductsOnly=True))
-                for product in pass_products:
-                    smiles = Chem.MolToSmiles(product[0])
-                    if smiles not in products:
-                        products.append(smiles)
-
-        result = sorted([product for product in products])
-
-        if len(result) == 0:
-            return None
-        else:
-            smiles = result[random.randint(0, len(result) - 1)]
-            return Chem.MolFromSmiles(smiles)
-
-    if sites > 2:
-        return None
+    # Any other number of sites (including sites > 2) is not supported
     return None
 
 
 def printer(mols: List[Chem.Mol]) -> None:
     """
     Generate and save grid images of molecular structures in batches.
-    
+
     This function takes a list of RDKit molecule objects and creates visual grid
     representations, saving them as PNG files in the current working directory. Large collections are automatically
     split into manageable batches to prevent overcrowded images. Batch size is 50 molecules per image.
-    
+
     Parameters
     ----------
     mols : list of rdkit.Chem.Mol
         List of RDKit Mol objects to be visualized. Each element
         should be a valid RDKit molecule object that can be rendered.
-    
+
     Returns
     -------
     None
@@ -1260,24 +1313,22 @@ def printer(mols: List[Chem.Mol]) -> None:
         img = Draw.MolsToGridImage(pages[batch], molsPerRow=10, legends=labels[batch])
         img.save('Mols_' + str(start) + '-' + str(end) + '.png')
 
-    return None
-
 
 def filter_mol(mol: Union[Chem.Mol, List[Chem.Mol]]) -> Optional[Chem.Mol]:
     """
     Filter out molecules containing chemically unstable or undesirable substructures.
-    
+
     This function screens input molecules against a predefined list of 51 problematic
     SMARTS patterns representing strained rings, unusual bonding patterns (e.g. cumulative double bonds), and
     chemically unstable motifs. Any molecule containing these substructures is
     rejected to ensure chemical validity and synthetic feasibility.
-    
+
     Parameters
     ----------
     mol : rdkit.Chem.Mol or list of rdkit.Chem.Mol
         RDKit molecule object to be filtered. If a list is provided,
         one molecule is randomly selected for filtering.
-    
+
     Returns
     -------
     rdkit.Chem.Mol or None
@@ -1289,62 +1340,7 @@ def filter_mol(mol: Union[Chem.Mol, List[Chem.Mol]]) -> Optional[Chem.Mol]:
         # randomly select one molecule from the list
         mol = mol[random.randint(0, len(mol) - 1)]
 
-    evil_smarts = 51 * ['']
-
-    evil_smarts[0] = '[*]1~[*]#[*]~1'
-    evil_smarts[1] = '[*]1~[*]~[*]#[*]~1'
-    evil_smarts[2] = '[*]1~[*]~[*]#[*]~[*]~1'
-    evil_smarts[3] = '[*]1~[*]~[*]~[*]#[*]~[*]~1'
-    evil_smarts[4] = '[*]1~[*]~[*]~[*]#[*]~[*]~[*]~1'
-    evil_smarts[5] = '[*]1=[*]=[*]~1'
-    evil_smarts[6] = '[*]1~[*]=[*]=[*]~1'
-    evil_smarts[7] = '[*]1~[*]~[*]=[*]=[*]~1'
-    evil_smarts[8] = '[*]1~[*]~[*]=[*]=[*]~[*]~1'
-    evil_smarts[9] = '[*]1~[*]~[*]~[*]=[*]=[*]~[*]~1'
-    evil_smarts[10] = '[*]1~[*]~[*]~[*]=[*]=[*]~[*]~[*]~1'
-    evil_smarts[11] = '[*]1~[*]2~[*]=[*]~1~2'
-    evil_smarts[12] = '[*]1~[*]2=[*]~1~[*]~2'
-    evil_smarts[13] = '[*]1~[*]~[*]2=[*]~[*]~1~2'
-    evil_smarts[14] = '[*]1~[*]=[*]2~[*]~[*]~1~2'
-    evil_smarts[15] = '[*]1~[*]~[*]2=[*]~1~[*]~2'
-    evil_smarts[16] = '[*]1~[*]~[*]2~[*]=[*]~2~[*]~1'
-    evil_smarts[17] = '[*]1~[*]~[*]2~[*]~[*]~2=[*]~1'
-    evil_smarts[18] = '[*]1~[*]~[*]2=[*](~[*]~1)~[*]~2'
-    evil_smarts[19] = '[*]1~[*]~[*]~[*]2=[*]~[*]~2~[*]~1'
-    evil_smarts[20] = '[*]1~[*]~[*]=[*]2~[*]~[*]~2~[*]~1'
-    evil_smarts[21] = '[*]1~[*]~[*]2=[*]~[*]~[*]~1~2'
-    evil_smarts[22] = '[*]1~[*]~[*]2~[*]~[*]=[*]~2~[*]~1'
-    evil_smarts[23] = '[*]1~[*]~[*]2~[*]~[*]~[*]~2=[*]~1'
-    evil_smarts[24] = '[*]1~[*]2~[*]~[*]~1=[*]~2'
-    evil_smarts[25] = '[*]1~[*]~[*]2=[*]~[*]~1~[*]~2'
-    evil_smarts[26] = '[*]1~[*]=[*]2~[*]~[*]~1~[*]~2'
-    evil_smarts[27] = '[*]1~[*]~[*]2~[*]~[*](=[*]~2)~[*]~1'
-    evil_smarts[28] = '[*]1~[*]~[*]2~[*]~[*](=[*]~1)~[*]~2'
-    evil_smarts[29] = '[*]1~[*]~[*]2=[*]~[*]~1~[*]~[*]~2'
-    evil_smarts[30] = '[*]1~[*]~[*]2=[*]~[*]~[*]~1~[*]~2'
-    evil_smarts[31] = '[*]1~[*]~[*]2~[*]~[*]~[*](=[*]~2)~[*]~1'
-    evil_smarts[32] = '[*]1~[*]~[*]2~[*]~[*]=[*](~[*]~1)~[*]~2'
-    evil_smarts[33] = '[*]1~[*]~[*]2~[*]~[*]~[*](=[*]~1)~[*]~2'
-    evil_smarts[34] = '[*]1~[*]~[*]2=[*]~[*]~[*]~1~[*]~[*]~2'
-    evil_smarts[35] = '[*]1~[*]2~[*]3~[*]~[*]~1~2~3'
-    evil_smarts[36] = '[*]1~[*]~[*]23~[*]4~[*]~2~[*]~1~3~4'
-    evil_smarts[37] = '[*]1~[*]23~[*]~[*]~1(~[*]~2)~[*]~3'
-    evil_smarts[38] = '[*]1~[*]2:[*]:[*]:[*]:[*]:[*]:2~1'
-    evil_smarts[39] = '[*]1~[*]~[*]2:[*]:[*]:[*]:[*]:[*]:2~1'
-    evil_smarts[40] = '[*]1~[*]2:[*]:[*]:[*]:[*]~1:[*]:2'
-    evil_smarts[41] = '[*]1~[*]~[*]2:[*]:[*]:[*]:[*]~1:[*]:2'
-    evil_smarts[42] = '[*]1~[*]~[*]2:[*]:[*]:[*]:[*](:[*]:2)~[*]~1'
-    evil_smarts[43] = '[*]1~[*]2:[*]:[*]:[*]~1:[*]:[*]:2'
-    evil_smarts[44] = '[*]1~[*]~[*]2:[*]:[*]:[*]~1:[*]:[*]:2'
-    evil_smarts[45] = '[*]1~[*]~[*]2:[*]:[*]:[*](:[*]:[*]:2)~[*]~1'
-    evil_smarts[46] = '[*]1:[*]:[*]2:[*]:[*]~2:[*]:1'
-    evil_smarts[47] = '[*]1:[*]:[*]2:[*]:[*]:[*]:1~2'
-    evil_smarts[48] = '[*]1~[*]~[*]~[*]2:[*]:[*]:[*]:[*](:[*]:2)~[*]~1'
-    evil_smarts[49] = '[*]1~[*]~[*]~[*]2:[*]:[*]:[*]:[*](:[*]:2)~[*]~[*]~1'
-    evil_smarts[50] = '[*]1~[*]~[*]~[*]2:[*]:[*]:[*](:[*]:[*]:2)~[*]~1'
-
-    for item in evil_smarts:
-        sub_mol = Chem.MolFromSmarts(item)
+    for sub_mol in _EVIL_SUBSTRUCTURE_MOLS:
         if mol.HasSubstructMatch(sub_mol):
             return None
     return mol
@@ -1661,7 +1657,7 @@ def reassemble_old(mols: List[Chem.Mol],
     """
     Generate new molecules by reassembling molecular fragments with comprehensive filtering,
     as proposed by Liu et al. [Liu2021]_.
-    
+
     This function creates novel molecular structures by systematically combining input molecular
     fragments, applying origami cyclization operations, and filtering results based on multiple
     physicochemical criteria.
@@ -1700,7 +1696,7 @@ def reassemble_old(mols: List[Chem.Mol],
     mw_delta : float, optional
         Molecular weight tolerance factor for fragment selection.
         Creates MW range: [mw_min*(1-delta), mw_max*(1+delta)], by default 0.1.
-    
+
     Returns
     -------
     list of rdkit.Chem.Mol
@@ -1847,7 +1843,7 @@ def reassemble_old(mols: List[Chem.Mol],
 
 
 # -------------------------------------------------------------------------
-# REASSEMBLING FUNCTIONS BASED ON 
+# REASSEMBLING FUNCTIONS BASED ON
 # "Mapping Evolution of Molecules Across Biochemistry with Assembly Theory"
 # by Pagel et al.
 # -------------------------------------------------------------------------
@@ -2022,12 +2018,12 @@ def compose_all(graphs: List[nx.Graph],
                 get_atomic_count: bool = True) -> nx.MultiDiGraph:
     """
     Compose multiple NetworkX graphs into a single unified graph with accumulated statistics.
-    
+
     This function merges a collection of NetworkX graphs into one composite graph while
     preserving and accumulating node/edge data across all input graphs. It computes
     various statistical measures including occurrence counts, usage patterns, and
     atomic distributions.
-    
+
     Parameters
     ----------
     graphs : list of networkx.Graph
@@ -2040,7 +2036,7 @@ def compose_all(graphs: List[nx.Graph],
     get_atomic_count : bool, optional
         If True, computes atomic distribution statistics
         for nodes. Useful for molecular graphs, by default True.
-    
+
     Returns
     -------
     networkx.MultiDiGraph
@@ -2137,7 +2133,7 @@ def accumulate_nodes_data(graphs: List[nx.Graph],
         Collection of NetworkX graphs to analyze.
     attribute : str, optional
         Node attribute to track minimum values for, by default "level".
-    
+
     Returns
     -------
     tuple of dict
@@ -2492,11 +2488,11 @@ def get_atom_type_index_mapping(fragment: str) -> Tuple[Optional[Chem.Mol], Opti
 class ParsePathwayLog:
     """
     Parses and visualizes molecular assembly pathway logs as hierarchical directed graphs.
-    
+
     Processes structured log files that document molecular assembly pathways,
     converting them into NetworkX directed graphs that represent the step-by-step
     construction of complex molecules from basic building blocks.
-    
+
     Attributes
     ----------
     pathway_log : str
@@ -2518,19 +2514,19 @@ class ParsePathwayLog:
     def __init__(self, pathway_log: str):
         """
         Initialize pathway parser and automatically process molecular assembly log.
-        
+
         Creates a complete molecular assembly pathway analysis by parsing the structured
         log, building a directed graph representation, validating the assembly sequence,
         and computing hierarchical statistics. All processing occurs during initialization.
-        
+
         Parameters
         ----------
         pathway_log : str
             Structured log content with required sections:
             - "#####Graph#####": Graph structure data
-            - "#####Atoms#####": Atomic composition information  
+            - "#####Atoms#####": Atomic composition information
             - "#####Steps#####": Assembly step definitions
-            - "#####Digraph#####": Directed graph connectivity        
+            - "#####Digraph#####": Directed graph connectivity
         """
         self.pathway_log = pathway_log
         self.atom_lines, self.building_block_lines, self.steps_lines, self.digraph_lines = self._parse_log()
@@ -2613,7 +2609,7 @@ class ParsePathwayLog:
     def _build_basic_building_blocks(self) -> Dict[str, str]:
         """
         Create SMILES representations of basic molecular building blocks.
-        
+
         Converts building block data into RDKit molecules and generates SMILES
         strings for the fundamental fragments used in molecular assembly. Each
         building block is a simple two-atom molecule with a specific bond type.
@@ -2636,7 +2632,7 @@ class ParsePathwayLog:
     def _build_fragment_for_step(self, step: str) -> str:
         """
         Construct molecular fragment for a specific assembly step.
-        
+
         Builds an RDKit molecule from the atom and bond data associated with an
         assembly step, giving the product molecule that results from combining
         fragments in that step. Atom indexing and bond type mapping are handled
@@ -2741,7 +2737,7 @@ class ParsePathwayLog:
     def _get_node_positions(self) -> Dict[Any, List[float]]:
         """
         Calculate 2D layout positions for hierarchical pathway visualization.
-        
+
         Computes ``(x, y)`` coordinates for each node to create a layered graph
         layout where nodes are arranged horizontally by assembly level and
         distributed evenly within each level to avoid overlap.
@@ -2817,11 +2813,11 @@ class ParsePathwayLog:
 class Molecule:
     """
     Unified interface for molecular structure analysis and hierarchical assembly visualization.
-    
-    This class provides a comprehensive framework for molecular pathway analysis that can 
+
+    This class provides a comprehensive framework for molecular pathway analysis that can
     work with existing assembly pathway data or compute new pathways using external tools.
     Designed for lazy evaluation where pathway computation occurs only when needed.
-    
+
     Attributes
     ----------
     smiles : str
@@ -2853,22 +2849,22 @@ class Molecule:
 
         """
         Initialize Molecule object with flexible input options for pathway analysis.
-        
+
         Creates a Molecule object that can work with various types of input:
         existing molecular structures, known pathways/assembly graphs. The object
         is designed for lazy evaluation - pathway computation and analysis occur
         only when needed.
-        
+
         Parameters
         ----------
         smiles : str, optional
-            SMILES string of target molecule. If empty, will be extracted 
+            SMILES string of target molecule. If empty, will be extracted
             from graph or computed from pathway, by default "".
         pathway : list of str, optional
-            Pre-existing assembly pathway steps. Used when pathway is 
+            Pre-existing assembly pathway steps. Used when pathway is
             already known, by default None.
         assembly_index : int, optional
-            Position index in assembly sequence. Used for tracking 
+            Position index in assembly sequence. Used for tracking
             molecular position, by default None.
         G : networkx.DiGraph, optional
             NetworkX directed graph representing assembly pathway.
@@ -2910,7 +2906,7 @@ class Molecule:
     def calc_pathway(self) -> None:
         """
         Execute external molecular assembly tool to compute assembly pathway.
-        
+
         Converts the molecule to MOL file format and runs the external assembly
         software to compute the assembly pathway, handling process execution,
         timeout management and file path tracking for subsequent analysis.
@@ -2943,7 +2939,7 @@ class Molecule:
     def reconstruct_pathway(self) -> None:
         """
         Compute and parse molecular assembly pathway from external tools.
-        
+
         Executes the complete pathway computation pipeline: it runs the external
         assembly software, parses the output files and extracts the pathway data
         for analysis, then removes all temporary files created in the process.
@@ -2972,7 +2968,7 @@ class Molecule:
     def construct_layered_graph(self) -> None:
         """
         Build hierarchical NetworkX graph from parsed assembly pathway log data.
-        
+
         Creates a :class:`ParsePathwayLog` object from the pathway results and
         extracts the constructed graph and final molecule SMILES, converting the
         raw pathway log into a structured graph representation.
@@ -2994,7 +2990,7 @@ class Molecule:
     def plot_layered_graph(self, show_molecule: bool = True) -> None:
         """
         Create hierarchical visualization of the molecular assembly pathway.
-        
+
         Delegates to the :class:`ParsePathwayLog` object to generate a layered
         graph plot showing the step-by-step assembly process.
 
@@ -3151,11 +3147,11 @@ class MoleculeSpace:
     ) -> Tuple[Union[nx.MultiDiGraph, List[str]], int]:
         """
         Generates fragment pool by reducing assembly depth by X levels.
-        
+
         Creates a simplified molecular fragment pool by removing the X most complex
         assembly levels, effectively "stepping back" in the assembly space to
         obtain simpler fragments.
-        
+
         Parameters
         ----------
         X : int, optional
@@ -3245,7 +3241,7 @@ class MoleculeGenerationAssemblyPool:
     Generate novel molecules from molecular fragment pools.
 
     See Pagel et al. [Pagel2024a]_ for details.
-    
+
     This class implements a molecular generation algorithm that creates new molecules
     by randomly combining fragments from existing assembly pathways. It uses statistical sampling
     based on fragment occurrence frequencies and chemical compatibility to generate chemically
@@ -3288,7 +3284,7 @@ class MoleculeGenerationAssemblyPool:
     def set_assembly_pool(self, x: int = 10, remove_pathways: bool = False) -> None:
         """
         Configure fragment pool for molecule generation by reducing steps in assembly depth.
-        
+
         Extracts and organises molecular fragments from the assembly pool at a
         specified depth level, creating fragment libraries grouped by assembly
         depth. This establishes the foundation for subsequent weighted sampling
@@ -3332,7 +3328,7 @@ class MoleculeGenerationAssemblyPool:
     def reset_level_to_fragment(self) -> None:
         """
         Reset fragment pool to original state for independent molecule generation.
-        
+
         Restores the level_to_fragment mapping from backup, ensuring each molecule
         generation process starts with the same initial fragment pool regardless
         of modifications made during previous generation attempts.
@@ -3361,7 +3357,7 @@ class MoleculeGenerationAssemblyPool:
     def get_assembled_molecules(self) -> Optional[List[str]]:
         """
         Extract final products from all successful molecule generation attempts.
-        
+
         Returns the terminal molecule from each generation process, that is the
         completed assembled structure after all assembly steps.
 
@@ -3378,11 +3374,11 @@ class MoleculeGenerationAssemblyPool:
     def get_leaf_counts_per_level(self, min_level=1) -> dict[int, int]:
         """
         Count target molecules (leaf nodes) at each assembly depth level.
-        
+
         Creates a frequency distribution of final assembled molecules across
         assembly hierarchy levels, used for statistical weighting in generation
         algorithms to maintain realistic molecular complexity distributions.
-        
+
         Parameters
         ----------
         min_level : int, optional
@@ -3409,7 +3405,7 @@ class MoleculeGenerationAssemblyPool:
     def add_to_assembly_graph(self, parents: List[str], child: str) -> bool:
         """
         Integrate a newly generated molecule into the assembly depth graph.
-        
+
         Adds a generated molecule to the extended assembly graph with the
         appropriate connectivity, hierarchy level and chemical metadata,
         establishing the molecule's position in the assembly network for future
@@ -3483,11 +3479,11 @@ class MoleculeGenerationAssemblyPool:
     def construct_diverged_assembly_graph(self) -> None:
         """
         Create snapshot of the extended assembly graph including generated molecules.
-        
+
         Captures the current state of the assembly pathway graph that has been
         expanded with newly generated molecules, preserving the complete network
         for analysis and visualization of both original and generated pathways.
-        
+
         Returns
         -------
         None
@@ -3539,7 +3535,7 @@ class MoleculeGenerationAssemblyPool:
     def set_sw_n_steps(self, level: int = 0, exponent: float = 1.0) -> None:
         """
         Calculate sampling weights for assembly step counts based on target molecule distribution.
-        
+
         Computes probabilistic weights for different numbers of assembly steps
         from the distribution of target molecules across assembly depth levels,
         so that generated molecules have realistic assembly sequence lengths.
@@ -3635,7 +3631,7 @@ class MoleculeGenerationAssemblyPool:
                        ) -> Tuple[Optional[str], int]:
         """
         Weighted random sampling (WRS) of chemically compatible fragments from an assembly depth layer.
-        
+
         Selects a random fragment from the specified assembly layer that is
         theoretically compatible with the base molecule, weighting the sampling
         by fragment usage frequency and atomic bonding compatibility.
@@ -3709,7 +3705,7 @@ class MoleculeGenerationAssemblyPool:
     def weighted_n_steps_sampler(self, n: int, min_level: int = 1) -> int:
         """
         Sample number of assembly steps using target molecule distribution.
-        
+
         Randomly selects how many assembly steps to perform from the statistical
         distribution of target molecule complexities, so that generated
         molecules follow realistic assembly sequence lengths.
@@ -3736,7 +3732,7 @@ class MoleculeGenerationAssemblyPool:
     def get_random_fragment_with_level(self, node_level: int) -> str:
         """
         Randomly selects a fragment from a specific assembly depth level.
-        
+
         Performs uniform random selection from all available fragments at the
         specified assembly depth level, without weighting or compatibility
         constraints.
@@ -3761,7 +3757,7 @@ class MoleculeGenerationAssemblyPool:
 
         """
         Combine two molecular fragments into a new molecule.
-        
+
         Parses the SMILES strings, extracts the atomic information and delegates
         to the assembly object for bond formation, handling molecular
         preprocessing and error cases.
@@ -3816,7 +3812,7 @@ class MoleculeGenerationAssemblyPool:
 
         """
         Generate N novel molecules through probabilistic fragment assembly.
-        
+
         Creates new molecules by iteratively combining fragments drawn from
         existing assembly pathways, using statistical sampling to balance
         chemical realism against novelty.
@@ -3863,7 +3859,7 @@ class MoleculeGenerationAssemblyPool:
         def _combine_fragments(fragment1, layer, curr_depth=None):
             """
             Inner function to attempt fragment combination with compatibility checking.
-            
+
             Encapsulates the fragment selection and combination logic for a
             single assembly step, handling weighted sampling of compatible
             fragments and reporting enough detail for the adaptive retry
@@ -4001,7 +3997,7 @@ class Assemble:
     """
 
     # Empircal propabilities of number of atom overlaps, starting at 1
-    # e.g., there is a 90.8% of fragments connecting at 1 atom. 
+    # e.g., there is a 90.8% of fragments connecting at 1 atom.
     BASE_WEIGHTS = [0.908, 0.075, 0.0137, 0.003]
 
     def __init__(self) -> None:
@@ -4017,7 +4013,7 @@ class Assemble:
                           layer: Optional[int] = None) -> List[List[int]]:
         """
         Select atom overlap pairs for molecular assembly using empirical probability weights.
-        
+
         Determines how many and which atom pairs to overlap when combining two
         molecular fragments, using statistical weights derived from the chemical
         reaction patterns established in Pagel et al. This balances chemical
@@ -4061,7 +4057,7 @@ class Assemble:
                     layer: Optional[int] = None) -> Optional[str]:
         """
         Combine two molecular fragments through probabilistic atom overlap assembly.
-        
+
         The main assembly engine, which attempts to create a new molecule by
         combining two fragments through atom overlap. It uses iterative sampling
         with empirical probability weights and repeated retries to find a
