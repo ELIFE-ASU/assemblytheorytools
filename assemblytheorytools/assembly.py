@@ -1969,15 +1969,13 @@ def calculate_assembly_index_jo_ratio(graph: Union[nx.Graph, Chem.Mol], settings
     # Determine number of edges (bonds) depending on input type
     n_edges = graph.number_of_edges() if isinstance(graph, nx.Graph) else graph.GetNumBonds()
 
-    # Compute the joining-operation index (JO) using existing function
-    jo = calculate_assembly_index_jo(graph, settings=settings)[0]
-
-    # Avoid division by zero when there are no edges
+    # Avoid division by zero when there are no edges (also skips the expensive
+    # JO calculation below, which would otherwise run needlessly)
     if n_edges == 0:
         return 1.0
 
     # Compute the joining-operation index (JO) using existing function
-    jo = calculate_assembly_index_jo(graph, settings)[0]
+    jo = calculate_assembly_index_jo(graph, settings=settings)[0]
 
     # Note: if jo is 0 this will raise ZeroDivisionError; if jo is -1 the result
     # will be negative which indicates a failure in JO calculation upstream.
