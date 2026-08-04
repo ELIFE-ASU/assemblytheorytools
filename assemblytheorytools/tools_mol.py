@@ -13,7 +13,6 @@ import warnings
 from typing import List, Union
 
 import networkx as nx
-from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 from rdkit.Chem.MolStandardize import rdMolStandardize
 from rdkit.Chem.rdchem import GetPeriodicTable
@@ -220,6 +219,27 @@ def get_total_free_valence(mol: Chem.Mol | nx.Graph,
     return free
 
 
+def _maybe_sanitize(mol: Chem.Mol, sanitize: bool, add_hydrogens: bool) -> Chem.Mol:
+    """
+    Standardise *mol* if requested, otherwise return it unchanged.
+
+    Parameters
+    ----------
+    mol : Chem.Mol
+        The molecule to conditionally standardise.
+    sanitize : bool
+        Whether to run :func:`safe_standardize_mol` on *mol*.
+    add_hydrogens : bool
+        Passed through to :func:`safe_standardize_mol` when *sanitize* is True.
+
+    Returns
+    -------
+    Chem.Mol
+        The standardised molecule, or *mol* itself if *sanitize* is False.
+    """
+    return safe_standardize_mol(mol, add_hydrogens=add_hydrogens) if sanitize else mol
+
+
 def smi_to_mol(smi: str, add_hydrogens: bool = True, sanitize: bool = True) -> Chem.Mol:
     """
     Convert a SMILES string to an RDKit molecule object.
@@ -257,11 +277,7 @@ def smi_to_mol(smi: str, add_hydrogens: bool = True, sanitize: bool = True) -> C
         warnings.warn("Disconnected molecules detected in SMILES string. Ensure proper handling of these molecules.")
     # Convert the SMILES string to an RDKit molecule object
     mol = Chem.MolFromSmiles(smi, sanitize=False)
-    # Sanitise the molecule
-    if sanitize:
-        return safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
-    else:
-        return mol
+    return _maybe_sanitize(mol, sanitize, add_hydrogens)
 
 
 def inchi_to_mol(inchi: str, add_hydrogens: bool = True, sanitize: bool = True) -> Chem.Mol:
@@ -297,11 +313,7 @@ def inchi_to_mol(inchi: str, add_hydrogens: bool = True, sanitize: bool = True) 
     - Sanitization ensures the molecule is chemically valid and standardized.
     """
     mol = Chem.MolFromInchi(inchi, sanitize=False, removeHs=False)
-    # Sanitise the molecule
-    if sanitize:
-        return safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
-    else:
-        return mol
+    return _maybe_sanitize(mol, sanitize, add_hydrogens)
 
 
 def molfile_to_mol(mol: str, add_hydrogens: bool = True, sanitize: bool = True) -> Chem.Mol:
@@ -338,12 +350,7 @@ def molfile_to_mol(mol: str, add_hydrogens: bool = True, sanitize: bool = True) 
     """
     # Convert the Molfile to an RDKit molecule
     mol = Chem.MolFromMolFile(mol, sanitize=False)
-
-    # Sanitise the molecule
-    if sanitize:
-        return safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
-    else:
-        return mol
+    return _maybe_sanitize(mol, sanitize, add_hydrogens)
 
 
 def combine_mols(mols: Union[List[Chem.Mol], Chem.Mol]) -> Chem.Mol:
@@ -404,7 +411,6 @@ def write_v2k_mol_file(mol: Chem.Mol, file_path: str) -> None:
     # Need to force rdkit to use V2k mol block format
     with open(file_path, "w") as f:
         f.write(Chem.MolToV2KMolBlock(mol))
-    return None
 
 
 def get_element_set_from_mols(mols: List[Chem.Mol]) -> set:
@@ -560,7 +566,7 @@ def peptide_to_smiles(seq: str, *, canonical: bool = True) -> str:
 
     bad = [(i, ch) for i, ch in enumerate(s, start=1) if ch not in _allowed_aa]
     if bad:
-        raise ValueError(f"Invalid amino acid code(s)."
+        raise ValueError(f"Invalid amino acid code(s). "
                          f"Allowed: {''.join(sorted(_allowed_aa))}")
 
     mol = Chem.MolFromFASTA(s)
