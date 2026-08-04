@@ -108,6 +108,17 @@ def test_convert_digraph_vo_to_target():
 
     Asserts:
         - The extracted SMILES strings match the reference list.
+
+    Notes
+    -----
+    The final (whole-molecule) reference SMILES is a non-canonical RDKit
+    serialization, not the assembly pathway's own choice of representation.
+    Its exact ring-traversal direction can shift between RDKit versions even
+    though the molecule is unchanged -- confirmed by canonicalizing both
+    forms: ``Chem.MolToSmiles`` and ``Chem.MolToInchi`` agree that
+    ``'CCOC(=O)C1=CC=CC=C1C(=O)OCC'`` (this reference) and
+    ``'CCOC(=O)C1=C(C(=O)OCC)C=CC=C1'`` (an older RDKit's output) are the
+    same molecule, diethyl phthalate.
     """
     smi = att.pubchem_name_to_smi('diethyl phthalate')
     print(f"SMILES: {smi}", flush=True)
@@ -130,7 +141,7 @@ def test_convert_digraph_vo_to_target():
                'CC=CC(=O)OCC',
                'CC=C(C)C(=O)OCC',
                'C=CC=C(C)C(=O)OCC',
-               'CCOC(=O)C1=C(C(=O)OCC)C=CC=C1']
+               'CCOC(=O)C1=CC=CC=C1C(=O)OCC']
 
     assert att.check_elements(smis, ref_smi)
 
