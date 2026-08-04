@@ -20,8 +20,7 @@ T = TypeVar("T")
 def check_elements(input_list: Sequence[T], reference_list: Sequence[T]) -> bool:
     """Check if all elements in an input list are present in a reference list.
 
-    This function returns ``False`` for an empty input list, preserving existing
-    behavior.
+    Returns ``False`` for an empty input list.
 
     Parameters
     ----------
@@ -240,7 +239,7 @@ def _load_molecules() -> dict[str, Molecule]:
             assembly_index = int(ai_str) if ai_str else None
 
             test_include_str = (row.get("test_include") or "").strip()
-            # handles 'True'/'False' as in your CSV
+            # CSV stores this column as the literal strings 'True'/'False'
             test_include = test_include_str.lower() == "true"
 
             mols[name] = Molecule(
