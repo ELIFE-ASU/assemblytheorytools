@@ -3481,15 +3481,19 @@ def show_common_bonds(
     mol_a = standardize_mol(mol_a, add_hydrogens=False)
     mol_b = standardize_mol(mol_b, add_hydrogens=False)
 
-    # Compute MCS (Maximum Common Substructure)
-    mcs_params = rdFMCS.MCSParameters()
-    mcs_params.Timeout = int(timeout_s)
-    mcs_params.AtomCompare = rdFMCS.AtomCompare.CompareElements
-    mcs_params.BondCompare = rdFMCS.BondCompare.CompareOrderExact
-    mcs_params.RingMatchesRingOnly = bool(ring_matches_ring_only)
-    mcs_params.CompleteRingsOnly = bool(complete_rings_only)
-
-    mcs_res = rdFMCS.FindMCS([mol_a, mol_b], mcs_params)
+    # Compute MCS (Maximum Common Substructure). Uses the keyword-argument
+    # form of FindMCS rather than an MCSParameters object, since the
+    # equivalent flat attributes on MCSParameters (AtomCompare, BondCompare,
+    # RingMatchesRingOnly, CompleteRingsOnly) were renamed/restructured
+    # across RDKit versions.
+    mcs_res = rdFMCS.FindMCS(
+        [mol_a, mol_b],
+        timeout=int(timeout_s),
+        atomCompare=rdFMCS.AtomCompare.CompareElements,
+        bondCompare=rdFMCS.BondCompare.CompareOrderExact,
+        ringMatchesRingOnly=bool(ring_matches_ring_only),
+        completeRingsOnly=bool(complete_rings_only),
+    )
     if not mcs_res.smartsString:
         # No overlap found; draw without highlights.
         return Draw.MolsToGridImage(
@@ -3657,6 +3661,7 @@ def draw_mol_grid(
         legends=legends_list,
         useSVG=use_svg,
     )
+    return img
 
 
 def draw_mol_grid_box(
