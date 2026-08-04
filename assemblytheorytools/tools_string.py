@@ -10,8 +10,7 @@ directed and undirected graph representations of a string.
 import random
 import re
 import string
-from typing import Any
-from typing import List
+from typing import Any, List
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -77,9 +76,9 @@ def prep_joint_string_ai(input_list: list[str]) -> tuple[str, list[str]]:
     # Build a string of all the inputs separated by unique fake characters
     delimiters: List[str] = []
     amalgam_string: str = input_list[0]
-    for string in input_list[1:]:
-        unique_char = get_unique_char(amalgam_string + string)
-        amalgam_string += unique_char + string
+    for item in input_list[1:]:
+        unique_char = get_unique_char(amalgam_string + item)
+        amalgam_string += unique_char + item
         delimiters.append(unique_char)
 
     return amalgam_string, delimiters
