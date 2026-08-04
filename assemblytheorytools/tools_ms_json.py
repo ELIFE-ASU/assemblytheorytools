@@ -161,9 +161,8 @@ def process_mzml_json(data):
     if not isinstance(data, dict):
         with open(data) as f:
             data = json.load(f)
-    level_data = [_read_level(v) for k, v in data.items() if k.startswith("ms")]
     return {
-        int(k[2:]): v
-        for k, v in zip(data, level_data)
-        if k.startswith("ms") and v is not None
+        int(k[2:]): level
+        for k, v in data.items()
+        if k.startswith("ms") and (level := _read_level(v)) is not None
     }
