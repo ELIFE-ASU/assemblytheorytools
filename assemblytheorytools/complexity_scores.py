@@ -174,18 +174,9 @@ def wiener_index(mol: Mol) -> int:
       wanted.
     """
     distance_matrix = Chem.rdmolops.GetDistanceMatrix(mol)
-    n_atoms = len(distance_matrix)
-    graph = nx.Graph()
-
-    # Add nodes to the graph
-    graph.add_nodes_from(range(n_atoms))
-
-    # Add edges with weights based on the distance matrix
-    for i in range(n_atoms):
-        for j in range(i + 1, n_atoms):
-            graph.add_edge(i, j, weight=distance_matrix[i, j])
-
-    return nx.wiener_index(graph)
+    # The distance matrix is symmetric with a zero diagonal, so summing every
+    # entry counts each unordered pair of atoms exactly twice.
+    return int(distance_matrix.sum()) // 2
 
 
 def balaban_index(mol: Mol) -> float:
