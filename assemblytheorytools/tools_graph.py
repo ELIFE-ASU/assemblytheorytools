@@ -15,11 +15,67 @@ from typing import Set
 from typing import Tuple, List, Iterable, Union
 
 import networkx as nx
-from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 from rdkit.Chem.rdchem import GetPeriodicTable
 
 from .tools_mol import safe_standardize_mol, reset_mol_charge, smi_to_mol, inchi_to_mol
+
+_EDGE_COLOR_TO_BOND_ORDER = {
+    "single": 1,
+    "double": 2,
+    "triple": 3,
+    "quadruple": 4,
+    "quintuple": 5,
+}
+
+_BOND_ORDER_TO_RDKIT_TYPE = {
+    1: Chem.rdchem.BondType.SINGLE,
+    2: Chem.rdchem.BondType.DOUBLE,
+    3: Chem.rdchem.BondType.TRIPLE,
+    4: Chem.rdchem.BondType.QUADRUPLE,
+    5: Chem.rdchem.BondType.QUINTUPLE,
+    6: Chem.rdchem.BondType.HEXTUPLE,
+    7: Chem.rdchem.BondType.ONEANDAHALF,
+    8: Chem.rdchem.BondType.TWOANDAHALF,
+    9: Chem.rdchem.BondType.THREEANDAHALF,
+    10: Chem.rdchem.BondType.FOURANDAHALF,
+    11: Chem.rdchem.BondType.FIVEANDAHALF,
+    12: Chem.rdchem.BondType.AROMATIC,
+    13: Chem.rdchem.BondType.IONIC,
+    14: Chem.rdchem.BondType.HYDROGEN,
+    15: Chem.rdchem.BondType.THREECENTER,
+    16: Chem.rdchem.BondType.DATIVEONE,
+    17: Chem.rdchem.BondType.DATIVE,
+    18: Chem.rdchem.BondType.DATIVEL,
+    19: Chem.rdchem.BondType.DATIVER,
+    20: Chem.rdchem.BondType.OTHER,
+    21: Chem.rdchem.BondType.ZERO,
+}
+
+_RDKIT_TYPE_TO_BOND_ORDER = {
+    Chem.rdchem.BondType.UNSPECIFIED: 0,
+    Chem.rdchem.BondType.SINGLE: 1,
+    Chem.rdchem.BondType.DOUBLE: 2,
+    Chem.rdchem.BondType.TRIPLE: 3,
+    Chem.rdchem.BondType.QUADRUPLE: 4,
+    Chem.rdchem.BondType.QUINTUPLE: 5,
+    Chem.rdchem.BondType.HEXTUPLE: 6,
+    Chem.rdchem.BondType.ONEANDAHALF: 7,
+    Chem.rdchem.BondType.TWOANDAHALF: 8,
+    Chem.rdchem.BondType.THREEANDAHALF: 9,
+    Chem.rdchem.BondType.FOURANDAHALF: 10,
+    Chem.rdchem.BondType.FIVEANDAHALF: 11,
+    Chem.rdchem.BondType.AROMATIC: 12,
+    Chem.rdchem.BondType.IONIC: 13,
+    Chem.rdchem.BondType.HYDROGEN: 14,
+    Chem.rdchem.BondType.THREECENTER: 15,
+    Chem.rdchem.BondType.DATIVEONE: 16,
+    Chem.rdchem.BondType.DATIVE: 17,
+    Chem.rdchem.BondType.DATIVEL: 18,
+    Chem.rdchem.BondType.DATIVER: 19,
+    Chem.rdchem.BondType.OTHER: 20,
+    Chem.rdchem.BondType.ZERO: 21,
+}
 
 
 def bond_order_assout_to_int(edge_color: str | int) -> int:
@@ -43,16 +99,8 @@ def bond_order_assout_to_int(edge_color: str | int) -> int:
         the corresponding integer value. If the input is already an integer, it returns
         the integer directly.
     """
-    edge_color_map = {
-        "single": 1,
-        "double": 2,
-        "triple": 3,
-        "quadruple": 4,
-        "quintuple": 5,
-    }
-
-    if edge_color in edge_color_map:
-        return edge_color_map[edge_color]
+    if edge_color in _EDGE_COLOR_TO_BOND_ORDER:
+        return _EDGE_COLOR_TO_BOND_ORDER[edge_color]
     else:
         return int(edge_color)
 
@@ -81,32 +129,9 @@ def bond_order_int_to_rdkit(bond_order: int) -> Chem.BondType:
     RDKit ``Bond`` class documentation:
     https://www.rdkit.org/docs/cppapi/classRDKit_1_1Bond.html
     """
-    converter = {
-        1: Chem.rdchem.BondType.SINGLE,
-        2: Chem.rdchem.BondType.DOUBLE,
-        3: Chem.rdchem.BondType.TRIPLE,
-        4: Chem.rdchem.BondType.QUADRUPLE,
-        5: Chem.rdchem.BondType.QUINTUPLE,
-        6: Chem.rdchem.BondType.HEXTUPLE,
-        7: Chem.rdchem.BondType.ONEANDAHALF,
-        8: Chem.rdchem.BondType.TWOANDAHALF,
-        9: Chem.rdchem.BondType.THREEANDAHALF,
-        10: Chem.rdchem.BondType.FOURANDAHALF,
-        11: Chem.rdchem.BondType.FIVEANDAHALF,
-        12: Chem.rdchem.BondType.AROMATIC,
-        13: Chem.rdchem.BondType.IONIC,
-        14: Chem.rdchem.BondType.HYDROGEN,
-        15: Chem.rdchem.BondType.THREECENTER,
-        16: Chem.rdchem.BondType.DATIVEONE,
-        17: Chem.rdchem.BondType.DATIVE,
-        18: Chem.rdchem.BondType.DATIVEL,
-        19: Chem.rdchem.BondType.DATIVER,
-        20: Chem.rdchem.BondType.OTHER,
-        21: Chem.rdchem.BondType.ZERO,
-    }
-    if bond_order not in converter:
+    if bond_order not in _BOND_ORDER_TO_RDKIT_TYPE:
         raise ValueError(f"Unsupported bond order: {bond_order}")
-    return converter[bond_order]
+    return _BOND_ORDER_TO_RDKIT_TYPE[bond_order]
 
 
 def bond_order_rdkit_to_int(bond_type: Chem.BondType) -> int:
@@ -133,33 +158,9 @@ def bond_order_rdkit_to_int(bond_type: Chem.BondType) -> int:
     RDKit ``Bond`` class documentation:
     https://www.rdkit.org/docs/cppapi/classRDKit_1_1Bond.html
     """
-    converter = {
-        Chem.rdchem.BondType.UNSPECIFIED: 0,
-        Chem.rdchem.BondType.SINGLE: 1,
-        Chem.rdchem.BondType.DOUBLE: 2,
-        Chem.rdchem.BondType.TRIPLE: 3,
-        Chem.rdchem.BondType.QUADRUPLE: 4,
-        Chem.rdchem.BondType.QUINTUPLE: 5,
-        Chem.rdchem.BondType.HEXTUPLE: 6,
-        Chem.rdchem.BondType.ONEANDAHALF: 7,
-        Chem.rdchem.BondType.TWOANDAHALF: 8,
-        Chem.rdchem.BondType.THREEANDAHALF: 9,
-        Chem.rdchem.BondType.FOURANDAHALF: 10,
-        Chem.rdchem.BondType.FIVEANDAHALF: 11,
-        Chem.rdchem.BondType.AROMATIC: 12,
-        Chem.rdchem.BondType.IONIC: 13,
-        Chem.rdchem.BondType.HYDROGEN: 14,
-        Chem.rdchem.BondType.THREECENTER: 15,
-        Chem.rdchem.BondType.DATIVEONE: 16,
-        Chem.rdchem.BondType.DATIVE: 17,
-        Chem.rdchem.BondType.DATIVEL: 18,
-        Chem.rdchem.BondType.DATIVER: 19,
-        Chem.rdchem.BondType.OTHER: 20,
-        Chem.rdchem.BondType.ZERO: 21
-    }
-    if bond_type not in converter:
+    if bond_type not in _RDKIT_TYPE_TO_BOND_ORDER:
         raise ValueError(f"Unsupported RDKit BondType: {bond_type}")
-    return converter[bond_type]
+    return _RDKIT_TYPE_TO_BOND_ORDER[bond_type]
 
 
 def nx_to_mol(graph: nx.Graph,
@@ -344,7 +345,6 @@ def write_ass_graph_file(graph: nx.Graph, file_name: str = "graph_info") -> None
         f.write(" ".join([f"{e + 1}" for edge in edges for e in edge]) + "\n")
         f.write(" ".join([f"{color}" for node, color in vertex_colors.items()]) + "\n")
         f.write(" ".join([f"{color}" for node, color in edge_colors.items()]))
-    return None
 
 
 def is_graph_isomorphic(g1: nx.Graph, g2: nx.Graph) -> bool:
@@ -455,7 +455,7 @@ def join_graphs(graphs: List[nx.Graph], disjoint: int = True, rename_prefix: str
     if not graphs:
         raise ValueError("Need at least one graph.")
 
-        # Ensure all inputs have the same concrete class
+    # Ensure all inputs have the same concrete class
     first_type = type(graphs[0])
     if any(type(g) is not first_type for g in graphs[1:]):
         raise TypeError("All graphs must be of the same NetworkX type.")
@@ -497,7 +497,6 @@ def write_graphml(graph: nx.Graph, file_name: str = "graph.graphml") -> None:
     None
     """
     nx.write_graphml_lxml(graph, os.path.abspath(file_name))
-    return None
 
 
 def read_graphml(file_name: str = "graph.graphml") -> nx.Graph:
@@ -752,7 +751,7 @@ def create_ionic_molecule(smiles: str,
         # Calculate the correct node indices in the combined graph
         pos_node = node_offset[pos_idx[0]] + pos_idx[1]
         neg_node = node_offset[neg_idx[0]] + neg_idx[1]
-        # Add the ionic bond (color=6 as in your test)
+        # Add the ionic bond (bond order 6 denotes an ionic bond)
         combined.add_edge(pos_node, neg_node, color=6)
 
     return combined, mols  # Return the combined graph and both molecules
@@ -983,9 +982,9 @@ def set_graph_layer(digraph: nx.DiGraph) -> nx.DiGraph:
     - The graph must be a directed acyclic graph (DAG) for topological sorting to work.
     - The "layer" attribute is an integer representing the topological generation of the node.
     """
-    for l, nodes in enumerate(nx.topological_generations(digraph)):
+    for layer, nodes in enumerate(nx.topological_generations(digraph)):
         for node in nodes:
-            digraph.nodes[node]["layer"] = l
+            digraph.nodes[node]["layer"] = layer
 
     return digraph
 
