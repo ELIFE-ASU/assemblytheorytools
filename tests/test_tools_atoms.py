@@ -306,6 +306,43 @@ def test_calculate_ccsd_energy():
     assert np.allclose(-2077.230308940521, energy, atol=0.1), "Energy does not match expected value"
 
 
+def test_orca_freq_block():
+    """
+    Regression test for calculate_free_energy's ORCA %freq block builder.
+
+    _orca_freq_block used to have a duplicated condition (both the
+    temperature-only and "both given" branches checked
+    `temperature is not None and pressure is None` due to a copy-paste
+    error, expressed the second time as `pressure is None and
+    temperature is not None`), so the "both given" branch was unreachable
+    and calling calculate_free_energy(atoms, temperature=T, pressure=P)
+    silently fell through to ORCA's defaults instead of applying either
+    value. This exercises all four temperature/pressure combinations
+    directly, without needing a real ORCA install.
+
+    Asserts:
+        - Temperature-only sets Temp but not Pressure.
+        - Pressure-only sets Pressure but not Temp.
+        - Both given sets both Temp and Pressure.
+        - Neither given returns None (let ORCA use its own defaults).
+    """
+    from assemblytheorytools.tools_atoms import _orca_freq_block
+
+    temp_only = _orca_freq_block(298.0, None)
+    assert "Temp 298.0" in temp_only
+    assert "Pressure" not in temp_only
+
+    pressure_only = _orca_freq_block(None, 1.5)
+    assert "Pressure 1.5" in pressure_only
+    assert "Temp" not in pressure_only
+
+    both = _orca_freq_block(298.0, 1.5)
+    assert "Temp 298.0" in both
+    assert "Pressure 1.5" in both
+
+    assert _orca_freq_block(None, None) is None
+
+
 def test_calculate_free_energy():
     """
     Test the `calculate_free_energy` function by calculating the Gibbs free energy of a water molecule

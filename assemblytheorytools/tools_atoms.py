@@ -871,6 +871,46 @@ def grab_value(orca_file: str, term: str, splitter: str) -> Optional[float]:
         return None
 
 
+def _orca_freq_block(temperature: Optional[float], pressure: Optional[float]) -> Optional[str]:
+    """
+    Build the ORCA ``%freq`` input block for a given temperature/pressure.
+
+    Parameters
+    ----------
+    temperature : float or None
+        Temperature in Kelvin, or None to use ORCA's default.
+    pressure : float or None
+        Pressure in atm, or None to use ORCA's default.
+
+    Returns
+    -------
+    str or None
+        The ``%freq ... end`` block to append to the ORCA input, or None if
+        neither temperature nor pressure was given (letting ORCA use its
+        own defaults for both).
+    """
+    if temperature is not None and pressure is None:
+        return f'''
+                                  %freq
+                                      Temp {temperature}
+                                  end
+                                  '''
+    if pressure is not None and temperature is None:
+        return f'''
+                                          %freq
+                                              Pressure {pressure}
+                                          end
+                                          '''
+    if pressure is not None and temperature is not None:
+        return f'''
+                                          %freq
+                                              Temp {temperature}
+                                              Pressure {pressure}
+                                          end
+                                          '''
+    return None
+
+
 def calculate_free_energy(atoms: Atoms,
                           charge: int = 0,
                           multiplicity: int = 1,
@@ -953,27 +993,7 @@ def calculate_free_energy(atoms: Atoms,
     calc_extra = f'{opt_flag} {scf_flag} FREQ'.strip()
 
     # Set up the %thermo block for this temperature and pressure
-    if temperature is not None and pressure is None:
-        blocks_extra = f'''
-                                  %freq
-                                      Temp {temperature}
-                                  end
-                                  '''
-    elif pressure is not None and temperature is None:
-        blocks_extra = f'''
-                                          %freq
-                                              Pressure {pressure}
-                                          end
-                                          '''
-    elif pressure is None and temperature is not None:
-        blocks_extra = f'''
-                                          %freq
-                                              Temp {temperature}
-                                              Pressure {pressure}
-                                          end
-                                          '''
-    else:
-        blocks_extra = None
+    blocks_extra = _orca_freq_block(temperature, pressure)
 
     # Perform CCSD energy calculation if required and not provided
     if use_ccsd and ccsd_energy is None:
