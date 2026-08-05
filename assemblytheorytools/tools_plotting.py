@@ -116,6 +116,46 @@ def ax_plot(fig: plt.Figure, ax: plt.Axes, xlab: str, ylab: str, xs: int = 14, y
     fig.tight_layout()
 
 
+def _auto_fig_size(n_objects: int,
+                   base_size: Tuple[float, float],
+                   reference_n: int = 10,
+                   min_size: Tuple[float, float] = (4.0, 3.0),
+                   max_size: Tuple[float, float] = (30.0, 30.0)) -> Tuple[float, float]:
+    """
+    Scale a base figure size by a number of plotted objects.
+
+    Width and height each scale with ``sqrt(n_objects / reference_n)``, so the
+    figure *area* grows in proportion to the object count while the aspect
+    ratio of `base_size` is preserved. Results are clamped to `min_size` and
+    `max_size` so very small or very large object counts still produce a
+    usable figure.
+
+    Parameters
+    ----------
+    n_objects : int
+        Number of discrete objects being drawn (e.g. graph nodes or molecules).
+    base_size : tuple of float
+        Figure size, (width, height) in inches, considered right-sized for
+        `reference_n` objects.
+    reference_n : int, optional
+        Object count for which `base_size` applies unscaled, by default 10.
+    min_size : tuple of float, optional
+        Lower bound on (width, height), by default (4.0, 3.0).
+    max_size : tuple of float, optional
+        Upper bound on (width, height), by default (30.0, 30.0).
+
+    Returns
+    -------
+    tuple of float
+        Scaled (width, height) in inches.
+    """
+    n = max(int(n_objects), 1)
+    scale = math.sqrt(n / float(reference_n))
+    width = min(max(base_size[0] * scale, min_size[0]), max_size[0])
+    height = min(max(base_size[1] * scale, min_size[1]), max_size[1])
+    return width, height
+
+
 def plot_graph(graph: nx.Graph,
                fig_size: tuple = (12, 7),
                layout: str = 'kawai',
@@ -125,7 +165,8 @@ def plot_graph(graph: nx.Graph,
                edgecolors: str = "black",
                width: int = 2,
                linewidths: int = 2,
-               seed: int = 42) -> tuple[Figure, Axes]:
+               seed: int = 42,
+               auto_fig_size: bool = False) -> tuple[Figure, Axes]:
     """
     Visualize a NetworkX graph with customizable layout and styling options.
 
@@ -156,6 +197,9 @@ def plot_graph(graph: nx.Graph,
         Line width for node borders, by default 2.
     seed : int, optional
         Random seed for spring layout reproducibility, by default 42.
+    auto_fig_size : bool, optional
+        If True, ignore `fig_size` and compute a figure size scaled to the
+        number of nodes in `graph` instead, by default False.
 
     Returns
     -------
@@ -184,6 +228,9 @@ def plot_graph(graph: nx.Graph,
     else:
         pos = nx.kamada_kawai_layout(graph)
 
+    if auto_fig_size:
+        fig_size = _auto_fig_size(graph.number_of_nodes(), base_size=fig_size)
+
     fig, ax = plt.subplots(figsize=fig_size)
 
     # Draw the graph with the specified parameters
@@ -208,7 +255,8 @@ def plot_mol_graph(graph: nx.Graph,
                    node_size: int = 300,
                    width: int = 2,
                    linewidths: int = 2,
-                   seed: int = 42) -> tuple[Figure, Axes]:
+                   seed: int = 42,
+                   auto_fig_size: bool = False) -> tuple[Figure, Axes]:
     """
     Visualize a molecular graph with atom-specific coloring.
 
@@ -236,6 +284,9 @@ def plot_mol_graph(graph: nx.Graph,
         Line width for node borders, by default 2.
     seed : int, optional
         Random seed for spring layout reproducibility, by default 42.
+    auto_fig_size : bool, optional
+        If True, ignore `fig_size` and compute a figure size scaled to the
+        number of nodes in `graph` instead, by default False.
 
     Returns
     -------
@@ -292,6 +343,9 @@ def plot_mol_graph(graph: nx.Graph,
     graph_colors = [cols_conv.get(graph.nodes[idx]['color'], 'black') for idx in graph.nodes()]
     # Get the colors for the edges
     edge_colors = [color_dict_edge.get(graph.edges[idx]['color']) for idx in graph.edges()]
+
+    if auto_fig_size:
+        fig_size = _auto_fig_size(graph.number_of_nodes(), base_size=fig_size)
 
     fig, ax = plt.subplots(figsize=fig_size)
 
@@ -540,7 +594,8 @@ def plot_pathway(graph: nx.DiGraph,
                  arrow_color: str = '#264f70',
                  plt_arrow_style='->',
                  arrow_pos: float = 1.0,
-                 arrow_size: int = 20) -> tuple[Figure, Axes]:
+                 arrow_size: int = 20,
+                 auto_fig_size: bool = False) -> tuple[Figure, Axes]:
     """
     Visualize a directed acyclic graph as a pathway with customizable layout.
 
@@ -582,6 +637,9 @@ def plot_pathway(graph: nx.DiGraph,
     arrow_size : int, optional
         Size of the arrowhead (matplotlib mutation scale) when it is placed part
         way along an edge, by default 20. Unused when arrow_pos is 1.
+    auto_fig_size : bool, optional
+        If True, ignore `fig_size` and compute a figure size scaled to the
+        number of nodes in `graph` instead, by default False.
 
     Returns
     -------
@@ -607,6 +665,9 @@ def plot_pathway(graph: nx.DiGraph,
     elif plot_type == "string":
         if show_icons:
             node_color = 'white'
+
+    if auto_fig_size:
+        fig_size = _auto_fig_size(graph.number_of_nodes(), base_size=fig_size)
 
     fig, ax = plt.subplots(figsize=fig_size)
     graph = set_graph_layer(graph)
@@ -781,7 +842,8 @@ def plot_pathway_mid_arrow(graph: nx.DiGraph,
                            arrow_color: str = '#264f70',
                            plt_arrow_style='->',
                            arrow_pos: float = 0.5,
-                           arrow_size: int = 20) -> tuple[Figure, Axes]:
+                           arrow_size: int = 20,
+                           auto_fig_size: bool = False) -> tuple[Figure, Axes]:
     """
     Visualize a directed acyclic graph as a pathway with mid-edge arrowheads.
 
@@ -818,6 +880,9 @@ def plot_pathway_mid_arrow(graph: nx.DiGraph,
         source to 1 at the target, by default 0.5 (half way).
     arrow_size : int, optional
         Size of the arrowheads (matplotlib mutation scale), by default 20.
+    auto_fig_size : bool, optional
+        If True, ignore `fig_size` and compute a figure size scaled to the
+        number of nodes in `graph` instead, by default False.
 
     Returns
     -------
@@ -836,7 +901,8 @@ def plot_pathway_mid_arrow(graph: nx.DiGraph,
                         arrow_color=arrow_color,
                         plt_arrow_style=plt_arrow_style,
                         arrow_pos=arrow_pos,
-                        arrow_size=arrow_size)
+                        arrow_size=arrow_size,
+                        auto_fig_size=auto_fig_size)
 
 
 def _average_angles(angles: np.ndarray) -> float:
@@ -1104,7 +1170,8 @@ def plot_assembly_circle(nodes: Sequence[Any],
                          colorbar_label: Optional[str] = None,
                          save_kwargs: Optional[Dict[str, Any]] = None,
                          spacing_mode: str = "linear",
-                         spacing_hyperbolic_factor: float = 0.4
+                         spacing_hyperbolic_factor: float = 0.4,
+                         auto_fig_size: bool = False
                          ):
     """
     Nodes are placed on concentric rings whose radius is proportional to their
@@ -1167,6 +1234,9 @@ def plot_assembly_circle(nodes: Sequence[Any],
         is provided (e.g. ``bbox_inches``).
     spacing_mode: "linear" (radii = ai+1) or "hyperbolic" (radii = (ai+1) + spacing_hyperbolic_factor * sinh(ai+1))
     spacing_hyperbolic_factor : float. Multiplier for the sinh term in hyperbolic spacing (default 0.4).
+    auto_fig_size : bool, optional
+        If True, ignore `fig_size` and compute a size scaled to the number of
+        `nodes` instead, by default False.
 
     Returns
     -------
@@ -1293,6 +1363,10 @@ def plot_assembly_circle(nodes: Sequence[Any],
 
     x_positions = radii * np.cos(angles)
     y_positions = radii * np.sin(angles)
+
+    if auto_fig_size:
+        base = (fig_size, fig_size) if isinstance(fig_size, (int, float)) else tuple(fig_size)
+        fig_size = _auto_fig_size(n_nodes, base_size=base)[0]
 
     # If fig/ax not provided, create them (no fallbacks beyond this)
     if fig is None or ax is None:
