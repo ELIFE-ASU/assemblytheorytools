@@ -1063,11 +1063,15 @@ def bottcher(mol: Mol) -> float:
     Chem.AssignStereochemistry(mol, cleanIt=True, force=True, flagPossibleStereoCenters=True)
     pt = Chem.GetPeriodicTable()
 
-    # Filter atoms to correct for symmetry: keep one representative per CIP rank
+    # Filter atoms to correct for symmetry: keep one representative per canonical
+    # rank. Canonical ranks (rather than the '_CIPRank' atom property) are used
+    # as the equivalence key because RDKit does not populate '_CIPRank' on atoms
+    # for every molecule, whereas CanonicalRankAtoms always does.
+    canonical_ranks = Chem.CanonicalRankAtoms(mol, breakTies=False)
     atoms_corrected_for_symmetry = []
     atom_stereo_classes = set()
     for atom in mol.GetAtoms():
-        cip_rank = atom.GetProp('_CIPRank')
+        cip_rank = canonical_ranks[atom.GetIdx()]
         if cip_rank not in atom_stereo_classes:
             atoms_corrected_for_symmetry.append(atom)
             atom_stereo_classes.add(cip_rank)
