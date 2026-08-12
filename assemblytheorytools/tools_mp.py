@@ -13,6 +13,25 @@ from functools import partial
 from typing import Callable, Iterable, Any, Tuple
 
 
+def _bind_kwargs(func: Callable[..., Any], kwargs: dict) -> Callable[..., Any]:
+    """
+    Partially apply *kwargs* to *func*, if any were given.
+
+    Parameters
+    ----------
+    func : Callable[..., Any]
+        The function to bind keyword arguments to.
+    kwargs : dict
+        Keyword arguments to bind. If empty, *func* is returned unchanged.
+
+    Returns
+    -------
+    Callable[..., Any]
+        *func* itself, or a `partial` wrapping it with *kwargs* bound.
+    """
+    return partial(func, **kwargs) if kwargs else func
+
+
 def mp_calc(func: Callable[[Any], Any],
             arg: Iterable[Any],
             n: int = mp.cpu_count(),
@@ -36,12 +55,9 @@ def mp_calc(func: Callable[[Any], Any],
     list[Any]
         A list of results from the function executions.
     """
-    if kwargs:
-        func = partial(func, **kwargs)
-
+    func = _bind_kwargs(func, kwargs)
     with mp.Pool(n) as pool:
-        results = pool.map(func, arg)
-    return results
+        return pool.map(func, arg)
 
 
 def mp_calc_star(func: Callable[..., Any],
@@ -67,12 +83,9 @@ def mp_calc_star(func: Callable[..., Any],
     list[Any]
         A list of results from the function executions.
     """
-    if kwargs:
-        func = partial(func, **kwargs)
-
+    func = _bind_kwargs(func, kwargs)
     with mp.Pool(n) as pool:
-        results = pool.starmap(func, args)
-    return results
+        return pool.starmap(func, args)
 
 
 def tp_calc(func: Callable[[Any], Any],
@@ -100,12 +113,9 @@ def tp_calc(func: Callable[[Any], Any],
     list[Any]
         A list of results from the function executions.
     """
-    if kwargs:
-        func = partial(func, **kwargs)
-
+    func = _bind_kwargs(func, kwargs)
     with ThreadPoolExecutor(max_workers=n) as executor:
-        results = list(executor.map(func, arg))
-    return results
+        return list(executor.map(func, arg))
 
 
 def mp_calc_chunked(
@@ -136,12 +146,6 @@ def mp_calc_chunked(
     list[Any]
         A list of results from the function executions.
     """
-    if kwargs:
-        func = partial(func, **kwargs)
-
-    if n is None:
-        n = mp.cpu_count()
-
-    with mp.Pool(n) as pool:
-        results = pool.map(func, arg, chunksize=chunksize or 1)
-    return results
+    func = _bind_kwargs(func, kwargs)
+    with mp.Pool(n or mp.cpu_count()) as pool:
+        return pool.map(func, arg, chunksize=chunksize or 1)

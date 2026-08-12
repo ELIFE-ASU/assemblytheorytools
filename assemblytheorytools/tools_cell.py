@@ -23,7 +23,7 @@ from scipy import sparse
 def read_cif_file(cif_file: str) -> Atoms:
     """
     Read in a CIF file and return the atom object.
-    
+
     Alternative libraries to consider:
     - https://github.com/MaterSim/PyXtal
     - https://github.com/GKieslich/crystIT
@@ -40,8 +40,7 @@ def read_cif_file(cif_file: str) -> Atoms:
         The atoms object.
     """
     # Read in the CIF file
-    atoms = cif.read_cif(cif_file, primitive_cell=True, subtrans_included=False)
-    return atoms
+    return cif.read_cif(cif_file, primitive_cell=True, subtrans_included=False)
 
 
 def atoms_to_mol_file(atoms: Atoms, file_name: str = "mol.mol") -> None:
@@ -89,7 +88,6 @@ def atoms_to_mol_file(atoms: Atoms, file_name: str = "mol.mol") -> None:
     # Write the molecule to a file
     with open(file_name, "w") as f:
         f.write(out_str)
-    return None
 
 
 def get_bonding_config(atoms: Atoms) -> List[List[int]]:
@@ -122,8 +120,8 @@ def find_clusters(atoms: Atoms, cutoff_smear: float = 1.5) -> Optional[List[int]
     """
     Identify disconnected atom clusters in an atomic structure using a neighbor-based graph.
 
-    This function builds a connectivity graph of atoms based on natural covalent radii (optionally smeared), 
-    and identifies whether the atomic system is fully connected. If multiple disconnected clusters exist, 
+    This function builds a connectivity graph of atoms based on natural covalent radii (optionally smeared),
+    and identifies whether the atomic system is fully connected. If multiple disconnected clusters exist,
     it returns the indices of atoms not belonging to the largest cluster.
 
     Parameters
@@ -137,7 +135,7 @@ def find_clusters(atoms: Atoms, cutoff_smear: float = 1.5) -> Optional[List[int]
     -------
     list or None
         If only one cluster exists (fully connected), returns `None`.
-        If multiple clusters are found, returns a list of atom indices that do not 
+        If multiple clusters are found, returns a list of atom indices that do not
         belong to the largest connected cluster.
 
     Notes
@@ -160,8 +158,8 @@ def find_clusters(atoms: Atoms, cutoff_smear: float = 1.5) -> Optional[List[int]
         return None
     else:
         # Select the atoms in the largest component
-        atoms_in_component: List[int] = [i for i, c in enumerate(component_list) if
-                                         c == np.argmax(np.bincount(component_list))]
+        largest_component = np.argmax(np.bincount(component_list))
+        atoms_in_component: List[int] = [i for i, c in enumerate(component_list) if c == largest_component]
         atoms_to_remove: List[int] = [i for i in range(len(atoms)) if i not in atoms_in_component]
         print("Number of clusters:", n_components)
         print("Atoms to remove:", atoms_to_remove)
@@ -175,7 +173,7 @@ def tile_cell(atoms: Atoms,
               ) -> Atoms:
     """
     Create a tiled supercell with central region and bonded atoms.
-    
+
     This function creates a supercell by repeating the unit cell, identifies
     atoms in the central region, and includes atoms bonded to the central region.
 
@@ -235,7 +233,7 @@ def tile_cell_shells(
 ) -> tuple[Atoms, Atoms, Atoms]:
     """
     Create a tiled supercell and separate atoms into central and shell regions.
-    
+
     This function creates a supercell and identifies atoms in the central region,
     first coordination shell, and second coordination shell based on bonding connectivity.
 
@@ -353,7 +351,7 @@ def cif_to_nx(file,
               eps: float = 1e-9) -> nx.Graph:
     """
     Convert a CIF file to a NetworkX graph representation.
-    
+
     This function reads a CIF file, expands the unit cell, and creates a graph
     where nodes represent atoms and edges represent bonds.
 
@@ -409,7 +407,7 @@ def guess_bond_orders(
 ) -> Tuple[nx.Graph, bool, Dict]:
     """
     Assign bond orders to edges in a molecular graph using constraint satisfaction.
-    
+
     This function uses backtracking search with constraint propagation to assign
     bond orders that satisfy atomic valence requirements based on periodic table data.
 
@@ -664,7 +662,7 @@ def guess_bond_orders(
 
         u, v = edge
         # Heuristic: try higher orders first if both have large residuals
-        dom_sorted = sorted(dom, reverse=True if residual[u] > 2 and residual[v] > 2 else False)
+        dom_sorted = sorted(dom, reverse=residual[u] > 2 and residual[v] > 2)
         for order in dom_sorted:
             if not feasible_after(u, v, order):
                 continue

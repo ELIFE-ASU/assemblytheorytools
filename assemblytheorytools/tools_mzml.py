@@ -125,12 +125,6 @@ class _ProtoFormatter(logging.Formatter):
     in the output.
     """
 
-    def __init__(self):
-        """
-        Initialize the _ProtoFormatter by calling the base class constructor.
-        """
-        super().__init__()
-
     def format(self, record: logging.LogRecord) -> str:
         """
         Format the specified log record as a colored string.
@@ -196,16 +190,6 @@ class _Spectrum(object):
     """
 
     def __init__(self, intensity_threshold, relative=False):
-        """
-        Initialize a Spectrum object with default and user-specified parameters.
-
-        Parameters
-        ----------
-        intensity_threshold : int
-            Threshold for cutting intensities below this value.
-        relative : bool, optional
-            If True, output intensities as relative (%). Default is False.
-        """
         self.scan = ""
         self.array_length = ""
         self.ms_level = ""
@@ -222,7 +206,6 @@ class _Spectrum(object):
         self.serialized = {}
         self.intensity_threshold = intensity_threshold
         self.relative = relative
-        self.hcd = ""
 
     def _set_data_type(self):
         """
@@ -339,25 +322,21 @@ class _Spectrum(object):
 
         # Set the parent mass if applicable
         if self.parent_mass:
-            # AMK changed this:
-            # out["parent"] = f"{float(self.parent_mass):.4f}"
             out["parent"] = f"{float(self.precursors[0]):.4f}"
 
-        # AMK: Set the precursor list
+        # Set the precursor list
         if self.precursors:
             out["precursors"] = self.precursors
 
         # Set parent scan if applicable
         if self.parent_scan:
-            # AMK changed this:
-            # out["parent_scan"] = self.parent_scan
             out["parent_scan"] = self.precursors_scans[0]
 
-        # AMK: Set the precursor list
+        # Set the precursor scan list
         if self.precursors_scans:
             out["precursors_scans"] = self.precursors_scans
 
-        # AMK: Set fragmentation energy
+        # Set fragmentation energy
         if self.hcd:
             out["HCD"] = self.hcd
 
@@ -534,16 +513,19 @@ class _MzmlParser:
     Parameters
     ----------
     filename : str
-        Name of the mzML file to parse.
+        Path to the mzML file to parse.
     output_dir : str
-        Directory where the output JSON file will be saved.
+        Directory the extracted spectra are written to. The path is resolved
+        to an absolute path.
     rt_units : int or None, optional
-        Retention time units. Defaults to None.
+        Retention time units used by the source file. Only ``"sec"`` triggers
+        a conversion (divides by 60); any other value, including the default
+        ``None``, is treated as already being in minutes.
     int_threshold : int, optional
-        Intensity threshold for filtering peaks. Defaults to 1000.
+        Minimum intensity for a peak to be retained. Defaults to 1000.
     relative_intensity : bool, optional
-        If True, output intensities as relative (%). If False, use absolute intensities.
-        Defaults to False.
+        If True, report intensities relative to the base peak rather than as
+        absolute values. Defaults to False.
 
     Attributes
     ----------
@@ -581,25 +563,6 @@ class _MzmlParser:
             int_threshold: Optional[int] = 1000,
             relative_intensity: Optional[bool] = False,
     ):
-        """
-        Initialise the mzML parser.
-
-        Parameters
-        ----------
-        filename : str
-            Path to the mzML file to parse.
-        output_dir : str
-            Directory the extracted spectra are written to. The path is
-            resolved to an absolute path.
-        rt_units : int, optional
-            Retention time units used by the source file. Default is None,
-            which infers the units from the document.
-        int_threshold : int, optional
-            Minimum intensity for a peak to be retained. Default is 1000.
-        relative_intensity : bool, optional
-            If True, report intensities relative to the base peak rather than
-            as absolute values. Default is False.
-        """
         self.logger = _make_logger("MzMLRipper")
         self.filename = filename
         self.output_dir = os.path.abspath(output_dir)
@@ -664,7 +627,7 @@ class _MzmlParser:
         # Get all MS level spectra from the collection
         ms_levels = [
             [spec for spec in self.spectra if spec.ms_level == str(level)]
-            for level in range(1, max(map(int, list(self.ms.keys()))) + 1)
+            for level in range(1, max(map(int, self.ms.keys())) + 1)
         ]
 
         # Process and write out to file
@@ -724,10 +687,10 @@ class _MzmlParser:
             )
 
         # Populate the output
-        for ms_level in sorted(list(self.ms.keys())):
+        for ms_level in sorted(self.ms.keys()):
             for pos, spec in enumerate(self.ms[ms_level]):
                 if not spec.serialized:
-                    spec.rma_process()
+                    spec.process()
                 if spec.serialized["mass_list"]:
                     output["ms" + ms_level][
                         f"spectrum_{pos + 1}"
@@ -910,10 +873,6 @@ class _MzmlParser:
             else:
                 raise Exception("Error setting binary type")
 
-        # Nothing
-        else:
-            return
-
     def update_parent(self, filter_string: str):
         """
         Update the parent mass for MS3 and above spectra.
@@ -932,10 +891,6 @@ class _MzmlParser:
         self.spec.parent_mass = parents[int(self.spec.ms_level) - 2].split(
             " "
         )[-1]
-        # if self.spec.ms_level == "3":
-        #     self.spec.parent_mass = parents[1].split(" ")[-1]
-        # elif self.spec.ms_level == "4":
-        #     self.spec.parent_mass = parents[2].split(" ")[-1]
 
 
 def process_mzml_file(

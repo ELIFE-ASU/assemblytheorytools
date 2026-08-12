@@ -87,6 +87,51 @@ def test_count_non_h_bonds():
     assert n == 6, f"Expected 6 non-hydrogen bonds for {smi}, got {n}"
 
 
+def test_wiener_index():
+    """
+    Test the `wiener_index` function against hand-computed values.
+
+    The Wiener index is the sum of the topological shortest-path distances over
+    all unordered pairs of atoms. Every atom present in the molecule counts, so
+    the expected value depends on whether hydrogens are explicit.
+
+    Heavy-atom skeletons (built with `Chem.MolFromSmiles`, which leaves
+    hydrogens implicit):
+    1. Propane ("CCC") is the path C-C-C: 1 + 1 + 2 = 4.
+    2. n-Butane ("CCCC") is the path C-C-C-C: (3x1) + (2x2) + 3 = 10.
+    3. Isobutane ("CC(C)C") is the star K(1,3): (3x1) + (3x2) = 9.
+    4. Benzene ("c1ccccc1") is the 6-cycle: each atom is at distance
+       1, 2, 3, 2, 1 from the others, so 6 x 9 / 2 = 27.
+
+    With explicit hydrogens (as `att.smi_to_mol` adds by default):
+    5. Water ("O") is the path H-O-H: 1 + 1 + 2 = 4.
+    6. Methane ("C") is the star K(1,4): (4x1) + (6x2) = 16.
+
+    Asserts:
+        - Each computed index matches its hand-computed value.
+        - n-Butane and isobutane differ, even though both have four heavy
+          atoms. This guards against a regression in which the index depended
+          only on the atom count and not on the molecular topology.
+    """
+    print(flush=True)
+    # Heavy-atom skeletons: hydrogens stay implicit and so are not vertices
+    heavy_expected = {"CCC": 4, "CCCC": 10, "CC(C)C": 9, "c1ccccc1": 27}
+    for smi, expected in heavy_expected.items():
+        mol = Chem.MolFromSmiles(smi)
+        n = att.wiener_index(mol)
+        assert n == expected, f"Expected Wiener index {expected} for {smi}, got {n}"
+
+    # Same heavy-atom count, different topology, so the indices must differ
+    assert att.wiener_index(Chem.MolFromSmiles("CCCC")) != att.wiener_index(Chem.MolFromSmiles("CC(C)C"))
+
+    # Explicit hydrogens are counted as vertices too
+    h_expected = {"O": 4, "C": 16}
+    for smi, expected in h_expected.items():
+        mol = att.smi_to_mol(smi)  # add_hydrogens defaults to True
+        n = att.wiener_index(mol)
+        assert n == expected, f"Expected Wiener index {expected} for {smi} with hydrogens, got {n}"
+
+
 def test_get_mol_descriptors():
     """
     Test that `get_mol_descriptors()` correctly calculates molecular

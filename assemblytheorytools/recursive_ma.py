@@ -208,7 +208,7 @@ class MAEstimator:
         List of adduct ion masses to consider when searching for possible precursor ions.
         Defaults to COMMON_PRECURSORS.
     n_samples : int, optional
-        Number of random samples to use for MA estimation. Defaults to 20.
+        Number of random samples to use for MA estimation. Defaults to 500.
 
     Attributes
     ----------
@@ -225,20 +225,6 @@ class MAEstimator:
     """
 
     def __init__(self, same_level=True, tol=0.01, adduct_masses=COMMON_PRECURSORS, n_samples=500):
-        """
-        Initialize the MAEstimator with configuration options.
-
-        Parameters
-        ----------
-        same_level : bool, optional
-            Restrict precursor search to the same fragmentation level. Defaults to True.
-        tol : float, optional
-            Mass tolerance for m/z matching. Defaults to 0.01.
-        adduct_masses : list of float, optional
-            List of adduct ion masses to consider. Defaults to COMMON_PRECURSORS.
-        n_samples : int, optional
-            Number of random samples for MA estimation. Defaults to 500.
-        """
         self.same_level = same_level
         self.tol = tol
         self.adduct_masses = adduct_masses
@@ -343,9 +329,7 @@ class MAEstimator:
             if progress_levels > 0:
                 print(f"MA({mw} = {child} + {complement}) = {child_estimates[child].mean()}")
 
-        # estimate = np.concatenate(list(child_estimates.values()))
-        estimate = min(child_estimates.values(), key=np.mean)
-        return estimate
+        return min(child_estimates.values(), key=np.mean)
 
     def common_precursors(self, data, parent1, parent2):
         """
@@ -627,7 +611,7 @@ def _process_df(
 def rma_process(
         sample: dict[int, pd.DataFrame],
         max_num_peaks: int = 200,
-        min_abs_intensity: dict[int, float] = defaultdict(lambda: 0.0),
+        min_abs_intensity: dict[int, float] | None = None,
         min_rel_intensity: float = 0.0,
         n_digits: int = 3,
 ) -> dict[int, pd.DataFrame]:
@@ -659,6 +643,8 @@ def rma_process(
         A dictionary with the same structure as the input, where each DataFrame has been filtered
         and binned. If MS1 was missing, it will be added as a placeholder.
     """
+    if min_abs_intensity is None:
+        min_abs_intensity = defaultdict(lambda: 0.0)
     sample = {
         level: _process_df(
             level,
@@ -710,8 +696,8 @@ def rma_identify_parents(dataset, mass_tol: float, ms_n_digits: int=3):
         assigned. Each DataFrame in the output will have a 'parent_id' column indicating the
         matched parent peak index.
     """
-    new_dataset = {}
-    new_dataset[min(dataset)] = dataset[min(dataset)]
+    first_level = min(dataset)
+    new_dataset = {first_level: dataset[first_level]}
     for level in sorted(dataset)[:-1]:
         new_dataset[level + 1] = (
             pd.merge_asof(

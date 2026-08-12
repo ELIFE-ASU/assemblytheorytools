@@ -36,7 +36,7 @@ def file_list(mypath: Optional[str] = None) -> List[str]:
 def file_list_all(mypath: Optional[str] = None) -> List[str]:
     """
     Generate a list of all files in a specified directory and its subdirectories.
-    
+
     If no directory is specified, it defaults to the current working directory.
 
     Parameters
@@ -101,7 +101,6 @@ def write_to_shared_file(message: str, shared_file: str) -> None:
         f.write(message)
         # Release the lock after writing
         fcntl.flock(f, fcntl.LOCK_UN)
-    return None
 
 
 def remove_files(target_dir: str, debug: bool = False) -> None:
@@ -125,7 +124,6 @@ def remove_files(target_dir: str, debug: bool = False) -> None:
         if debug:
             print(f"Removing file {file_path}", flush=True)
         os.remove(file_path)
-    return None
 
 
 def wipe_dir(temp_dir: str) -> None:
@@ -144,7 +142,6 @@ def wipe_dir(temp_dir: str) -> None:
     """
     remove_files(temp_dir)
     os.rmdir(temp_dir)
-    return None
 
 
 def list_subdirs(directory: str, target: str = "ai_calc") -> List[str]:
@@ -186,7 +183,7 @@ def prep_json(json_path: str) -> None:
 
     # This regex matches "EdgeColours": [ ... ]
     pattern = r'"EdgeColours"\s*:\s*\[(.*?)\]'
-    fixed_raw = re.sub(pattern, edge_colours_replacer, raw, flags=re.DOTALL)
+    fixed_raw = re.sub(pattern, _edge_colours_replacer, raw, flags=re.DOTALL)
 
     # Now parse the fixed text as JSON
     data = json.loads(fixed_raw)
@@ -194,10 +191,9 @@ def prep_json(json_path: str) -> None:
     # Write the updated data back to the JSON file
     with open(json_path, 'w') as f:
         json.dump(data, f, indent=4)
-    return None
 
 
-def edge_colours_replacer(match: Match[str]) -> str:
+def _edge_colours_replacer(match: Match[str]) -> str:
     """
     Replace empty entries in EdgeColours list with "ERROR" placeholder.
 

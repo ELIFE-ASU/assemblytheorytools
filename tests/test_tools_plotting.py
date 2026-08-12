@@ -5,6 +5,7 @@ import shutil
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
+from matplotlib.patches import FancyArrowPatch
 
 import assemblytheorytools as att
 
@@ -149,6 +150,31 @@ def test_plot_digraph_topological():
     assert ax is not None, "Failed to create the axes."
 
 
+def test_plot_graph_auto_fig_size():
+    """
+    Test that `auto_fig_size` scales the figure size with the node count.
+
+    This function plots a small and a much larger graph with `auto_fig_size=True`
+    and asserts that the larger graph produces a bigger figure. It also checks
+    that `fig_size` is used verbatim when the flag is left at its default.
+    """
+    print(flush=True)
+    small_graph = att.smi_to_nx("CC")
+    large_graph = att.smi_to_nx("C" * 30)
+
+    fig_small, _ = att.plot_graph(small_graph, auto_fig_size=True)
+    fig_large, _ = att.plot_graph(large_graph, auto_fig_size=True)
+    plt.show()
+
+    assert fig_large.get_size_inches()[0] > fig_small.get_size_inches()[0]
+    assert fig_large.get_size_inches()[1] > fig_small.get_size_inches()[1]
+
+    # Without the flag, fig_size is used verbatim regardless of node count
+    fig_fixed, _ = att.plot_graph(large_graph, fig_size=(9, 4))
+    plt.show()
+    assert tuple(fig_fixed.get_size_inches()) == (9.0, 4.0)
+
+
 def test_plot_pathway_mol():
     """
     Test the plotting of an assembly pathway.
@@ -189,6 +215,62 @@ def test_plot_pathway_mol():
     plt.show()
     assert fig is not None, "Failed to create the figure."
     assert ax is not None, "Failed to create the axes."
+
+
+def test_plot_pathway_mid_arrow():
+    """
+    Test the plotting of an assembly pathway with mid-edge arrowheads.
+
+    This function calculates the assembly pathway for a molecule (glycine) and plots
+    it with the arrowheads half way along the edges. It asserts that the figure and
+    axes are created successfully, and that every edge carries an arrowhead.
+    """
+    print(flush=True)
+
+    # Define the SMILES string for glycine
+    smi = "C(C(=O)O)N"
+
+    # Convert the SMILES string to an RDKit Mol object
+    mol = att.smi_to_mol(smi)
+    # Compute the assembly index and associated data
+    _, _, pathway = att.calculate_assembly_index(mol, strip_hydrogen=True)
+
+    fig, ax = att.plot_pathway_mid_arrow(pathway, plot_type='mol')
+    plt.show()
+    assert fig is not None, "Failed to create the figure."
+    assert ax is not None, "Failed to create the axes."
+
+    # The mid-edge version carries one extra arrow patch per edge, the head that
+    # is no longer drawn as part of the edge itself
+    _, ax_ref = att.plot_pathway(pathway, plot_type='mol')
+    n_arrows = len([p for p in ax.patches if isinstance(p, FancyArrowPatch)])
+    n_ref = len([p for p in ax_ref.patches if isinstance(p, FancyArrowPatch)])
+    assert n_arrows == n_ref + pathway.number_of_edges(), "Missing mid-edge arrowheads."
+
+
+def test_plot_pathway_auto_fig_size():
+    """
+    Test that `auto_fig_size` scales the pathway figure size with the node count.
+
+    This function builds two synthetic chain DAGs of different sizes and asserts
+    that the larger one produces a bigger figure when `auto_fig_size=True`.
+    """
+    print(flush=True)
+
+    def _chain_pathway(n_nodes):
+        graph = nx.DiGraph()
+        for i in range(n_nodes):
+            graph.add_node(i, vo=str(i))
+        for i in range(n_nodes - 1):
+            graph.add_edge(i, i + 1)
+        return graph
+
+    fig_small, _ = att.plot_pathway(_chain_pathway(2), plot_type='string', auto_fig_size=True)
+    fig_large, _ = att.plot_pathway(_chain_pathway(40), plot_type='string', auto_fig_size=True)
+    plt.show()
+
+    assert fig_large.get_size_inches()[0] > fig_small.get_size_inches()[0]
+    assert fig_large.get_size_inches()[1] > fig_small.get_size_inches()[1]
 
 
 def test_plot_assembly_circle():
@@ -251,6 +333,38 @@ def test_plot_assembly_circle():
 
     assert os.path.isfile('circle_plot.png'), "Failed to generate the file."
     os.remove('circle_plot.png')
+
+
+def test_plot_assembly_circle_auto_fig_size():
+    """
+    Test that `auto_fig_size` scales the assembly-circle figure with node count.
+
+    This function plots a small and a much larger chain of nodes with
+    `auto_fig_size=True` and asserts that the larger one produces a bigger
+    figure.
+    """
+    print(flush=True)
+
+    def _circle_fig(n_nodes):
+        nodes = [str(i) for i in range(n_nodes)]
+        adj_matrix = np.zeros((n_nodes, n_nodes), dtype=int)
+        for i in range(n_nodes - 1):
+            adj_matrix[i, i + 1] = 1
+        assembly_indices = list(range(n_nodes))
+        fig, _ = att.plot_assembly_circle(
+            nodes=nodes,
+            adj_matrix=adj_matrix,
+            assembly_indices=assembly_indices,
+            fig_size=10,
+            auto_fig_size=True,
+        )
+        return fig
+
+    fig_small = _circle_fig(4)
+    fig_large = _circle_fig(40)
+
+    assert fig_large.get_size_inches()[0] > fig_small.get_size_inches()[0]
+    assert fig_large.get_size_inches()[1] > fig_small.get_size_inches()[1]
 
 
 def test_show_common_bonds():

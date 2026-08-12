@@ -9,6 +9,9 @@ import json
 
 import pandas as pd
 
+# Characters that can lead an m/z key in a scan dict, as opposed to metadata keys.
+_DECIMAL_DIGITS = set("0123456789")
+
 
 def _link_msn(data):
     """
@@ -25,8 +28,8 @@ def _link_msn(data):
     dict
         Dictionary with the same structure as input, but with child levels linked to their parent scans.
     """
-    new_dataset = {}
-    new_dataset[min(data)] = data[min(data)]
+    first_level = min(data)
+    new_dataset = {first_level: data[first_level]}
     for level in sorted(data)[:-1]:
         new_dataset[level + 1] = (
             pd.merge(
@@ -107,9 +110,7 @@ def _scan_to_df(scan_dict: dict):
         "parent_scan": int,
         "hcd": _try_parse(float, 0.0),
     }
-    digits = set(str(x) for x in range(10))
-
-    mass_dict = {float(k): v for k, v in scan_dict.items() if k[0] in digits}
+    mass_dict = {float(k): v for k, v in scan_dict.items() if k[0] in _DECIMAL_DIGITS}
     df = pd.DataFrame.from_dict(mass_dict, orient="index", columns=["intensity"])
     df = df.assign(scan=int(scan_dict["scan"]), retention_time=float(scan_dict["retention_time"]))
     for key, process_fn in required_keys.items():
@@ -160,9 +161,8 @@ def process_mzml_json(data):
     if not isinstance(data, dict):
         with open(data) as f:
             data = json.load(f)
-    level_data = [_read_level(v) for k, v in data.items() if k.startswith("ms")]
     return {
-        int(k[2:]): v
-        for k, v in zip(data, level_data)
-        if k.startswith("ms") and v is not None
+        int(k[2:]): level
+        for k, v in data.items()
+        if k.startswith("ms") and (level := _read_level(v)) is not None
     }

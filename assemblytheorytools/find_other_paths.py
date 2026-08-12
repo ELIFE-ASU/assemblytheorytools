@@ -18,28 +18,28 @@ from .assembly import calculate_assembly_index
 def _get_atom_order(mol: Mol) -> List[int]:
     """
     Calculate canonical atom ordering for a molecule.
-    
+
     Computes the canonical ranks of atoms and returns their indices sorted
     by rank. This provides a consistent atom ordering based on molecular
     structure and chirality.
-    
+
     Parameters
     ----------
     mol : rdkit.Chem.rdchem.Mol
         The input RDKit molecule object.
-    
+
     Returns
     -------
     list of int
         List of atom indices ordered by their canonical ranks.
-    
+
     Notes
     -----
     The function uses RDKit's CanonicalRankAtoms which considers:
     1. Atomic connectivity and properties
     2. Chiral centers
     3. Graph symmetry
-    
+
     This ensures consistent atom ordering across isomorphic molecules.
     """
     # Calculate the canonical ranks of the atoms
@@ -48,29 +48,27 @@ def _get_atom_order(mol: Mol) -> List[int]:
     # Pair each atom's canonical rank with its index and sort these pairs
     ranked_atoms = sorted(enumerate(ranks), key=lambda x: x[1])
 
-    # Extract and return the atom indices from the sorted list of pairs
-    atom_order = [atom_index for atom_index, rank in ranked_atoms]
-
-    return atom_order
+    # Extract the atom indices from the sorted list of pairs
+    return [atom_index for atom_index, rank in ranked_atoms]
 
 
 def _scramble_list(lst: list) -> list:
     """
     Randomly shuffle list elements.
-    
+
     Creates a copy of the input list and shuffles it in-place using
     numpy's random shuffle algorithm.
-    
+
     Parameters
     ----------
     lst : list
         The input list to shuffle.
-    
+
     Returns
     -------
     list
         A shuffled copy of the input list.
-    
+
     Notes
     -----
     The original list is not modified. Uses numpy.random.shuffle
@@ -93,7 +91,7 @@ def all_shortest_paths(mol: Mol,
     mol : rdkit.Chem.Mol
         The input RDKit molecule object.
     settings : dict, optional
-        Settings to pass to the assembly index calculation function,
+        Settings to pass to the assembly index calculation function, by default None.
     f_graph_care : bool, optional
         Whether to kekulize the molecule, by default False.
     max_attempts : int, optional
@@ -132,7 +130,7 @@ def all_shortest_paths(mol: Mol,
     n_attempts = int(mol.GetNumBonds() * 4)
     no_new_vo_count = 0
 
-    for ii in range(n_attempts):
+    for _ in range(n_attempts):
         if no_new_vo_count >= max_attempts:
             break
 
@@ -140,7 +138,7 @@ def all_shortest_paths(mol: Mol,
         if f_graph_care:
             Chem.Kekulize(mol_renum)
 
-        ai, virt_obj, _ = calculate_assembly_index(mol_renum, **settings)
+        _, virt_obj, _ = calculate_assembly_index(mol_renum, **settings)
 
         new_inchi_found = False
         for vo in virt_obj:

@@ -31,7 +31,7 @@ from matplotlib.axes import Axes
 from matplotlib.cm import ScalarMappable
 from matplotlib.figure import Figure
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
-from matplotlib.patches import Circle
+from matplotlib.patches import Circle, FancyArrowPatch
 from pyvis.network import Network
 from rdkit import Chem
 from rdkit.Chem import Draw, rdFMCS
@@ -49,11 +49,11 @@ plt.rcParams['axes.linewidth'] = 2.0
 def n_plot(xlab: str, ylab: str, xs: int = 14, ys: int = 14) -> None:
     """
     Configure plot aesthetics with axis labels, ticks, and tight layout.
-    
+
     Sets up matplotlib plot formatting including minor ticks, tick parameters,
     axis labels with custom font sizes, and applies tight layout for optimal
     spacing.
-    
+
     Parameters
     ----------
     xlab : str
@@ -64,7 +64,7 @@ def n_plot(xlab: str, ylab: str, xs: int = 14, ys: int = 14) -> None:
         Font size for x-axis label, by default 14.
     ys : int, optional
         Font size for y-axis label, by default 14.
-    
+
     Returns
     -------
     None
@@ -77,17 +77,16 @@ def n_plot(xlab: str, ylab: str, xs: int = 14, ys: int = 14) -> None:
     plt.xlabel(xlab, fontsize=xs)
     plt.ylabel(ylab, fontsize=ys)
     plt.tight_layout()
-    return None
 
 
 def ax_plot(fig: plt.Figure, ax: plt.Axes, xlab: str, ylab: str, xs: int = 14, ys: int = 14) -> None:
     """
     Configure axis aesthetics with labels, ticks, and tight layout.
-    
+
     Sets up matplotlib axis formatting including minor ticks, tick parameters,
     axis labels with custom font sizes, and applies tight layout for optimal
     spacing. Similar to n_plot but operates on specific figure and axis objects.
-    
+
     Parameters
     ----------
     fig : matplotlib.figure.Figure
@@ -102,7 +101,7 @@ def ax_plot(fig: plt.Figure, ax: plt.Axes, xlab: str, ylab: str, xs: int = 14, y
         Font size for x-axis label, by default 14.
     ys : int, optional
         Font size for y-axis label, by default 14.
-    
+
     Returns
     -------
     None
@@ -115,7 +114,46 @@ def ax_plot(fig: plt.Figure, ax: plt.Axes, xlab: str, ylab: str, xs: int = 14, y
     ax.set_xlabel(xlab, fontsize=xs)
     ax.set_ylabel(ylab, fontsize=ys)
     fig.tight_layout()
-    return None
+
+
+def _auto_fig_size(n_objects: int,
+                   base_size: Tuple[float, float],
+                   reference_n: int = 10,
+                   min_size: Tuple[float, float] = (4.0, 3.0),
+                   max_size: Tuple[float, float] = (30.0, 30.0)) -> Tuple[float, float]:
+    """
+    Scale a base figure size by a number of plotted objects.
+
+    Width and height each scale with ``sqrt(n_objects / reference_n)``, so the
+    figure *area* grows in proportion to the object count while the aspect
+    ratio of `base_size` is preserved. Results are clamped to `min_size` and
+    `max_size` so very small or very large object counts still produce a
+    usable figure.
+
+    Parameters
+    ----------
+    n_objects : int
+        Number of discrete objects being drawn (e.g. graph nodes or molecules).
+    base_size : tuple of float
+        Figure size, (width, height) in inches, considered right-sized for
+        `reference_n` objects.
+    reference_n : int, optional
+        Object count for which `base_size` applies unscaled, by default 10.
+    min_size : tuple of float, optional
+        Lower bound on (width, height), by default (4.0, 3.0).
+    max_size : tuple of float, optional
+        Upper bound on (width, height), by default (30.0, 30.0).
+
+    Returns
+    -------
+    tuple of float
+        Scaled (width, height) in inches.
+    """
+    n = max(int(n_objects), 1)
+    scale = math.sqrt(n / float(reference_n))
+    width = min(max(base_size[0] * scale, min_size[0]), max_size[0])
+    height = min(max(base_size[1] * scale, min_size[1]), max_size[1])
+    return width, height
 
 
 def plot_graph(graph: nx.Graph,
@@ -127,14 +165,15 @@ def plot_graph(graph: nx.Graph,
                edgecolors: str = "black",
                width: int = 2,
                linewidths: int = 2,
-               seed: int = 42) -> tuple[Figure, Axes]:
+               seed: int = 42,
+               auto_fig_size: bool = False) -> tuple[Figure, Axes]:
     """
     Visualize a NetworkX graph with customizable layout and styling options.
-    
+
     Creates a matplotlib visualization of a NetworkX graph using various layout
     algorithms. Supports multiple layout types including force-directed, circular,
     spectral, and topological layouts.
-    
+
     Parameters
     ----------
     graph : networkx.Graph
@@ -158,7 +197,10 @@ def plot_graph(graph: nx.Graph,
         Line width for node borders, by default 2.
     seed : int, optional
         Random seed for spring layout reproducibility, by default 42.
-    
+    auto_fig_size : bool, optional
+        If True, ignore `fig_size` and compute a figure size scaled to the
+        number of nodes in `graph` instead, by default False.
+
     Returns
     -------
     tuple of (matplotlib.figure.Figure, matplotlib.axes.Axes)
@@ -186,6 +228,9 @@ def plot_graph(graph: nx.Graph,
     else:
         pos = nx.kamada_kawai_layout(graph)
 
+    if auto_fig_size:
+        fig_size = _auto_fig_size(graph.number_of_nodes(), base_size=fig_size)
+
     fig, ax = plt.subplots(figsize=fig_size)
 
     # Draw the graph with the specified parameters
@@ -210,14 +255,15 @@ def plot_mol_graph(graph: nx.Graph,
                    node_size: int = 300,
                    width: int = 2,
                    linewidths: int = 2,
-                   seed: int = 42) -> tuple[Figure, Axes]:
+                   seed: int = 42,
+                   auto_fig_size: bool = False) -> tuple[Figure, Axes]:
     """
     Visualize a molecular graph with atom-specific coloring.
-    
+
     Creates a matplotlib visualization of a molecular NetworkX graph where
     nodes are colored according to their atomic element type. Uses standard
     CPK coloring convention for chemical elements.
-    
+
     Parameters
     ----------
     graph : networkx.Graph
@@ -238,7 +284,10 @@ def plot_mol_graph(graph: nx.Graph,
         Line width for node borders, by default 2.
     seed : int, optional
         Random seed for spring layout reproducibility, by default 42.
-    
+    auto_fig_size : bool, optional
+        If True, ignore `fig_size` and compute a figure size scaled to the
+        number of nodes in `graph` instead, by default False.
+
     Returns
     -------
     tuple of (matplotlib.figure.Figure, matplotlib.axes.Axes)
@@ -295,6 +344,9 @@ def plot_mol_graph(graph: nx.Graph,
     # Get the colors for the edges
     edge_colors = [color_dict_edge.get(graph.edges[idx]['color']) for idx in graph.edges()]
 
+    if auto_fig_size:
+        fig_size = _auto_fig_size(graph.number_of_nodes(), base_size=fig_size)
+
     fig, ax = plt.subplots(figsize=fig_size)
 
     # Draw the graph
@@ -318,12 +370,12 @@ def plot_interactive_graph(graph: nx.Graph,
                            filename: str = "interactive_graph.html") -> Network:
     """
     Create an interactive HTML visualization of a NetworkX graph using PyVis.
-    
+
     Generates an interactive graph visualization with node coloring based on
     degree (number of connections). Higher degree nodes appear in darker shades
     of blue. The visualization can be displayed in a Jupyter notebook or saved
     as an HTML file.
-    
+
     Parameters
     ----------
     graph : networkx.Graph
@@ -332,9 +384,9 @@ def plot_interactive_graph(graph: nx.Graph,
         If True, displays the graph in a Jupyter notebook using an iframe.
         If False, saves to HTML file, by default False.
     filename : str, optional
-        Name of the HTML file to save when show=False, 
+        Name of the HTML file to save when show=False,
         by default "interactive_graph.html".
-    
+
     Returns
     -------
     pyvis.network.Network
@@ -458,7 +510,76 @@ def plot_digraph_metro(digraph: nx.DiGraph,
 
     # Convert the SVG to a PNG file
     cairosvg.svg2png(bytestring=r.encode('utf-8'), write_to=f"{filename}.png")
-    return None
+
+
+def _draw_edge_arrowhead(ax: Axes,
+                         edge_patch: FancyArrowPatch,
+                         position: float,
+                         color: str,
+                         plt_arrow_style,
+                         arrow_size: int,
+                         width: float = 2.5) -> None:
+    """
+    Draw a single arrowhead part way along an edge that has already been drawn.
+
+    The edge patch is asked for its path in data coordinates, so the head follows
+    the curvature of the edge and its node margins rather than the straight line
+    between the two nodes.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        Axis holding the edge.
+    edge_patch : matplotlib.patches.FancyArrowPatch
+        Edge as returned by `networkx.draw_networkx_edges`, drawn without a head.
+    position : float
+        Fraction along the edge at which to place the head, from 0 at the source
+        to 1 at the target.
+    color : str
+        Colour of the arrowhead.
+    plt_arrow_style : str or ArrowStyle object from matplotlib.patches
+        Style of the arrowhead.
+    arrow_size : int
+        Size of the arrowhead (matplotlib mutation scale).
+    width : float, optional
+        Line width of the arrowhead, by default 2.5.
+
+    Returns
+    -------
+    None
+        The arrowhead is added to the axis in place.
+    """
+    # Poly-line approximation of the drawn edge, in data coordinates
+    verts = np.asarray([v for v, _ in edge_patch.get_path().iter_segments(curves=False)])
+    if len(verts) < 2:
+        return None
+
+    steps = np.diff(verts, axis=0)
+    lengths = np.hypot(steps[:, 0], steps[:, 1])
+    # Drop repeated vertices, they carry no direction
+    keep = lengths > 0.0
+    if not keep.any():
+        return None
+    starts, steps, lengths = verts[:-1][keep], steps[keep], lengths[keep]
+
+    # Walk along the arc length, so the head sits part way along the curve
+    # rather than part way between the two nodes
+    arc = np.concatenate(([0.0], np.cumsum(lengths)))
+    target = float(np.clip(position, 0.0, 1.0)) * arc[-1]
+    i = int(np.clip(np.searchsorted(arc, target) - 1, 0, len(lengths) - 1))
+    point = starts[i] + steps[i] * (target - arc[i]) / lengths[i]
+
+    # Stub pointing along the edge, short enough to hide under the head itself
+    stub = 1e-3 * arc[-1] * steps[i] / lengths[i]
+    ax.add_patch(FancyArrowPatch(point - stub,
+                                 point + stub,
+                                 arrowstyle=plt_arrow_style,
+                                 mutation_scale=arrow_size,
+                                 color=color,
+                                 linewidth=width,
+                                 shrinkA=0,
+                                 shrinkB=0,
+                                 zorder=edge_patch.get_zorder()))
 
 
 def plot_pathway(graph: nx.DiGraph,
@@ -471,14 +592,17 @@ def plot_pathway(graph: nx.DiGraph,
                  frame_on: bool = True,
                  font_size: int = 11,
                  arrow_color: str = '#264f70',
-                 plt_arrow_style='->') -> tuple[Figure, Axes]:
+                 plt_arrow_style='->',
+                 arrow_pos: float = 1.0,
+                 arrow_size: int = 20,
+                 auto_fig_size: bool = False) -> tuple[Figure, Axes]:
     """
     Visualize a directed acyclic graph as a pathway with customizable layout.
-    
+
     Creates a layered pathway visualization with topological ordering. Supports
     molecular structure icons, optimized crossing minimization layouts, and
     customizable arrow styles.
-    
+
     Parameters
     ----------
     graph : networkx.DiGraph
@@ -505,12 +629,23 @@ def plot_pathway(graph: nx.DiGraph,
         Color for arrows in hex format, by default '#264f70'.
     plt_arrow_style : str or ArrowStyle object from matplotlib.patches, optional
         Style of the arrowheads in the plot, by default '->'.
+    arrow_pos : float, optional
+        Fraction along each edge at which the arrowhead is drawn, from 0 at the
+        source to 1 at the target, by default 1.0 (head at the target node).
+        Only used with arrow_style '1'; see `plot_pathway_mid_arrow` for heads
+        half way along the edges.
+    arrow_size : int, optional
+        Size of the arrowhead (matplotlib mutation scale) when it is placed part
+        way along an edge, by default 20. Unused when arrow_pos is 1.
+    auto_fig_size : bool, optional
+        If True, ignore `fig_size` and compute a figure size scaled to the
+        number of nodes in `graph` instead, by default False.
 
     Returns
     -------
     tuple of (matplotlib.figure.Figure, matplotlib.axes.Axes)
         Figure and axis objects containing the pathway visualization.
-    
+
     Raises
     ------
     ValueError
@@ -530,6 +665,9 @@ def plot_pathway(graph: nx.DiGraph,
     elif plot_type == "string":
         if show_icons:
             node_color = 'white'
+
+    if auto_fig_size:
+        fig_size = _auto_fig_size(graph.number_of_nodes(), base_size=fig_size)
 
     fig, ax = plt.subplots(figsize=fig_size)
     graph = set_graph_layer(graph)
@@ -564,6 +702,7 @@ def plot_pathway(graph: nx.DiGraph,
                      arrowstyle="->",
                      width=2.0)
 
+    edge_patches = []
     if arrow_style == '1':
         if show_icons:
             arrow_margin = 70
@@ -590,13 +729,15 @@ def plot_pathway(graph: nx.DiGraph,
                 else:
                     rad = 0.0
 
-            nx.draw_networkx_edges(
+            # A head part way along the edge is added afterwards, so the edge
+            # itself is drawn without one
+            edge_patches += nx.draw_networkx_edges(
                 graph,
                 pos=pos,
                 edgelist=[edge],
                 ax=ax,
                 arrows=True,
-                arrowstyle=plt_arrow_style,
+                arrowstyle=plt_arrow_style if arrow_pos >= 1.0 else '-',
                 width=2.5,
                 edge_color=edge_color,
                 connectionstyle=f"arc3,rad={rad}",
@@ -677,7 +818,91 @@ def plot_pathway(graph: nx.DiGraph,
                [pos[node][1] for node in graph.nodes()],
                s=0, color='red')
 
+    if edge_patches and arrow_pos < 1.0:
+        # The edge paths are built in display space, so the view has to be
+        # settled before they are read back, and frozen so the heads stay on them
+        fig.canvas.draw()
+        ax.set_xlim(*ax.get_xlim())
+        ax.set_ylim(*ax.get_ylim())
+        for edge_patch in edge_patches:
+            _draw_edge_arrowhead(ax, edge_patch, arrow_pos, edge_color,
+                                 plt_arrow_style, arrow_size)
+
     return fig, ax
+
+
+def plot_pathway_mid_arrow(graph: nx.DiGraph,
+                           fig_size: tuple = (12, 7),
+                           show_icons: bool = True,
+                           node_color: str = '#264f70',
+                           plot_type: str = 'mol',
+                           layout_style: str = 'crossmin_long',
+                           frame_on: bool = True,
+                           font_size: int = 11,
+                           arrow_color: str = '#264f70',
+                           plt_arrow_style='->',
+                           arrow_pos: float = 0.5,
+                           arrow_size: int = 20,
+                           auto_fig_size: bool = False) -> tuple[Figure, Axes]:
+    """
+    Visualize a directed acyclic graph as a pathway with mid-edge arrowheads.
+
+    Same as `plot_pathway` with the white edge style, except that each edge is
+    drawn as a plain line and its arrowhead is placed half way along it instead
+    of at the target node. Useful when the icons are large enough that heads at
+    the target node crowd them.
+
+    Parameters
+    ----------
+    graph : networkx.DiGraph
+        Directed acyclic graph representing a pathway or assembly process.
+    fig_size : tuple of float, optional
+        Figure size in inches as (width, height), by default (12, 7).
+    show_icons : bool, optional
+        If True, displays molecular structure icons on nodes, by default True.
+    node_color : str, optional
+        Color for nodes in hex format, by default '#264f70'.
+    plot_type : str, optional
+        Type of plot visualization ('mol' for molecules), by default 'mol'.
+    layout_style : str, optional
+        Layout algorithm: 'crossmin', 'crossmin_long', 'sa', or default
+        multipartite, by default 'crossmin_long'.
+    frame_on : bool, optional
+        If True, displays axis frame, by default True.
+    font_size : int, optional
+        Font size for string assembly paths, by default 11.
+    arrow_color : str, optional
+        Color for arrows in hex format, by default '#264f70'.
+    plt_arrow_style : str or ArrowStyle object from matplotlib.patches, optional
+        Style of the arrowheads in the plot, by default '->'.
+    arrow_pos : float, optional
+        Fraction along each edge at which the arrowhead is drawn, from 0 at the
+        source to 1 at the target, by default 0.5 (half way).
+    arrow_size : int, optional
+        Size of the arrowheads (matplotlib mutation scale), by default 20.
+    auto_fig_size : bool, optional
+        If True, ignore `fig_size` and compute a figure size scaled to the
+        number of nodes in `graph` instead, by default False.
+
+    Returns
+    -------
+    tuple of (matplotlib.figure.Figure, matplotlib.axes.Axes)
+        Figure and axis objects containing the pathway visualization.
+    """
+    return plot_pathway(graph,
+                        fig_size=fig_size,
+                        show_icons=show_icons,
+                        node_color=node_color,
+                        plot_type=plot_type,
+                        arrow_style='1',
+                        layout_style=layout_style,
+                        frame_on=frame_on,
+                        font_size=font_size,
+                        arrow_color=arrow_color,
+                        plt_arrow_style=plt_arrow_style,
+                        arrow_pos=arrow_pos,
+                        arrow_size=arrow_size,
+                        auto_fig_size=auto_fig_size)
 
 
 def _average_angles(angles: np.ndarray) -> float:
@@ -945,7 +1170,8 @@ def plot_assembly_circle(nodes: Sequence[Any],
                          colorbar_label: Optional[str] = None,
                          save_kwargs: Optional[Dict[str, Any]] = None,
                          spacing_mode: str = "linear",
-                         spacing_hyperbolic_factor: float = 0.4
+                         spacing_hyperbolic_factor: float = 0.4,
+                         auto_fig_size: bool = False
                          ):
     """
     Nodes are placed on concentric rings whose radius is proportional to their
@@ -1008,6 +1234,9 @@ def plot_assembly_circle(nodes: Sequence[Any],
         is provided (e.g. ``bbox_inches``).
     spacing_mode: "linear" (radii = ai+1) or "hyperbolic" (radii = (ai+1) + spacing_hyperbolic_factor * sinh(ai+1))
     spacing_hyperbolic_factor : float. Multiplier for the sinh term in hyperbolic spacing (default 0.4).
+    auto_fig_size : bool, optional
+        If True, ignore `fig_size` and compute a size scaled to the number of
+        `nodes` instead, by default False.
 
     Returns
     -------
@@ -1134,6 +1363,10 @@ def plot_assembly_circle(nodes: Sequence[Any],
 
     x_positions = radii * np.cos(angles)
     y_positions = radii * np.sin(angles)
+
+    if auto_fig_size:
+        base = (fig_size, fig_size) if isinstance(fig_size, (int, float)) else tuple(fig_size)
+        fig_size = _auto_fig_size(n_nodes, base_size=base)[0]
 
     # If fig/ax not provided, create them (no fallbacks beyond this)
     if fig is None or ax is None:
@@ -3322,15 +3555,19 @@ def show_common_bonds(
     mol_a = standardize_mol(mol_a, add_hydrogens=False)
     mol_b = standardize_mol(mol_b, add_hydrogens=False)
 
-    # Compute MCS (Maximum Common Substructure)
-    mcs_params = rdFMCS.MCSParameters()
-    mcs_params.Timeout = int(timeout_s)
-    mcs_params.AtomCompare = rdFMCS.AtomCompare.CompareElements
-    mcs_params.BondCompare = rdFMCS.BondCompare.CompareOrderExact
-    mcs_params.RingMatchesRingOnly = bool(ring_matches_ring_only)
-    mcs_params.CompleteRingsOnly = bool(complete_rings_only)
-
-    mcs_res = rdFMCS.FindMCS([mol_a, mol_b], mcs_params)
+    # Compute MCS (Maximum Common Substructure). Uses the keyword-argument
+    # form of FindMCS rather than an MCSParameters object, since the
+    # equivalent flat attributes on MCSParameters (AtomCompare, BondCompare,
+    # RingMatchesRingOnly, CompleteRingsOnly) were renamed/restructured
+    # across RDKit versions.
+    mcs_res = rdFMCS.FindMCS(
+        [mol_a, mol_b],
+        timeout=int(timeout_s),
+        atomCompare=rdFMCS.AtomCompare.CompareElements,
+        bondCompare=rdFMCS.BondCompare.CompareOrderExact,
+        ringMatchesRingOnly=bool(ring_matches_ring_only),
+        completeRingsOnly=bool(complete_rings_only),
+    )
     if not mcs_res.smartsString:
         # No overlap found; draw without highlights.
         return Draw.MolsToGridImage(
@@ -3498,6 +3735,7 @@ def draw_mol_grid(
         legends=legends_list,
         useSVG=use_svg,
     )
+    return img
 
 
 def draw_mol_grid_box(

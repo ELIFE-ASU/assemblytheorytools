@@ -21,7 +21,7 @@ from ase.calculators.cp2k import CP2K
 from ase.calculators.orca import ORCA, OrcaProfile
 from ase.io import read
 from ase.units import Hartree, Rydberg
-from rdkit import Chem as Chem
+from rdkit import Chem
 from rdkit.Chem import AllChem, rdDetermineBonds
 from rdkit.Chem.rdchem import Mol
 from rdkit.Geometry import Point3D
@@ -370,6 +370,15 @@ def _aufbau_multiplicity(z: int) -> int:
     return unpaired + 1  # 2S+1
 
 
+# Ground-state spin multiplicities for isolated atoms, by atomic number.
+# Cr, Cu, Mo, Ag are known exceptions to the Aufbau-predicted value.
+_GROUND_STATE_MULTIPLICITY_EXCEPTIONS = {24: 7, 29: 2, 42: 7, 47: 2}
+_GROUND_STATE_MULTIPLICITY = {
+    z: _GROUND_STATE_MULTIPLICITY_EXCEPTIONS.get(z, _aufbau_multiplicity(z))
+    for z in range(1, 118 + 1)
+}
+
+
 def get_spin_multiplicity(mol: Chem.Mol) -> int:
     """
     Determine the spin multiplicity of a molecule.
@@ -397,11 +406,6 @@ def get_spin_multiplicity(mol: Chem.Mol) -> int:
 
     # 2 – isolated atom
     if mol.GetNumAtoms() == 1:
-        _EXCEPTIONS = {24: 7, 29: 2, 42: 7, 47: 2}  # Cr, Cu, Mo, Ag
-        _GROUND_STATE_MULTIPLICITY = {
-            z: _EXCEPTIONS.get(z, _aufbau_multiplicity(z))
-            for z in range(1, 118 + 1)
-        }
         z = mol.GetAtomWithIdx(0).GetAtomicNum()
         return _GROUND_STATE_MULTIPLICITY.get(z, 1)
 
@@ -755,7 +759,7 @@ def get_total_electrons(atoms: Atoms) -> int:
 def round_to_nearest_two(number: Union[int, float]) -> int:
     """
     Round a number to the nearest multiple of 2.
-    
+
     If the result would be 0, return 1 instead.
 
     Parameters
@@ -842,7 +846,7 @@ def calculate_ccsd_energy(atoms: Atoms,
 def grab_value(orca_file: str, term: str, splitter: str) -> Optional[float]:
     """
     Extract a numerical value from an ORCA output file.
-    
+
     This function searches for a specific term in an ORCA output file and extracts
     the associated numerical value, converting it from Hartree to eV.
 
@@ -865,6 +869,46 @@ def grab_value(orca_file: str, term: str, splitter: str) -> Optional[float]:
             if term in line:
                 return float(line.split(splitter)[-1].split('Eh')[0]) * Hartree
         return None
+
+
+def _orca_freq_block(temperature: Optional[float], pressure: Optional[float]) -> Optional[str]:
+    """
+    Build the ORCA ``%freq`` input block for a given temperature/pressure.
+
+    Parameters
+    ----------
+    temperature : float or None
+        Temperature in Kelvin, or None to use ORCA's default.
+    pressure : float or None
+        Pressure in atm, or None to use ORCA's default.
+
+    Returns
+    -------
+    str or None
+        The ``%freq ... end`` block to append to the ORCA input, or None if
+        neither temperature nor pressure was given (letting ORCA use its
+        own defaults for both).
+    """
+    if temperature is not None and pressure is None:
+        return f'''
+                                  %freq
+                                      Temp {temperature}
+                                  end
+                                  '''
+    if pressure is not None and temperature is None:
+        return f'''
+                                          %freq
+                                              Pressure {pressure}
+                                          end
+                                          '''
+    if pressure is not None and temperature is not None:
+        return f'''
+                                          %freq
+                                              Temp {temperature}
+                                              Pressure {pressure}
+                                          end
+                                          '''
+    return None
 
 
 def calculate_free_energy(atoms: Atoms,
@@ -949,27 +993,7 @@ def calculate_free_energy(atoms: Atoms,
     calc_extra = f'{opt_flag} {scf_flag} FREQ'.strip()
 
     # Set up the %thermo block for this temperature and pressure
-    if temperature is not None and pressure is None:
-        blocks_extra = f'''
-                                  %freq
-                                      Temp {temperature}
-                                  end
-                                  '''
-    elif pressure is not None and temperature is None:
-        blocks_extra = f'''
-                                          %freq
-                                              Pressure {pressure}
-                                          end
-                                          '''
-    elif pressure is None and temperature is not None:
-        blocks_extra = f'''
-                                          %freq
-                                              Temp {temperature}
-                                              Pressure {pressure}
-                                          end
-                                          '''
-    else:
-        blocks_extra = None
+    blocks_extra = _orca_freq_block(temperature, pressure)
 
     # Perform CCSD energy calculation if required and not provided
     if use_ccsd and ccsd_energy is None:
@@ -1020,7 +1044,7 @@ def calculate_free_energy(atoms: Atoms,
 def list_to_str(lst: List[Any]) -> str:
     """
     Convert a list to a comma-separated string.
-    
+
     This function converts all items in a list to strings and joins them
     with commas and spaces.
 
@@ -1312,7 +1336,7 @@ def get_virtual_objects_energy(mol_list: List[Mol],
                                ccsd_energy: bool = False) -> List[float]:
     """
     Calculate free energies for a list of RDKit molecules.
-    
+
     This function processes a list of RDKit molecules, converting each to ASE Atoms
     objects and calculating their free energies using quantum chemistry methods.
 

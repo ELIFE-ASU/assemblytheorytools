@@ -2,8 +2,6 @@ import numpy as np
 
 import assemblytheorytools as att
 
-np.random.seed(seed=0)
-
 
 def create_simple_tree():
     """
@@ -172,6 +170,10 @@ def test_ma_estimator_simple():
           should match the expected values within a tolerance of 0.01.
     """
     print(flush=True)
+    # Seed locally: relying on a single module-level seed makes each test's
+    # expected values depend on exactly which tests ran (and how much
+    # randomness they consumed) before it in the same session.
+    np.random.seed(0)
     # Create a simple fragmentation tree
     simple_tree = create_simple_tree()
 
@@ -185,7 +187,6 @@ def test_ma_estimator_simple():
         same_level=True,  # Consider fragments at the same level
         tol=0.5,  # Mass tolerance in Da
         n_samples=20,  # Number of Monte Carlo samples
-        min_chunk=20.0  # Minimum fragment size to consider
     )
 
     # Define the precursor m/z value
@@ -193,7 +194,7 @@ def test_ma_estimator_simple():
     print(f"\nEstimating MA for precursor: {precursor_mz:.2f} Da", flush=True)
 
     # Estimate the molecular assembly (MA) for the precursor
-    ma_estimate = estimator.estimate_ma(
+    ma_estimate = estimator.estimate_MA(
         tree=simple_tree,
         mw=precursor_mz,
         progress_levels=0  # Disable progress tracking
@@ -222,7 +223,6 @@ def test_ma_estimator_complex():
        - `same_level=True`: Considers fragments at the same level.
        - `tol=0.5`: Sets the mass tolerance in Da.
        - `n_samples=20`: Specifies the number of Monte Carlo samples.
-       - `min_chunk=20.0`: Sets the minimum fragment size to consider.
     4. Estimates the molecular assembly (MA) for a precursor m/z value of 400.0 Da.
     5. Prints the results, including the mean, standard deviation, and range of the MA estimates.
     6. Asserts that the calculated results match the expected values within a tolerance of 0.01.
@@ -232,6 +232,7 @@ def test_ma_estimator_complex():
           should match the expected values within a tolerance of 0.01.
     """
     print(flush=True)
+    np.random.seed(0)
     # Create a complex fragmentation tree
     simple_tree = create_complex_tree()
 
@@ -245,7 +246,6 @@ def test_ma_estimator_complex():
         same_level=True,  # Consider fragments at the same level
         tol=0.5,  # Mass tolerance in Da
         n_samples=20,  # Number of Monte Carlo samples
-        min_chunk=20.0  # Minimum fragment size to consider
     )
 
     # Define the precursor m/z value
@@ -253,7 +253,7 @@ def test_ma_estimator_complex():
     print(f"\nEstimating MA for precursor: {precursor_mz:.2f} Da", flush=True)
 
     # Estimate the molecular assembly (MA) for the precursor
-    ma_estimate = estimator.estimate_ma(
+    ma_estimate = estimator.estimate_MA(
         tree=simple_tree,
         mw=precursor_mz,
         progress_levels=0  # Disable progress tracking
@@ -280,7 +280,6 @@ def test_ma_estimator_element():
        - `same_level=True`: Considers fragments at the same level.
        - `tol=0.5`: Sets the mass tolerance in Da.
        - `n_samples=20`: Specifies the number of Monte Carlo samples.
-       - `min_chunk=20.0`: Sets the minimum fragment size to consider.
     2. Tests the MA estimation for Iron-56 (55.934939 Da), asserting that the
        MA estimate is approximately 0 for a pure element.
     3. Tests the MA estimation for Copper-63 (62.929599 Da), printing the
@@ -293,31 +292,31 @@ def test_ma_estimator_element():
         - The MA estimate for the non-isotope mass should be greater than 0.0.
     """
     print(flush=True)
+    np.random.seed(0)
     # Create MA estimator
     estimator = att.MAEstimator(
         same_level=True,
         tol=0.5,  # Mass tolerance in Da
         n_samples=20,  # Number of Monte Carlo samples
-        min_chunk=20.0  # Minimum fragment size to consider
     )
 
     # Iron isotope mass
     iron_tree = {55.934939: {}}
     print(f"\nTesting Iron-56 (55.934939 Da)", flush=True)
-    ma_iron = estimator.estimate_ma(iron_tree, 55.934939, progress_levels=0)
+    ma_iron = estimator.estimate_MA(iron_tree, 55.934939, progress_levels=0)
     print(f"  MA estimate: {np.mean(ma_iron):.2f} (should be ~0 for pure element)", flush=True)
     assert np.mean(ma_iron) == 0.0
 
     # Copper isotope mass
     copper_tree = {62.929599: {}}
     print(f"\nTesting Copper-63 (62.929599 Da)", flush=True)
-    ma_copper = estimator.estimate_ma(copper_tree, 62.929599, progress_levels=0)
+    ma_copper = estimator.estimate_MA(copper_tree, 62.929599, progress_levels=0)
     print(f"  MA estimate: {np.mean(ma_copper):.2f} (should be ~0 for pure element)", flush=True)
 
     # Non-isotope mass
     random_tree = {123.456: {}}
     print(f"\nTesting non-isotope mass (123.456 Da)", flush=True)
-    ma_random = estimator.estimate_ma(random_tree, 123.456, progress_levels=0)
+    ma_random = estimator.estimate_MA(random_tree, 123.456, progress_levels=0)
     print(f"  MA estimate: {np.mean(ma_random):.2f} (should be >0 for compound)", flush=True)
     assert np.mean(ma_random) > 0.0
 
@@ -331,7 +330,6 @@ def test_ma_estimator_detailed_tree():
        - `same_level=True`: Considers fragments at the same level.
        - `tol=0.5`: Sets the mass tolerance in Da.
        - `n_samples=20`: Specifies the number of Monte Carlo samples.
-       - `min_chunk=20.0`: Sets the minimum fragment size to consider.
     2. Defines a detailed fragmentation tree structure.
     3. Prints the tree structure.
     4. Estimates the molecular assembly (MA) for the precursor m/z value of 300.0 Da.
@@ -343,12 +341,12 @@ def test_ma_estimator_detailed_tree():
           within a tolerance of 0.01.
     """
     print(flush=True)
+    np.random.seed(0)
     # Create MA estimator
     estimator = att.MAEstimator(
         same_level=True,
         tol=0.5,  # Mass tolerance in Da
         n_samples=20,  # Number of Monte Carlo samples
-        min_chunk=20.0  # Minimum fragment size to consider
     )
 
     # Define a detailed fragmentation tree
@@ -366,7 +364,7 @@ def test_ma_estimator_detailed_tree():
     att.rma_print_tree(detailed_tree)
 
     # Estimate the molecular assembly (MA) for the precursor
-    ma_estimate = estimator.estimate_ma(
+    ma_estimate = estimator.estimate_MA(
         tree=detailed_tree,
         mw=300.0,
         progress_levels=3
@@ -390,7 +388,6 @@ def test_ma_estimator_joint():
        - `same_level=True`: Considers fragments at the same level.
        - `tol=0.5`: Sets the mass tolerance in Da.
        - `n_samples=20`: Specifies the number of Monte Carlo samples.
-       - `min_chunk=20.0`: Sets the minimum fragment size to consider.
     2. Defines two sample fragmentation trees.
     3. Combines the two trees into a meta tree with a specified parent m/z value.
     4. Prints the structure of the meta tree.
@@ -403,12 +400,12 @@ def test_ma_estimator_joint():
           within a tolerance of 0.01.
     """
     print(flush=True)
+    np.random.seed(0)
     # Create MA estimator
     estimator = att.MAEstimator(
         same_level=True,
         tol=0.5,  # Mass tolerance in Da
         n_samples=20,  # Number of Monte Carlo samples
-        min_chunk=20.0  # Minimum fragment size to consider
     )
 
     # Define two sample trees
@@ -421,7 +418,7 @@ def test_ma_estimator_joint():
     att.rma_print_tree(meta)
 
     # Estimate the molecular assembly (MA) for the meta tree
-    ma_estimate = estimator.estimate_ma(
+    ma_estimate = estimator.estimate_MA(
         tree=meta,
         mw=1e6,
         progress_levels=3
@@ -451,6 +448,7 @@ def test_ma_estimator_mock_data():
         - The parent's MA should be less than or equal to the sum of the children's MAs plus 1.0.
     """
     print(flush=True)
+    np.random.seed(0)
     # Initialize the MAEstimator with same_level=True and a tolerance of 3e-3
     estimator = att.MAEstimator(same_level=True, tol=3e-3)
 
@@ -466,13 +464,13 @@ def test_ma_estimator_mock_data():
     print("Testing mock fragmentation tree...", flush=True)
 
     # Estimate the molecular assembly (MA) for the parent node
-    parent_ma = np.mean(estimator.estimate_ma(mock_data, 371.4))
+    parent_ma = np.mean(estimator.estimate_MA(mock_data, 371.4))
 
     # Estimate the molecular assembly (MA) for the first child node
-    child1_ma = np.mean(estimator.estimate_ma({150.1: mock_data[371.4][150.1]}, 150.1))
+    child1_ma = np.mean(estimator.estimate_MA({150.1: mock_data[371.4][150.1]}, 150.1))
 
     # Estimate the molecular assembly (MA) for the second child node
-    child2_ma = np.mean(estimator.estimate_ma({221.3: mock_data[371.4][221.3]}, 221.3))
+    child2_ma = np.mean(estimator.estimate_MA({221.3: mock_data[371.4][221.3]}, 221.3))
 
     # Print the estimated MAs for the parent and child nodes
     print(f"Parent MA: {parent_ma}", flush=True)

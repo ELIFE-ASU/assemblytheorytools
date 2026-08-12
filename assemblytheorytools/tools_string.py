@@ -8,12 +8,9 @@ directed and undirected graph representations of a string.
 """
 
 import random
-import re
 import string
-from typing import Any
 from typing import List
 
-import matplotlib.pyplot as plt
 import networkx as nx
 
 
@@ -77,9 +74,9 @@ def prep_joint_string_ai(input_list: list[str]) -> tuple[str, list[str]]:
     # Build a string of all the inputs separated by unique fake characters
     delimiters: List[str] = []
     amalgam_string: str = input_list[0]
-    for string in input_list[1:]:
-        unique_char = get_unique_char(amalgam_string + string)
-        amalgam_string += unique_char + string
+    for item in input_list[1:]:
+        unique_char = get_unique_char(amalgam_string + item)
+        amalgam_string += unique_char + item
         delimiters.append(unique_char)
 
     return amalgam_string, delimiters
@@ -203,59 +200,6 @@ def get_dir_str_molecule(dir_str: str) -> nx.Graph:
         graph.add_edge(2 * i, 2 * i + 1, color=1)
         graph.add_node(2 * i + 2, color=blank)
         graph.add_edge(2 * i + 1, 2 * i + 2, color=2)
-
-    return graph
-
-
-def generate_and_visualize_cfg_pathway(file_path: str) -> nx.DiGraph:
-    """Generate and visualize a directed graph from CFG pathway data.
-
-    Parameters
-    ----------
-    file_path : str
-        The path to the file containing the pathway data.
-
-    Returns
-    -------
-    nx.DiGraph
-        The constructed directed graph.
-    """
-
-    # Read the file content
-    with open(file_path, 'r') as file:
-        file_content: list[str] = file.readlines()
-
-    # Extract pathway line
-    pathway_line: str = [line for line in file_content if line.startswith("Pathway:")][0]
-
-    # Extract pathway data
-    pathway_data: list[str] = re.findall(r"'(.*?)'", pathway_line)
-
-    # Create a directed graph
-    graph: nx.DiGraph = nx.DiGraph()
-    for relationship in pathway_data:
-        reactants, product = relationship.split(' = ')
-        reactant_1, reactant_2 = reactants.split(' + ')
-
-        # Add directed edges
-        graph.add_edge(reactant_1, product)
-        graph.add_edge(reactant_2, product)
-
-    # Visualise the graph
-    plt.figure(figsize=(12, 12))
-    pos: dict[Any, Any] = nx.spring_layout(graph, k=0.5, seed=42)
-    nx.draw(graph,
-            pos,
-            with_labels=True,
-            node_size=700,
-            node_color="skyblue",
-            font_size=10,
-            font_weight="bold",
-            arrows=True,
-            arrowstyle="-|>",
-            arrowsize=15)
-    plt.title("CFG")
-    plt.show()
 
     return graph
 
