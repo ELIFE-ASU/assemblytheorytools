@@ -99,7 +99,7 @@ def test_convert_digraph_vo_to_target():
     Test the conversion of a digraph's virtual objects to target representations.
 
     This function performs the following steps:
-    1. Retrieves the SMILES string for 'diethyl phthalate' from PubChem.
+    1. Defines the SMILES string for diethyl phthalate.
     2. Converts the SMILES string to a NetworkX graph.
     3. Calculates the assembly pathway for the graph.
     4. Converts the virtual objects in the pathway to their target representations.
@@ -120,7 +120,10 @@ def test_convert_digraph_vo_to_target():
     ``'CCOC(=O)C1=C(C(=O)OCC)C=CC=C1'`` (an older RDKit's output) are the
     same molecule, diethyl phthalate.
     """
-    smi = att.pubchem_name_to_smi('diethyl phthalate')
+    # The conversion logic does not depend on PubChem. Keeping this structure
+    # local makes the regression deterministic and leaves service access to the
+    # explicitly marked integration tests in test_tools_data.py.
+    smi = 'CCOC(=O)C1=CC=CC=C1C(=O)OCC'
     print(f"SMILES: {smi}", flush=True)
     graph = att.smi_to_nx(smi, sanitize=True, add_hydrogens=True)
 

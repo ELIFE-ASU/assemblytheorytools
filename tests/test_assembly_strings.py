@@ -1,4 +1,8 @@
+import random
+import string
+
 import numpy as np
+import pytest
 
 import assemblytheorytools as att
 
@@ -114,6 +118,7 @@ def test_joint_cfg_str_ass():
     assert ai >= ai_ref
 
 
+@pytest.mark.slow
 def test_string_early_exit():
     """
     Test the early exit functionality for string assembly calculation.
@@ -155,8 +160,17 @@ def test_string_large_pool():
     Asserts:
         - The calculated assembly index is >= 0.
     """
-    pool = att.generate_random_strings(95, 3)
+    # Use a deterministic set of unique three-letter strings. Random input made
+    # failures irreproducible and occasionally introduced duplicate entries,
+    # changing the shape of the joint-assembly problem under test.
+    pool = [
+        string.ascii_lowercase[(index // (26 * 26)) % 26]
+        + string.ascii_lowercase[(index // 26) % 26]
+        + string.ascii_lowercase[index % 26]
+        for index in range(95)
+    ]
     ai = att.calculate_string_assembly_index(pool, directed=True, mode="cfg")[0]
+    assert isinstance(ai, int)
     assert ai >= 0
 
 
@@ -175,19 +189,31 @@ def test_string_graph_conversion():
     Test the consistency of the string to graph encoding and decoding functions.
     """
 
-    for _ in range(50):
-        s = att.generate_random_strings(1, 20)[0]
+    rng = random.Random(0)
+    strings = [
+        "".join(rng.choices(string.ascii_lowercase, k=20))
+        for _ in range(50)
+    ]
+
+    for s in strings:
         assert s == att.molstr_to_str(att.get_dir_str_molecule(s))
         graph, edge_color_dict = att.get_undir_str_molecule(s)
         assert s == att.molstr_to_str(graph, edge_color_dict=edge_color_dict)
 
 
-def test_bug_08222025():
+def test_bug_08222025(tmp_path, monkeypatch):
     """
     Tests the workaround for AssemblyCPP edgecolor output bug.
     """
-    ai, vo, path = att.calculate_string_assembly_index('yydpetgtwy', mode='mol', directed=False, debug=True)
+    monkeypatch.chdir(tmp_path)
+    ai, vo, path = att.calculate_string_assembly_index(
+        'yydpetgtwy', mode='mol', directed=False, debug=True
+    )
     assert path
+    debug_dirs = att.list_subdirs(tmp_path, target="ai_calc")
+    assert len(debug_dirs) == 1
+    att.safe_folder_remove(tmp_path / debug_dirs[0])
+    assert att.list_subdirs(tmp_path, target="ai_calc") == []
 
 
 def test_bigA():

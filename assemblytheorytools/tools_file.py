@@ -140,8 +140,11 @@ def wipe_dir(temp_dir: str) -> None:
     None
         This function does not return a value.
     """
-    remove_files(temp_dir)
-    os.rmdir(temp_dir)
+    # ``remove_files`` deliberately preserves directory structure, so using it
+    # here left nested empty directories behind and made the final ``rmdir``
+    # fail. ``safe_folder_remove`` walks bottom-up and handles both files and
+    # subdirectories.
+    safe_folder_remove(temp_dir)
 
 
 def list_subdirs(directory: str, target: str = "ai_calc") -> List[str]:

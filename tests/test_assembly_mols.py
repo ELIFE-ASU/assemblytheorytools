@@ -7,6 +7,7 @@ import pytest
 from rdkit import Chem
 
 import assemblytheorytools as att
+from assemblytheorytools import assembly as assembly_module
 
 
 def test_readme_example():
@@ -34,9 +35,16 @@ def test_readme_example():
     print(f"virt_obj: {virt_obj}", flush=True)
     # Assembly index: 9
     # ['C=NC', 'C=NC=CC', 'CC1=CN=CN1C', 'C=N', 'CN', 'C=CN=C', 'CNC', 'C=O', 'CC', 'CC1=C(N(C)C=O)N=CN1C', 'CN(C)C=O', 'C=C', 'CN1C(=O)C2=C(N=CN2C)N(C)C1=O', 'CN(C)C']
-    att.plot_pathway(pathway, plot_type='graph')
+    fig, ax = att.plot_pathway(pathway, plot_type='graph')
     # plt.savefig('readme_example.png', dpi=600)
     plt.show()
+
+    assert ai == 9
+    assert pathway.number_of_nodes() > 0
+    assert pathway.number_of_edges() > 0
+    assert any(Chem.MolToSmiles(Chem.MolFromSmiles(vo)) == Chem.MolToSmiles(Chem.MolFromSmiles(smi))
+               for vo in virt_obj)
+    assert fig.axes == [ax]
 
 
 def test_ai_graph():
@@ -191,7 +199,7 @@ def test_calculate_assembly_index_flag_for_logs():
     os.remove(log_file)
 
 
-def test_big_chungus():
+def test_big_chungus(data_dir):
     """
     Test the calculation of the assembly index for a large molecule.
 
@@ -205,7 +213,7 @@ def test_big_chungus():
         - The assembly index calculated from the graph, mol file, and molecule object are equal to 8.
     """
     print(flush=True)
-    mol_file = os.path.expanduser(os.path.abspath("tests/data/mol_files/big_chungus.mol"))
+    mol_file = str(data_dir / "mol_files" / "big_chungus.mol")
     # Get the mol object
     mol = att.molfile_to_mol(mol_file)
     # Convert the system into graphs
@@ -222,7 +230,8 @@ def test_big_chungus():
     assert ai_mol <= 8
 
 
-def test_taxol_file():
+@pytest.mark.slow
+def test_taxol_file(data_dir):
     """
     Test the calculation of the assembly index for the molecule in the taxol mol file.
 
@@ -235,14 +244,15 @@ def test_taxol_file():
         - The calculated assembly index is equal to 23.
     """
     print(flush=True)
-    mol_file = os.path.expanduser(os.path.abspath("tests/data/mol_files/taxol.mol"))
+    mol_file = str(data_dir / "mol_files" / "taxol.mol")
     ai, _, _ = att.calculate_assembly_index(Chem.MolFromMolFile(mol_file), timeout=15.0, strip_hydrogen=True)
     print(ai, flush=True)
     # actual value is 23, but for timeout this is ok
     assert ai <= 24
 
 
-def test_exact_flag():
+@pytest.mark.slow
+def test_exact_flag(data_dir):
     """
     Test the `calculate_assembly_index` function with the `exact` flag enabled.
 
@@ -258,7 +268,7 @@ def test_exact_flag():
         - The calculated assembly index is equal to -1.
     """
     print(flush=True)
-    mol_file = os.path.expanduser(os.path.abspath("tests/data/mol_files/taxol.mol"))
+    mol_file = str(data_dir / "mol_files" / "taxol.mol")
     mol = Chem.MolFromMolFile(mol_file)
     ai = att.calculate_assembly_index(mol,
                                       timeout=10.0,
@@ -523,7 +533,8 @@ def test_construction_pathway_joint():
     """
     print(flush=True)
     smi = "CC=O.OCC"  # Define the SMILES string for the joint molecule
-    mol = att.smi_to_mol(smi)  # Convert the SMILES string to a molecule object
+    with pytest.warns(UserWarning, match="Disconnected molecules"):
+        mol = att.smi_to_mol(smi)  # Convert the SMILES string to a molecule object
     ai, virt_obj, pathway = att.calculate_assembly_index(mol)  # Calculate the assembly index and pathway
     print(virt_obj, flush=True)
     # Define the reference virtual object list. Plain SMILES notation -- see
@@ -933,7 +944,7 @@ def test_joint_correction_does_not_affect_failed_assembly_index():
     assert ai == -1
 
 
-def test_hydrogen_stripping():
+def test_hydrogen_stripping(data_dir):
     """
     Test the calculation of the assembly index for a molecule with and without hydrogen stripping.
 
@@ -955,7 +966,7 @@ def test_hydrogen_stripping():
         - The assembly index calculated from the graph, mol file, and molecule object with the strip_hydrogen flag are equal to 4.
     """
     print(flush=True)
-    mol_file = os.path.expanduser(os.path.abspath("tests/data/mol_files/alanine.mol"))
+    mol_file = str(data_dir / "mol_files" / "alanine.mol")
     # Get the mol object
     mol_1 = att.molfile_to_mol(mol_file)
     mol = att.smi_to_mol("C[C@@H](C(=O)O)N")
@@ -984,7 +995,7 @@ def test_hydrogen_stripping():
     assert ai_graph == ai_mol_file == ai_mol == 4
 
 
-def test_ass_mol_debug():
+def test_ass_mol_debug(tmp_path, monkeypatch):
     """
     Test the calculation of the assembly index for a molecule with debug information.
 
@@ -1003,20 +1014,28 @@ def test_ass_mol_debug():
         - Only one directory was created.
     """
     print(flush=True)
+    monkeypatch.chdir(tmp_path)
     # Convert all the smile to mol
     mol = att.smi_to_mol("[H]C#C[H]")
     # Calculate the assembly index
     ai, virt_obj, _ = att.calculate_assembly_index(mol, debug=True)
     # Get the path of the created file
-    dir_list = att.list_subdirs(os.getcwd(), target="ai_calc")
+    dir_list = att.list_subdirs(tmp_path, target="ai_calc")
     # Compare to the hand calculated value. Plain SMILES notation -- see
     # test_joint_ass's Notes.
     ref_out = ['C#C', '[H]C', '[H]C#C', '[H]C#C[H]']
     assert ai == 2
     assert att.check_elements(virt_obj, ref_out)
     assert len(dir_list) == 1
+    debug_dir = tmp_path / dir_list[0]
+    assert {path.name for path in debug_dir.iterdir()} >= {
+        "graph_in",
+        "graph_inOut",
+        "graph_inPathway",
+    }
     # Clean up
-    shutil.rmtree(dir_list[0])
+    shutil.rmtree(debug_dir)
+    assert not debug_dir.exists()
 
 
 def test_hand_graph():
@@ -1077,20 +1096,45 @@ def test_run_command():
     result = att.run_command('echo hello')
     assert result is None
 
-    try:
+    with pytest.raises(ValueError):
         att.run_command(None)
-        assert False, "Expected ValueError for a None command"
-    except ValueError:
-        pass
 
 
-@pytest.mark.skipif(
-    shutil.which("cmake") is None or shutil.which("git") is None,
-    reason="compile_assembly_cpp needs git and cmake to clone and build assemblycpp-v5",
-)
-def test_compile_assembly_cpp():
-    """Test the compilation of the assembly C++ code."""
-    att.compile_assembly_cpp()
+def test_compile_assembly_cpp_orchestration(tmp_path, monkeypatch):
+    """Test build orchestration without cloning or compiling a live repository."""
+    precompiled = tmp_path / "assemblytheorytools" / "precompiled"
+    precompiled.mkdir(parents=True)
+    subprocess_calls = []
+    build_calls = []
+
+    def fake_subprocess_run(command, *, shell, check):
+        subprocess_calls.append((command, shell, check))
+        executable = tmp_path / "assemblycpp-v5" / "build" / "bin" / "assembly"
+        executable.parent.mkdir(parents=True)
+        executable.write_text("compiled executable")
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(assembly_module.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(assembly_module.shutil, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(assembly_module.subprocess, "run", fake_subprocess_run)
+    monkeypatch.setattr(assembly_module, "run_command", build_calls.append)
+
+    result = att.compile_assembly_cpp()
+
+    executable = precompiled / "assembly"
+    assert result is None
+    assert subprocess_calls == [
+        (
+            "git clone https://github.com/LouieSlocombe/assemblycpp-v5.git",
+            True,
+            True,
+        )
+    ]
+    assert build_calls == ["cmake -S . -B build", "cmake --build build"]
+    assert executable.read_text() == "compiled executable"
+    assert executable.stat().st_mode & 0o111
+    assert not (tmp_path / "assemblycpp-v5").exists()
+    assert os.getcwd() == str(tmp_path)
 
 
 def test_int_chain():
@@ -1168,6 +1212,9 @@ def test_pathway_joining():
     graphs = [att.smi_to_nx(smi) for smi in smis]
     pathways = att.calculate_assembly_index_parallel(graphs, settings={'strip_hydrogen': True})[-1]
 
+    assert len(pathways) == len(graphs)
+    assert all(nx.is_directed_acyclic_graph(pathway) for pathway in pathways)
+
     for i, pathway in enumerate(pathways):
         print(f"Pathway for molecule {i}:", flush=True)
         att.plot_pathway(pathway,
@@ -1177,7 +1224,8 @@ def test_pathway_joining():
                          layout_style='crossmin_long')
         plt.show()
 
-    att.plot_pathway(nx.compose_all(pathways),
+    composed = nx.compose_all(pathways)
+    att.plot_pathway(composed,
                      frame_on=True,
                      plot_type='mol',
                      fig_size=(14, 7),
@@ -1191,3 +1239,7 @@ def test_pathway_joining():
                      fig_size=(14, 7),
                      layout_style='crossmin_long')
     plt.show()
+
+    assert composed.number_of_nodes() > 0
+    assert pathway.number_of_nodes() >= composed.number_of_nodes()
+    assert nx.is_directed_acyclic_graph(pathway)

@@ -97,6 +97,7 @@ def test_reassemble_old():
     3. Prints the InChI strings of the reassembled molecules.
     """
     print(flush=True)
+    random.seed(0)
     molecules = ['[H]OC(=O)C([H])([H])N([H])[H]']
     # Convert all the SMILES strings to molecule objects
     mols = [att.smi_to_mol(smile) for smile in molecules]
@@ -115,7 +116,12 @@ def test_reassemble_old():
     re_mols = att.reassemble_old(mols_out, n_mol_needed=4)
 
     # Convert reassembled molecules to InChI for output
-    print([Chem.MolToInchi(mol) for mol in re_mols], flush=True)
+    reassembled_inchis = [Chem.MolToInchi(mol) for mol in re_mols]
+    print(reassembled_inchis, flush=True)
+
+    assert len(re_mols) == 4
+    assert all(inchi for inchi in reassembled_inchis)
+    assert all(mol.GetNumAtoms() > 0 for mol in re_mols)
 
 
 def test_seb_molecule_construction():

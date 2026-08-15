@@ -229,7 +229,7 @@ def test_rTCA():
     # rTCA smiles
     smiles_dict = {"ACE": "CC(=O)[O-]",
                    "PYR": "CC(=O)C(=O)[O-]",
-                   "FUM": "C(=C/C(=O)[O-])\C(=O)[O-]",
+        "FUM": r"C(=C/C(=O)[O-])\C(=O)[O-]",
                    "MAL": "C(C(C(=O)O)O)C(=O)O",
                    "OXA": "C(C(=O)C(=O)O)C(=O)O",
                    "SUC": "C(CC(=O)[O-])C(=O)[O-]",

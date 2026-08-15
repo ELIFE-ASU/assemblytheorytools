@@ -1,3 +1,6 @@
+import numpy as np
+import pytest
+
 import assemblytheorytools as att
 
 
@@ -25,7 +28,8 @@ def test_all_paths_simple():
     assert len(paths) > 0
 
 
-def test_energy_of_all_paths():
+@pytest.mark.integration
+def test_energy_of_all_paths(orca_path):
     """
     Test the calculation of the energy for all shortest paths in a molecule.
 
@@ -45,8 +49,8 @@ def test_energy_of_all_paths():
     # Calculate all shortest paths in the molecule
     paths = att.all_shortest_paths(mol, f_graph_care=False)
     mols = [att.smi_to_mol(vo) for vo in paths]
-    energy = att.get_virtual_objects_energy(mols)
+    energy = att.get_virtual_objects_energy(mols, orca_path=orca_path)
+    assert len(energy) == len(paths)
     for i, vo in enumerate(paths):
         print(f"VO: {vo}, Energy: {energy[i]}", flush=True)
-        # Assert that the energy is not None
-        assert energy is not None
+        assert np.isfinite(energy[i])

@@ -760,6 +760,8 @@ def pubchem_smi_to_name(smiles: str,
     """
     if not smiles:
         return None
+    if prefer not in {"synonym", "iupac_name"}:
+        raise ValueError(f"Unknown prefer option: {prefer}")
 
     try:
         c = pcp.get_compounds(smiles, namespace="smiles", timeout=timeout)[0]
@@ -769,8 +771,6 @@ def pubchem_smi_to_name(smiles: str,
         elif prefer == "synonym":
             syns = getattr(c, "synonyms", [])
             return _standardize_common_name(syns[0]) if syns else None
-        else:
-            raise ValueError(f"Unknown prefer option: {prefer}")
 
     except Exception as e:
         print(f'Error retrieving name for SMILES "{smiles}": {e}')

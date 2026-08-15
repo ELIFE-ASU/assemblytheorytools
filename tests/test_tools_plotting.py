@@ -371,17 +371,13 @@ def test_show_common_bonds():
     """
     Test the visualization of common bonds between two molecules.
 
-    This function takes two molecule names, retrieves their SMILES strings, and then
-    visualizes the common bonds between them using `att.show_common_bonds`. It asserts
-    that an image is generated.
+    This function visualizes common bonds for two related local structures. PubChem
+    lookup behavior is tested separately, so plotting remains deterministic offline.
     """
     print(flush=True)
 
-    mols_str = ["codeine",
-                "morphine"]
-
-    smis = [att.pubchem_name_to_smi(name) for name in mols_str]
-    img = att.show_common_bonds(*smis, legends=mols_str)
+    labels = ["ethanol", "propanol"]
+    img = att.show_common_bonds("CCO", "CCCO", legends=labels)
     assert img is not None, "Failed to generate the image."
     img.show()
 

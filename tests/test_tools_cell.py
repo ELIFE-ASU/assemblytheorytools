@@ -1,11 +1,10 @@
-import os
-
+import pytest
 from ase.visualize import view
 
 import assemblytheorytools as att
 
 
-def test_cif_loading():
+def test_cif_loading(data_dir):
     """
     Test loading of CIF files.
 
@@ -14,11 +13,9 @@ def test_cif_loading():
     It skips files known to have invalid spacegroups.
     """
     print(flush=True)
-    target_dir = "tests/data/cif_files/"
-    dirs = att.file_list_all(os.path.expanduser(os.path.abspath(target_dir)))
-    dirs.sort()
-    print(dirs, flush=True)
-    for file in dirs:
+    cif_files = sorted(att.file_list_all(data_dir / "cif_files"))
+    loaded = []
+    for file in cif_files:
         print(file, flush=True)
         if 'Attakolite_0' in file:  # Attakolite_0 invalid spacegroup C 1 2/m 1
             continue
@@ -27,10 +24,13 @@ def test_cif_loading():
         # input mol file
         atoms = att.read_cif_file(file)
         view(atoms)
-        pass
+        loaded.append(atoms)
+
+    assert len(loaded) == len(cif_files) - 2
+    assert all(len(atoms) > 0 for atoms in loaded)
 
 
-def test_tile_cell():
+def test_tile_cell(data_dir):
     """
     Test the `tile_cell` and `tile_cell_shells` functions.
 
@@ -38,8 +38,7 @@ def test_tile_cell():
     before and after tiling. It also visualizes the expanded cell and its shells.
     """
     print(flush=True)
-    dir = os.path.expanduser(os.path.abspath("tests/data/cif_files/"))
-    file = os.path.join(dir, "Capgaronnite_0.cif")
+    file = str(data_dir / "cif_files" / "Capgaronnite_0.cif")
 
     # input mol file
     atoms = att.read_cif_file(file)
@@ -61,7 +60,7 @@ def test_tile_cell():
     view(idx_1)
 
 
-def test_cif_to_nx():
+def test_cif_to_nx(data_dir):
     """
     Test the conversion of a CIF file to a NetworkX graph.
 
@@ -69,14 +68,15 @@ def test_cif_to_nx():
     and asserts that the number of nodes in the graph is correct.
     """
     print(flush=True)
-    dir = os.path.expanduser(os.path.abspath("tests/data/cif_files/"))
-    file = os.path.join(dir, "Capgaronnite_0.cif")
-    graph = att.cif_to_nx(file)
+    file = str(data_dir / "cif_files" / "Capgaronnite_0.cif")
+    with pytest.warns(UserWarning, match="experimental"):
+        graph = att.cif_to_nx(file)
     n_nodes = graph.number_of_nodes()
     assert n_nodes == 34
 
 
-def test_cif_ai():
+@pytest.mark.slow
+def test_cif_ai(data_dir):
     """
     Test the calculation of the assembly index for a CIF file.
 
@@ -84,15 +84,15 @@ def test_cif_ai():
     assembly index, and asserts that the assembly index is greater than 0.
     """
     print(flush=True)
-    dir = os.path.expanduser(os.path.abspath("tests/data/cif_files/"))
-    file = os.path.join(dir, "Capgaronnite_0.cif")
-    graph = att.cif_to_nx(file)
+    file = str(data_dir / "cif_files" / "Capgaronnite_0.cif")
+    with pytest.warns(UserWarning, match="experimental"):
+        graph = att.cif_to_nx(file)
     ai, _, _ = att.calculate_assembly_index(graph)
     print(ai)
     assert ai > 0
 
 
-def test_guess_bond_orders():
+def test_guess_bond_orders(data_dir):
     """
     Test the `guess_bond_orders` function.
 
@@ -101,17 +101,22 @@ def test_guess_bond_orders():
     It asserts the success status and the resulting bond orders for each case.
     """
     print(flush=True)
-    dir = os.path.expanduser(os.path.abspath("tests/data/cif_files/"))
-    file = os.path.join(dir, "Capgaronnite_0.cif")
-    graph = att.cif_to_nx(file)
-    graph_out, ok, info = att.guess_bond_orders(graph)
+
+    def guess(graph):
+        with pytest.warns(UserWarning, match="experimental"):
+            return att.guess_bond_orders(graph)
+
+    file = str(data_dir / "cif_files" / "Capgaronnite_0.cif")
+    with pytest.warns(UserWarning, match="experimental"):
+        graph = att.cif_to_nx(file)
+    graph_out, ok, info = guess(graph)
     bond_orders = [graph_out.edges[e]["color"] for e in graph_out.edges()]
     print("Success:", ok)
     print("Diagnostics:", info)
     print("Bond orders:", bond_orders)
 
     graph = att.water_graph()
-    graph_out, ok, info = att.guess_bond_orders(graph)
+    graph_out, ok, info = guess(graph)
     bond_orders = [graph_out.edges[e]["color"] for e in graph_out.edges()]
     print("Success:", ok)
     print("Diagnostics:", info)
@@ -120,7 +125,7 @@ def test_guess_bond_orders():
     assert bond_orders == [1, 1]
 
     graph = att.phosphine_graph()
-    graph_out, ok, info = att.guess_bond_orders(graph)
+    graph_out, ok, info = guess(graph)
     bond_orders = [graph_out.edges[e]["color"] for e in graph_out.edges()]
     print("Success:", ok)
     print("Diagnostics:", info)
@@ -129,7 +134,7 @@ def test_guess_bond_orders():
     assert bond_orders == [1, 1, 1]
 
     graph = att.ph_2p_graph()
-    graph_out, ok, info = att.guess_bond_orders(graph)
+    graph_out, ok, info = guess(graph)
     bond_orders = [graph_out.edges[e]["color"] for e in graph_out.edges()]
     print("Success:", ok)
     print("Diagnostics:", info)
@@ -138,7 +143,7 @@ def test_guess_bond_orders():
     assert bond_orders == [1]
 
     graph = att.co2_graph()
-    graph_out, ok, info = att.guess_bond_orders(graph)
+    graph_out, ok, info = guess(graph)
     bond_orders = [graph_out.edges[e]["color"] for e in graph_out.edges()]
     print("Success:", ok)
     print("Diagnostics:", info)
