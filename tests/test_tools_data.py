@@ -3,9 +3,14 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import pytest
 from rdkit import Chem
 
 import assemblytheorytools as att
+
+# Chemotion IR dataset archive (DOI prefix 10.22000) — too large to bundle in
+# the repo, so tests that need it only run when it is already on disk.
+CHEMOTION_IR_TAR = os.path.expanduser('~/Downloads/10.22000-OGoEQGlsZGElrgst.tar')
 
 
 def test_pubchem():
@@ -186,7 +191,10 @@ def test_calc_n_peaks_in_range():
     ir_file = 'tests/data/ir_jcamp'
     spectrum = att.load_ir_jcamp_data(ir_file)
     n_peaks = att.find_n_peak_indices_in_range(spectrum, min_x=500, max_x=1500)
-    assert n_peaks == 32
+    # 19 is the count under the default prominence/distance added in ae74c78
+    # (2026-01-30); the old expectation of 32 predates those defaults. Stable
+    # across scipy 1.15.1-1.18.0 and numpy 2.2.6/2.5.2 on this spectrum.
+    assert n_peaks == 19
 
 
 def test_get_github_file():
@@ -233,6 +241,11 @@ def test_enumerate_stereoisomers_shortest():
     assert name_out == 'Codeine'
 
 
+@pytest.mark.skipif(
+    not os.path.isfile(CHEMOTION_IR_TAR),
+    reason="show_ir_data needs the Chemotion IR dataset archive "
+           "(DOI 10.22000/OGoEQGlsZGElrgst) in ~/Downloads",
+)
 def test_show_ir_data():
     """
     Test function to process and visualize IR data from Chemotion.
@@ -248,7 +261,7 @@ def test_show_ir_data():
     8. For each selected molecule, it finds peaks in the IR spectrum, plots the spectrum,
        and plots the 3D structure of the molecule.
     """
-    df = att.process_chemotion_ir_data('/home/louie/Downloads/10.22000-OGoEQGlsZGElrgst.tar')
+    df = att.process_chemotion_ir_data(CHEMOTION_IR_TAR)
     df = att.filter_by_nh_bonds(df, max_bonds=30)
 
     # print the set of symbols in the smiles column
