@@ -16,6 +16,7 @@ dependencies:
   - pyvis>=0.3.2
   - pubchempy>=1.0.5
   - cairosvg>=2.8.2
+  - pillow>=10.1.0
   - pip:
       - dagviz
       - assemblycfg

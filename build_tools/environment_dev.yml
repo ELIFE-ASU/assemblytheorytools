@@ -19,6 +19,7 @@ dependencies:
   - sphinx-rtd-theme
   - pubchempy
   - cairosvg
+  - pillow
   - pip:
       - dagviz
       - assemblycfg

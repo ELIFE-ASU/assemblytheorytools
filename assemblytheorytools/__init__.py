@@ -18,6 +18,10 @@ assemblytheorytools.construction : Assembly pathway parsing and construction.
 assemblytheorytools.complexity_scores : Molecular complexity measures.
 """
 
+from importlib.metadata import version as _pkg_version
+
+__version__ = _pkg_version("assemblytheorytools")
+
 from .assembly import (calculate_assembly_index,
                        calculate_assembly,
                        calculate_string_assembly_index,
@@ -253,5 +257,3 @@ from .tools_test import (check_elements,
 
 from .tools_ms_json import process_mzml_json
 from .tools_mzml import process_mzml_file
-
-__version__ = "1.14.0"
