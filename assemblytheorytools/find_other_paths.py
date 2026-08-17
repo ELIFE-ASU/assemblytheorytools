@@ -6,11 +6,10 @@ which is used to identify degenerate pathways that reach the same target with an
 equal number of joining steps.
 """
 
-from typing import List, Optional, Dict, Any
-
 import numpy as np
 from rdkit.Chem import AllChem as Chem
 from rdkit.Chem.rdchem import Mol
+from typing import List, Optional, Dict, Any
 
 from .assembly import calculate_assembly_index
 

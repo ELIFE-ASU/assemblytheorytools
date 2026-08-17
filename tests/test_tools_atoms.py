@@ -1,13 +1,12 @@
+import matplotlib.pyplot as plt
+import numpy as np
 import os
+import pytest
 import shutil
 import tempfile
 import time as t
-from pathlib import Path
-
-import matplotlib.pyplot as plt
-import numpy as np
-import pytest
 from ase.build import molecule
+from pathlib import Path
 from rdkit import Chem
 
 import assemblytheorytools as att

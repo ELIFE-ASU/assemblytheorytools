@@ -11,22 +11,21 @@ sampling of molecular spaces.
 
 import ast
 import math
+import matplotlib.pyplot as plt
+import networkx as nx
+import numpy as np
 import os
 import random
 import signal
 import subprocess
 from collections import defaultdict
 from copy import deepcopy
-from pathlib import Path
-from typing import List, Union, Optional, Tuple, Dict, Any, Set
-
-import matplotlib.pyplot as plt
-import networkx as nx
-import numpy as np
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+from pathlib import Path
 from rdkit import Chem, RDLogger
 from rdkit.Chem import AllChem, Draw, MolFromSmiles, rdMolDescriptors
 from rdkit.Chem.SimpleEnum import Enumerator
+from typing import List, Union, Optional, Tuple, Dict, Any, Set
 
 from .assembly import add_assembly_to_path
 from .construction import parse_pathway_file

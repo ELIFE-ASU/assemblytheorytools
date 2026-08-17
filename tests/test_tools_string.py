@@ -1,6 +1,5 @@
-import string
-
 import pytest
+import string
 
 import assemblytheorytools as att
 from assemblytheorytools import tools_string
@@ -35,7 +34,7 @@ def test_prep_joint_string_ai_uses_distinct_non_input_delimiters():
     assert len(set(delimiters)) == len(delimiters)
     assert all(delimiter not in "".join(inputs) for delimiter in delimiters)
     assert combined == (
-        inputs[0] + delimiters[0] + inputs[1] + delimiters[1] + inputs[2]
+            inputs[0] + delimiters[0] + inputs[1] + delimiters[1] + inputs[2]
     )
 
 

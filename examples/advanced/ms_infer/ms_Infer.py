@@ -1,9 +1,8 @@
 import json
-from bisect import bisect_right
-from typing import List, Dict, Any
-
 import numpy as np
+from bisect import bisect_right
 from pyopenms import MSExperiment, MzMLFile
+from typing import List, Dict, Any
 
 
 def ppm_to_da(mz: float, ppm: float) -> float:

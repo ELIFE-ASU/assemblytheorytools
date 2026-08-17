@@ -1,16 +1,13 @@
 import io
-from pathlib import Path
-from types import SimpleNamespace
-
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
+from pathlib import Path
 from rdkit import Chem
+from types import SimpleNamespace
 
 import assemblytheorytools as att
 from assemblytheorytools import tools_data
-
 
 ASPIRIN = "CC(=O)OC1=CC=CC=C1C(=O)O"
 CHEMOTION_IR_TAR = Path("~/Downloads/10.22000-OGoEQGlsZGElrgst.tar").expanduser()
@@ -90,9 +87,9 @@ def test_pubchem_sampling_is_deterministic_with_mocked_batches(monkeypatch):
     [
         (att.sample_random_pubchem, {"batch_size": 0}, "batch_size"),
         (
-            att.sample_first_pubchem,
-            {"start_cid": 0, "max_cid": 10},
-            "start_cid",
+                att.sample_first_pubchem,
+                {"start_cid": 0, "max_cid": 10},
+                "start_cid",
         ),
     ],
 )
@@ -147,12 +144,12 @@ def test_pubchem_live_lookup():
     ],
 )
 def test_dataframe_filters(
-    function,
-    minimum,
-    maximum,
-    expected_count,
-    result_column,
-    serial_data_mp,
+        function,
+        minimum,
+        maximum,
+        expected_count,
+        result_column,
+        serial_data_mp,
 ):
     smiles = [
         "[Fe]",
@@ -203,7 +200,7 @@ def test_calc_n_peaks_in_range(data_dir):
 
 
 def test_get_github_file_downloads_atomically_and_reuses_existing(
-    tmp_path, monkeypatch
+        tmp_path, monkeypatch
 ):
     calls = []
 

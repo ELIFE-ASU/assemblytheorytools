@@ -1,8 +1,7 @@
-import random
-import string
-
 import numpy as np
 import pytest
+import random
+import string
 
 import assemblytheorytools as att
 
@@ -226,6 +225,7 @@ def test_bigA():
     answer = np.exp(2) * ((10 - 1) / nt) + np.exp(3) * ((100 - 1) / nt) + np.exp(0) * ((40 - 1) / nt)
     assert answer == att.calculate_string_assembly(strings=input_strings, n_i=input_ns)
 
+
 def test_directed_str_data():
     """
     Test that data is properly returned after assembly index calculation of a directed string.
@@ -243,6 +243,6 @@ def test_directed_str_data():
     ai_ref = 7
     ai, vo, path = att.calculate_string_assembly_index(s_inpt, directed=True, mode='str')
     assert ai == ai_ref
-    assert len(vo) == 12 # 12 = 7 steps + 5 units
+    assert len(vo) == 12  # 12 = 7 steps + 5 units
     assert len(path.nodes()) == len(vo)
     assert len(path.edges()) == ai_ref * 2

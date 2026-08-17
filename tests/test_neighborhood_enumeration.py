@@ -1,7 +1,6 @@
 # This will use pytest to verify that the code is functioning properly.
-import random
-
 import networkx as nx
+import random
 
 node_match = nx.algorithms.isomorphism.categorical_node_match('color', None)
 edge_match = nx.algorithms.isomorphism.categorical_edge_match('color', None)
@@ -229,7 +228,7 @@ def test_rTCA():
     # rTCA smiles
     smiles_dict = {"ACE": "CC(=O)[O-]",
                    "PYR": "CC(=O)C(=O)[O-]",
-        "FUM": r"C(=C/C(=O)[O-])\C(=O)[O-]",
+                   "FUM": r"C(=C/C(=O)[O-])\C(=O)[O-]",
                    "MAL": "C(C(C(=O)O)O)C(=O)O",
                    "OXA": "C(C(=O)C(=O)O)C(=O)O",
                    "SUC": "C(CC(=O)[O-])C(=O)[O-]",

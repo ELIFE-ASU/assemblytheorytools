@@ -8,13 +8,12 @@ isomorphism using colour-matched node and edge comparisons.
 """
 
 import itertools
-import sys
-from typing import List, Dict, Set, Tuple, Optional, Any, FrozenSet, Union, Iterable
-
 import networkx as nx
 import numpy as np
+import sys
 from networkx.algorithms.graph_hashing import weisfeiler_lehman_graph_hash
 from rdkit import Chem
+from typing import List, Dict, Set, Tuple, Optional, Any, FrozenSet, Union, Iterable
 
 from .tools_graph import canonicalize_node_labels
 

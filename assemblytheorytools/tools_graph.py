@@ -8,15 +8,14 @@ extraction, joining and composition, node relabelling and canonicalisation,
 charge assignment, and GraphML serialisation.
 """
 
+import networkx as nx
 import os
 import random
 from functools import reduce
-from typing import Set
-from typing import Tuple, List, Iterable, Union
-
-import networkx as nx
 from rdkit.Chem import AllChem as Chem
 from rdkit.Chem.rdchem import GetPeriodicTable
+from typing import Set
+from typing import Tuple, List, Iterable, Union
 
 from .tools_mol import safe_standardize_mol, reset_mol_charge, smi_to_mol, inchi_to_mol
 

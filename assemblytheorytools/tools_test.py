@@ -8,11 +8,10 @@ helpers for inspecting graph contents in tests.
 """
 
 import csv
+import networkx as nx
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence, TypeVar
-
-import networkx as nx
 
 T = TypeVar("T")
 

@@ -1,6 +1,5 @@
-import random
-
 import networkx as nx
+import random
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
 

@@ -1,10 +1,9 @@
-import os
-import platform
-import shutil
-
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
+import os
+import platform
+import shutil
 from matplotlib.patches import FancyArrowPatch
 
 import assemblytheorytools as att

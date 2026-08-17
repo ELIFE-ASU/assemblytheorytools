@@ -26,7 +26,7 @@ if __name__ == "__main__":
 
     # Convert the SMILES string of the selected molecule to atomic coordinates
     smi = df['smiles'].iloc[view_idx]
-    print(f"SMILES: {smi}", flush=True) # CCOC(=O)c1ccc(cc1)C=O
+    print(f"SMILES: {smi}", flush=True)  # CCOC(=O)c1ccc(cc1)C=O
     atoms = att.smiles_to_atoms(smi)
 
     # Plot the 3D atomic structure and save it as a PNG file
@@ -36,7 +36,6 @@ if __name__ == "__main__":
     graph = att.smi_to_nx(smi)
     ai = att.calculate_assembly_index(graph, strip_hydrogen=True)[0]
     print(f"Assembly Index: {ai}", flush=True)
-
 
     # Calculate the number of peaks in each spectrum and filter the dataset
     # to include only molecules with 1 to 40 peaks

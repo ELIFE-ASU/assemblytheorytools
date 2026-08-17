@@ -7,17 +7,16 @@ neighbourhoods, converts cells to NetworkX graphs, and guesses bond orders for
 the resulting connectivity.
 """
 
-import warnings
-from typing import List, Dict, Tuple, Optional, Iterable
-
 import ase
 import networkx as nx
 import numpy as np
+import warnings
 from ase import Atoms
 from ase.io import cif
 from ase.neighborlist import NeighborList, neighbor_list, natural_cutoffs
 from rdkit import Chem
 from scipy import sparse
+from typing import List, Dict, Tuple, Optional, Iterable
 
 
 def read_cif_file(cif_file: str) -> Atoms:

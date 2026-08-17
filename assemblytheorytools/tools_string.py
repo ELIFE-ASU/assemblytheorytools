@@ -7,11 +7,10 @@ joint assembly calculations, generates random test strings, and builds the
 directed and undirected graph representations of a string.
 """
 
+import networkx as nx
 import random
 import string
 from typing import List
-
-import networkx as nx
 
 
 def load_fasta(file_path: str) -> str:

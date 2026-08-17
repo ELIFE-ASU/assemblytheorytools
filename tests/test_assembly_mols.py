@@ -1,9 +1,8 @@
-import os
-import shutil
-
 import matplotlib.pyplot as plt
 import networkx as nx
+import os
 import pytest
+import shutil
 from rdkit import Chem
 
 import assemblytheorytools as att

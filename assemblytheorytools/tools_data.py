@@ -9,25 +9,24 @@ loading and peak finding, polynomial fitting, and goodness-of-fit metrics.
 """
 
 import json
+import networkx as nx
+import numpy as np
 import os
+import pandas as pd
+import pubchempy as pcp
 import random
 import re
 import shutil
 import tarfile
 import time
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
-from urllib.request import Request, urlopen
-
-import networkx as nx
-import numpy as np
-import pandas as pd
-import pubchempy as pcp
 from rdkit.Chem import AllChem as Chem
 from rdkit.Chem.EnumerateStereoisomers import EnumerateStereoisomers, StereoEnumerationOptions
 from scipy.optimize import minimize
 from scipy.signal import savgol_filter, find_peaks
 from scipy.stats import gaussian_kde
+from typing import List, Optional, Tuple, Union
+from urllib.request import Request, urlopen
 
 from .complexity_scores import count_bonds, count_non_h_bonds, molecular_weight
 from .tools_file import file_list_all
