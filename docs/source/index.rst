@@ -63,6 +63,10 @@ Where to go next
 ----------------
 
 * :doc:`concepts` — what the assembly index measures and how ATT represents it.
+* :doc:`theory` — background on assembly theory: copy number, the assembly
+  equation, the nested assembly spaces and what separates selectivity from
+  selection.
+* :doc:`glossary` — formal definitions of the assembly theory vocabulary.
 * :doc:`guide/index` — task-oriented walkthroughs for molecules, strings,
   graphs, pathways, parallel runs, complexity scores and mass spectrometry.
 * :doc:`examples/index` — the runnable scripts and published protocols shipped
@@ -78,6 +82,14 @@ Where to go next
    install
    concepts
    configuration
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Background
+   :hidden:
+
+   theory
+   glossary
 
 .. toctree::
    :maxdepth: 2

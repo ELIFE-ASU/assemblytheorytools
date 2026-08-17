@@ -3,7 +3,7 @@ User guide
 
 Task-oriented walkthroughs. Each page is self-contained and ends with links to
 the API pages for the functions it uses. If you are new to the vocabulary, read
-:doc:`../concepts` first.
+:doc:`../concepts` first, and keep :doc:`../glossary` to hand.
 
 .. toctree::
    :maxdepth: 1

@@ -43,8 +43,9 @@ exclude_patterns = []
 source_suffix = {'.rst': 'restructuredtext', '.md': 'markdown'}
 
 # colon_fence lets directives be written as ::: blocks, which survives being
-# viewed on GitHub; deflist is used by the configuration reference.
-myst_enable_extensions = ['colon_fence', 'deflist']
+# viewed on GitHub; deflist is used by the configuration reference; dollarmath
+# parses the $...$ and $$...$$ used for the equations on the theory page.
+myst_enable_extensions = ['colon_fence', 'deflist', 'dollarmath']
 # The included READMEs carry their own `#` title, so allow headings to start
 # below the page title without a warning.
 myst_heading_anchors = 3

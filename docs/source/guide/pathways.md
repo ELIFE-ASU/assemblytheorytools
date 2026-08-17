@@ -47,6 +47,15 @@ virtual objects at a given depth, and
 {func}`~assemblytheorytools.tools_graph.longest_path_length` gives the depth of
 the whole pathway.
 
+{term}`Assembly depth` counts the construction as if independent joins ran
+concurrently, so it is generally smaller than the assembly index — but the two
+describe different things. The index is a property of the *object*, identical
+across all its shortest pathways; a depth is a property of one *path*. What
+`assign_levels` reports is therefore the depth of whichever shortest-*index*
+pathway the calculator happened to return, and the path that minimises depth is
+usually not the path that minimises the index. Treat this number as the depth of
+that pathway, not as the object's minimum achievable assembly depth.
+
 ## Plotting
 
 {func}`~assemblytheorytools.tools_plotting.plot_pathway` is the main entry
