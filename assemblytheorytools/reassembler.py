@@ -1256,6 +1256,18 @@ def assemble(molecule1: Union[Chem.Mol, str],
     rdkit.Chem.Mol or None
         RDKit Mol object of a randomly selected product if successful,
         None if no valid products are generated or sites > 2.
+
+    Examples
+    --------
+    >>> from rdkit import Chem
+    >>> import assemblytheorytools as att
+    >>> product = att.assemble(Chem.MolFromSmiles("OCC(O)CO"),
+    ...                        Chem.MolFromSmiles("C=C"), 1)
+    >>> Chem.MolToSmiles(product)
+    'C=C(O)C(O)CO'
+
+    The product is chosen at random from the applicable templates, so seed
+    :mod:`random` when a reproducible result is needed.
     """
 
     mol1 = [molecule1]
@@ -1422,6 +1434,19 @@ def origami(mol: Chem.Mol) -> List[Chem.Mol]:
     product is kept only if it has exactly one atom fewer than the reactant,
     which is the signature of a successful ring closure with loss of a small
     leaving group.
+
+    Examples
+    --------
+    >>> from rdkit import Chem
+    >>> import assemblytheorytools as att
+    >>> products = att.origami(Chem.MolFromSmiles("OCC(O)CO"))
+    >>> sorted(Chem.MolToSmiles(m) for m in products)
+    ['OC1COC1', 'OCC1CO1']
+
+    Glycerol closes into an epoxide and an oxetane. The order of the
+    returned list is not stable between runs, so sort or compare as a set.
+    A molecule with no further ring to close is returned unchanged, with a
+    ``No origami products found...`` message.
     """
 
     # Get the allowed operations

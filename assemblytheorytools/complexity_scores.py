@@ -78,6 +78,15 @@ def count_bonds(mol: Mol) -> int:
     -------
     int
         The total number of bonds in the molecule.
+
+    Examples
+    --------
+    >>> import assemblytheorytools as att
+    >>> mol = att.smi_to_mol("CN1C=NC2=C1C(=O)N(C(=O)N2C)C")  # caffeine
+    >>> att.count_bonds(mol)
+    25
+    >>> att.count_non_h_bonds(mol)
+    15
     """
     return mol.GetNumBonds()
 
@@ -120,6 +129,13 @@ def molecular_weight(mol: Mol) -> float:
     -------
     float
         The molecular weight of the molecule.
+
+    Examples
+    --------
+    >>> import assemblytheorytools as att
+    >>> round(att.molecular_weight(
+    ...     att.smi_to_mol("CN1C=NC2=C1C(=O)N(C(=O)N2C)C")), 2)
+    194.19
     """
     return Descriptors.MolWt(mol)
 
@@ -142,6 +158,15 @@ def bertz_complexity(mol: Mol) -> float:
     -------
     float
         The Bertz complexity of the molecule.
+
+    Examples
+    --------
+    >>> import assemblytheorytools as att
+    >>> round(att.bertz_complexity(att.smi_to_mol("c1ccccc1")), 2)
+    226.3
+    >>> round(att.bertz_complexity(
+    ...     att.smi_to_mol("CN1C=NC2=C1C(=O)N(C(=O)N2C)C")), 2)
+    924.42
     """
     return BertzCT(mol)
 
@@ -171,6 +196,14 @@ def wiener_index(mol: Mol) -> int:
       carrying explicit hydrogens give a larger index than the heavy-atom
       skeleton alone. Strip the hydrogens first if the heavy-atom value is
       wanted.
+
+    Examples
+    --------
+    >>> import assemblytheorytools as att
+    >>> att.wiener_index(att.smi_to_mol("c1ccccc1"))
+    174
+    >>> att.wiener_index(att.smi_to_mol("CN1C=NC2=C1C(=O)N(C(=O)N2C)C"))
+    1089
     """
     distance_matrix = Chem.rdmolops.GetDistanceMatrix(mol)
     # The distance matrix is symmetric with a zero diagonal, so summing every
@@ -335,6 +368,18 @@ def tanimoto_similarity(mol1: Mol, mol2: Mol) -> float:
     -------
     float
         The Tanimoto similarity between the two molecules.
+
+    Examples
+    --------
+    >>> import assemblytheorytools as att
+    >>> round(att.tanimoto_similarity(att.smi_to_mol("NCC(=O)O"),
+    ...                               att.smi_to_mol("CC(N)C(=O)O")), 4)
+    0.3265
+
+    This compares fingerprint bits. The assembly-theoretic score for the
+    same pair is 0.636 -- see
+    :func:`~assemblytheorytools.assembly.calculate_assembly_index_similarity`
+    -- which asks instead how much of the construction work is shared.
     """
     fpgen = Chem.GetRDKitFPGenerator()
     return DataStructs.TanimotoSimilarity(fpgen.GetFingerprint(mol1),

@@ -49,7 +49,7 @@ def smiles_to_atoms(smiles: str,
 
     Returns
     -------
-    Atoms
+    ase.Atoms
         The ASE Atoms object representing the molecule.
 
     Raises
@@ -448,7 +448,7 @@ def cp2k_calc_preset(cp2k_command: Optional[str] = None,
 
     Returns
     -------
-    CP2K
+    ase.calculators.cp2k.CP2K
         Configured CP2K calculator object.
     """
     if cp2k_command is None:
@@ -538,7 +538,7 @@ def orca_calc_preset(orca_path: Optional[str] = None,
 
     Returns
     -------
-    ORCA
+    ase.calculators.orca.ORCA
         Configured ORCA calculator object.
     """
     if orca_path is None:

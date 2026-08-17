@@ -271,6 +271,21 @@ def smi_to_mol(smi: str, add_hydrogens: bool = True, sanitize: bool = True) -> C
     - The function uses RDKit's `MolFromSmiles` to create the molecule object.
     - Sanitization ensures the molecule is chemically valid and standardized.
     - Disconnected molecules in the SMILES string are flagged with a warning.
+
+    Examples
+    --------
+    >>> import assemblytheorytools as att
+    >>> mol = att.smi_to_mol("CN1C=NC2=C1C(=O)N(C(=O)N2C)C")  # caffeine
+    >>> mol.GetNumAtoms()
+    24
+    >>> round(att.molecular_weight(mol), 2)
+    194.19
+
+    Hydrogens are explicit by default; pass ``add_hydrogens=False`` for the
+    heavy-atom molecule only:
+
+    >>> att.smi_to_mol("CCO", add_hydrogens=False).GetNumAtoms()
+    3
     """
     if '.' in smi:
         warnings.warn("Disconnected molecules detected in SMILES string. Ensure proper handling of these molecules.")

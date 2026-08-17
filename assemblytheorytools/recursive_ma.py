@@ -523,6 +523,14 @@ def rma_tree_depth(tree: dict):
     -------
     int
         The maximum depth of the tree. Returns 0 for empty or non-dictionary input.
+
+    Examples
+    --------
+    >>> import assemblytheorytools as att
+    >>> att.rma_tree_depth({500.0: {400.0: {300.0: {}}}})
+    3
+    >>> att.rma_tree_depth({})
+    0
     """
     if isinstance(tree, dict) and len(tree) > 0:
         return 1 + max(rma_tree_depth(v) for v in tree.values())

@@ -6,10 +6,18 @@ indices of molecules, strings and arbitrary graphs, reconstructing and
 enumerating assembly pathways, scoring molecular complexity, and plotting the
 results.
 
-The public functions of every submodule are re-exported at the package root, so
-``from assemblytheorytools import calculate_assembly_index`` and
+The commonly used functions of each submodule are re-exported at the package
+root, so ``from assemblytheorytools import calculate_assembly_index`` and
 ``from assemblytheorytools.assembly import calculate_assembly_index`` are
 equivalent.
+
+The re-exported set is a curated subset, not every public name. Lower-level
+helpers -- for example ``construction.tables_to_nx``,
+``reassembler.ParsePathwayLog`` or ``tools_atoms.calculate_goat`` -- are
+documented on their submodule pages and must be imported from the submodule
+that defines them::
+
+    from assemblytheorytools.construction import tables_to_nx
 
 See Also
 --------

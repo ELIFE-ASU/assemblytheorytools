@@ -87,7 +87,7 @@ def bond_order_assout_to_int(edge_color: str | int) -> int:
 
     Parameters
     ----------
-    edge_color : str | int
+    edge_color : str or int
         The edge colour representing the bond order. It can be a string
         ("single", "double", etc.) or an integer.
 
@@ -295,6 +295,16 @@ def remove_hydrogen_from_graph(graph: nx.Graph) -> nx.Graph:
     -------
     nx.Graph
         The modified graph with all hydrogen atoms removed.
+
+    Examples
+    --------
+    >>> import assemblytheorytools as att
+    >>> graph = att.smi_to_nx("CCO")
+    >>> graph.number_of_nodes()
+    9
+    >>> stripped = att.remove_hydrogen_from_graph(graph)
+    >>> stripped.number_of_nodes(), stripped.number_of_edges()
+    (3, 2)
     """
     nodes = list(graph.nodes())
     for node in nodes:
@@ -361,6 +371,18 @@ def is_graph_isomorphic(g1: nx.Graph, g2: nx.Graph) -> bool:
     -------
     bool
         True if the graphs are isomorphic, False otherwise.
+
+    Examples
+    --------
+    Node and edge colours are matched, so this is stricter than bare
+    structural isomorphism:
+
+    >>> import assemblytheorytools as att
+    >>> graph = att.smi_to_nx("CCO")
+    >>> att.is_graph_isomorphic(graph, att.scramble_node_indices(graph))
+    True
+    >>> att.is_graph_isomorphic(graph, att.smi_to_nx("CCC"))
+    False
     """
     return nx.is_isomorphic(g1, g2)
 
@@ -373,7 +395,7 @@ def scramble_node_indices(graph: nx.Graph, seed: int | None = None) -> nx.Graph:
     ----------
     graph : nx.Graph
         The input graph to be scrambled.
-    seed : int | None, optional
+    seed : int, optional
         Seed for the random number generator for reproducibility. Default is None.
 
     Returns
@@ -584,6 +606,19 @@ def nx_to_smi(graph: nx.Graph, add_hydrogens: bool = True, sanitize: bool = True
     - The SMILES string is generated with explicit hydrogens and Kekulé form if specified.
     - The 'color' attribute of nodes and edges in the graph is used to define atomic symbols
       and bond orders, respectively.
+
+    Examples
+    --------
+    This is the inverse of :func:`smi_to_nx`, and the usual way to read the
+    virtual objects a calculation returns:
+
+    >>> import assemblytheorytools as att
+    >>> graph = att.smi_to_nx("CN1C=NC2=C1C(=O)N(C(=O)N2C)C")
+    >>> ai, virt_obj, pathway = att.calculate_assembly_index(
+    ...     graph, strip_hydrogen=True)
+    >>> smiles = [att.nx_to_smi(g, add_hydrogens=False) for g in virt_obj]
+    >>> "C=O" in smiles
+    True
     """
     mol = nx_to_mol(graph, add_hydrogens=add_hydrogens, sanitize=sanitize)
     return Chem.MolToSmiles(mol, allHsExplicit=False, kekuleSmiles=True)
@@ -622,6 +657,28 @@ def smi_to_nx(smiles: str, add_hydrogens: bool = True, sanitize: bool = True) ->
     -----
     - The 'color' attribute of nodes corresponds to the atomic symbol (e.g., "C" for carbon).
     - The 'color' attribute of edges corresponds to the bond type as an integer.
+
+    Examples
+    --------
+    >>> import assemblytheorytools as att
+    >>> graph = att.smi_to_nx("CCO")
+    >>> graph.number_of_nodes(), graph.number_of_edges()
+    (9, 8)
+    >>> graph.nodes[0]["color"]
+    'C'
+
+    The result satisfies the calculator's input requirements, so it can be
+    passed straight to
+    :func:`~assemblytheorytools.assembly.calculate_assembly_index`:
+
+    >>> att.calculate_assembly_index(graph, strip_hydrogen=True)[0]
+    1
+
+    Use a ``.`` separator to build a disconnected graph for a joint
+    calculation:
+
+    >>> att.smi_to_nx("NCC(=O)O.CC(N)C(=O)O").number_of_nodes()
+    23
     """
     mol = smi_to_mol(smiles, add_hydrogens=add_hydrogens, sanitize=sanitize)
     if mol is None:
@@ -868,6 +925,19 @@ def canonicalize_node_labels(graph: nx.Graph) -> nx.Graph:
     nx.Graph
         A new NetworkX graph with nodes relabeled to a sequence of integers
         from 0 to n-1.
+
+    Examples
+    --------
+    Two isomorphic graphs numbered differently canonicalise to the same
+    labelling, which is why
+    :func:`~assemblytheorytools.assembly.calculate_assembly_index` applies
+    this by default:
+
+    >>> import assemblytheorytools as att
+    >>> graph = att.smi_to_nx("CCO")
+    >>> canonical = att.canonicalize_node_labels(graph)
+    >>> sorted(canonical.nodes()) == list(range(graph.number_of_nodes()))
+    True
     """
     # Get the current node labels from the graph
     current_labels = list(graph.nodes())

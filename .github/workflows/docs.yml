@@ -1,0 +1,51 @@
+# Build the documentation with warnings treated as errors.
+#
+# This mirrors what Read the Docs runs (fail_on_warning in .readthedocs.yaml), so
+# a broken docstring or a missing toctree entry fails the PR instead of only
+# failing after merge.
+
+name: Documentation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          # Match the interpreter Read the Docs builds with.
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install the package and its docs dependencies
+        # Nothing is mocked in conf.py: autodoc imports the real package, so the
+        # full runtime dependency set (rdkit, ase, ...) has to be installed. This
+        # is the slow step; the pip cache above blunts it on repeat runs.
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[docs]"
+
+      - name: Build the HTML documentation
+        run: sphinx-build -W --keep-going -b html docs/source docs/build/html
+
+      - name: Upload the built documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: html-docs
+          path: docs/build/html/
+          retention-days: 7

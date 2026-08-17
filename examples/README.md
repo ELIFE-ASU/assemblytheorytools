@@ -34,3 +34,13 @@ This includes:
 - Extracting features (e.g., peak counts) from spectra.
 - Fitting a statistical model to predict the Assembly Index from spectral features and evaluating the correlation.
 
+### [Protocol 4: Estimating Assembly from Tandem Mass Spectrometry](./protocols/4/)
+
+Estimates the Molecular Assembly Index of a compound from its MS/MS spectra alone, without using its structure. This
+includes:
+
+- Parsing an mzML file and filtering the spectra at each MS level.
+- Building a fragmentation tree by linking parent and child ions within a mass tolerance.
+- Comparing a mass-only approximation against the fragment-informed recursive estimate, and both against a known
+  reference value.
+

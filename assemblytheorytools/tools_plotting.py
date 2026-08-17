@@ -536,7 +536,7 @@ def _draw_edge_arrowhead(ax: Axes,
         to 1 at the target.
     color : str
         Colour of the arrowhead.
-    plt_arrow_style : str or ArrowStyle object from matplotlib.patches
+    plt_arrow_style : str or matplotlib.patches.ArrowStyle
         Style of the arrowhead.
     arrow_size : int
         Size of the arrowhead (matplotlib mutation scale).
@@ -626,7 +626,7 @@ def plot_pathway(graph: nx.DiGraph,
         Font size for string assembly paths, by default 11.
     arrow_color : str, optional
         Color for arrows in hex format, by default '#264f70'.
-    plt_arrow_style : str or ArrowStyle object from matplotlib.patches, optional
+    plt_arrow_style : str or matplotlib.patches.ArrowStyle, optional
         Style of the arrowheads in the plot, by default '->'.
     arrow_pos : float, optional
         Fraction along each edge at which the arrowhead is drawn, from 0 at the
@@ -649,6 +649,21 @@ def plot_pathway(graph: nx.DiGraph,
     ------
     ValueError
         If arrow_style is not '1' or '2'.
+
+    Examples
+    --------
+    >>> import matplotlib.pyplot as plt
+    >>> import assemblytheorytools as att
+    >>> graph = att.smi_to_nx("NCC(=O)O.CC(N)C(=O)O")
+    >>> _, _, pathway = att.calculate_assembly_index(
+    ...     graph, strip_hydrogen=True)
+    >>> fig, ax = att.plot_pathway(pathway, plot_type="graph")
+    >>> fig.savefig("pathway.svg")  # doctest: +SKIP
+    >>> plt.show()  # doctest: +SKIP
+
+    Use ``plot_type="mol"`` to draw molecular structures instead of graph
+    diagrams, and ``auto_fig_size=True`` to size the canvas to the pathway
+    rather than fixing it in advance.
     """
     graph = graph.copy()  # Avoid modifying the original graph
     # If the input is a graph check if it contains molecule graphs and convert to smiles
@@ -872,7 +887,7 @@ def plot_pathway_mid_arrow(graph: nx.DiGraph,
         Font size for string assembly paths, by default 11.
     arrow_color : str, optional
         Color for arrows in hex format, by default '#264f70'.
-    plt_arrow_style : str or ArrowStyle object from matplotlib.patches, optional
+    plt_arrow_style : str or matplotlib.patches.ArrowStyle, optional
         Style of the arrowheads in the plot, by default '->'.
     arrow_pos : float, optional
         Fraction along each edge at which the arrowhead is drawn, from 0 at the
@@ -1580,7 +1595,8 @@ def plot_contourf_full(x: Union[np.ndarray, List],
 
     Returns
     -------
-    fig : matplotlib.figure.FigureMatplotlib Figure object containing the contour plot.
+    fig : matplotlib.figure.Figure
+        Matplotlib Figure object containing the contour plot.
     ax : matplotlib.axes.Axes
         Matplotlib Axes object containing the contour plot.
     """
@@ -1723,7 +1739,7 @@ def scatter_plot_3d_with_colorbar(x: Union[np.ndarray, List],
     -------
     fig : matplotlib.figure.Figure
         Matplotlib Figure containing the 3D scatter and colorbar.
-    ax : matplotlib.axes._subplots.Axes3DSubplot
+    ax : mpl_toolkits.mplot3d.axes3d.Axes3D
         Matplotlib 3D Axes containing the scatter plot.
     """
     # Create a figure and 3D axis

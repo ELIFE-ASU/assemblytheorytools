@@ -54,6 +54,37 @@ def mp_calc(func: Callable[[Any], Any],
     -------
     list[Any]
         A list of results from the function executions.
+
+    Notes
+    -----
+    Python 3.14 starts workers with the **forkserver** method, which pickles
+    ``func`` by reference. It must therefore be importable at import time:
+    define it at module level in a ``.py`` file, guard the entry point with
+    ``if __name__ == "__main__":``, and run it as a script. A closure, a
+    ``lambda``, or a function defined interactively raises a pickling error
+    when the pool starts.
+
+    ``n`` defaults to the machine's core count; match it to the cores
+    actually available, which on a shared HPC node is the job's allocation
+    rather than the node's total.
+
+    Examples
+    --------
+    In a file ``batch.py``::
+
+        import assemblytheorytools as att
+
+
+        def ai_of(smiles):
+            graph = att.smi_to_nx(smiles)
+            return att.calculate_assembly_index(
+                graph, strip_hydrogen=True)[0]
+
+
+        if __name__ == "__main__":
+            print(att.mp_calc(ai_of, ["NCC(=O)O", "CC"], n=2))
+
+    prints ``[3, 0]``.
     """
     func = _bind_kwargs(func, kwargs)
     with mp.Pool(n) as pool:

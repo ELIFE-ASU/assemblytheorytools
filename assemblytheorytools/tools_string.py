@@ -66,6 +66,15 @@ def prep_joint_string_ai(input_list: list[str]) -> tuple[str, list[str]]:
     ------
     ValueError
         If an empty string is found in the input list.
+
+    Examples
+    --------
+    >>> import assemblytheorytools as att
+    >>> att.prep_joint_string_ai(["abracadabra", "abra"])
+    ('abracadabra0abra', ['0'])
+
+    The separator is chosen by :func:`get_unique_char` so that it cannot
+    appear in any of the inputs.
     """
     if not input_list:
         raise ValueError("Input list cannot be empty")
@@ -109,6 +118,17 @@ def get_unique_char(input_str: str) -> str:
     ValueError
         If no unique character can be found within the specified ranges of
         characters.
+
+    Examples
+    --------
+    This returns a character *absent* from the input, not the input's
+    alphabet. It is how :func:`prep_joint_string_ai` picks a safe separator:
+
+    >>> import assemblytheorytools as att
+    >>> att.get_unique_char("abracadabra")
+    '0'
+    >>> att.get_unique_char("abc0")
+    '1'
     """
     # Try ASCII printable characters first
     for char in string.printable:
@@ -227,6 +247,19 @@ def generate_random_strings(n_pool: int, n_length: int) -> list[str]:
     -------
     list[str]
         A list of randomly generated strings.
+
+    Examples
+    --------
+    Useful as a null model: a random string has almost no repetition to
+    exploit, so its assembly index sits close to its length.
+
+    >>> import assemblytheorytools as att
+    >>> pool = att.generate_random_strings(3, 8)
+    >>> len(pool), {len(s) for s in pool}
+    (3, {8})
+
+    An 11-character random string scores 10, against 7 for
+    ``abracadabra``; the difference is what the internal structure buys.
     """
     # Define the character set to include lowercase letters
     chars = string.ascii_lowercase

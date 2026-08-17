@@ -1048,7 +1048,7 @@ def download_pubchem_cid_smiles_gz(
 
     Returns
     -------
-    Path
+    pathlib.Path
         Path to the downloaded file.
 
     Notes
@@ -2191,7 +2191,7 @@ def get_github_file(
         The name of the file to download.
     repo_url : str
         The URL of the GitHub repository (e.g., "https://raw.githubusercontent.com/user/repo/branch").
-    dest_dir : str | Path, optional
+    dest_dir : str or pathlib.Path, optional
         The directory where the file will be saved. Defaults to the current working directory.
     overwrite : bool, optional
         Whether to overwrite the file if it already exists. Defaults to False.
@@ -2200,7 +2200,7 @@ def get_github_file(
 
     Returns
     -------
-    Path
+    pathlib.Path
         The path to the downloaded file.
 
     Notes

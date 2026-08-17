@@ -954,6 +954,21 @@ def parse_pathway_file(file: str,
     log_string : str
         A summary log string of the pathway steps. Only returned when ``log``
         is True.
+
+    Examples
+    --------
+    Re-read a pathway that was saved by an earlier calculation, without
+    recomputing it:
+
+    >>> import assemblytheorytools as att
+    >>> pathway, vo_list = att.parse_pathway_file(  # doctest: +SKIP
+    ...     "pathway.json", vo_type="smiles")
+    >>> pathway.number_of_nodes() == len(vo_list)  # doctest: +SKIP
+    True
+
+    Pass ``log=True`` for a third return value summarising the steps, and
+    ``vo_type="graph"`` to get the virtual objects as graphs rather than
+    SMILES.
     """
     # Load the pathway file
     with open(file) as f:
@@ -1028,6 +1043,36 @@ def assign_levels(G: nx.DiGraph, inplace: bool = True) -> None | nx.DiGraph:
     -----
     Nodes are visited in insertion order, so a predecessor must appear before
     its successors for the levels to resolve.
+
+    The pathway returned by
+    :func:`~assemblytheorytools.assembly.calculate_assembly_index` is
+    *not* in topological order, so passing it directly raises
+    ``KeyError: 'level'``. Rebuild it in topological order first, as in
+    the second example below.
+
+    Examples
+    --------
+    >>> import networkx as nx
+    >>> import assemblytheorytools as att
+    >>> graph = nx.DiGraph()
+    >>> graph.add_nodes_from(["a", "b", "c", "ab", "abc"])
+    >>> graph.add_edges_from(
+    ...     [("a", "ab"), ("b", "ab"), ("ab", "abc"), ("c", "abc")])
+    >>> att.assign_levels(graph)
+    >>> {n: d["level"] for n, d in graph.nodes(data=True)}
+    {'a': 0, 'b': 0, 'c': 0, 'ab': 1, 'abc': 2}
+
+    For a calculated pathway, re-order the nodes first:
+
+    >>> _, _, pathway = att.calculate_assembly_index(
+    ...     att.smi_to_nx("CCO"), strip_hydrogen=True)
+    >>> ordered = nx.DiGraph()
+    >>> ordered.add_nodes_from(
+    ...     (n, pathway.nodes[n]) for n in nx.topological_sort(pathway))
+    >>> ordered.add_edges_from(pathway.edges(data=True))
+    >>> att.assign_levels(ordered)
+    >>> max(d["level"] for _, d in ordered.nodes(data=True)) >= 0
+    True
     """
     if not isinstance(G, nx.DiGraph):
         raise TypeError("Graph G must be a directed graph (DiGraph).")
@@ -1298,7 +1343,7 @@ def get_vos_on_layer(digraph: nx.DiGraph,
 
     Returns
     -------
-    list or list of lists
+    list
         A list of VOs if `layer` is an int. A list of lists of VOs if `layer` is a list of ints or 'all'.
 
     Raises
