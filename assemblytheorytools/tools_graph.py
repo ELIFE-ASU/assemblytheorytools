@@ -294,23 +294,37 @@ def remove_hydrogen_from_graph(graph: nx.Graph) -> nx.Graph:
     Returns
     -------
     nx.Graph
-        The modified graph with all hydrogen atoms removed.
+        A new graph with all hydrogen atoms removed. The input graph is left
+        unchanged.
+
+    Notes
+    -----
+    Node identifiers are preserved, so the returned graph is numbered with
+    the surviving indices of the input rather than renumbered from 0. Pass it
+    through :func:`canonicalize_node_labels` if contiguous labels starting at
+    0 are needed, as the assembly calculators require.
 
     Examples
     --------
     >>> import assemblytheorytools as att
     >>> graph = att.smi_to_nx("CCO")
-    >>> graph.number_of_nodes()
-    9
     >>> stripped = att.remove_hydrogen_from_graph(graph)
     >>> stripped.number_of_nodes(), stripped.number_of_edges()
     (3, 2)
+
+    The input is not modified, so it can be reused:
+
+    >>> graph.number_of_nodes()
+    9
     """
-    nodes = list(graph.nodes())
-    for node in nodes:
-        if graph.nodes[node]["color"] == "H":
-            graph.remove_node(node)
-    return graph
+    # Operate on a copy: callers routinely reuse the graph they passed (for a
+    # second calculation, or for a complexity score), and stripping it in
+    # place would silently give them the hydrogen-free answer both times.
+    stripped = graph.copy()
+    for node in list(stripped.nodes()):
+        if stripped.nodes[node]["color"] == "H":
+            stripped.remove_node(node)
+    return stripped
 
 
 def write_ass_graph_file(graph: nx.Graph, file_name: str = "graph_info") -> None:
@@ -1114,7 +1128,8 @@ def top_n_degree_subgraph(G: nx.DiGraph, n: int, must_keep: List[nx.Graph]) -> n
     Notes
     -----
     - If the `must_keep` subgraphs contain hydrogen atoms ('H') but the input graph
-      does not, the hydrogen atoms are removed from the `must_keep` subgraphs.
+      does not, the comparison is made against hydrogen-free copies of them. The
+      caller's `must_keep` graphs are not modified.
     - The function ensures that all nodes in the `must_keep` subgraphs are included
       in the resulting subgraph, even if they are not among the top `n` nodes by degree.
     """

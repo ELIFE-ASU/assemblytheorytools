@@ -76,9 +76,8 @@ functions built on it.
 
 `strip_hydrogen` (default `False`)
 : Remove hydrogens before calculating. Almost always what you want for
-  molecular assembly indices — see [Hydrogens](concepts.md#hydrogens). Note
-  that this modifies the graph you passed **in place**; pass `graph.copy()` if
-  the caller still needs the original.
+  molecular assembly indices — see [Hydrogens](concepts.md#hydrogens). The
+  stripping is applied to a copy, so the graph you pass is left unchanged.
 
 `timeout` (default `100.0` seconds)
 : Wall-clock limit for the external calculator. The search is exponential in

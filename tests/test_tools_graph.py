@@ -47,6 +47,72 @@ def test_smi_to_nx_conversion():
     assert smi_out == smi, f"Expected {smi}, but got {smi_out}"
 
 
+def test_remove_hydrogen_from_graph_does_not_mutate_input():
+    """
+    Test that hydrogen removal returns a new graph and leaves the input alone.
+
+    This function performs the following steps:
+    1. Builds the ethanol graph, which carries six explicit hydrogens.
+    2. Removes the hydrogens with `att.remove_hydrogen_from_graph`.
+    3. Asserts the returned graph holds only the three heavy atoms.
+    4. Asserts the input graph is untouched, and is a different object.
+
+    Asserts:
+        - The returned graph has 3 nodes and 2 edges.
+        - The input graph still has 9 nodes and 8 edges.
+        - The result is not the same object as the input.
+
+    Notes:
+        - Regression test: the function used to strip in place while also
+          returning the graph, so a caller reusing its own graph silently
+          got the hydrogen-free answer from every later calculation.
+    """
+    print(flush=True)
+    graph = att.smi_to_nx("CCO")
+    assert (graph.number_of_nodes(), graph.number_of_edges()) == (9, 8)
+
+    stripped = att.remove_hydrogen_from_graph(graph)
+
+    assert (stripped.number_of_nodes(), stripped.number_of_edges()) == (3, 2)
+    assert (graph.number_of_nodes(), graph.number_of_edges()) == (9, 8), \
+        "remove_hydrogen_from_graph must not modify the caller's graph"
+    assert stripped is not graph
+
+
+def test_strip_hydrogen_does_not_mutate_input_graph():
+    """
+    Test that a strip_hydrogen calculation leaves the caller's graph intact.
+
+    This function performs the following steps:
+    1. Builds the ethanol graph.
+    2. Calculates the assembly index with `strip_hydrogen=True`.
+    3. Asserts the input graph still carries its hydrogens.
+    4. Recalculates without stripping and asserts the unstripped index.
+
+    Asserts:
+        - The stripped assembly index is 1.
+        - The input graph still has 9 nodes after the stripped call.
+        - The same graph then yields the unstripped index of 6.
+
+    Notes:
+        - Regression test: `strip_hydrogen=True` used to strip the caller's
+          graph in place, so this second unstripped call returned 1 rather
+          than 6. The RDKit `Chem.Mol` path was always correct, since
+          `Chem.RemoveHs` copies; only the graph path was affected.
+    """
+    print(flush=True)
+    graph = att.smi_to_nx("CCO")
+
+    ai_stripped, _, _ = att.calculate_assembly_index(graph, strip_hydrogen=True)
+    assert ai_stripped == 1
+
+    assert graph.number_of_nodes() == 9, \
+        "strip_hydrogen=True must not modify the caller's graph"
+
+    ai_unstripped, _, _ = att.calculate_assembly_index(graph)
+    assert ai_unstripped == 6, f"Expected 6, but got {ai_unstripped}"
+
+
 def test_inchi_to_nx_conversion():
     """
     Test the conversion of an InChI string to a NetworkX graph and back to an InChI string.

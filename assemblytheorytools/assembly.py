@@ -668,10 +668,8 @@ def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
       a system temporary directory is used.
     - For reproducible behaviour consider using ``debug=True`` to preserve the
       temporary folder and log files.
-    - ``strip_hydrogen=True`` removes the hydrogens from ``graph`` **in
-      place**. Pass a copy if the caller needs the original, since reusing
-      the same graph for a later unstripped calculation would silently
-      reuse the stripped one.
+    - ``strip_hydrogen=True`` strips a copy, so ``graph`` is left unchanged
+      and stays safe to reuse for a later calculation.
     - The order of ``virt_obj`` is not stable between runs; compare virtual
       objects as a set rather than by position.
 
@@ -687,13 +685,16 @@ def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
     14
 
     Hydrogens change the answer, so strip them for anything compared
-    against published molecular assembly indices:
+    against published molecular assembly indices. Stripping works on a
+    copy, so one graph can serve both calls:
 
-    >>> att.calculate_assembly_index(att.smi_to_nx("CCO"))[0]
+    >>> ethanol = att.smi_to_nx("CCO")
+    >>> att.calculate_assembly_index(ethanol)[0]
     6
-    >>> att.calculate_assembly_index(
-    ...     att.smi_to_nx("CCO"), strip_hydrogen=True)[0]
+    >>> att.calculate_assembly_index(ethanol, strip_hydrogen=True)[0]
     1
+    >>> ethanol.number_of_nodes()
+    9
     """
     # Initialize variables
     ai = -1

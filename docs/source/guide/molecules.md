@@ -20,13 +20,8 @@ print(len(virt_obj))   # 14
 Pass `strip_hydrogen=True` for anything you intend to compare against published
 molecular assembly indices. Without it the hydrogens are counted as part of the
 structure and the index is much larger — see
-[Hydrogens](../concepts.md#hydrogens).
-
-:::{warning}
-`strip_hydrogen=True` strips the graph you passed **in place**, so a second
-calculation on the same object silently operates on the stripped version. Build a
-fresh graph per call, or pass `graph.copy()`.
-:::
+[Hydrogens](../concepts.md#hydrogens). Stripping works on a copy, so the graph
+you pass keeps its hydrogens and can be reused for further calculations.
 
 RDKit molecules work directly, so there is no need to round-trip through SMILES
 if you already have a `Mol`:

@@ -108,28 +108,20 @@ Whether hydrogens are part of the graph changes the answer, and the backends
 disagree by default:
 
 ```python
-att.calculate_assembly_index(att.smi_to_nx("CCO"))[0]                      # 6
-att.calculate_assembly_index(att.smi_to_nx("CCO"), strip_hydrogen=True)[0]  # 1
-att.calculate_assembly_index_rust(att.smi_to_nx("CCO"))                     # 1
+graph = att.smi_to_nx("CCO")
+
+att.calculate_assembly_index(graph)[0]                      # 6
+att.calculate_assembly_index(graph, strip_hydrogen=True)[0]  # 1
+att.calculate_assembly_index_rust(graph)                     # 1
 ```
 
 Most published molecular assembly indices are hydrogen-stripped. Pass
 `strip_hydrogen=True` unless you specifically want hydrogens counted, and never
 compare a stripped index against an unstripped one.
 
-:::{warning}
-`strip_hydrogen=True` removes the hydrogens from the graph you passed **in
-place**. Each line above builds a fresh graph for exactly this reason. Reusing
-one graph across calls gives silently wrong results:
-
-```python
-graph = att.smi_to_nx("CCO")
-att.calculate_assembly_index(graph, strip_hydrogen=True)[0]   # 1, and graph is now stripped
-att.calculate_assembly_index(graph)[0]                        # 1, not 6
-```
-
-Pass `graph.copy()` if you need the original afterwards.
-:::
+`strip_hydrogen=True` strips a copy, so the graph you passed keeps its
+hydrogens and stays reusable — as above, where one graph serves all three
+calls.
 
 ## Complexity scores
 
