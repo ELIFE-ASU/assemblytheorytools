@@ -13,13 +13,11 @@ import bz2
 import json
 import lzma
 import math
+import networkx as nx
+import numpy as np
 import traceback
 import zlib
 from collections import Counter, defaultdict
-from typing import Callable, Dict, Any, Optional, Tuple
-
-import networkx as nx
-import numpy as np
 from networkx.readwrite import json_graph
 from rdkit import DataStructs
 from rdkit.Chem import AllChem as Chem
@@ -27,6 +25,7 @@ from rdkit.Chem import Descriptors, rdMolDescriptors
 from rdkit.Chem.GraphDescriptors import BertzCT
 from rdkit.Chem.SpacialScore import SPS
 from rdkit.Chem.rdchem import Mol
+from typing import Callable, Dict, Any, Optional, Tuple
 
 from .tools_graph import remove_hydrogen_from_graph
 from .tools_mol import standardize_mol

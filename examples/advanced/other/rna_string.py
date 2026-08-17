@@ -1,7 +1,6 @@
+import matplotlib.pyplot as plt
 import random
 from functools import partial
-
-import matplotlib.pyplot as plt
 
 import assemblytheorytools as att
 

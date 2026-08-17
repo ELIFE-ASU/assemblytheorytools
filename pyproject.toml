@@ -1,18 +1,35 @@
 [build-system]
-requires = ["setuptools>=61", "wheel"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "assemblytheorytools"
-version = "1.14.0"
+version = "1.15.0"
 description = "A centralised set of tools for doing assembly theory calculations."
-readme = { file = "README.md", content-type = "text/markdown" }
+readme = "README.md"
 requires-python = ">=3.12"
-license = { text = "MIT" }
+license = "MIT"
 
 authors = [
     { name = "Louie Slocombe", email = "louies@hotmail.co.uk" },
     { name = "et al." },
+]
+
+keywords = [
+    "assembly theory",
+    "assembly index",
+    "molecular complexity",
+    "cheminformatics",
+]
+
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Chemistry",
 ]
 
 dependencies = [
@@ -30,18 +47,13 @@ dependencies = [
     "pillow>=10.1.0",
     "dagviz>=0.5.0",
     "assembly-theory>=0.6.0",
-    "assemblycfg>=1.2.2"
-]
-
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
+    "assemblycfg>=1.2.2",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.4.2",
+    "pytest-cov>=6.0",
 ]
 docs = [
     "sphinx>=8.0",
@@ -51,14 +63,35 @@ docs = [
 [project.urls]
 Homepage = "https://github.com/ELIFE-ASU/assemblytheorytools"
 Repository = "https://github.com/ELIFE-ASU/assemblytheorytools"
-
-[tool.setuptools]
-include-package-data = true
+Issues = "https://github.com/ELIFE-ASU/assemblytheorytools/issues"
+Changelog = "https://github.com/ELIFE-ASU/assemblytheorytools/releases"
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["assemblytheorytools*", "tests*"]
+include = ["assemblytheorytools*"]
 
 [tool.setuptools.package-data]
 "assemblytheorytools" = ["precompiled/*", "data/*"]
-"tests" = ["*", "**/*"]
+
+[tool.pytest.ini_options]
+minversion = "8.4"
+testpaths = ["tests"]
+addopts = [
+    "--strict-config",
+    "--strict-markers",
+    "-ra",
+]
+markers = [
+    "integration: requires a live service, external dataset, or external executable",
+    "slow: takes long enough to exclude from the normal development loop",
+]
+filterwarnings = [
+    "ignore:Setting the shape on a NumPy array has been deprecated:DeprecationWarning",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["assemblytheorytools"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true

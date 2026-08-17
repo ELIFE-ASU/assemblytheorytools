@@ -5,6 +5,7 @@
 
 import os
 import sys
+from importlib.metadata import version as _pkg_version
 
 sys.path.insert(0, os.path.abspath('../../'))  # Points to project root
 
@@ -18,8 +19,9 @@ os.environ.setdefault('MPLBACKEND', 'Agg')
 project = 'assemblytheorytools'
 copyright = '2025, Louie Slocombe et al.'
 author = 'Louie Slocombe et al.'
-release = '1.14.0'
-version = '1.14.0'
+# Single-sourced from the installed package's metadata (see pyproject.toml).
+release = _pkg_version('assemblytheorytools')
+version = '.'.join(release.split('.')[:2])
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

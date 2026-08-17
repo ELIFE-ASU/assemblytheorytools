@@ -15,10 +15,12 @@ dependencies:
   - ipython
   - pyvis
   - pytest
+  - pytest-cov
   - sphinx
   - sphinx-rtd-theme
   - pubchempy
   - cairosvg
+  - pillow
   - pip:
       - dagviz
       - assemblycfg

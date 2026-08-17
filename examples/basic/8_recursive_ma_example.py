@@ -11,8 +11,9 @@
                 ACS Central Science, 10(5), 1054-1064.
                 """
 
-import assemblytheorytools as att
 import numpy as np
+
+import assemblytheorytools as att
 
 
 def create_complex_tree():

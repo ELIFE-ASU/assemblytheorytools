@@ -1,308 +1,295 @@
-import os
-
-import matplotlib.pyplot as plt
+import io
 import numpy as np
 import pandas as pd
+import pytest
+from pathlib import Path
 from rdkit import Chem
+from types import SimpleNamespace
 
 import assemblytheorytools as att
+from assemblytheorytools import tools_data
+
+ASPIRIN = "CC(=O)OC1=CC=CC=C1C(=O)O"
+CHEMOTION_IR_TAR = Path("~/Downloads/10.22000-OGoEQGlsZGElrgst.tar").expanduser()
 
 
-def test_pubchem():
-    """
-    Test PubChem data retrieval functions.
+@pytest.fixture
+def serial_data_mp(monkeypatch):
+    """Exercise data transformations without retesting multiprocessing."""
 
-    This function tests various functions for retrieving data from PubChem, including:
-    - `pubchem_name_to_smi`
-    - `pubchem_name_to_mol`
-    - `pubchem_name_to_nx`
-    - `pubchem_id_to_smi`
-    - `pubchem_id_to_mol`
-    - `pubchem_id_to_nx`
-    - `sample_random_pubchem`
-    - `sample_first_pubchem`
+    def serial_map(function, values):
+        return [function(value) for value in values]
 
-    It asserts that the retrieved data is correct and that the sampling functions
-    return the expected number of samples.
-    """
-    id_str = 'Aspirin'
-    id = 2244
-    n_sample = 3
-
-    print(flush=True)
-    smi = att.pubchem_name_to_smi(id_str)
-    print(smi, flush=True)
-    assert smi == 'CC(=O)OC1=CC=CC=C1C(=O)O'
-    mol = att.pubchem_name_to_mol(id_str, add_hydrogens=True)
-    smi_out = Chem.MolToSmiles(mol)
-    print(smi_out, flush=True)
-    assert smi_out == '[H]OC(=O)c1c([H])c([H])c([H])c([H])c1OC(=O)C([H])([H])[H]'
-    graph = att.pubchem_name_to_nx(id_str, add_hydrogens=True)
-    smi_out = att.nx_to_smi(graph)
-    print(smi_out, flush=True)
-    assert smi_out == '[H]OC(=O)C1=C([H])C([H])=C([H])C([H])=C1OC(=O)C([H])([H])[H]'
-
-    smi = att.pubchem_id_to_smi(id)
-    print(smi, flush=True)
-    assert smi == 'CC(=O)OC1=CC=CC=C1C(=O)O'
-    mol = att.pubchem_id_to_mol(id, add_hydrogens=True)
-    smi_out = Chem.MolToSmiles(mol)
-    print(smi_out, flush=True)
-    assert smi_out == '[H]OC(=O)c1c([H])c([H])c([H])c([H])c1OC(=O)C([H])([H])[H]'
-    graph = att.pubchem_id_to_nx(id, add_hydrogens=True)
-    smi_out = att.nx_to_smi(graph)
-    print(smi_out, flush=True)
-    assert smi_out == '[H]OC(=O)C1=C([H])C([H])=C([H])C([H])=C1OC(=O)C([H])([H])[H]'
-
-    _, smi_out = att.sample_random_pubchem(n_sample)
-    print(smi_out, flush=True)
-    assert len(smi_out) == n_sample
-
-    _, smi_out = att.sample_first_pubchem(n_sample)
-    print(smi_out, flush=True)
-    assert len(smi_out) == n_sample
-
-    # att.download_pubchem_cid_smiles_gz()
-    # assert os.path.exists('CID-SMILES.gz')
-    # id_out, smi_out = att.sample_pubchem_cid_smiles_gz(n_sample)
-    # print(id_out, smi_out, flush=True)
-    # assert len(smi_out) == n_sample
+    monkeypatch.setattr(tools_data, "mp_calc", serial_map)
 
 
-def test_pubchem_smi_to_name():
-    """
-    Test the conversion of a SMILES string to a PubChem name.
+def test_pubchem_name_and_cid_wrappers(monkeypatch):
+    compound = SimpleNamespace(
+        cid=2244,
+        smiles=ASPIRIN,
+        synonyms=["aspirin"],
+        iupac_name="2-acetyloxybenzoic acid",
+    )
+    queries = []
 
-    This function converts a SMILES string for lidocaine to its name using
-    `pubchem_smi_to_name` and asserts that the result is 'Lidocaine'.
-    Title-cased, matching `_standardize_common_name`'s recasing of plain
-    common names -- the same convention `test_enumerate_stereoisomers_shortest`
-    below relies on ('Codeine', not 'codeine').
-    """
-    print(flush=True)
-    smi = 'CCN(CC)CC(=O)NC1=C(C=CC=C1C)C'
-    name = att.pubchem_smi_to_name(smi)
-    assert name == 'Lidocaine'
+    def fake_get_compounds(identifier, namespace, **kwargs):
+        queries.append((identifier, namespace, kwargs))
+        return [compound]
 
+    monkeypatch.setattr(tools_data.pcp, "get_compounds", fake_get_compounds)
+    monkeypatch.setattr(
+        tools_data.pcp.Compound,
+        "from_cid",
+        staticmethod(lambda cid: compound),
+    )
 
-def test_filter_by_n_bonds():
-    """
-    Test filtering a DataFrame of SMILES strings by the number of bonds.
+    assert att.pubchem_name_to_smi("Aspirin") == ASPIRIN
+    name_mol = att.pubchem_name_to_mol("Aspirin", add_hydrogens=True)
+    name_graph = att.pubchem_name_to_nx("Aspirin", add_hydrogens=True)
+    assert Chem.MolToSmiles(Chem.RemoveHs(name_mol)) == Chem.MolToSmiles(
+        Chem.MolFromSmiles(ASPIRIN)
+    )
+    assert name_graph.number_of_nodes() == name_mol.GetNumAtoms()
 
-    This function creates a DataFrame of SMILES strings and filters it based on the
-    total number of bonds, asserting that the correct number of molecules remain.
-    """
-    print(flush=True)
-    smis = ['[Fe]',
-            'CC(N(C(=O)Nc1cc2ccc1CCc1ccc(CC2)cc1)C(C)C)C',
-            'O=C1OC(N=C1Cc1c[nH]c2c1cccc2)C(F)(F)F',
-            'Nc1ccc(cc1)c1cc2ccc1CCc1ccc(CC2)cc1',
-            'Nc1ccc(cc1)c1cc2ccc1CCc1ccc(CC2)cc1Nc1ccc(cc1)c1cc2ccc1CCc1ccc(CC2)cc1']
-    df = pd.DataFrame({'smiles': smis})
-    filtered_smis = att.filter_by_bonds(df, min_bonds=1, max_bonds=50)
-    assert len(filtered_smis) == 2
-
-
-def test_filter_by_nh_bonds():
-    """
-    Test filtering a DataFrame of SMILES strings by the number of non-hydrogen bonds.
-
-    This function creates a DataFrame of SMILES strings and filters it based on the
-    number of non-hydrogen bonds, asserting that the correct number of molecules remain.
-    """
-    print(flush=True)
-    smis = ['[Fe]',
-            'CC(N(C(=O)Nc1cc2ccc1CCc1ccc(CC2)cc1)C(C)C)C',
-            'O=C1OC(N=C1Cc1c[nH]c2c1cccc2)C(F)(F)F',
-            'Nc1ccc(cc1)c1cc2ccc1CCc1ccc(CC2)cc1',
-            'Nc1ccc(cc1)c1cc2ccc1CCc1ccc(CC2)cc1Nc1ccc(cc1)c1cc2ccc1CCc1ccc(CC2)cc1']
-    df = pd.DataFrame({'smiles': smis})
-    filtered_smis = att.filter_by_nh_bonds(df, min_bonds=1, max_bonds=30)
-
-    assert len(filtered_smis) == 3
+    assert att.pubchem_id_to_smi(2244) == ASPIRIN
+    id_mol = att.pubchem_id_to_mol(2244, add_hydrogens=False)
+    id_graph = att.pubchem_id_to_nx(2244, add_hydrogens=False)
+    assert id_mol.GetNumAtoms() == id_graph.number_of_nodes()
+    assert queries == [
+        ("Aspirin", "name", {}),
+        ("Aspirin", "name", {}),
+        ("Aspirin", "name", {}),
+    ]
 
 
-def test_filter_by_mw():
-    """
-    Test filtering a DataFrame of SMILES strings by molecular weight.
+def test_pubchem_sampling_is_deterministic_with_mocked_batches(monkeypatch):
+    def fake_get_compounds(cids, namespace):
+        assert namespace == "cid"
+        return [SimpleNamespace(cid=cid, smiles="CCO") for cid in cids]
 
-    This function creates a DataFrame of SMILES strings and filters it based on
-    molecular weight, asserting that the correct number of molecules remain.
-    """
-    print(flush=True)
-    smis = ['[Fe]',
-            'CC(N(C(=O)Nc1cc2ccc1CCc1ccc(CC2)cc1)C(C)C)C',
-            'O=C1OC(N=C1Cc1c[nH]c2c1cccc2)C(F)(F)F',
-            'Nc1ccc(cc1)c1cc2ccc1CCc1ccc(CC2)cc1',
-            'Nc1ccc(cc1)c1cc2ccc1CCc1ccc(CC2)cc1Nc1ccc(cc1)c1cc2ccc1CCc1ccc(CC2)cc1']
-    df = pd.DataFrame({'smiles': smis})
-    filtered_smis = att.filter_by_mw(df, min_mw=100, max_mw=300)
-    assert len(filtered_smis) == 2
+    monkeypatch.setattr(tools_data.pcp, "get_compounds", fake_get_compounds)
 
+    random_ids, random_smis = att.sample_random_pubchem(
+        3, seed=7, max_cid=100, delay_s=0, batch_size=3
+    )
+    first_ids, first_smis = att.sample_first_pubchem(
+        3, start_cid=10, max_cid=20, delay_s=0, batch_size=3
+    )
 
-def test_load_ir_jcamp_data():
-    """
-    Test loading of IR data from a JCAMP-DX file.
-
-    This function loads an IR spectrum from a JCAMP-DX file and asserts that the
-    resulting spectrum has the correct shape and that the wavenumbers and intensities
-    arrays have the same length.
-    """
-    print(flush=True)
-    ir_file = 'tests/data/ir_jcamp'
-    spectrum = att.load_ir_jcamp_data(ir_file)
-    assert len(np.shape(spectrum)) == 2  # Expecting two arrays: wavenumbers and intensities
-    assert len(spectrum[0]) == len(spectrum[1])  # Wavenumbers and intensities should have the same length
+    assert random_ids == [42, 20, 51]
+    assert random_smis == ["CCO"] * 3
+    assert first_ids == [10, 11, 12]
+    assert first_smis == ["CCO"] * 3
 
 
-def test_find_peak_indices_in_range():
-    """
-    Test finding peak indices in a given range of an IR spectrum.
+@pytest.mark.parametrize(
+    ("function", "kwargs", "message"),
+    [
+        (att.sample_random_pubchem, {"batch_size": 0}, "batch_size"),
+        (
+                att.sample_first_pubchem,
+                {"start_cid": 0, "max_cid": 10},
+                "start_cid",
+        ),
+    ],
+)
+def test_pubchem_sampling_validates_arguments(function, kwargs, message):
+    with pytest.raises(ValueError, match=message):
+        function(1, delay_s=0, **kwargs)
 
-    This function loads an IR spectrum, applies a Savitzky-Golay filter, finds peaks
-    within a specified range, and asserts that the correct number of peaks are found.
-    It also visualizes the spectrum with the detected peaks.
-    """
-    print(flush=True)
-    ir_file = 'tests/data/ir_jcamp'
-    spectrum = att.load_ir_jcamp_data(ir_file)
+
+def test_pubchem_smi_to_name_uses_requested_field(monkeypatch):
+    compound = SimpleNamespace(
+        synonyms=["lidocaine"],
+        iupac_name="2-(diethylamino)-n-(2,6-dimethylphenyl)acetamide",
+    )
+    monkeypatch.setattr(
+        tools_data.pcp,
+        "get_compounds",
+        lambda *args, **kwargs: [compound],
+    )
+
+    assert att.pubchem_smi_to_name("CCN", prefer="synonym") == "Lidocaine"
+    assert att.pubchem_smi_to_name("CCN", prefer="iupac_name") == (
+        "2-(diethylamino)-N-(2, 6-Dimethylphenyl)acetamide"
+    )
+    with pytest.raises(ValueError, match="Unknown prefer option"):
+        att.pubchem_smi_to_name("CCN", prefer="registry_number")
+
+
+def test_pubchem_smi_to_name_returns_none_on_lookup_error(monkeypatch):
+    def fail(*args, **kwargs):
+        raise RuntimeError("service unavailable")
+
+    monkeypatch.setattr(tools_data.pcp, "get_compounds", fail)
+
+    assert att.pubchem_smi_to_name("CCN") is None
+    assert att.pubchem_smi_to_name("") is None
+
+
+@pytest.mark.integration
+def test_pubchem_live_lookup():
+    """Minimal contract check against the real service."""
+    assert Chem.MolToSmiles(Chem.MolFromSmiles(att.pubchem_name_to_smi("Aspirin"))) == (
+        Chem.MolToSmiles(Chem.MolFromSmiles(ASPIRIN))
+    )
+
+
+@pytest.mark.parametrize(
+    ("function", "minimum", "maximum", "expected_count", "result_column"),
+    [
+        (att.filter_by_bonds, 1, 50, 2, "n_bonds"),
+        (att.filter_by_nh_bonds, 1, 30, 3, "n_bonds"),
+        (att.filter_by_mw, 100, 300, 2, "mw"),
+    ],
+)
+def test_dataframe_filters(
+        function,
+        minimum,
+        maximum,
+        expected_count,
+        result_column,
+        serial_data_mp,
+):
+    smiles = [
+        "[Fe]",
+        "CC(N(C(=O)Nc1cc2ccc1CCc1ccc(CC2)cc1)C(C)C)C",
+        "O=C1OC(N=C1Cc1c[nH]c2c1cccc2)C(F)(F)F",
+        "Nc1ccc(cc1)c1cc2ccc1CCc1ccc(CC2)cc1",
+        "Nc1ccc(cc1)c1cc2ccc1CCc1ccc(CC2)cc1Nc1ccc(cc1)c1cc2ccc1CCc1ccc(CC2)cc1",
+    ]
+    frame = pd.DataFrame({"smiles": smiles})
+    bounds = (
+        {"min_mw": minimum, "max_mw": maximum}
+        if function is att.filter_by_mw
+        else {"min_bonds": minimum, "max_bonds": maximum}
+    )
+
+    result = function(frame.copy(), **bounds)
+
+    assert len(result) == expected_count
+    assert result_column in result.columns
+    assert result[result_column].between(minimum, maximum).all()
+
+
+def test_load_ir_jcamp_data(data_dir):
+    spectrum = att.load_ir_jcamp_data(data_dir / "ir_jcamp")
+
+    assert spectrum.ndim == 2
+    assert spectrum.shape[0] > 0
+    assert spectrum.shape[1] == 2
+
+
+def test_find_peak_indices_in_range(data_dir):
+    spectrum = att.load_ir_jcamp_data(data_dir / "ir_jcamp")
     spectrum = att.apply_sg_filter(spectrum, window_length=35, polyorder=3)
-    peaks = att.find_peak_indices_in_range(spectrum, min_x=400, max_x=1500, prominence=0.01, distance=5)
 
-    att.plot_ir_spectrum(spectrum, peaks=peaks)
-    plt.show()
+    peaks = att.find_peak_indices_in_range(
+        spectrum, min_x=400, max_x=1500, prominence=0.01, distance=5
+    )
+    fig, _ = att.plot_ir_spectrum(spectrum, peaks=peaks)
 
     assert len(peaks) == 14
+    assert fig.axes
 
 
-def test_calc_n_peaks_in_range():
-    """
-    Test calculating the number of peaks in a given range of an IR spectrum.
+def test_calc_n_peaks_in_range(data_dir):
+    spectrum = att.load_ir_jcamp_data(data_dir / "ir_jcamp")
 
-    This function loads an IR spectrum and calculates the number of peaks within a
-    specified range, asserting that the result is correct.
-    """
-    print(flush=True)
-    ir_file = 'tests/data/ir_jcamp'
-    spectrum = att.load_ir_jcamp_data(ir_file)
-    n_peaks = att.find_n_peak_indices_in_range(spectrum, min_x=500, max_x=1500)
-    assert n_peaks == 32
+    assert att.find_n_peak_indices_in_range(spectrum, min_x=500, max_x=1500) == 19
 
 
-def test_get_github_file():
-    """
-    Test downloading a file from a GitHub repository.
+def test_get_github_file_downloads_atomically_and_reuses_existing(
+        tmp_path, monkeypatch
+):
+    calls = []
 
-    This function downloads a file from a specified GitHub repository and asserts that
-    the file path is not None. It then removes the downloaded file.
-    """
-    print(flush=True)
-    repo_url = "https://raw.githubusercontent.com/ELIFE-ASU/CBRdb/refs/heads/main"
-    path = att.get_github_file("CBRdb_C.csv.zip", repo_url)
+    def fake_urlopen(request, timeout):
+        calls.append((request.full_url, request.get_header("User-agent"), timeout))
+        return io.BytesIO(b"downloaded data")
 
-    assert path is not None
-    os.remove(path)
+    monkeypatch.setattr(tools_data, "urlopen", fake_urlopen)
 
+    path = att.get_github_file(
+        "dataset.csv", "https://example.test/repository/", tmp_path, timeout=7
+    )
+    reused = att.get_github_file(
+        "dataset.csv", "https://example.test/repository/", tmp_path
+    )
 
-def test_sample_cbrdb():
-    """
-    Test sampling from the CBRdb database.
-
-    This function samples a specified number of entries from the CBRdb database and
-    asserts that the resulting DataFrame is not None and has the correct length.
-    """
-    print(flush=True)
-    n_sample = 100
-    df = att.sample_cbrdb(n_sample)
-    assert df is not None
-    assert len(df) == n_sample
+    assert path == tmp_path / "dataset.csv"
+    assert path.read_bytes() == b"downloaded data"
+    assert reused == path
+    assert calls == [
+        ("https://example.test/repository/dataset.csv", "python-download/1.0", 7)
+    ]
+    assert not (tmp_path / "dataset.csv.part").exists()
 
 
-def test_enumerate_stereoisomers_shortest():
-    """
-    Test the enumeration of stereoisomers to find the one with the shortest name.
+def test_sample_cbrdb_filters_local_fixture(tmp_path, monkeypatch, serial_data_mp):
+    dataset = tmp_path / "CBRdb_C.csv.zip"
+    pd.DataFrame(
+        {
+            "compound_id": [1, 2, 3, 4, 5],
+            "nickname": ["ethanol", "benzene", "heavy", "invalid", "methane"],
+            "smiles": ["CCO", "c1ccccc1", "CCCCCCCCCCCC", "not-smiles", "C"],
+            "molecular_weight": [46.1, 78.1, 400.0, 20.0, 16.0],
+            "n_heavy_atoms": [3, 6, 12, 1, 1],
+        }
+    ).to_csv(dataset, index=False, compression="zip")
+    monkeypatch.setattr(tools_data, "get_github_file", lambda *args, **kwargs: dataset)
 
-    This function enumerates the stereoisomers of a given molecule and finds the one
-    with the shortest name, asserting that the name is 'Codeine'.
-    """
-    print(flush=True)
-    smi = 'COC1=C2OC3C(O)C=CC4C5CC(=C2C43CCN5C)C=C1'
-    mol = Chem.MolFromSmiles(smi)
-    smi_out = att.enumerate_stereoisomers_shortest(mol)
-    name_out = att.pubchem_smi_to_name(smi_out, prefer="synonym")
-    assert name_out == 'Codeine'
+    result = att.sample_cbrdb(n_samples=2, max_mw=100, max_bonds=6)
+
+    assert len(result) == 2
+    assert set(result["compound_id"]).issubset({1, 2, 5})
+    assert result["molecular_weight"].le(100).all()
+    assert result["n_bonds"].le(6).all()
+    assert not dataset.exists()
 
 
-def test_show_ir_data():
-    """
-    Test function to process and visualize IR data from Chemotion.
+def test_enumerate_stereoisomers_selects_shortest_available_name(monkeypatch):
+    seen = []
 
-    This function performs the following steps:
-    1. Processes a Chemotion IR data archive.
-    2. Filters the data by the number of non-hydrogen bonds and removes certain elements.
-    3. Samples 100 entries from the filtered data.
-    4. Calculates the assembly index for each molecule.
-    5. Sorts the data by assembly index.
-    6. Selects two molecules (one with low AI, one with high AI) for visualization.
-    7. Applies a Savitzky-Golay filter to the IR spectra.
-    8. For each selected molecule, it finds peaks in the IR spectrum, plots the spectrum,
-       and plots the 3D structure of the molecule.
-    """
-    df = att.process_chemotion_ir_data('/home/louie/Downloads/10.22000-OGoEQGlsZGElrgst.tar')
-    df = att.filter_by_nh_bonds(df, max_bonds=30)
+    def fake_name(smiles, *, prefer):
+        seen.append((smiles, prefer))
+        return "a descriptive compound name" if len(seen) == 1 else "X"
 
-    # print the set of symbols in the smiles column
-    all_symbols = set()
-    for smi in df['smiles']:
-        for char in smi:
-            all_symbols.add(char)
-    print(f"All symbols in SMILES: {all_symbols}", flush=True)
-    df = df[~df['smiles'].str.contains('B|I|F|P|K|S')].reset_index(drop=True)
+    monkeypatch.setattr(tools_data, "pubchem_smi_to_name", fake_name)
+    mol = Chem.MolFromSmiles("FC(Cl)Br")
 
-    # Sample 50 entries from the dataframe
-    df = df.sample(n=100, random_state=42).reset_index(drop=True)
-    graphs = att.mp_calc(att.smi_to_nx, df['smiles'].tolist())
-    df['ai'] = att.calculate_assembly_index_parallel(graphs, settings={'strip_hydrogen': True})[0]
+    result = att.enumerate_stereoisomers_shortest(mol)
 
-    # sort by ai descending
-    df = df.sort_values(by='ai', ascending=False).reset_index(drop=True)
+    assert len(seen) == 2
+    assert result == seen[1][0]
+    assert all(prefer == "synonym" for _, prefer in seen)
 
-    # # loop over the entire dataframe and print ai and smiles
-    # for i, row in df.iterrows():
-    #     time.sleep(0.5)
-    #     # print(f"{i}, AI: {row['ai']}, SMILES: {row['smiles']}, Name: {row['name']}", flush=True)
-    #     print(f"{i}, AI: {row['ai']}, SMILES: {row['smiles']}, Name: {att.pubchem_smi_to_name(row['smiles'])}",
-    #           flush=True)
 
-    # 99, AI: 3, SMILES: CCCCCN, Name: Amylamine
-    smi_1 = 'CCCCCN'
-    # 9, AI: 15, SMILES: COC(=O)[C@H](Cc1c[nH]c2c1cccc2)NC(=O)OC(C)(C)C, Name: Boc-Trp-Ome
-    smi_2 = 'COC(=O)[C@H](Cc1c[nH]c2c1cccc2)NC(=O)OC(C)(C)C'
+def test_enumerate_stereoisomers_falls_back_when_names_are_missing(monkeypatch):
+    monkeypatch.setattr(tools_data, "pubchem_smi_to_name", lambda *args, **kwargs: None)
+    mol = Chem.MolFromSmiles("FC(Cl)Br")
 
-    # find indices of these two smiles in the dataframe
-    idx_1 = df.index[df['smiles'] == smi_1].tolist()[0]
-    idx_2 = df.index[df['smiles'] == smi_2].tolist()[0]
+    assert att.enumerate_stereoisomers_shortest(mol) == Chem.MolToSmiles(
+        mol, isomericSmiles=True, canonical=True
+    )
 
-    # Apply Savitzky-Golay filter to smooth the IR spectra in parallel
-    df['spectrum'] = att.mp_calc(att.apply_sg_filter, df['spectrum'])
 
-    view_idx = idx_1
-    # print the
-    peaks = att.find_peak_indices_in_range(df['spectrum'].iloc[view_idx])
-    att.plot_ir_spectrum(df['spectrum'].iloc[view_idx], peaks=peaks)
-    plt.savefig(f"{idx_1}_ir_spectrum.svg")
-    plt.savefig(f"{idx_1}_ir_spectrum.png", dpi=300)
-    plt.show()
-    atoms = att.smiles_to_atoms(df['smiles'].iloc[view_idx])
-    att.plot_ase_atoms(atoms, f"{idx_1}_atoms.png", rotation='30x,0y,0z')
-    plt.show()
+@pytest.mark.integration
+@pytest.mark.slow
+@pytest.mark.skipif(
+    not CHEMOTION_IR_TAR.is_file(),
+    reason="Chemotion IR dataset archive is not installed",
+)
+def test_process_chemotion_ir_archive(tmp_path):
+    frame = att.process_chemotion_ir_data(CHEMOTION_IR_TAR)
 
-    view_idx = idx_2
-    peaks = att.find_peak_indices_in_range(df['spectrum'].iloc[view_idx])
-    att.plot_ir_spectrum(df['spectrum'].iloc[view_idx], peaks=peaks)
-    plt.savefig(f"{idx_2}_ir_spectrum.svg")
-    plt.savefig(f"{idx_2}_ir_spectrum.png", dpi=300)
-    plt.show()
-    atoms = att.smiles_to_atoms(df['smiles'].iloc[view_idx])
-    att.plot_ase_atoms(atoms, f"{idx_2}_atoms.png", rotation='0x,120y,90z')
-    plt.show()
+    assert {"smiles", "spectrum"}.issubset(frame.columns)
+    assert not frame.empty
+
+    spectrum = att.apply_sg_filter(frame.iloc[0]["spectrum"])
+    peaks = att.find_peak_indices_in_range(spectrum)
+    fig, _ = att.plot_ir_spectrum(spectrum, peaks=peaks)
+    output = tmp_path / "ir-spectrum.png"
+    fig.savefig(output)
+
+    assert output.stat().st_size > 0

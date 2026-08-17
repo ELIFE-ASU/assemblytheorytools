@@ -1,10 +1,10 @@
 import io
+import matplotlib.pyplot as plt
 import re
 import sys
 import tarfile
-from pathlib import Path
 import time
-import matplotlib.pyplot as plt
+from pathlib import Path
 
 import assemblytheorytools as att
 

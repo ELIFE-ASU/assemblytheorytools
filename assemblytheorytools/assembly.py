@@ -9,7 +9,11 @@ compiling the C++ binary, parsing its output, correcting joint assembly indices,
 and deriving bounds, ratios and similarity measures.
 """
 
+import assembly_theory as at_rust
+import assemblycfg
 import json
+import networkx as nx
+import numpy as np
 import os
 import platform
 import re
@@ -21,15 +25,10 @@ import time
 import traceback
 from datetime import datetime
 from functools import partial
-from typing import Union, List, Optional, Tuple, Dict, Any
-
-import assembly_theory as at_rust
-import networkx as nx
-import numpy as np
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
+from typing import Union, List, Optional, Tuple, Dict, Any
 
-import assemblycfg
 from .construction import (parse_pathway_file,
                            parse_string_pathway_file,
                            molstr_to_str,

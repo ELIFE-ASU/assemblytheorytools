@@ -1,6 +1,5 @@
-import platform
-
 import matplotlib.pyplot as plt
+import platform
 
 import assemblytheorytools as att
 

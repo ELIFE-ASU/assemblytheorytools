@@ -9,12 +9,11 @@ identification, and the :class:`MAEstimator` driver class.
 
 import functools
 import logging
-from collections import defaultdict
-from typing import Dict, List
-
 import numpy as np
 import pandas as pd
+from collections import defaultdict
 from scipy.stats.distributions import skewnorm
+from typing import Dict, List
 
 ISOTOPES = {
     "Antimony": 120.903824,
@@ -670,7 +669,7 @@ def rma_process(
     return sample
 
 
-def rma_identify_parents(dataset, mass_tol: float, ms_n_digits: int=3):
+def rma_identify_parents(dataset, mass_tol: float, ms_n_digits: int = 3):
     """
     Assign parent-child relationships between MS levels in a mass spectrometry dataset.
 

@@ -7,11 +7,10 @@ joint assembly calculations, generates random test strings, and builds the
 directed and undirected graph representations of a string.
 """
 
+import networkx as nx
 import random
 import string
 from typing import List
-
-import networkx as nx
 
 
 def load_fasta(file_path: str) -> str:
@@ -68,14 +67,20 @@ def prep_joint_string_ai(input_list: list[str]) -> tuple[str, list[str]]:
     ValueError
         If an empty string is found in the input list.
     """
+    if not input_list:
+        raise ValueError("Input list cannot be empty")
     if "" in input_list:
         raise ValueError("Empty string in input list")
 
     # Build a string of all the inputs separated by unique fake characters
     delimiters: List[str] = []
+    reserved_chars = "".join(input_list)
     amalgam_string: str = input_list[0]
     for item in input_list[1:]:
-        unique_char = get_unique_char(amalgam_string + item)
+        # Reserve characters from every input up front. Looking only at the
+        # strings processed so far allowed an early delimiter to collide with
+        # a character in a later string.
+        unique_char = get_unique_char(reserved_chars + "".join(delimiters))
         amalgam_string += unique_char + item
         delimiters.append(unique_char)
 

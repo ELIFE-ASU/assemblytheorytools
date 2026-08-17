@@ -8,14 +8,13 @@ multi-fragment molecules, V2000 mol file writing, and peptide sequence
 conversion.
 """
 
+import networkx as nx
 import re
 import warnings
-from typing import List, Union
-
-import networkx as nx
 from rdkit.Chem import AllChem as Chem
 from rdkit.Chem.MolStandardize import rdMolStandardize
 from rdkit.Chem.rdchem import GetPeriodicTable
+from typing import List, Union
 
 
 def safe_standardize_mol(mol: Chem.Mol, add_hydrogens: bool = True) -> Chem.Mol:

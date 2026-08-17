@@ -1,13 +1,28 @@
+import matplotlib.pyplot as plt
+import numpy as np
+import os
+import pytest
 import shutil
 import tempfile
 import time as t
-
-import matplotlib.pyplot as plt
-import numpy as np
 from ase.build import molecule
+from pathlib import Path
 from rdkit import Chem
 
 import assemblytheorytools as att
+
+
+def _orca_is_available():
+    configured = os.environ.get("ORCA_PATH")
+    return bool(
+        (configured and (Path(configured).is_file() or shutil.which(configured)))
+        or shutil.which("orca")
+    )
+
+
+requires_orca = pytest.mark.skipif(
+    not _orca_is_available(), reason="ORCA executable is not configured"
+)
 
 
 def test_smi_to_atoms():
@@ -168,7 +183,36 @@ def test_get_spin_multiplicity():
     assert spin_mult == 3, "Spin multiplicity should be 2 for a doublet state (one unpaired electron)"  # Verify the result
 
 
-def test_orca_calc_preset():
+def test_orca_calc_preset_configuration(tmp_path):
+    calc = att.orca_calc_preset(
+        orca_path="/opt/orca",
+        directory=tmp_path,
+        charge=-1,
+        multiplicity=2,
+        basis_set="def2-SVP",
+        n_procs=4,
+        f_solv=True,
+        f_disp=True,
+        calc_extra="OPT",
+        blocks_extra="%scf maxiter 200 end",
+        scf_option="TIGHTSCF",
+    )
+
+    assert calc.profile.command == "/opt/orca"
+    assert Path(calc.directory) == tmp_path
+    assert calc.parameters["charge"] == -1
+    assert calc.parameters["mult"] == 2
+    assert calc.parameters["orcasimpleinput"] == (
+        "UKS  r2SCAN-3c D4 def2-SVP TIGHTSCF OPT"
+    )
+    assert "%pal nprocs 4 end" in calc.parameters["orcablocks"]
+    assert 'SMDSOLVENT "WATER"' in calc.parameters["orcablocks"]
+    assert "%scf maxiter 200 end" in calc.parameters["orcablocks"]
+
+
+@pytest.mark.integration
+@requires_orca
+def test_orca_calc_preset_energy():
     """
     Test the `orca_calc_preset` function by setting up an ORCA calculator,
     computing the potential energy of a water molecule, and verifying the result.
@@ -206,6 +250,9 @@ def test_orca_calc_preset():
     shutil.rmtree(temp_dir, ignore_errors=True)  # Remove the temporary directory
 
 
+@pytest.mark.integration
+@pytest.mark.slow
+@requires_orca
 def test_orca_speed():
     """
     Tests the performance of the ORCA quantum chemistry calculator by measuring
@@ -260,9 +307,13 @@ def test_orca_speed():
     ax.errorbar(n_procs, time_avg, yerr=time_std, fmt='o', capsize=5)  # Plot with error bars
     att.ax_plot(fig, ax, xlab='Number of processors', ylab='Time (s)')  # Add axis labels
     plt.show()  # Display the plot
-    pass
+    assert len(time_avg) == len(n_procs)
+    assert all(duration > 0 for duration in time_avg)
+    assert ax.get_xlabel() == 'Number of processors'
 
 
+@pytest.mark.integration
+@requires_orca
 def test_optimise_atoms():
     """
     Test the `optimise_atoms` function by optimising the geometry of a water molecule.
@@ -284,6 +335,8 @@ def test_optimise_atoms():
     assert atoms is not None, "Optimised atoms should not be None"  # Ensure atoms are optimised
 
 
+@pytest.mark.integration
+@requires_orca
 def test_calculate_ccsd_energy():
     """
     Test the `calculate_ccsd_energy` function by calculating the CCSD energy of a water molecule.
@@ -343,6 +396,8 @@ def test_orca_freq_block():
     assert _orca_freq_block(None, None) is None
 
 
+@pytest.mark.integration
+@requires_orca
 def test_calculate_free_energy():
     """
     Test the `calculate_free_energy` function by calculating the Gibbs free energy of a water molecule

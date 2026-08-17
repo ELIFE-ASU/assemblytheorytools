@@ -12,20 +12,18 @@ give the figures a consistent appearance.
 """
 
 import math
-import random
-import tempfile
-from collections import defaultdict
-from html import escape
-from typing import List, Optional, Dict, Tuple, Any, Union, Sequence
-
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import networkx as nx
 import numpy as np
+import random
+import tempfile
 from IPython.display import HTML
 from PIL import Image
 from ase import Atoms
 from ase.visualize.plot import plot_atoms
+from collections import defaultdict
+from html import escape
 from matplotlib import colormaps, colors
 from matplotlib.axes import Axes
 from matplotlib.cm import ScalarMappable
@@ -36,6 +34,7 @@ from pyvis.network import Network
 from rdkit import Chem
 from rdkit.Chem import Draw, rdFMCS
 from scipy.stats import gaussian_kde
+from typing import List, Optional, Dict, Tuple, Any, Union, Sequence
 
 from .tools_atoms import mol_to_atoms
 from .tools_data import pubchem_smi_to_name, enumerate_stereoisomers_shortest

@@ -10,13 +10,12 @@ assembly digraphs from a target structure.
 
 import copy
 import json
-import os
-from typing import List, Dict, Tuple, Optional, Any, Union
-
 import networkx as nx
 import numpy as np
+import os
 from rdkit import Chem
 from rdkit.Chem.rdchem import RWMol
+from typing import List, Dict, Tuple, Optional, Any, Union
 
 from .tools_graph import (bond_order_assout_to_int,
                           bond_order_int_to_rdkit,
