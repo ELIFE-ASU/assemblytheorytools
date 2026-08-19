@@ -189,30 +189,19 @@ def rma_unify_trees(trees: list[dict]):
 
 class MAEstimator:
     """
-    A class for estimating molecular assembly (MA) numbers in fragmentation trees.
+    Estimation of molecular assembly (MA) numbers in fragmentation trees.
 
-    The MAEstimator provides methods to estimate the assembly number (MA) for a given molecular
-    weight (MW) or fragmentation tree, identify common precursors, and recursively analyze
-    fragmentation patterns. It supports both same-level and cross-level precursor analysis,
-    configurable mass tolerance, and customizable adduct masses.
-
-    Parameters
-    ----------
-    same_level : bool, optional
-        If True, only consider same-level precursors when searching for fragmentation relationships.
-        Defaults to True.
-    tol : float, optional
-        Mass tolerance for matching m/z values. Defaults to 0.01.
-    adduct_masses : list of float, optional
-        List of adduct ion masses to consider when searching for possible precursor ions.
-        Defaults to COMMON_PRECURSORS.
-    n_samples : int, optional
-        Number of random samples to use for MA estimation. Defaults to 500.
+    The MAEstimator provides methods to estimate the assembly number (MA)
+    for a given molecular weight (MW) or fragmentation tree, identify common
+    precursors, and recursively analyze fragmentation patterns. It supports
+    both same-level and cross-level precursor analysis, configurable mass
+    tolerance, and customizable adduct masses.
 
     Attributes
     ----------
     same_level : bool
-        Whether to restrict precursor search to the same fragmentation level.
+        Whether to restrict precursor search to the same fragmentation
+        level.
     tol : float
         Mass tolerance for m/z matching.
     adduct_masses : list of float
@@ -224,6 +213,23 @@ class MAEstimator:
     """
 
     def __init__(self, same_level=True, tol=0.01, adduct_masses=COMMON_PRECURSORS, n_samples=500):
+        """
+        Create an estimator with a fixed tolerance and sampling budget.
+
+        Parameters
+        ----------
+        same_level : bool, optional
+            If True, only consider same-level precursors when searching for
+            fragmentation relationships. Defaults to True.
+        tol : float, optional
+            Mass tolerance for matching m/z values. Defaults to 0.01.
+        adduct_masses : list of float, optional
+            List of adduct ion masses to consider when searching for
+            possible precursor ions. Defaults to ``COMMON_PRECURSORS``.
+        n_samples : int, optional
+            Number of random samples to use for MA estimation. Defaults to
+            500.
+        """
         self.same_level = same_level
         self.tol = tol
         self.adduct_masses = adduct_masses

@@ -1679,12 +1679,15 @@ def reassemble_old(mols: List[Chem.Mol],
                    mw_delta: float = 0.1
                    ) -> List[Chem.Mol]:
     """
-    Generate new molecules by reassembling molecular fragments with comprehensive filtering,
-    as proposed by Liu et al. [Liu2021]_.
+    Generate new molecules by reassembling molecular fragments.
 
-    This function creates novel molecular structures by systematically combining input molecular
-    fragments, applying origami cyclization operations, and filtering results based on multiple
-    physicochemical criteria.
+    Fragments are recombined and comprehensively filtered, following the
+    approach of Liu et al. [Liu2021]_.
+
+    This function creates novel molecular structures by systematically
+    combining input molecular fragments, applying origami cyclization
+    operations, and filtering results based on multiple physicochemical
+    criteria.
 
     The algorithm proceeds as follows:
 
@@ -1712,14 +1715,17 @@ def reassemble_old(mols: List[Chem.Mol],
     mw_max : float, optional
         Maximum molecular weight for generated molecules, by default 100.
     unsat_min : float, optional
-        Minimum degree of unsaturation (double bond equivalents), by default 1.0.
+        Minimum degree of unsaturation (double bond equivalents), by default
+        1.0.
     unsat_max : float, optional
-        Maximum degree of unsaturation (double bond equivalents), by default 12.0.
+        Maximum degree of unsaturation (double bond equivalents), by default
+        12.0.
     one_atom_weight : float, optional
-        Weight adjustment factor for atom overlap during fragment assembly, by default 2.
+        Weight adjustment factor for atom overlap during fragment assembly,
+        by default 2.
     mw_delta : float, optional
-        Molecular weight tolerance factor for fragment selection.
-        Creates MW range: [mw_min*(1-delta), mw_max*(1+delta)], by default 0.1.
+        Molecular weight tolerance factor for fragment selection. Creates MW
+        range: [mw_min*(1-delta), mw_max*(1+delta)], by default 0.1.
 
     Returns
     -------
@@ -1730,7 +1736,8 @@ def reassemble_old(mols: List[Chem.Mol],
     References
     ----------
     .. [Liu2021] Liu, Y., Mathis, C., Bajczyk, M. D., Marshall, S. M., Wilbraham, L., & Cronin, L. (2021).
-       Exploring and mapping chemical space with molecular assembly trees. Science Advances, 7(39), eabj2465.
+       Exploring and mapping chemical space with molecular assembly trees.
+       Science Advances, 7(39), eabj2465.
        https://www.science.org/doi/full/10.1126/sciadv.abj2465
 
     """
@@ -2511,11 +2518,12 @@ def get_atom_type_index_mapping(fragment: str) -> Tuple[Optional[Chem.Mol], Opti
 
 class ParsePathwayLog:
     """
-    Parses and visualizes molecular assembly pathway logs as hierarchical directed graphs.
+    Parsing and visualisation of molecular assembly pathway logs.
 
-    Processes structured log files that document molecular assembly pathways,
-    converting them into NetworkX directed graphs that represent the step-by-step
-    construction of complex molecules from basic building blocks.
+    Processes structured log files that document molecular assembly
+    pathways, converting them into NetworkX directed graphs that represent
+    the step-by-step construction of complex molecules from basic building
+    blocks.
 
     Attributes
     ----------
@@ -2709,7 +2717,13 @@ class ParsePathwayLog:
     def _assign_levels(self) -> None:
         """
         Assign hierarchical levels to nodes based on assembly depth.
-        Building blocks start at level 0, and each subsequent assembly step increases the level.
+
+        Building blocks start at level 0, and each subsequent assembly step
+        increases the level.
+
+        Returns
+        -------
+        None
         """
         for node in self.G.nodes:
             if not list(self.G.predecessors(node)):
@@ -3035,17 +3049,11 @@ class MoleculeSpace:
     """
     Analysis of a collection of molecular assembly pathways.
 
-    This class provides analysis tools for collections of molecular pathways,
-    enabling the study of shared assembly fragments, common building blocks and
-    hierarchical relationships across multiple target molecules. It constructs
-    unified graphs that reveal the interconnected nature of molecular assembly
-    space and supports fragment pool analysis.
-
-    Parameters
-    ----------
-    molecules : list of Molecule
-        Molecules with computed or computable assembly pathways. Entries whose
-        SMILES string is ``None`` are filtered out.
+    This class provides analysis tools for collections of molecular
+    pathways, enabling the study of shared assembly fragments, common
+    building blocks and hierarchical relationships across multiple target
+    molecules. It constructs unified graphs that reveal the interconnected
+    nature of molecular assembly space and supports fragment pool analysis.
 
     Attributes
     ----------
@@ -3170,7 +3178,7 @@ class MoleculeSpace:
             self, X: int = 1, get_graph: bool = True, remove_paths: bool = False
     ) -> Tuple[Union[nx.MultiDiGraph, List[str]], int]:
         """
-        Generates fragment pool by reducing assembly depth by X levels.
+        Generate fragment pool by reducing assembly depth by X levels.
 
         Creates a simplified molecular fragment pool by removing the X most complex
         assembly levels, effectively "stepping back" in the assembly space to
@@ -3262,21 +3270,48 @@ class MoleculeSpace:
 
 class MoleculeGenerationAssemblyPool:
     """
-    Generate novel molecules from molecular fragment pools.
+    Generation of novel molecules from molecular fragment pools.
 
     See Pagel et al. [Pagel2024a]_ for details.
 
-    This class implements a molecular generation algorithm that creates new molecules
-    by randomly combining fragments from existing assembly pathways. It uses statistical sampling
-    based on fragment occurrence frequencies and chemical compatibility to generate chemically
-    reasonable novel molecular structures.
+    This class implements a molecular generation algorithm that creates new
+    molecules by randomly combining fragments from existing assembly
+    pathways. It uses statistical sampling based on fragment occurrence
+    frequencies and chemical compatibility to generate chemically reasonable
+    novel molecular structures.
+
+    Attributes
+    ----------
+    assembly_pool : MoleculeSpace
+        Source of validated molecular fragments and pathway statistics.
+    assembled_molecules : dict of {int: list}
+        Generated molecules, keyed by the number of assembly steps taken.
+    level_to_fragment : dict of {int: list of str} or None
+        Fragments available at each assembly level, populated by
+        :meth:`set_assembly_pool` and consumed during generation.
+    bu_level_to_fragment : dict of {int: list of str} or None
+        Pristine copy of ``level_to_fragment``, restored by
+        :meth:`reset_level_to_fragment`.
+    original_a_minus_X : nx.MultiDiGraph or None
+        Copy of the reduced assembly graph taken by
+        :meth:`set_assembly_pool`.
+    diverged_assembly_graph : nx.MultiDiGraph or None
+        Working graph that generated molecules are added to, populated by
+        :meth:`construct_diverged_assembly_graph`.
+    num_removed : int or None
+        Number of nodes removed when the pool was reduced.
+    layer_sampling_weights : dict of {int: float}
+        Per-level sampling weights, populated by :meth:`set_sw_layer`.
+    n_steps_sampling_weights : list of float
+        Sampling weights indexed by step count, populated by
+        :meth:`set_sw_n_steps`.
 
     References
     ----------
 
     .. [Pagel2024a] Pagel, S., Sharma, A., & Cronin, L. (2024).
-           Mapping evolution of molecules across biochemistry with assembly theory.
-           arXiv preprint arXiv:2409.05993.
+           Mapping evolution of molecules across biochemistry with assembly
+           theory. arXiv preprint arXiv:2409.05993.
 
     """
 
@@ -3351,11 +3386,17 @@ class MoleculeGenerationAssemblyPool:
 
     def reset_level_to_fragment(self) -> None:
         """
-        Reset fragment pool to original state for independent molecule generation.
+        Reset fragment pool to original state for independent molecule
+        generation.
 
-        Restores the level_to_fragment mapping from backup, ensuring each molecule
-        generation process starts with the same initial fragment pool regardless
-        of modifications made during previous generation attempts.
+        Restores the level_to_fragment mapping from backup, ensuring each
+        molecule generation process starts with the same initial fragment
+        pool regardless of modifications made during previous generation
+        attempts.
+
+        Returns
+        -------
+        None
         """
         self.level_to_fragment = self.bu_level_to_fragment.copy()
 
@@ -3598,24 +3639,27 @@ class MoleculeGenerationAssemblyPool:
     def sample_layer(self, exponent: float = 2.0, curr_depth: int = 0,
                      black_listed_layers: Optional[List[int]] = None) -> int:
         """
-        Randomly select assembly depth layer for fragment sampling.
-        This is done to ensure roughly same molecule size distribution as in the assembly pool
+        Randomly select an assembly depth layer for fragment sampling.
+
+        Sampling by layer keeps the generated molecule size distribution
+        roughly the same as that of the assembly pool.
 
         Performs weighted random selection of an assembly depth layer,
         constrained by the current assembly depth and excluding problematic
-        layers, so that realistic molecular size distributions are maintained.
+        layers, so that realistic molecular size distributions are
+        maintained.
 
         Parameters
         ----------
         exponent : float, optional
-            Power used in the frequency weighting calculation. Default is 2.0,
-            giving a quadratic bias toward common layers.
+            Power used in the frequency weighting calculation. Default is
+            2.0, giving a quadratic bias toward common layers.
         curr_depth : int, optional
-            Current assembly depth, which is the maximum layer allowed. Default
-            is 0, meaning only building blocks are available.
+            Current assembly depth, which is the maximum layer allowed.
+            Default is 0, meaning only building blocks are available.
         black_listed_layers : list of int, optional
-            Assembly levels to exclude from sampling. Default is None, meaning
-            no exclusions.
+            Assembly levels to exclude from sampling. Default is None,
+            meaning no exclusions.
 
         Returns
         -------
@@ -3625,9 +3669,9 @@ class MoleculeGenerationAssemblyPool:
         Notes
         -----
         Only layers at or below ``curr_depth`` are considered, selection is
-        biased toward layers with higher statistical weights, blacklisted layers
-        are excluded, and the layer sampling weights are computed lazily on
-        first use.
+        biased toward layers with higher statistical weights, blacklisted
+        layers are excluded, and the layer sampling weights are computed
+        lazily on first use.
         """
         if black_listed_layers is None:
             black_listed_layers = []
@@ -4011,12 +4055,19 @@ class Assemble:
 
     See Pagel et al. [Pagel2024b]_ for details.
 
+    Attributes
+    ----------
+    BASE_WEIGHTS : list of float
+        Empirical probabilities of a fragment pair connecting at 1, 2, 3 or
+        4 overlapping atoms, taken from the reaction statistics in
+        [Pagel2024b]_.
+
     References
     ----------
 
     .. [Pagel2024b] Pagel, S., Sharma, A., & Cronin, L. (2024).
-           Mapping evolution of molecules across biochemistry with assembly theory.
-           arXiv preprint arXiv:2409.05993.
+           Mapping evolution of molecules across biochemistry with assembly
+           theory. arXiv preprint arXiv:2409.05993.
 
     """
 

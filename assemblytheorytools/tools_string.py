@@ -44,7 +44,8 @@ def load_fasta(file_path: str) -> str:
 
 
 def prep_joint_string_ai(input_list: list[str]) -> tuple[str, list[str]]:
-    """Combine a list of strings by concatenating them with unique delimiters.
+    """
+    Combine a list of strings by concatenating them with unique delimiters.
 
     Parameters
     ----------
@@ -97,7 +98,8 @@ def prep_joint_string_ai(input_list: list[str]) -> tuple[str, list[str]]:
 
 
 def get_unique_char(input_str: str) -> str:
-    """Find a unique character that is not present in the given input string.
+    """
+    Find a unique character that is not present in the given input string.
 
     This function first attempts to find a unique character from the set of
     printable ASCII characters. If no unique character is found, it falls
@@ -148,7 +150,8 @@ def get_unique_char(input_str: str) -> str:
 def get_undir_str_molecule(
         undir_str: str, debug: bool = False
 ) -> tuple[nx.Graph, dict[str, str]]:
-    """Create a molecular graph from an undirected string.
+    """
+    Create a molecular graph from an undirected string.
 
     The resulting molecular graph has the same assembly index as the string,
     and the paths correspond between the two.
@@ -198,7 +201,8 @@ def get_undir_str_molecule(
 
 
 def get_dir_str_molecule(dir_str: str) -> nx.Graph:
-    """Create a molecular graph from a directed string.
+    """
+    Create a molecular graph from a directed string.
 
     The assembly index of the string is determined by the molecular graph,
     and the shortest paths correspond.

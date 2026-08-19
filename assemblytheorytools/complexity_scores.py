@@ -33,7 +33,7 @@ from .tools_mol import standardize_mol
 
 def count_unique_bonds(mol: Mol) -> int:
     """
-    Counts the number of unique bonds in a molecule.
+    Count the number of unique bonds in a molecule.
 
     This function iterates over all the bonds in the given RDKit molecule object,
     identifies unique bonds based on the atom types (symbols) and bond type,
@@ -64,7 +64,7 @@ def count_unique_bonds(mol: Mol) -> int:
 
 def count_bonds(mol: Mol) -> int:
     """
-    Counts the total number of bonds in a molecule.
+    Count the total number of bonds in a molecule.
 
     This function simply returns the total number of bonds present
     in the given RDKit molecule object.
@@ -93,7 +93,7 @@ def count_bonds(mol: Mol) -> int:
 
 def count_non_h_bonds(mol: Mol) -> int:
     """
-    Counts the number of bonds in a molecule that do not involve hydrogen atoms.
+    Count the bonds in a molecule that do not involve hydrogen.
 
     This function iterates over all the bonds in the given RDKit molecule object,
     checks if either of the bonded atoms is a hydrogen atom, and counts only those
@@ -115,7 +115,7 @@ def count_non_h_bonds(mol: Mol) -> int:
 
 def molecular_weight(mol: Mol) -> float:
     """
-    Calculates the molecular weight of a molecule.
+    Calculate the molecular weight of a molecule.
 
     This function uses RDKit's molecular descriptors to compute the
     molecular weight of the given molecule.
@@ -142,7 +142,7 @@ def molecular_weight(mol: Mol) -> float:
 
 def bertz_complexity(mol: Mol) -> float:
     """
-    Calculates the Bertz complexity of a molecule.
+    Calculate the Bertz complexity of a molecule.
 
     The Bertz complexity is a molecular descriptor that quantifies the
     structural complexity of a molecule. It is based on graph theory
@@ -173,7 +173,7 @@ def bertz_complexity(mol: Mol) -> float:
 
 def wiener_index(mol: Mol) -> int:
     """
-    Calculates the Wiener index of a molecule.
+    Calculate the Wiener index of a molecule.
 
     The Wiener index is a topological descriptor that represents the sum of
     all shortest path distances between pairs of vertices in a molecular graph.
@@ -213,7 +213,7 @@ def wiener_index(mol: Mol) -> int:
 
 def balaban_index(mol: Mol) -> float:
     """
-    Calculates the Balaban index of a molecule.
+    Calculate the Balaban index of a molecule.
 
     The Balaban index is a topological descriptor that provides a measure of
     molecular connectivity. It is used in cheminformatics to study molecular
@@ -234,7 +234,7 @@ def balaban_index(mol: Mol) -> float:
 
 def randic_index(mol: Mol) -> float:
     """
-    Calculates the Randic index of a molecule.
+    Calculate the Randic index of a molecule.
 
     Randic index is a topological descriptor calculated by summing the
     inverse square roots of the product of the degrees of connected atom pairs.
@@ -264,7 +264,7 @@ def randic_index(mol: Mol) -> float:
 
 def kirchhoff_index(mol: Mol) -> float:
     """
-    Calculates the Kirchhoff index of a molecule.
+    Calculate the Kirchhoff index of a molecule.
 
     Kirchhoff index is a topological index calculated as the sum of the effective
     resistances between all pairs of vertices in the molecular graph. It is used for
@@ -296,7 +296,10 @@ def kirchhoff_index(mol: Mol) -> float:
 
 def spacial_score(mol: Mol, normalise: bool = False) -> float:
     """
-    Calculates the spacial score of a molecule. https://github.com/frog2000/Spacial-Score
+    Calculate the spacial score of a molecule.
+
+    See https://github.com/frog2000/Spacial-Score for the reference
+    implementation.
 
     Spacial score is a descriptor that quantifies the spatial arrangement
     of atoms in a molecule. It can be used to predict various molecular properties.
@@ -318,8 +321,9 @@ def spacial_score(mol: Mol, normalise: bool = False) -> float:
 
 def get_mol_descriptors(mol: Mol, missingval: Optional[Any] = None) -> Dict[str, Any]:
     """
-    Calculates molecular descriptors for a given molecule. Please note that there are a lot of descriptors.
+    Calculate molecular descriptors for a given molecule.
 
+    Note that RDKit exposes a large number of descriptors; see
     https://greglandrum.github.io/rdkit-blog/posts/2022-12-23-descriptor-tutorial.html
 
     This function iterates over all available molecular descriptors in RDKit,
@@ -351,7 +355,7 @@ def get_mol_descriptors(mol: Mol, missingval: Optional[Any] = None) -> Dict[str,
 
 def tanimoto_similarity(mol1: Mol, mol2: Mol) -> float:
     """
-    Calculates the Tanimoto similarity between two molecules.
+    Calculate the Tanimoto similarity between two molecules.
 
     Tanimoto similarity is a measure of the similarity between two sets of
     molecular fingerprints. It is commonly used in cheminformatics to compare
@@ -388,7 +392,7 @@ def tanimoto_similarity(mol1: Mol, mol2: Mol) -> float:
 
 def dice_morgan_similarity(mol1: Mol, mol2: Mol, radius: int = 3) -> float:
     """
-    Calculates the Dice similarity between two molecules using Morgan fingerprints.
+    Calculate the Dice similarity using Morgan fingerprints.
 
     Dice similarity is a measure of the similarity between two sets of
     molecular fingerprints. It is commonly used in cheminformatics to compare
@@ -522,7 +526,7 @@ def compression_zlib_smi(mol: Mol,
                          check: bool = True,
                          rm_overhead: bool = True) -> int:
     """
-    Compresses the SMILES representation of a molecule using zlib.
+    Compress the SMILES representation of a molecule using zlib.
 
     This function standardises the molecule, converts it to a SMILES string,
     compresses the string using zlib, and optionally removes compression overhead.
@@ -564,7 +568,7 @@ def compression_bz2_smi(mol: Mol,
                         check: bool = True,
                         rm_overhead: bool = True) -> int:
     """
-    Compresses the SMILES representation of a molecule using bz2.
+    Compress the SMILES representation of a molecule using bz2.
 
     This function standardises the molecule, converts it to a SMILES string,
     compresses the string using bz2, and optionally removes compression overhead.
@@ -604,7 +608,7 @@ def compression_lzma_smi(mol: Mol,
                          check: bool = True,
                          rm_overhead: bool = True) -> int:
     """
-    Compresses the SMILES representation of a molecule using lzma.
+    Compress the SMILES representation of a molecule using lzma.
 
     This function standardises the molecule, converts it to a SMILES string,
     compresses the string using lzma, and optionally removes compression overhead.
@@ -746,7 +750,7 @@ def compression_zlib_graph(graph: nx.Graph,
                            rm_overhead: bool = True
                            ) -> int:
     """
-    Compresses a graph representation using zlib.
+    Compress a graph representation using zlib.
 
     This function serialises a graph into a JSON-compatible format, compresses it using zlib,
     and optionally removes compression overhead. It can also verify the integrity of the
@@ -789,7 +793,7 @@ def compression_ratio_zlib_graph(graph: nx.Graph,
                                  rm_overhead: bool = True
                                  ) -> float:
     """
-    Calculates the compression ratio of a graph using zlib.
+    Calculate the compression ratio of a graph using zlib.
 
     This function serializes a NetworkX graph into a JSON-compatible format,
     compresses it using zlib, and calculates the compression ratio. The ratio
@@ -836,7 +840,7 @@ def compression_ratio_zlib_graph(graph: nx.Graph,
 
 def fcfp4(mol: Mol) -> int:
     """
-    Generates the FCFP_4 fingerprint (functional-based ECFP4) for a molecule.
+    Generate the FCFP_4 fingerprint (functional-based ECFP4) for a molecule.
 
     https://doi.org/10.1021/ci0503558
 
@@ -864,7 +868,7 @@ def _determine_atom_substituents(atom_id: int,
                                  mol: Mol,
                                  distance_matrix: np.ndarray) -> Tuple[Dict[int, list], Dict[int, int], Dict[int, int]]:
     """
-    Determines the substituents of an atom in a molecule.
+    Determine the substituents of an atom in a molecule.
 
     This function identifies the substituents (neighboring atoms and their shells)
     for a given atom in a molecule based on the distance matrix. It also tracks
@@ -925,7 +929,7 @@ def _determine_atom_substituents(atom_id: int,
 
 def _get_chemical_non_equivs(atom: Chem.rdchem.Atom, mol: Mol) -> float:
     """
-    Calculates the chemical non-equivalence of an atom in a molecule.
+    Calculate the chemical non-equivalence of an atom in a molecule.
 
     This function determines the number of unique substituent groups attached to an atom
     in a molecule. It uses the distance matrix of the molecule and the atom's substituents
@@ -968,7 +972,7 @@ def _get_chemical_non_equivs(atom: Chem.rdchem.Atom, mol: Mol) -> float:
 
 def _get_bottcher_local_diversity(atom: Chem.rdchem.Atom) -> float:
     """
-    Calculates the Bottcher local diversity of an atom.
+    Calculate the Bottcher local diversity of an atom.
 
     This function determines the diversity of an atom based on the unique
     neighboring atom types. It adds an additional value of 1.0 if the atom's
@@ -992,7 +996,7 @@ def _get_bottcher_local_diversity(atom: Chem.rdchem.Atom) -> float:
 
 def _get_num_isomeric_possibilities(atom: Chem.rdchem.Atom) -> float:
     """
-    Determines the number of isomeric possibilities for an atom.
+    Determine the number of isomeric possibilities for an atom.
 
     This function checks if the atom has a '_CIPCode' property, which indicates
     the presence of stereochemical information. If the property exists, the atom
@@ -1013,7 +1017,7 @@ def _get_num_isomeric_possibilities(atom: Chem.rdchem.Atom) -> float:
 
 def _get_num_valence_electrons(atom: Chem.rdchem.Atom, pt: Chem.rdchem.PeriodicTable) -> float:
     """
-    Calculates the number of valence electrons for a given atom.
+    Calculate the number of valence electrons for a given atom.
 
     This function uses the periodic table to determine the number of outer-shell
     (valence) electrons for the specified atom based on its atomic number.
@@ -1035,7 +1039,7 @@ def _get_num_valence_electrons(atom: Chem.rdchem.Atom, pt: Chem.rdchem.PeriodicT
 
 def _get_bottcher_bond_index(atom: Chem.rdchem.Atom) -> float:
     """
-    Calculates the Bottcher bond index for a given atom.
+    Calculate the Bottcher bond index for a given atom.
 
     This function computes a ranking value based on the bond types connected to the atom.
     Each bond type is assigned a specific weight, and additional adjustments are made
@@ -1082,7 +1086,7 @@ def _get_bottcher_bond_index(atom: Chem.rdchem.Atom) -> float:
 
 def bottcher(mol: Mol) -> float:
     """
-    Calculates the Bottcher complexity of a molecule.
+    Calculate the Bottcher complexity of a molecule.
 
     https://github.com/boskovicgroup/bottchercomplexity
     https://doi.org/10.1021/acs.jcim.5b00723
@@ -1135,7 +1139,7 @@ def bottcher(mol: Mol) -> float:
 
 def proudfoot(mol: Mol) -> float:
     """
-    Calculates the Proudfoot molecular complexity (C_M) of a molecule.
+    Calculate the Proudfoot molecular complexity (C_M) of a molecule.
 
     https://doi.org/10.1016/j.bmcl.2017.03.008
 
@@ -1184,7 +1188,7 @@ def proudfoot(mol: Mol) -> float:
 
 def mc1(mol: Mol) -> float:
     """
-    Calculates the molecular connectivity index (MC1) of a molecule.
+    Calculate the molecular connectivity index (MC1) of a molecule.
 
     https://pubs.acs.org/doi/full/10.1021/acs.jcim.5c00334
 
@@ -1209,7 +1213,7 @@ def mc1(mol: Mol) -> float:
 
 def mc2(mol: Mol) -> int:
     """
-    Calculates a molecular connectivity index (MC2) for a molecule.
+    Calculate a molecular connectivity index (MC2) for a molecule.
 
     https://pubs.acs.org/doi/full/10.1021/acs.jcim.5c00334
 

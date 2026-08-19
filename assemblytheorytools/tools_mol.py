@@ -134,7 +134,7 @@ def get_free_valence(atom: Chem.Atom,
 def reset_mol_charge(mol: Chem.Mol,
                      pt: Chem.rdchem.PeriodicTable = None) -> Chem.Mol:
     """
-    Adjusts the formal charges of atoms in a molecule to match their free valence.
+    Adjust the formal charges of atoms to match their free valence.
 
     Parameters
     ----------

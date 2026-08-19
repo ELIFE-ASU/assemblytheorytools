@@ -37,7 +37,9 @@ def transform_array(target_array: List[List[int]],
                     new_val: int,
                     pairs_list: List[List[int]]) -> List[List[int]]:
     """
-    Transforms the target array by replacing specific values based on the comparison array and pairs list.
+    Transform the target array by replacing specific values.
+
+    Replacements are driven by the comparison array and the pairs list.
 
     This function iterates over the comparison array and updates the target array by replacing elements
     that match the target value and source value with a new value, according to the pairs list.
@@ -72,7 +74,9 @@ def transform_array(target_array: List[List[int]],
 
 def repeated_sizes(repeated: List[Tuple[Any, Any]]) -> List[int]:
     """
-    Returns a sorted list of unique sizes of the second element in each tuple in the repeated list.
+    Return the sorted unique sizes found in a repeated list.
+
+    The size measured is that of the second element of each tuple.
 
     Parameters
     ----------
@@ -89,7 +93,7 @@ def repeated_sizes(repeated: List[Tuple[Any, Any]]) -> List[int]:
 
 def equal_list(list_a: List[List[Any]], list_b: List[List[Any]]) -> bool:
     """
-    Compares two lists of lists and checks if they contain the same elements.
+    Compare two lists of lists and check if they contain the same elements.
 
     This function converts each sublist in the input lists to a set of tuples and compares them.
     It returns True if both lists contain the same sets of tuples, otherwise False.
@@ -113,7 +117,7 @@ def equal_list(list_a: List[List[Any]], list_b: List[List[Any]]) -> bool:
 
 def check_edge_in_list(edges: List[Any], list_in: List[List[Any]]) -> bool:
     """
-    Checks if a given list of edges is present in any of the lists within a list of lists.
+    Check whether a list of edges appears in a list of lists.
 
     This function iterates over each list in the input list of lists and uses the `equal_list` function
     to check if any of these lists contain the same elements as the given list of edges.
@@ -136,7 +140,7 @@ def check_edge_in_list(edges: List[Any], list_in: List[List[Any]]) -> bool:
 
 def equivalence(remnant_pieces: List[List[Any]], equivalences: List[List[int]]) -> List[List[Any]]:
     """
-    Applies equivalence transformations to the remnant pieces based on the provided equivalences.
+    Apply equivalence transformations to the remnant pieces.
 
     This function creates a deep copy of the remnant pieces and iterates through each edge in each piece.
     If an edge's vertex matches any vertex in the equivalences list, it replaces the vertex with the corresponding
@@ -173,7 +177,9 @@ def fix_repeated_equiv(edge_list: List[Any],
                        equivalences: List[List[int]],
                        edge_pairs: List[List[int]]) -> Tuple[List[Any], List[Any], List[List[int]]]:
     """
-    Fixes repeated equivalences in the edge list by transforming the edges based on the provided equivalences.
+    Fix repeated equivalences in the edge list.
+
+    The edges are transformed according to the provided equivalences.
 
     This function identifies and resolves repeated equivalences in the edge list. It updates the edge list and
     repeated equivalences by applying transformations based on the equivalences and edge pairs.
@@ -251,7 +257,7 @@ def fix_repeated_equiv(edge_list: List[Any],
 
 def index_set(lists: List[List[Any]], list_in: List[Any]) -> Optional[int]:
     """
-    Finds the index of a list within a list of lists that matches the given list.
+    Find the index of the matching list within a list of lists.
 
     This function converts the input list and each list within the list of lists to a set of tuples.
     It then checks if any of these sets match the set of the input list and returns the index (1-based)
@@ -278,7 +284,7 @@ def index_set(lists: List[List[Any]], list_in: List[Any]) -> Optional[int]:
 
 def select_length(dict_array: Dict[str, Any]) -> Union[int, float]:
     """
-    Takes a dictionary and returns the entry for the 'len' key.
+    Take a dictionary and return the entry for the 'len' key.
 
     Parameters
     ----------
@@ -295,7 +301,7 @@ def select_length(dict_array: Dict[str, Any]) -> Union[int, float]:
 
 def tables_to_mol(tables: Tuple[List[Tuple[int, str]], List[Tuple[int, int, int]]]) -> Chem.Mol:
     """
-    Converts atom and bond information into an RDKit molecule object.
+    Convert atom and bond information into an RDKit molecule object.
 
     This function takes a tuple containing atom and bond information, constructs an RDKit RWMol object,
     adds atoms and bonds to it.
@@ -328,7 +334,7 @@ def tables_to_mol(tables: Tuple[List[Tuple[int, str]], List[Tuple[int, int, int]
 
 def tables_to_nx(tables: Tuple[List[Tuple[int, str]], List[Tuple[int, int, int]]]) -> nx.Graph:
     """
-    Converts atom and bond information into a NetworkX graph object.
+    Convert atom and bond information into a NetworkX graph object.
 
     This function takes a tuple containing atom and bond information, constructs a NetworkX graph object,
     adds nodes and edges to it, and assigns attributes to them.
@@ -398,30 +404,61 @@ class AssemblyConstruction:
     """
     Construction of assembly pathways and digraphs from pathway data.
 
-    Wraps the pathway data emitted by the assembly calculator and rebuilds the
-    corresponding assembly pathway: it generates the virtual objects, joins them
-    consistently, and assembles the result into a NetworkX directed graph
-    suitable for plotting and further analysis.
+    Wraps the pathway data emitted by the assembly calculator and rebuilds
+    the corresponding assembly pathway: it generates the virtual objects,
+    joins them consistently, and assembles the result into a NetworkX
+    directed graph suitable for plotting and further analysis.
 
-    Parameters
+    Attributes
     ----------
-    data : dict
-        The pathway data from assemblycpp, containing graph information,
-        remnants, duplicates and other assembly metadata.
-    if_string : bool, optional
-        Whether to sort combined pieces during construction. Default is False.
-    vo_type : str, optional
-        Type of virtual object representation to use ("graph", "mol", "smiles"
-        or "inchi"). Default is ``"graph"``.
-    input_graph : nx.Graph, optional
-        The original target graph, used to recover edge colours when
-        AssemblyCpp fails to print them beyond index 5. Default is None.
-
-    Notes
-    -----
-    The constructor initialises all internal data structures needed for pathway
-    construction, including vertices, edges, vertex/edge labels, remnant edges,
-    duplicates, and equivalences.
+    v : list
+        Vertices of the target graph.
+    e : list of list of int
+        Edges of the target graph, as pairs of vertex indices.
+    v_l : list
+        Vertex colours (atom types) of the target graph.
+    e_l : list
+        Edge colours (bond orders) of the target graph.
+    remnant_e : list
+        Remnant edges, i.e. those left over once the duplicated subgraphs
+        have been accounted for.
+    duplicates : list of list
+        Duplicated subgraph pairs reported by the calculator, as ``[right,
+        left]`` edge lists.
+    equivalences : list of list
+        Equivalence mappings between duplicated subgraphs.
+    if_string : bool
+        Whether combined pieces are sorted during construction.
+    vo_type : str
+        Virtual object representation used for the output.
+    atoms : list
+        Unique ``[{atom types}, bond order]`` records, one per distinct
+        bond.
+    atoms_list : list
+        The same bonds as ``atoms``, but with the atom types kept ordered.
+    atoms_list_index : list
+        Vertex index pairs matching the entries of ``atoms_list``.
+    full_atoms_list : list
+        One ``[[atom types], bond order]`` record per edge, without
+        deduplication.
+    steps : list
+        Pathway steps, populated by :meth:`generate_pathway`.
+    digraph : list of list of str
+        Edge list of the assembly digraph, populated by
+        :meth:`generate_pathway`.
+    pieces_mod : list
+        Remaining pathway fragments, populated by :meth:`generate_pathway`.
+    molecules_vo : list
+        Virtual objects of the pathway, populated by :meth:`generate_vo`.
+    molecules_steps : list
+        Steps associated with each virtual object, populated by
+        :meth:`generate_vo`.
+    steps_indx_s : list
+        Step indices of the virtual objects, populated by
+        :meth:`generate_vo`.
+    vs_atoms : list
+        Atom records of the virtual objects, populated by
+        :meth:`generate_vo`.
     """
 
     def __init__(self,
@@ -429,6 +466,28 @@ class AssemblyConstruction:
                  if_string: bool = False,
                  vo_type: str = "graph",
                  input_graph: Optional[nx.Graph] = None) -> None:
+        """
+        Initialise the construction from calculator pathway data.
+
+        Unpacks the vertices, edges and colours of the target graph,
+        resolves the remnant edges, duplicates and equivalences, and builds
+        the atom records used throughout pathway construction.
+
+        Parameters
+        ----------
+        data : dict
+            The pathway data from assemblycpp, containing graph information,
+            remnants, duplicates and other assembly metadata.
+        if_string : bool, optional
+            Whether to sort combined pieces during construction. Default is
+            False.
+        vo_type : str, optional
+            Type of virtual object representation to use ("graph", "mol",
+            "smiles" or "inchi"). Default is ``"graph"``.
+        input_graph : nx.Graph, optional
+            The original target graph, used to recover edge colours when
+            AssemblyCpp fails to print them beyond index 5. Default is None.
+        """
         self.v = data["file_graph"][0]['Vertices']
         self.e = data["file_graph"][0]['Edges']
         self.v_l = data["file_graph"][0]['VertexColours']
@@ -527,27 +586,33 @@ class AssemblyConstruction:
 
         def add_digraph_entry(piece: List[Any], step: int) -> None:
             """
-            Append an edge to the digraph indicating a dependency between a prior step or
-            virtual object (`piece`) and the current step.
+            Append a dependency edge to the digraph.
 
-            This helper function attempts to identify the origin of `piece` by checking:
+            The edge records that the current step depends on a prior step
+            or virtual object (``piece``).
+
+            This helper function attempts to identify the origin of `piece`
+            by checking:
                 - If it's a known left-side repeated motif (`left_sort`)
                 - If it's a right-side repeated motif (`right_sort`)
                 - If it's already part of a previously constructed step (`steps_mod`)
 
-            If no match is found, an "_error" label is used as a fallback source in the digraph.
+            If no match is found, an "_error" label is used as a fallback
+            source in the digraph.
 
             Parameters
             ----------
             piece : list
-                A graph fragment or reaction step being traced as a source node.
+                A graph fragment or reaction step being traced as a source
+                node.
             step : int
                 The current step index being constructed as the target node.
 
             Returns
             -------
             None
-                Modifies the `digraph` list in-place by appending a [source, target] entry.
+                Modifies the `digraph` list in-place by appending a [source,
+                target] entry.
             """
             if piece in left_sort:
                 source = f"step_{indexes[left_sort.index(piece)]}"
@@ -829,7 +894,7 @@ class AssemblyConstruction:
 
     def get_assembly_digraph(self) -> Tuple[nx.DiGraph, List[Any]]:
         """
-        Creates a directed graph representation of the assembly pathway.
+        Create a directed graph representation of the assembly pathway.
 
         Each node is connected according to self.digraph and contains attributes:
         - type: 'virtual_object' or 'step'
@@ -989,7 +1054,7 @@ def parse_pathway_file(file: str,
 
 def get_level(G: nx.DiGraph, node: str) -> int | None:
     """
-    Returns the level of a node in a graph.
+    Return the level of a node in a graph.
 
     Parameters
     ----------
@@ -1017,22 +1082,25 @@ def get_level(G: nx.DiGraph, node: str) -> int | None:
 
 def assign_levels(G: nx.DiGraph, inplace: bool = True) -> None | nx.DiGraph:
     """
-    Assigns assembly depth to nodes in a graph.
-    For consistency, assembly depth is referred to as "level" in this context.
+    Assign assembly depth to the nodes of a graph.
+
+    For consistency, assembly depth is referred to as "level" in this
+    context.
 
     Parameters
     ----------
     G : nx.DiGraph
-        A directed graph where nodes represent (sub-)objects and edges represent assembly steps.
+        A directed graph where nodes represent (sub-)objects and edges
+        represent assembly steps.
     inplace : bool, optional
-        If True, modifies the graph in place. If False, returns a modified copy,
-        by default True.
+        If True, modifies the graph in place. If False, returns a modified
+        copy, by default True.
 
     Returns
     -------
     None or nx.DiGraph
-        If inplace is True, modifies the graph in place and returns None.
-        If inplace is False, returns a new graph with updated node attributes.
+        If inplace is True, modifies the graph in place and returns None. If
+        inplace is False, returns a new graph with updated node attributes.
 
     Raises
     ------
@@ -1041,8 +1109,8 @@ def assign_levels(G: nx.DiGraph, inplace: bool = True) -> None | nx.DiGraph:
 
     Notes
     -----
-    Nodes are visited in insertion order, so a predecessor must appear before
-    its successors for the levels to resolve.
+    Nodes are visited in insertion order, so a predecessor must appear
+    before its successors for the levels to resolve.
 
     The pathway returned by
     :func:`~assemblytheorytools.assembly.calculate_assembly_index` is
@@ -1138,7 +1206,7 @@ def immediate_predecessors(data: Dict[str, Any], interval: Tuple[int, int]) -> L
 
 def build_str(interval: Union[List[int], Tuple[int, int]], data: Dict[str, Any], path: nx.DiGraph) -> nx.DiGraph:
     """
-    Builds the string from the pathway data and adds it to the path.
+    Build the string from the pathway data and add it to the path.
 
     Parameters
     ----------
@@ -1180,7 +1248,8 @@ def build_str(interval: Union[List[int], Tuple[int, int]], data: Dict[str, Any],
 
 def parse_string_pathway_file(file_path_pathway: str) -> Tuple[List[str], nx.DiGraph]:
     """
-    Parses a pathway file and returns the pathway as a list of virtual objects.
+    Parse a pathway file and return the pathway as a list of virtual
+    objects.
 
     Parameters
     ----------
@@ -1221,7 +1290,7 @@ def parse_string_pathway_file(file_path_pathway: str) -> Tuple[List[str], nx.DiG
 
 def molstr_to_str(molstr: nx.Graph, edge_color_dict: Optional[Dict[str, str]] = None) -> str:
     """
-    Takes a mol string and translates it into the corresponding string.
+    Take a mol string and translates it into the corresponding string.
 
     Parameters
     ----------
@@ -1264,8 +1333,10 @@ def convert_digraph_vo_to_target(graph: nx.DiGraph,
                                  sanitize: bool = True,
                                  ) -> nx.DiGraph:
     """
-    Converts the virtual object (VO) representation of nodes in a directed graph
-    to a specified target format.
+    Convert the virtual objects of a directed graph to a target format.
+
+    Rewrites the virtual object (VO) representation stored on each node of
+    the graph into the requested chemical format.
 
     Parameters
     ----------
@@ -1279,9 +1350,11 @@ def convert_digraph_vo_to_target(graph: nx.DiGraph,
         - 'mol': Convert to RDKit Mol object.
         Default is 'smi'.
     add_hydrogens : bool, optional
-        Whether to add hydrogens during the conversion process, by default False.
+        Whether to add hydrogens during the conversion process, by default
+        False.
     sanitize : bool, optional
-        Whether to sanitize the molecule during the conversion process, by default True.
+        Whether to sanitize the molecule during the conversion process, by
+        default True.
 
     Returns
     -------
@@ -1292,7 +1365,8 @@ def convert_digraph_vo_to_target(graph: nx.DiGraph,
     Raises
     ------
     ValueError
-        If the specified target format is not one of 'smi', 'inchi', or 'mol'.
+        If the specified target format is not one of 'smi', 'inchi', or
+        'mol'.
 
     Notes
     -----
@@ -1318,7 +1392,7 @@ def get_vos_on_layer(digraph: nx.DiGraph,
                      add_hydrogens: bool = False,
                      sanitize: bool = True) -> Union[List, List[List]]:
     """
-    Retrieves virtual objects (VOs) from specific layers in a directed graph.
+    Retrieve virtual objects (VOs) from specific layers in a directed graph.
 
     This function processes a directed graph to convert its virtual object (VO) representations
     to a specified format, assigns a "layer" attribute to each node, and extracts the VOs
@@ -1360,7 +1434,20 @@ def get_vos_on_layer(digraph: nx.DiGraph,
     digraph = set_graph_layer(digraph)
 
     def vos_on(layer_id: int) -> List[Any]:
-        """Collect the 'vo' attribute of every node sitting on *layer_id*."""
+        """
+        Collect the virtual object of every node sitting on a given layer.
+
+        Parameters
+        ----------
+        layer_id : int
+            The layer to collect virtual objects from.
+
+        Returns
+        -------
+        list of Any
+            The ``'vo'`` attribute of each node on ``layer_id``, in graph
+            order.
+        """
         return [data.get('vo') for _, data in digraph.nodes(data=True) if data.get("layer") == layer_id]
 
     # If a single layer is specified, retrieve VOs from that layer

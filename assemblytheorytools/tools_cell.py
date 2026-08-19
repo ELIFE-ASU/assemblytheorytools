@@ -405,17 +405,21 @@ def guess_bond_orders(
         max_bond_order: int = 4,
 ) -> Tuple[nx.Graph, bool, Dict]:
     """
-    Assign bond orders to edges in a molecular graph using constraint satisfaction.
+    Assign bond orders to edges in a molecular graph using constraint
+    satisfaction.
 
-    This function uses backtracking search with constraint propagation to assign
-    bond orders that satisfy atomic valence requirements based on periodic table data.
+    This function uses backtracking search with constraint propagation to
+    assign bond orders that satisfy atomic valence requirements based on
+    periodic table data.
 
     Parameters
     ----------
     G : nx.Graph
-        Input molecular graph with nodes having 'color' attribute (element symbol).
+        Input molecular graph with nodes having 'color' attribute (element
+        symbol).
     formal_charge_attr : Optional[str], optional
-        Attribute name for formal charge on nodes. Default is "formal_charge".
+        Attribute name for formal charge on nodes. Default is
+        "formal_charge".
     max_bond_order : int, optional
         Maximum allowed bond order. Default is 4.
 
@@ -426,8 +430,19 @@ def guess_bond_orders(
     success : bool
         True if all valence constraints were satisfied, False otherwise.
     info : Dict
-        Diagnostic information including target valences, remaining valences,
-        and search statistics.
+        Diagnostic information including target valences, remaining
+        valences, and search statistics.
+
+    Raises
+    ------
+    ValueError
+        If a node carries an element symbol that is not in the periodic
+        table.
+
+    Warns
+    -----
+    UserWarning
+        Always, because the bond order search is experimental.
     """
 
     # Raise a warning that the code is experimental

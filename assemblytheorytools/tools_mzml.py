@@ -117,12 +117,13 @@ def _make_logger(
 
 class _ProtoFormatter(logging.Formatter):
     """
-    Custom logging formatter that applies ANSI color codes to log messages
-    based on their severity level.
+    Logging formatter that colours messages by severity.
 
-    This formatter colors the log level and message differently for DEBUG, INFO,
-    WARNING, ERROR, and CRITICAL levels, and includes a timestamp and logger name
-    in the output.
+    ANSI colour codes are applied to log messages according to their level.
+
+    This formatter colors the log level and message differently for DEBUG,
+    INFO, WARNING, ERROR, and CRITICAL levels, and includes a timestamp and
+    logger name in the output.
     """
 
     def format(self, record: logging.LogRecord) -> str:
@@ -160,11 +161,13 @@ class _ProtoFormatter(logging.Formatter):
 
 class _UnsupportedCompressionMethod(Exception):
     """
-    Exception raised when an unsupported compression method is encountered
-    during mzML file parsing.
+    Exception raised for an unsupported compression method.
 
-    This exception should be raised if the code encounters a compression type
-    that is not implemented or recognized.
+    Signals that an mzML file declares a compression type that the parser
+    does not implement.
+
+    This exception should be raised if the code encounters a compression
+    type that is not implemented or recognized.
 
     Examples
     --------
@@ -174,22 +177,66 @@ class _UnsupportedCompressionMethod(Exception):
 
 class _Spectrum(object):
     """
-    Class for representing a Spectrum object from mzML files.
+    A single spectrum read from an mzML file.
 
-    This class encapsulates the data and methods required to decode, decompress,
-    and serialize mass spectrometry spectrum data, including m/z and intensity arrays,
-    retention time, precursor information, and more.
+    This class encapsulates the data and methods required to decode,
+    decompress, and serialize mass spectrometry spectrum data, including m/z
+    and intensity arrays, retention time, precursor information, and more.
 
-    Parameters
+    Attributes
     ----------
+    scan : str
+        Scan number of the spectrum.
+    array_length : str
+        Number of points in the binary m/z and intensity arrays.
+    ms_level : str
+        MS level of the spectrum ("1" for MS1, "2" for MS2, and so on).
+    precursors : list
+        Precursor m/z values recorded for the spectrum.
+    precursors_scans : list
+        Scan numbers of the precursor spectra.
+    parent_mass : str
+        m/z of the parent ion the spectrum was fragmented from.
+    parent_scan : str
+        Scan number of the parent spectrum.
+    retention_time : str
+        Retention time of the spectrum, in minutes.
+    d_type : str
+        Binary data type, normalised to ``'f'`` (32-bit) or ``'d'`` (64-bit)
+        by :meth:`_set_data_type`.
+    compression : str
+        Compression method declared for the binary arrays.
+    mz : str or list of float
+        Base64 m/z array, replaced by the decoded values once
+        :meth:`decode_and_decompress` has run.
+    intensity : str or list of float
+        Base64 intensity array, replaced by the decoded values once
+        :meth:`decode_and_decompress` has run.
+    hcd : str
+        Collision energy used to acquire the spectrum.
+    serialized : dict
+        The m/z to intensity mapping produced by :meth:`serialize`.
     intensity_threshold : int
-        Threshold for cutting intensities below this value.
-    relative : bool, optional
-        If True, intensities of individual ions in spectra are displayed as relative (%)
-        rather than absolute units. Default is False.
+        Threshold below which intensities are discarded.
+    relative : bool
+        Whether intensities are reported relative to the base peak.
     """
 
     def __init__(self, intensity_threshold, relative=False):
+        """
+        Create an empty spectrum container.
+
+        All spectrum fields start empty and are filled in as the mzML file
+        is parsed; only the intensity handling options are set here.
+
+        Parameters
+        ----------
+        intensity_threshold : int
+            Threshold for cutting intensities below this value.
+        relative : bool, optional
+            If True, intensities of individual ions in spectra are displayed
+            as relative (%) rather than absolute units. Default is False.
+        """
         self.scan = ""
         self.array_length = ""
         self.ms_level = ""
@@ -211,7 +258,12 @@ class _Spectrum(object):
         """
         Set the data type of the binary data within the spectrum.
 
-        Sets self.d_type to 'f' for 32-bit or 'd' for 64-bit floating point data.
+        Sets self.d_type to 'f' for 32-bit or 'd' for 64-bit floating point
+        data.
+
+        Returns
+        -------
+        None
         """
         if "32" in self.d_type:
             self.d_type = "f"
@@ -220,10 +272,16 @@ class _Spectrum(object):
 
     def process(self):
         """
-        Process the spectrum by decoding and decompressing the m/z and intensity data.
+        Process the spectrum by decoding and decompressing the m/z and
+        intensity data.
 
-        Decodes the m/z and intensity data from Base64, decompresses if required,
-        converts to float arrays, and serializes the spectrum data.
+        Decodes the m/z and intensity data from Base64, decompresses if
+        required, converts to float arrays, and serialises the spectrum
+        data.
+
+        Returns
+        -------
+        None
         """
         self._set_data_type()
         self.decode_and_decompress()
@@ -234,6 +292,11 @@ class _Spectrum(object):
         Decode binary data from Base64 and decompress if necessary.
 
         Converts the binary m/z and intensity data to lists of floats.
+
+        Returns
+        -------
+        None
+
         Raises
         ------
         _UnsupportedCompressionMethod
@@ -503,29 +566,13 @@ class _InvalidInputFile(Exception):
 
 class _MzmlParser:
     """
-    Class for parsing an mzML file and extracting MS spectra data.
+    Parser for an mzML file, extracting MS spectra data.
 
-    This parser reads an mzML file, extracts all MS1 and MS2 spectra along with
-    retention time, parent mass, and other relevant metadata, and can output the
-    results as a JSON file. It supports multi-threaded processing of spectra and
-    handles both absolute and relative intensity representations.
-
-    Parameters
-    ----------
-    filename : str
-        Path to the mzML file to parse.
-    output_dir : str
-        Directory the extracted spectra are written to. The path is resolved
-        to an absolute path.
-    rt_units : int or None, optional
-        Retention time units used by the source file. Only ``"sec"`` triggers
-        a conversion (divides by 60); any other value, including the default
-        ``None``, is treated as already being in minutes.
-    int_threshold : int, optional
-        Minimum intensity for a peak to be retained. Defaults to 1000.
-    relative_intensity : bool, optional
-        If True, report intensities relative to the base peak rather than as
-        absolute values. Defaults to False.
+    This parser reads an mzML file, extracts all MS1 and MS2 spectra along
+    with retention time, parent mass, and other relevant metadata, and can
+    output the results as a JSON file. It supports multi-threaded processing
+    of spectra and handles both absolute and relative intensity
+    representations.
 
     Attributes
     ----------
@@ -563,6 +610,30 @@ class _MzmlParser:
             int_threshold: Optional[int] = 1000,
             relative_intensity: Optional[bool] = False,
     ):
+        """
+        Create a parser for a single mzML file.
+
+        Sets up the logger, the regex mapper used to read mzML lines, and
+        the empty spectrum containers the parse fills in.
+
+        Parameters
+        ----------
+        filename : str
+            Path to the mzML file to parse.
+        output_dir : str
+            Directory the extracted spectra are written to. The path is
+            resolved to an absolute path.
+        rt_units : int or None, optional
+            Retention time units used by the source file. Only ``"sec"``
+            triggers a conversion (divides by 60); any other value,
+            including the default ``None``, is treated as already being in
+            minutes.
+        int_threshold : int, optional
+            Minimum intensity for a peak to be retained. Defaults to 1000.
+        relative_intensity : bool, optional
+            If True, report intensities relative to the base peak rather
+            than as absolute values. Defaults to False.
+        """
         self.logger = _make_logger("MzMLRipper")
         self.filename = filename
         self.output_dir = os.path.abspath(output_dir)
@@ -585,10 +656,15 @@ class _MzmlParser:
 
         Ensures the file exists, is a file, and has the '.mzML' extension.
 
+        Returns
+        -------
+        None
+
         Raises
         ------
         _InvalidInputFile
-            If the file does not exist, is not a file, or does not have the correct extension.
+            If the file does not exist, is not a file, or does not have the
+            correct extension.
         """
         if not os.path.isfile(self.filename) or not self.filename.endswith(
                 ".mzML"
@@ -645,6 +721,10 @@ class _MzmlParser:
         ----------
         ms_levels : list of list of _Spectrum
             Collections of MS spectra, one list per MS level.
+
+        Returns
+        -------
+        None
         """
         pool = [
             Thread(target=self.process_spectra, args=(ms,)) for ms in ms_levels
@@ -660,7 +740,11 @@ class _MzmlParser:
         Parameters
         ----------
         spectra : list of _Spectrum
-            List of Spectrum objects to process and serialize.
+            List of Spectrum objects to process and serialise.
+
+        Returns
+        -------
+        None
         """
         for spec in spectra:
             spec.process()
@@ -735,6 +819,10 @@ class _MzmlParser:
         ----------
         line : str
             Line from the mzML file.
+
+        Returns
+        -------
+        None
         """
         # Currently not in a spectrum, set the spectrum flag
         if not self.in_spectrum:
@@ -759,12 +847,17 @@ class _MzmlParser:
         """
         Initiate the spectrum data gathering process.
 
-        Checks for a spectrum index tag and, if found, initializes a new spectrum.
+        Checks for a spectrum index tag and, if found, initialises a new
+        spectrum.
 
         Parameters
         ----------
         line : str
             Line from the mzML file.
+
+        Returns
+        -------
+        None
         """
         # Extract the spectrum ID
         spec_id = _value_finder(self.re_expr["spec_index"], line)
@@ -790,10 +883,15 @@ class _MzmlParser:
         line : str
             Line from the mzML file.
 
+        Returns
+        -------
+        None
+
         Raises
         ------
         Exception
-            If unable to determine what kind of binary data is being processed.
+            If unable to determine what kind of binary data is being
+            processed.
         """
         # MS Level
         if "MS:1000511" in line:
@@ -880,7 +978,12 @@ class _MzmlParser:
         Parameters
         ----------
         filter_string : str
-            String containing parent information, typically from the mzML filter line.
+            String containing parent information, typically from the mzML
+            filter line.
+
+        Returns
+        -------
+        None
         """
         # Below MS level 3
         if int(self.spec.ms_level) < 3:

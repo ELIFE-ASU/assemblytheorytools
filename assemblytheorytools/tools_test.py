@@ -17,7 +17,8 @@ T = TypeVar("T")
 
 
 def check_elements(input_list: Sequence[T], reference_list: Sequence[T]) -> bool:
-    """Check if all elements in an input list are present in a reference list.
+    """
+    Check if all elements in an input list are present in a reference list.
 
     Returns ``False`` for an empty input list.
 
@@ -40,7 +41,8 @@ def check_elements(input_list: Sequence[T], reference_list: Sequence[T]) -> bool
 
 
 def print_graph_details(graph: nx.Graph) -> None:
-    """Print the details of a graph.
+    """
+    Print the details of a graph.
 
     This function prints the details of a graph, including node indices, node
     colors, edge connections, and edge colors.
@@ -67,7 +69,8 @@ def print_graph_details(graph: nx.Graph) -> None:
 
 
 def water_graph() -> nx.Graph:
-    """Construct a graph representation of a water molecule.
+    """
+    Construct a graph representation of a water molecule.
 
     The graph consists of three nodes representing the atoms in a water molecule:
     one oxygen (O) and two hydrogens (H). Edges represent bonds between the
@@ -91,7 +94,8 @@ def water_graph() -> nx.Graph:
 
 
 def phosphine_graph() -> nx.Graph:
-    """Construct a graph representation of a phosphine molecule.
+    """
+    Construct a graph representation of a phosphine molecule.
 
     The graph consists of four nodes representing the atoms in a phosphine
     molecule: one phosphorus (P) and three hydrogens (H). Edges represent
@@ -117,7 +121,8 @@ def phosphine_graph() -> nx.Graph:
 
 
 def ph_2p_graph() -> nx.Graph:
-    """Construct a graph representation of a simple phosphine-like molecule.
+    """
+    Construct a graph representation of a simple phosphine-like molecule.
 
     The system is +2 charged, with two phosphorus atoms and one hydrogen atom.
     The graph consists of two nodes representing the atoms: one phosphorus (P)
@@ -140,7 +145,8 @@ def ph_2p_graph() -> nx.Graph:
 
 
 def co2_graph() -> nx.Graph:
-    """Construct a graph representation of a carbon dioxide (CO2) molecule.
+    """
+    Construct a graph representation of a carbon dioxide (CO2) molecule.
 
     The graph consists of three nodes representing the atoms in a CO2 molecule:
     one carbon (C) and two oxygens (O). Edges represent bonds between the
@@ -165,7 +171,8 @@ def co2_graph() -> nx.Graph:
 
 @dataclass(frozen=True)
 class Molecule:
-    """A container for molecule metadata.
+    """
+    A container for molecule metadata.
 
     Attributes
     ----------
@@ -193,7 +200,8 @@ class Molecule:
 
 
 def _load_molecules() -> dict[str, Molecule]:
-    """Load molecule records from a CSV and return a mapping.
+    """
+    Load molecule records from a CSV and return a mapping.
 
     The CSV is expected to contain the following columns (whitespace is
     trimmed):

@@ -531,7 +531,7 @@ def compile_assembly_cpp() -> None:
 
 def joint_assembly_index_correction(mol: Union[nx.Graph, Chem.Mol], ass_index: int) -> int:
     """
-    Corrects the assembly index based on the joint assembly components.
+    Correct the assembly index based on the joint assembly components.
 
     Parameters
     ----------

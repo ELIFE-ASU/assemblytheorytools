@@ -2315,32 +2315,38 @@ def enumerate_stereoisomers_shortest(
         prefer: str = "synonym",
 ):
     """
-    Enumerate stereoisomers of a molecule and return the SMILES string of the isomer
-    with the shortest name.
+    Enumerate stereoisomers and return the one with the shortest name.
 
-    This function generates all possible stereoisomers of the given molecule, retrieves
-    their names from PubChem, and returns the SMILES string of the isomer with the
-    shortest name. If no valid names are found, the canonical SMILES of the input
-    molecule is returned.
+    The SMILES string of the stereoisomer whose PubChem name is shortest is
+    returned.
+
+    This function generates all possible stereoisomers of the given
+    molecule, retrieves their names from PubChem, and returns the SMILES
+    string of the isomer with the shortest name. If no valid names are
+    found, the canonical SMILES of the input molecule is returned.
 
     Parameters
     ----------
     mol : rdkit.Chem.Mol
-        The input RDKit molecule object for which stereoisomers are to be enumerated.
+        The input RDKit molecule object for which stereoisomers are to be
+        enumerated.
     max_isomers : int, optional
         The maximum number of stereoisomers to generate. Default is 30.
     only_unassigned : bool, optional
-        If True, only enumerate stereoisomers for unassigned stereocenters. Default is False.
+        If True, only enumerate stereoisomers for unassigned stereocenters.
+        Default is False.
     try_embedding : bool, optional
-        If True, attempt to embed the stereoisomers in 3D space. Default is False.
+        If True, attempt to embed the stereoisomers in 3D space. Default is
+        False.
     prefer : str, optional
-        The preferred type of name to retrieve from PubChem ('synonym' or 'iupac'). Default is 'synonym'.
+        The preferred type of name to retrieve from PubChem ('synonym' or
+        'iupac'). Default is 'synonym'.
 
     Returns
     -------
     str
-        The SMILES string of the stereoisomer with the shortest name, or the canonical
-        SMILES of the input molecule if no valid names are found.
+        The SMILES string of the stereoisomer with the shortest name, or the
+        canonical SMILES of the input molecule if no valid names are found.
 
     Notes
     -----

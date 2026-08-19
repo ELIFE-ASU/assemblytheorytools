@@ -37,7 +37,9 @@ def mp_calc(func: Callable[[Any], Any],
             n: int = mp.cpu_count(),
             **kwargs) -> list[Any]:
     """
-    Executes a function in parallel using a process pool, supporting keyword arguments.
+    Execute a function in parallel using a process pool.
+
+    Keyword arguments are supported.
 
     Parameters
     ----------
@@ -96,7 +98,9 @@ def mp_calc_star(func: Callable[..., Any],
                  n: int = mp.cpu_count(),
                  **kwargs) -> list[Any]:
     """
-    Executes a function in parallel using a process pool with multiple arguments, supporting keyword arguments.
+    Execute a function in parallel over multiple arguments.
+
+    A process pool is used, and keyword arguments are supported.
 
     Parameters
     ----------
@@ -124,9 +128,9 @@ def tp_calc(func: Callable[[Any], Any],
             n: int = mp.cpu_count(),
             **kwargs) -> list[Any]:
     """
-    Executes a function in parallel using a thread pool, supporting keyword arguments.
+    Execute a function in parallel using a thread pool.
 
-    Works best for I/O-bound tasks.
+    Keyword arguments are supported. Works best for I/O-bound tasks.
 
     Parameters
     ----------
@@ -157,7 +161,9 @@ def mp_calc_chunked(
         **kwargs
 ) -> list[Any]:
     """
-    Executes a function in parallel using a process pool, with optional chunking and keyword arguments.
+    Execute a function in parallel with optional chunking.
+
+    A process pool is used, and keyword arguments are supported.
 
     Parameters
     ----------

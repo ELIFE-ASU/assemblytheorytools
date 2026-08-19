@@ -403,7 +403,7 @@ def is_graph_isomorphic(g1: nx.Graph, g2: nx.Graph) -> bool:
 
 def scramble_node_indices(graph: nx.Graph, seed: int | None = None) -> nx.Graph:
     """
-    Returns a new graph with randomly scrambled node labels.
+    Return a new graph with randomly scrambled node labels.
 
     Parameters
     ----------
@@ -518,7 +518,7 @@ def join_graphs(graphs: List[nx.Graph], disjoint: int = True, rename_prefix: str
 
 def write_graphml(graph: nx.Graph, file_name: str = "graph.graphml") -> None:
     """
-    Writes a NetworkX graph to a GraphML file.
+    Write a NetworkX graph to a GraphML file.
 
     Parameters
     ----------
@@ -536,7 +536,7 @@ def write_graphml(graph: nx.Graph, file_name: str = "graph.graphml") -> None:
 
 def read_graphml(file_name: str = "graph.graphml") -> nx.Graph:
     """
-    Reads a NetworkX graph from a GraphML file.
+    Read a NetworkX graph from a GraphML file.
 
     Parameters
     ----------
@@ -866,7 +866,7 @@ def longest_path_length(digraph: nx.DiGraph) -> int:
 
 def relabel_digraph(graph: nx.DiGraph) -> nx.DiGraph:
     """
-    Relabels the nodes of a directed graph with their topological step.
+    Relabel the nodes of a directed graph with their topological step.
 
     This function assigns a "label" attribute to each node in the graph,
     where the label indicates the topological step (generation) of the node
@@ -1044,7 +1044,9 @@ def compose_graphs(graphs: Iterable[nx.Graph]) -> Union[nx.Graph, nx.DiGraph, nx
 
 def set_graph_layer(digraph: nx.DiGraph) -> nx.DiGraph:
     """
-    Assigns a "layer" attribute to each node in a directed acyclic graph (DAG) based on its topological generation.
+    Assign a "layer" attribute to each node of a DAG.
+
+    The layer is taken from the node's topological generation.
 
     This function iterates through the topological generations of the input directed graph
     and assigns a "layer" attribute to each node. The layer number corresponds to the
@@ -1102,13 +1104,15 @@ def strip_digraph_layer(digraph: nx.DiGraph, layer: int) -> nx.DiGraph:
 
 def top_n_degree_subgraph(G: nx.DiGraph, n: int, must_keep: List[nx.Graph]) -> nx.DiGraph:
     """
-    Extract a subgraph containing the top `n` nodes with the highest degrees,
-    while ensuring that specific subgraphs are retained.
+    Extract a subgraph of the highest-degree nodes.
 
-    This function creates a subgraph from the input directed graph `G` by selecting
-    the top `n` nodes based on their degree (sum of in-degree and out-degree).
-    Additionally, it ensures that nodes corresponding to the `must_keep` subgraphs
-    are included in the resulting subgraph.
+    The top ``n`` nodes by degree are kept, while ensuring that specific
+    subgraphs are retained.
+
+    This function creates a subgraph from the input directed graph `G` by
+    selecting the top `n` nodes based on their degree (sum of in-degree and
+    out-degree). Additionally, it ensures that nodes corresponding to the
+    `must_keep` subgraphs are included in the resulting subgraph.
 
     Parameters
     ----------
@@ -1122,16 +1126,17 @@ def top_n_degree_subgraph(G: nx.DiGraph, n: int, must_keep: List[nx.Graph]) -> n
     Returns
     -------
     nx.DiGraph
-        A subgraph of the input graph `G` containing the top `n` nodes by degree
-        and nodes corresponding to the `must_keep` subgraphs.
+        A subgraph of the input graph `G` containing the top `n` nodes by
+        degree and nodes corresponding to the `must_keep` subgraphs.
 
     Notes
     -----
     - If the `must_keep` subgraphs contain hydrogen atoms ('H') but the input graph
-      does not, the comparison is made against hydrogen-free copies of them. The
-      caller's `must_keep` graphs are not modified.
+      does not, the comparison is made against hydrogen-free copies of them.
+      The caller's `must_keep` graphs are not modified.
     - The function ensures that all nodes in the `must_keep` subgraphs are included
-      in the resulting subgraph, even if they are not among the top `n` nodes by degree.
+      in the resulting subgraph, even if they are not among the top `n`
+      nodes by degree.
     """
     # Create a copy of the input graph to avoid modifying the original
     G = G.copy()
