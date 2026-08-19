@@ -25,7 +25,7 @@ from rdkit.Chem.EnumerateStereoisomers import EnumerateStereoisomers, StereoEnum
 from scipy.optimize import minimize
 from scipy.signal import savgol_filter, find_peaks
 from scipy.stats import gaussian_kde
-from typing import List, Optional, Tuple, Union
+from typing import Any, Callable, List, Optional, Tuple, Union
 from urllib.request import Request, urlopen
 
 from .complexity_scores import count_bonds, count_non_h_bonds, molecular_weight
@@ -1152,7 +1152,7 @@ def sample_pubchem_cid_smiles_gz(
     return cids, smiles_list
 
 
-def _valid_mol(s):
+def _valid_mol(s: str) -> bool:
     """
     Validate a SMILES string by attempting to convert and standardize it.
 
@@ -1351,7 +1351,7 @@ def load_ir_jcamp_data(path: str) -> np.ndarray:
     float_re = re.compile(r"[-+]?\d*\.?\d+(?:[Ee][-+]?\d+)?")
     int_re = re.compile(r"[-+]?\d+")
 
-    def _extract_numbers(line: str):
+    def _extract_numbers(line: str) -> List[float]:
         """
         Extract numerical values from a line of text.
 
@@ -1809,7 +1809,9 @@ def find_n_peak_indices_in_range(
     return len(peak_indices)
 
 
-def apply_sg_filter(spectrum, window_length=9, polyorder=3):
+def apply_sg_filter(spectrum: np.ndarray,
+                    window_length: int = 9,
+                    polyorder: int = 3) -> np.ndarray:
     """
     Apply a Savitzky-Golay filter to smooth the intensity values of a spectrum.
 
@@ -1838,7 +1840,9 @@ def apply_sg_filter(spectrum, window_length=9, polyorder=3):
     return np.column_stack((np.asarray(spectrum.T[0], dtype=float), np.asarray(intensity, dtype=float)))
 
 
-def linear_func(x, m, b):
+def linear_func(x: Union[float, np.ndarray],
+                m: float,
+                b: float) -> Union[float, np.ndarray]:
     """
     Linear function to model a straight line.
 
@@ -1859,7 +1863,10 @@ def linear_func(x, m, b):
     return m * x + b
 
 
-def quadratic_func(x, a, b, c):
+def quadratic_func(x: Union[float, np.ndarray],
+                   a: float,
+                   b: float,
+                   c: float) -> Union[float, np.ndarray]:
     """
     Quadratic function to model a parabola.
 
@@ -1882,7 +1889,11 @@ def quadratic_func(x, a, b, c):
     return a * x ** 2 + b * x + c
 
 
-def cubic_func(x, a, b, c, d):
+def cubic_func(x: Union[float, np.ndarray],
+               a: float,
+               b: float,
+               c: float,
+               d: float) -> Union[float, np.ndarray]:
     """
     Cubic function to model a polynomial of degree 3.
 
@@ -1907,7 +1918,12 @@ def cubic_func(x, a, b, c, d):
     return a * x ** 3 + b * x ** 2 + c * x + d
 
 
-def quartic_func(x, a, b, c, d, e):
+def quartic_func(x: Union[float, np.ndarray],
+                 a: float,
+                 b: float,
+                 c: float,
+                 d: float,
+                 e: float) -> Union[float, np.ndarray]:
     """
     Quartic function to model a polynomial of degree 4.
 
@@ -1934,7 +1950,12 @@ def quartic_func(x, a, b, c, d, e):
     return a * x ** 4 + b * x ** 3 + c * x ** 2 + d * x + e
 
 
-def quintic_func(x, a, b, c, d, e):
+def quintic_func(x: Union[float, np.ndarray],
+                 a: float,
+                 b: float,
+                 c: float,
+                 d: float,
+                 e: float) -> Union[float, np.ndarray]:
     """
     Quintic function to model a polynomial of degree 5.
 
@@ -2069,7 +2090,9 @@ def get_rmsd(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     return float(np.sqrt(np.mean((y_true - y_pred) ** 2)))
 
 
-def _peaks_to_ai(n_peaks, model, params):
+def _peaks_to_ai(n_peaks: Union[int, float],
+                 model: Callable[..., float],
+                 params: Union[List[float], Tuple[float, ...], np.ndarray]) -> int:
     """
     Convert the number of peaks to an assembly index (AI) using a given model.
 
@@ -2094,7 +2117,7 @@ def _peaks_to_ai(n_peaks, model, params):
     return int(model(n_peaks, *params))
 
 
-def _func_min_helper(x, *args):
+def _func_min_helper(x: np.ndarray, *args: Any) -> float:
     """
     Helper function for minimizing the root mean square deviation (RMSD).
 
@@ -2125,10 +2148,10 @@ def _func_min_helper(x, *args):
     return get_rmsd(obs, pred)
 
 
-def estimate_ai_from_ir_peaks(peaks_data,
-                              ai_obs,
-                              model,
-                              params_0):
+def estimate_ai_from_ir_peaks(peaks_data: np.ndarray,
+                              ai_obs: np.ndarray,
+                              model: Callable[..., float],
+                              params_0: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """
     Estimate assembly indices (AI) from IR peaks using a given model.
 
@@ -2313,7 +2336,7 @@ def enumerate_stereoisomers_shortest(
         only_unassigned: bool = False,
         try_embedding: bool = False,
         prefer: str = "synonym",
-):
+) -> str:
     """
     Enumerate stereoisomers and return the one with the shortest name.
 

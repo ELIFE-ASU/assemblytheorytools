@@ -344,7 +344,7 @@ def tile_cell_shells(
     )
 
 
-def cif_to_nx(file,
+def cif_to_nx(file: str,
               reps: tuple[int, int, int] = (3, 3, 3),
               cutoff_mult: float = 1.2,
               eps: float = 1e-9) -> nx.Graph:
@@ -522,7 +522,7 @@ def guess_bond_orders(
     backtracks = 0
 
     # Initialize each edge's domain: 1..max_bond_order, limited by each endpoint's residual
-    def edge_domain(u, v):
+    def edge_domain(u: int, v: int) -> List[int]:
         """
         List the bond orders still assignable to an edge.
 
@@ -543,7 +543,7 @@ def guess_bond_orders(
         return [o for o in (1, 2, 3) if o <= r]
 
     # Feasibility check after tentative assignment: can each node still be satisfied?
-    def feasible_after(u, v, order) -> bool:
+    def feasible_after(u: int, v: int, order: int) -> bool:
         """
         Test whether assigning a bond order leaves the problem satisfiable.
 
@@ -598,7 +598,7 @@ def guess_bond_orders(
         return True
 
     # Select next edge (MRV: smallest domain)
-    def select_edge():
+    def select_edge() -> Tuple[Optional[Tuple[int, int]], Optional[List[int]]]:
         """
         Choose the next edge to assign, by minimum remaining values.
 
@@ -622,7 +622,9 @@ def guess_bond_orders(
             if best is None or len(dom) < len(best_domain):
                 best = (u, v)
                 best_domain = dom
-        return best, best_domain if best is not None else (None, None)
+        # best and best_domain are only ever assigned together, so both are
+        # None exactly when every edge has already been assigned.
+        return best, best_domain
 
     # Backtracking search
     best_partial = {}

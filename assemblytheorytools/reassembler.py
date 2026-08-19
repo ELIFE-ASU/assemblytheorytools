@@ -2543,7 +2543,7 @@ class ParsePathwayLog:
         Count of nodes at each assembly level.
     """
 
-    def __init__(self, pathway_log: str):
+    def __init__(self, pathway_log: str) -> None:
         """
         Initialize pathway parser and automatically process molecular assembly log.
 
@@ -2883,7 +2883,7 @@ class Molecule:
                  pathway: Optional[list[str]] = None,
                  assembly_index: Optional[int] = None,
                  G: Optional[nx.DiGraph] = None,
-                 timeout: Optional[int] = 60):
+                 timeout: Optional[int] = 60) -> None:
 
         """
         Initialize Molecule object with flexible input options for pathway analysis.
@@ -3071,7 +3071,7 @@ class MoleculeSpace:
         Observed endpoint molecules of the unified graph.
     """
 
-    def __init__(self, molecules: List['Molecule']):
+    def __init__(self, molecules: List['Molecule']) -> None:
         """
         Create a MoleculeSpace for analysing multiple pathways collectively.
 
@@ -3315,7 +3315,7 @@ class MoleculeGenerationAssemblyPool:
 
     """
 
-    def __init__(self, assembly_pool) -> None:
+    def __init__(self, assembly_pool: 'MoleculeSpace') -> None:
         """
         Set up the molecular generation framework.
 
@@ -3436,7 +3436,7 @@ class MoleculeGenerationAssemblyPool:
             return None
         return [molecules[-1][-1] for molecules in self.assembled_molecules.values() if molecules]
 
-    def get_leaf_counts_per_level(self, min_level=1) -> dict[int, int]:
+    def get_leaf_counts_per_level(self, min_level: int = 1) -> dict[int, int]:
         """
         Count target molecules (leaf nodes) at each assembly depth level.
 
@@ -3924,7 +3924,11 @@ class MoleculeGenerationAssemblyPool:
         generated molecules is created.
         """
 
-        def _combine_fragments(fragment1, layer, curr_depth=None):
+        def _combine_fragments(
+                fragment1: str,
+                layer: int,
+                curr_depth: Optional[int] = None,
+        ) -> Tuple[Optional[str], Optional[str], int]:
             """
             Inner function to attempt fragment combination with compatibility checking.
 

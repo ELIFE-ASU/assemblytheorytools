@@ -520,7 +520,7 @@ def smi_remove_implicit_hydrogen(input_string: str) -> str:
     """
     pattern = r'\[([a-zA-Z]+[0-9]*)\]'
 
-    def update_match(match):
+    def update_match(match: re.Match) -> str:
         """
         Reduce a bracketed atom token to its bare element symbol.
 

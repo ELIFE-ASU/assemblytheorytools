@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import networkx as nx
 import numpy as np
+import pandas as pd
 import random
 import tempfile
 from IPython.display import HTML
@@ -29,7 +30,7 @@ from matplotlib.axes import Axes
 from matplotlib.cm import ScalarMappable
 from matplotlib.figure import Figure
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
-from matplotlib.patches import Circle, FancyArrowPatch
+from matplotlib.patches import ArrowStyle, Circle, FancyArrowPatch
 from pyvis.network import Network
 from rdkit import Chem
 from rdkit.Chem import Draw, rdFMCS
@@ -515,7 +516,7 @@ def _draw_edge_arrowhead(ax: Axes,
                          edge_patch: FancyArrowPatch,
                          position: float,
                          color: str,
-                         plt_arrow_style,
+                         plt_arrow_style: Union[str, ArrowStyle],
                          arrow_size: int,
                          width: float = 2.5) -> None:
     """
@@ -591,7 +592,7 @@ def plot_pathway(graph: nx.DiGraph,
                  frame_on: bool = True,
                  font_size: int = 11,
                  arrow_color: str = '#264f70',
-                 plt_arrow_style='->',
+                 plt_arrow_style: Union[str, ArrowStyle] = '->',
                  arrow_pos: float = 1.0,
                  arrow_size: int = 20,
                  auto_fig_size: bool = False) -> tuple[Figure, Axes]:
@@ -854,7 +855,7 @@ def plot_pathway_mid_arrow(graph: nx.DiGraph,
                            frame_on: bool = True,
                            font_size: int = 11,
                            arrow_color: str = '#264f70',
-                           plt_arrow_style='->',
+                           plt_arrow_style: Union[str, ArrowStyle] = '->',
                            arrow_pos: float = 0.5,
                            arrow_size: int = 20,
                            auto_fig_size: bool = False) -> tuple[Figure, Axes]:
@@ -1205,7 +1206,7 @@ def plot_assembly_circle(nodes: Sequence[Any],
                          spacing_mode: str = "linear",
                          spacing_hyperbolic_factor: float = 0.4,
                          auto_fig_size: bool = False
-                         ):
+                         ) -> Tuple[Figure, Axes]:
     """
     Plot an assembly pathway as a set of concentric rings.
 
@@ -2328,7 +2329,7 @@ def multipartite_layout_crossmin(G: nx.Graph,
         nodes.sort(key=lambda n: (G.degree(n), str(n)))
 
     # Helper function to create a mapping of node indices within a layer
-    def index_map(nodes):
+    def index_map(nodes: List[Any]) -> Dict[Any, int]:
         """
         Map each node to its position within a layer.
 
@@ -2345,7 +2346,7 @@ def multipartite_layout_crossmin(G: nx.Graph,
         return {u: i for i, u in enumerate(nodes)}
 
     # Helper function to calculate edge weights
-    def edge_w(u, v):
+    def edge_w(u: Any, v: Any) -> float:
         """
         Return the weight of the edge between two nodes.
 
@@ -2366,7 +2367,7 @@ def multipartite_layout_crossmin(G: nx.Graph,
         return G[u][v].get(weight, 1.0)
 
     # Order nodes in a layer based on the barycenter heuristic
-    def ordered_by_barycenter(target_nodes, neighbor_nodes):
+    def ordered_by_barycenter(target_nodes: List[Any], neighbor_nodes: List[Any]) -> List[Any]:
         """
         Order a layer by the barycenter heuristic.
 
@@ -2408,7 +2409,7 @@ def multipartite_layout_crossmin(G: nx.Graph,
         return [u for _, __, u in scores]
 
     # Order nodes in a layer based on the median heuristic
-    def ordered_by_median(target_nodes, neighbor_nodes):
+    def ordered_by_median(target_nodes: List[Any], neighbor_nodes: List[Any]) -> List[Any]:
         """
         Order a layer by the median heuristic.
 
@@ -2641,7 +2642,7 @@ def multipartite_layout_crossmin_long(G: nx.Graph,
     routes = []
     dummy_id_counter = 0
 
-    def edge_w(u, v, data=None):
+    def edge_w(u: Any, v: Any, data: Optional[Dict[str, Any]] = None) -> float:
         """
         Calculate the weight of an edge.
 
@@ -2670,7 +2671,7 @@ def multipartite_layout_crossmin_long(G: nx.Graph,
             return 1.0
 
     # Helper to add an (undirected) edge into neighbors with weight accumulation
-    def add_edge(u, v, w):
+    def add_edge(u: Any, v: Any, w: float) -> None:
         """
         Add an undirected edge to the neighbors dictionary, accumulating
         weights.
@@ -2753,7 +2754,7 @@ def multipartite_layout_crossmin_long(G: nx.Graph,
             routes.append({"endpoints": (u, v), "nodes": [u, v]})
 
     # Ordering heuristics on adjacent layers only
-    def index_map(nodes):
+    def index_map(nodes: List[Any]) -> Dict[Any, int]:
         """
         Create a mapping of node indices within a layer.
 
@@ -2769,7 +2770,7 @@ def multipartite_layout_crossmin_long(G: nx.Graph,
         """
         return {u: i for i, u in enumerate(nodes)}
 
-    def ordered_by_barycenter(target_nodes, neighbor_nodes):
+    def ordered_by_barycenter(target_nodes: List[Any], neighbor_nodes: List[Any]) -> List[Any]:
         """
         Order nodes in a layer based on the barycenter heuristic.
 
@@ -2800,7 +2801,7 @@ def multipartite_layout_crossmin_long(G: nx.Graph,
         scores.sort()
         return [u for _, __, u in scores]
 
-    def ordered_by_median(target_nodes, neighbor_nodes):
+    def ordered_by_median(target_nodes: List[Any], neighbor_nodes: List[Any]) -> List[Any]:
         """
         Order nodes in a layer based on the median heuristic.
 
@@ -3212,7 +3213,7 @@ def multipartite_layout_sa(G: nx.Graph,
         layers[i].sort(key=lambda n: (G.degree(n), str(n)))
 
     # Build adjacent-only edges (insert dummies if requested)
-    def _edge_w(u, v, data=None):
+    def _edge_w(u: Any, v: Any, data: Optional[Dict[str, Any]] = None) -> float:
         """
         Calculate the weight of an edge.
 
@@ -3247,7 +3248,7 @@ def multipartite_layout_sa(G: nx.Graph,
 
     dummy_counter = 0
 
-    def _add_edge_pair(i_left, u, v, w):
+    def _add_edge_pair(i_left: int, u: Any, v: Any, w: float) -> None:
         """
         Add an edge between two nodes in adjacent layers.
 
@@ -3323,7 +3324,7 @@ def multipartite_layout_sa(G: nx.Graph,
                 routes.append({"endpoints": (uu, vv), "nodes": [uu, vv]})
 
     # Crossing objective: sum over adjacent layer pairs
-    def pair_cross(i):
+    def pair_cross(i: int) -> float:
         """
         Calculate the weighted crossings between two adjacent layers.
 
@@ -3345,7 +3346,7 @@ def multipartite_layout_sa(G: nx.Graph,
             return 0.0
         return _pair_crossings_weighted(left, right, edges_by_pair[i])
 
-    def total_cross():
+    def total_cross() -> float:
         """
         Calculate the total weighted crossings for all layer pairs.
 
@@ -3357,7 +3358,7 @@ def multipartite_layout_sa(G: nx.Graph,
         return sum(pair_cross(i) for i in range(L - 1))
 
     # Initial temperature (optional estimation)
-    def estimate_T0(samples=64):
+    def estimate_T0(samples: int = 64) -> float:
         """
         Estimate the initial temperature for simulated annealing.
 
@@ -3407,7 +3408,7 @@ def multipartite_layout_sa(G: nx.Graph,
     best_total = current_total
     last_improve_at = 0
 
-    def propose_swap(i):
+    def propose_swap(i: int) -> Optional[Tuple[int, int, int]]:
         """
         Propose a swap of two nodes in a layer.
 
@@ -3418,8 +3419,10 @@ def multipartite_layout_sa(G: nx.Graph,
 
         Returns
         -------
-        tuple
-            A tuple (i, a, b) representing the layer index and the indices of the nodes to swap.
+        tuple or None
+            A tuple ``(i, a, b)`` of the layer index and the indices of the
+            two nodes to swap, or ``None`` when the layer holds fewer than
+            two nodes.
         """
         n = len(layers[i])
         if n < 2:
@@ -3499,7 +3502,7 @@ def multipartite_layout_sa(G: nx.Graph,
         pos_all = {u: (scale * x, scale * y) for u, (x, y) in pos_all.items()}
 
     # Only original nodes unless requested
-    def _is_dummy(n):
+    def _is_dummy(n: Any) -> bool:
         """
         Check if a node is a dummy node.
 
@@ -3553,7 +3556,7 @@ def show_common_bonds(
         timeout_s: int = 5,
         ring_matches_ring_only: bool = True,
         complete_rings_only: bool = True,
-):
+) -> Image.Image:
     """
     Visualize the maximum common substructure (MCS) between two molecules.
 
@@ -3654,7 +3657,7 @@ def show_common_bonds(
         )
 
     # Map MCS bonds to bond indices in each molecule
-    def _mcs_bond_indices(parent_mol, match: Tuple[int, ...]) -> List[int]:
+    def _mcs_bond_indices(parent_mol: Chem.Mol, match: Tuple[int, ...]) -> List[int]:
         """
         Map the bonds in the MCS to their indices in the parent molecule.
 
@@ -3713,7 +3716,7 @@ def draw_mol_grid(
         sub_img_size: tuple = (200, 200),
         max_mols: Optional[int] = None,
         use_svg: bool = False,
-):
+) -> Union[Image.Image, str]:
     """
     Generate a grid image of molecular structures.
 
@@ -3804,7 +3807,7 @@ def draw_mol_grid_box(
         gap: int = 12,
         outer_margin: int = 12,
         inner_pad: int = 10,
-):
+) -> Image.Image:
     """
     Draw a grid of molecules, each on its own shaded tile.
 
@@ -4007,7 +4010,7 @@ def plot_ase_atoms(
         fig_size: Tuple[float, float] = (6, 6),
         dpi: int = 300,
         transparent: bool = False,
-):
+) -> Tuple[Figure, Axes]:
     """
     Visualize an ASE Atoms object using Matplotlib.
 
@@ -4065,7 +4068,10 @@ def plot_ase_atoms(
     return fig, ax
 
 
-def plot_ms2_spectrum(ms2_processed, parent_mz, tree, figsize: Tuple[float, float] = (8, 5), ):
+def plot_ms2_spectrum(ms2_processed: pd.DataFrame,
+                      parent_mz: float,
+                      tree: Dict[float, Any],
+                      figsize: Tuple[float, float] = (8, 5)) -> None:
     """
     Plot the MS2 spectrum for a given parent m/z value, using processed MS2 data or a fragmentation tree.
 

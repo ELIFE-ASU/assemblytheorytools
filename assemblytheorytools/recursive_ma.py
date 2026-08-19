@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 from collections import defaultdict
 from scipy.stats.distributions import skewnorm
-from typing import Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 
 ISOTOPES = {
     "Antimony": 120.903824,
@@ -96,7 +96,7 @@ COMMON_PRECURSORS = [
 MIN_CHUNK = 20.0
 
 
-def ma_distribution_params(mw):
+def ma_distribution_params(mw: float) -> Tuple[float, float, float]:
     """
     Calculate the parameters for the molecular assembly (MA) distribution based on molecular weight.
 
@@ -122,7 +122,7 @@ def ma_distribution_params(mw):
     return alpha, loc, scale
 
 
-def ma_samples(mw, n_samples):
+def ma_samples(mw: float, n_samples: int) -> np.ndarray:
     """
     Generate random samples from the molecular assembly (MA) distribution for a given molecular weight.
 
@@ -146,7 +146,7 @@ def ma_samples(mw, n_samples):
     return np.maximum(skewnorm(alpha, loc, scale).rvs(n_samples), 0.)
 
 
-def rma_unify_trees(trees: list[dict]):
+def rma_unify_trees(trees: list[dict]) -> Dict[float, Any]:
     """
     Recursively merge multiple fragmentation trees into a single unified tree.
 
@@ -212,7 +212,11 @@ class MAEstimator:
         Array of zeros used when a fragment matches an isotope (MA = 0).
     """
 
-    def __init__(self, same_level=True, tol=0.01, adduct_masses=COMMON_PRECURSORS, n_samples=500):
+    def __init__(self,
+                 same_level: bool = True,
+                 tol: float = 0.01,
+                 adduct_masses: List[float] = COMMON_PRECURSORS,
+                 n_samples: int = 500) -> None:
         """
         Create an estimator with a fixed tolerance and sampling budget.
 
@@ -237,7 +241,7 @@ class MAEstimator:
         self.zero = np.zeros(n_samples)
 
     @functools.cache
-    def estimate_by_MW(self, mw, has_children):
+    def estimate_by_MW(self, mw: float, has_children: bool) -> np.ndarray:
         """
         Estimate the MA distribution for a given molecular weight.
 
@@ -265,7 +269,11 @@ class MAEstimator:
                     return self.zero
         return ma_samples(mw, self.n_samples)
 
-    def estimate_MA(self, tree: dict[float, dict], mw: float, progress_levels=0, joint=False):
+    def estimate_MA(self,
+                    tree: dict[float, dict],
+                    mw: float,
+                    progress_levels: int = 0,
+                    joint: bool = False) -> np.ndarray:
         """
         Recursively estimate the mean assembly number (MA) for a given molecular weight in a fragmentation tree.
 
@@ -336,7 +344,7 @@ class MAEstimator:
 
         return min(child_estimates.values(), key=np.mean)
 
-    def common_precursors(self, data, parent1, parent2):
+    def common_precursors(self, data: Dict[float, Any], parent1: float, parent2: float) -> set:
         """
         Find common precursor ions between two parent ions in a fragmentation tree.
 
@@ -358,7 +366,7 @@ class MAEstimator:
         precursors2 = self.precursors(data, parent2)
         return set(precursors1).intersection(precursors2)
 
-    def precursors(self, data, parent):
+    def precursors(self, data: Dict[float, Any], parent: float) -> Dict[float, Any]:
         """
         Identify possible precursor ions for a given parent ion in the fragmentation tree.
 
@@ -405,7 +413,7 @@ class MAEstimator:
         # sometimes child peaks are heavier than parent
         return {k: v for k, v in children.items() if 0 < k < parent}
 
-    def same_level_precursors(self, data, parent):
+    def same_level_precursors(self, data: Dict[float, Any], parent: float) -> Dict[float, Any]:
         """
         Find same-level precursor ions for a given parent ion.
 
@@ -435,7 +443,11 @@ class MAEstimator:
         return result
 
 
-def _build_tree(data, level=1, acc=None, parent=None, max_level=3):
+def _build_tree(data: Dict[int, pd.DataFrame],
+                level: int = 1,
+                acc: Optional[Dict[float, Any]] = None,
+                parent: Optional[float] = None,
+                max_level: int = 3) -> Optional[Dict[float, Any]]:
     """
     Recursively build a nested fragmentation tree from a multi-level mass spectrometry dataset.
 
@@ -485,7 +497,7 @@ def _build_tree(data, level=1, acc=None, parent=None, max_level=3):
         )
 
 
-def rma_build_tree(data: dict, max_level=3):
+def rma_build_tree(data: dict, max_level: int = 3) -> Dict[float, Any]:
     """
     Build a nested fragmentation tree from a multi-level mass spectrometry dataset.
 
@@ -511,7 +523,7 @@ def rma_build_tree(data: dict, max_level=3):
     return _build_tree(data, max_level=max_level)
 
 
-def rma_tree_depth(tree: dict):
+def rma_tree_depth(tree: dict) -> int:
     """
     Recursively determine the depth of a fragmentation tree.
 
@@ -545,13 +557,13 @@ def rma_tree_depth(tree: dict):
 
 
 def _process_df(
-        level,
+        level: int,
         ms_df: pd.DataFrame,
-        max_num_peaks,
-        min_abs_intensity,
-        min_rel_intensity,
-        n_digits,
-):
+        max_num_peaks: int,
+        min_abs_intensity: Dict[int, float],
+        min_rel_intensity: float,
+        n_digits: int,
+) -> pd.DataFrame:
     """
     Filter, bin, and aggregate peaks for a single MS level in a mass spectrometry dataset.
 
@@ -683,7 +695,9 @@ def rma_process(
     return sample
 
 
-def rma_identify_parents(dataset, mass_tol: float, ms_n_digits: int = 3):
+def rma_identify_parents(dataset: Dict[int, pd.DataFrame],
+                         mass_tol: float,
+                         ms_n_digits: int = 3) -> Dict[int, pd.DataFrame]:
     """
     Assign parent-child relationships between MS levels in a mass spectrometry dataset.
 
@@ -732,7 +746,7 @@ def rma_identify_parents(dataset, mass_tol: float, ms_n_digits: int = 3):
     return new_dataset
 
 
-def _tol_from_decimals(decimals):
+def _tol_from_decimals(decimals: Optional[int]) -> float:
     """
     Convert a number of decimal places to a mass tolerance value.
 
@@ -756,7 +770,11 @@ def _tol_from_decimals(decimals):
     return 10 ** (-decimals)
 
 
-def rma_estimate_ma(tree, mw, progress_levels=0, joint=False, **kwargs):
+def rma_estimate_ma(tree: Dict[float, Any],
+                    mw: float,
+                    progress_levels: int = 0,
+                    joint: bool = False,
+                    **kwargs: Any) -> float:
     """
     Estimate the mean assembly number (MA) for a given molecular weight (MW) in a fragmentation tree.
 
@@ -793,7 +811,9 @@ def rma_estimate_ma(tree, mw, progress_levels=0, joint=False, **kwargs):
     return float(result.mean())
 
 
-def rma_estimate_by_mw(mw, has_children=False, **kwargs):
+def rma_estimate_by_mw(mw: float,
+                       has_children: bool = False,
+                       **kwargs: Any) -> np.ndarray:
     """
     Estimate the assembly number (MA) distribution for a given molecular weight (MW).
 
@@ -820,7 +840,12 @@ def rma_estimate_by_mw(mw, has_children=False, **kwargs):
     return estimator.estimate_by_MW(mw=mw, has_children=has_children)
 
 
-def find_common_precursors(data, parent1, parent2, same_level=True, decimals=None, **kwargs):
+def find_common_precursors(data: Dict[float, Any],
+                           parent1: float,
+                           parent2: float,
+                           same_level: bool = True,
+                           decimals: Optional[int] = None,
+                           **kwargs: Any) -> set:
     """
     Find common precursor ions between two parent ions in a fragmentation tree.
 

@@ -8,12 +8,13 @@ the spectra and peak lists used for downstream assembly analysis.
 import json
 
 import pandas as pd
+from typing import Any, Callable, Dict, Optional, Union
 
 # Characters that can lead an m/z key in a scan dict, as opposed to metadata keys.
 _DECIMAL_DIGITS = set("0123456789")
 
 
-def _link_msn(data):
+def _link_msn(data: Dict[int, pd.DataFrame]) -> Dict[int, pd.DataFrame]:
     """
     Link MSn data levels by merging parent and child scans.
 
@@ -46,7 +47,7 @@ def _link_msn(data):
     return new_dataset
 
 
-def _try_parse(parser, default):
+def _try_parse(parser: Callable[[Any], Any], default: Any) -> Callable[[Any], Any]:
     """
     Create a function that attempts to parse a value, returning a default on failure.
 
@@ -63,7 +64,7 @@ def _try_parse(parser, default):
         Function that takes a value and returns the parsed value or the default.
     """
 
-    def inner(value):
+    def inner(value: Any) -> Any:
         """
         Parse a value, falling back to the default on failure.
 
@@ -86,7 +87,7 @@ def _try_parse(parser, default):
     return inner
 
 
-def _scan_to_df(scan_dict: dict):
+def _scan_to_df(scan_dict: dict) -> pd.DataFrame:
     """
     Convert a scan dictionary to a pandas DataFrame.
 
@@ -121,7 +122,7 @@ def _scan_to_df(scan_dict: dict):
     return df
 
 
-def _read_level(level_data: dict):
+def _read_level(level_data: dict) -> Optional[pd.DataFrame]:
     """
     Convert a dictionary of scans for a given MS level to a concatenated DataFrame.
 
@@ -144,7 +145,7 @@ def _read_level(level_data: dict):
     )
 
 
-def process_mzml_json(data):
+def process_mzml_json(data: Union[Dict[str, Any], str]) -> Dict[int, pd.DataFrame]:
     """
     Process an mzML JSON object or file into a dictionary of MSn level DataFrames.
 

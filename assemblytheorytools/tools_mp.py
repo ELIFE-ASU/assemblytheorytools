@@ -35,7 +35,7 @@ def _bind_kwargs(func: Callable[..., Any], kwargs: dict) -> Callable[..., Any]:
 def mp_calc(func: Callable[[Any], Any],
             arg: Iterable[Any],
             n: int = mp.cpu_count(),
-            **kwargs) -> list[Any]:
+            **kwargs: Any) -> list[Any]:
     """
     Execute a function in parallel using a process pool.
 
@@ -96,7 +96,7 @@ def mp_calc(func: Callable[[Any], Any],
 def mp_calc_star(func: Callable[..., Any],
                  args: Iterable[Tuple[Any, ...]],
                  n: int = mp.cpu_count(),
-                 **kwargs) -> list[Any]:
+                 **kwargs: Any) -> list[Any]:
     """
     Execute a function in parallel over multiple arguments.
 
@@ -126,7 +126,7 @@ def mp_calc_star(func: Callable[..., Any],
 def tp_calc(func: Callable[[Any], Any],
             arg: Iterable[Any],
             n: int = mp.cpu_count(),
-            **kwargs) -> list[Any]:
+            **kwargs: Any) -> list[Any]:
     """
     Execute a function in parallel using a thread pool.
 
@@ -158,7 +158,7 @@ def mp_calc_chunked(
         arg: Iterable[Any],
         n: int | None = None,
         chunksize: int | None = None,
-        **kwargs
+        **kwargs: Any
 ) -> list[Any]:
     """
     Execute a function in parallel with optional chunking.

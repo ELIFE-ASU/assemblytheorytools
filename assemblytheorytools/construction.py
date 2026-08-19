@@ -1328,7 +1328,7 @@ def molstr_to_str(molstr: nx.Graph, edge_color_dict: Optional[Dict[str, str]] = 
 
 
 def convert_digraph_vo_to_target(graph: nx.DiGraph,
-                                 target='smi',
+                                 target: str = 'smi',
                                  add_hydrogens: bool = False,
                                  sanitize: bool = True,
                                  ) -> nx.DiGraph:
@@ -1388,7 +1388,7 @@ def convert_digraph_vo_to_target(graph: nx.DiGraph,
 
 def get_vos_on_layer(digraph: nx.DiGraph,
                      layer: Union[int, List[int], str],
-                     target='smi',
+                     target: str = 'smi',
                      add_hydrogens: bool = False,
                      sanitize: bool = True) -> Union[List, List[List]]:
     """

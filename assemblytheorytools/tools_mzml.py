@@ -222,7 +222,7 @@ class _Spectrum(object):
         Whether intensities are reported relative to the base peak.
     """
 
-    def __init__(self, intensity_threshold, relative=False):
+    def __init__(self, intensity_threshold: int, relative: bool = False) -> None:
         """
         Create an empty spectrum container.
 
@@ -254,7 +254,7 @@ class _Spectrum(object):
         self.intensity_threshold = intensity_threshold
         self.relative = relative
 
-    def _set_data_type(self):
+    def _set_data_type(self) -> None:
         """
         Set the data type of the binary data within the spectrum.
 
@@ -270,7 +270,7 @@ class _Spectrum(object):
         elif "64" in self.d_type:
             self.d_type = "d"
 
-    def process(self):
+    def process(self) -> None:
         """
         Process the spectrum by decoding and decompressing the m/z and
         intensity data.
@@ -287,7 +287,7 @@ class _Spectrum(object):
         self.decode_and_decompress()
         self.serialized = self.serialize()
 
-    def decode_and_decompress(self):
+    def decode_and_decompress(self) -> None:
         """
         Decode binary data from Base64 and decompress if necessary.
 
@@ -331,7 +331,7 @@ class _Spectrum(object):
             )
         )
 
-    def decompress(self, stream: bytes):
+    def decompress(self, stream: bytes) -> bytes:
         """
         Decompress a data stream using a zlib decompression object.
 
@@ -505,7 +505,7 @@ def _value_finder(regex: str, line: str) -> str:
     return None
 
 
-def _write_json(data: dict, filename: str):
+def _write_json(data: dict, filename: str) -> None:
     """
     Write a dictionary to a JSON file.
 
@@ -598,7 +598,7 @@ class _MzmlParser:
         Intensity threshold for filtering peaks.
     curr_spec_bin_type : int
         Indicator for current binary data type (m/z or intensity).
-    rt_units : int or None
+    rt_units : str or None
         Retention time units.
     """
 
@@ -606,10 +606,10 @@ class _MzmlParser:
             self,
             filename: str,
             output_dir: str,
-            rt_units: Optional[int] = None,
+            rt_units: Optional[str] = None,
             int_threshold: Optional[int] = 1000,
             relative_intensity: Optional[bool] = False,
-    ):
+    ) -> None:
         """
         Create a parser for a single mzML file.
 
@@ -623,7 +623,7 @@ class _MzmlParser:
         output_dir : str
             Directory the extracted spectra are written to. The path is
             resolved to an absolute path.
-        rt_units : int or None, optional
+        rt_units : str or None, optional
             Retention time units used by the source file. Only ``"sec"``
             triggers a conversion (divides by 60); any other value,
             including the default ``None``, is treated as already being in
@@ -650,7 +650,7 @@ class _MzmlParser:
         self.curr_spec_bin_type = -1
         self.rt_units = rt_units
 
-    def _check_file(self):
+    def _check_file(self) -> None:
         """
         Check if the input file is valid for parsing.
 
@@ -713,7 +713,7 @@ class _MzmlParser:
 
         return output
 
-    def bulk_process(self, *ms_levels: List[_Spectrum]):
+    def bulk_process(self, *ms_levels: List[_Spectrum]) -> None:
         """
         Create threads for processing MS1 and MS2 data simultaneously.
 
@@ -733,7 +733,7 @@ class _MzmlParser:
         [thread.start() for thread in pool]
         [thread.join() for thread in pool]
 
-    def process_spectra(self, spectra: List[_Spectrum]):
+    def process_spectra(self, spectra: List[_Spectrum]) -> None:
         """
         Process spectra from a list and serialize the data.
 
@@ -782,7 +782,7 @@ class _MzmlParser:
 
         return output
 
-    def write_out_to_file(self):
+    def write_out_to_file(self) -> Dict:
         """
         Write the processed MS1 and MS2 data to a JSON file.
 
@@ -808,7 +808,7 @@ class _MzmlParser:
 
         return output
 
-    def process_line(self, line: str):
+    def process_line(self, line: str) -> None:
         """
         Process a single line from the mzML file.
 
@@ -843,7 +843,7 @@ class _MzmlParser:
 
                 self.extract_information(line)
 
-    def start_spectrum(self, line: str):
+    def start_spectrum(self, line: str) -> None:
         """
         Initiate the spectrum data gathering process.
 
@@ -871,7 +871,7 @@ class _MzmlParser:
         # Find the size of the data array
         self.spec.array_length = _value_finder(self.re_expr["array_length"], line)
 
-    def extract_information(self, line: str):
+    def extract_information(self, line: str) -> None:
         """
         Attempt to extract information from a given line.
 
@@ -971,7 +971,7 @@ class _MzmlParser:
             else:
                 raise Exception("Error setting binary type")
 
-    def update_parent(self, filter_string: str):
+    def update_parent(self, filter_string: str) -> None:
         """
         Update the parent mass for MS3 and above spectra.
 
@@ -999,10 +999,10 @@ class _MzmlParser:
 def process_mzml_file(
         filename: str,
         out_dir: str,
-        rt_units='min',
-        int_threshold=1000,
-        relative=False,
-):
+        rt_units: Optional[str] = 'min',
+        int_threshold: int = 1000,
+        relative: bool = False,
+) -> Dict:
     """
     Process an mzML file and extract MS spectra data, saving the results as JSON.
 
