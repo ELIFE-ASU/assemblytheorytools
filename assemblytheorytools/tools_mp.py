@@ -35,9 +35,11 @@ def _bind_kwargs(func: Callable[..., Any], kwargs: dict) -> Callable[..., Any]:
 def mp_calc(func: Callable[[Any], Any],
             arg: Iterable[Any],
             n: int = mp.cpu_count(),
-            **kwargs) -> list[Any]:
+            **kwargs: Any) -> list[Any]:
     """
-    Executes a function in parallel using a process pool, supporting keyword arguments.
+    Execute a function in parallel using a process pool.
+
+    Keyword arguments are supported.
 
     Parameters
     ----------
@@ -54,6 +56,37 @@ def mp_calc(func: Callable[[Any], Any],
     -------
     list[Any]
         A list of results from the function executions.
+
+    Notes
+    -----
+    Python 3.14 starts workers with the **forkserver** method, which pickles
+    ``func`` by reference. It must therefore be importable at import time:
+    define it at module level in a ``.py`` file, guard the entry point with
+    ``if __name__ == "__main__":``, and run it as a script. A closure, a
+    ``lambda``, or a function defined interactively raises a pickling error
+    when the pool starts.
+
+    ``n`` defaults to the machine's core count; match it to the cores
+    actually available, which on a shared HPC node is the job's allocation
+    rather than the node's total.
+
+    Examples
+    --------
+    In a file ``batch.py``::
+
+        import assemblytheorytools as att
+
+
+        def ai_of(smiles):
+            graph = att.smi_to_nx(smiles)
+            return att.calculate_assembly_index(
+                graph, strip_hydrogen=True)[0]
+
+
+        if __name__ == "__main__":
+            print(att.mp_calc(ai_of, ["NCC(=O)O", "CC"], n=2))
+
+    prints ``[3, 0]``.
     """
     func = _bind_kwargs(func, kwargs)
     with mp.Pool(n) as pool:
@@ -63,9 +96,11 @@ def mp_calc(func: Callable[[Any], Any],
 def mp_calc_star(func: Callable[..., Any],
                  args: Iterable[Tuple[Any, ...]],
                  n: int = mp.cpu_count(),
-                 **kwargs) -> list[Any]:
+                 **kwargs: Any) -> list[Any]:
     """
-    Executes a function in parallel using a process pool with multiple arguments, supporting keyword arguments.
+    Execute a function in parallel over multiple arguments.
+
+    A process pool is used, and keyword arguments are supported.
 
     Parameters
     ----------
@@ -91,11 +126,11 @@ def mp_calc_star(func: Callable[..., Any],
 def tp_calc(func: Callable[[Any], Any],
             arg: Iterable[Any],
             n: int = mp.cpu_count(),
-            **kwargs) -> list[Any]:
+            **kwargs: Any) -> list[Any]:
     """
-    Executes a function in parallel using a thread pool, supporting keyword arguments.
+    Execute a function in parallel using a thread pool.
 
-    Works best for I/O-bound tasks.
+    Keyword arguments are supported. Works best for I/O-bound tasks.
 
     Parameters
     ----------
@@ -123,10 +158,12 @@ def mp_calc_chunked(
         arg: Iterable[Any],
         n: int | None = None,
         chunksize: int | None = None,
-        **kwargs
+        **kwargs: Any
 ) -> list[Any]:
     """
-    Executes a function in parallel using a process pool, with optional chunking and keyword arguments.
+    Execute a function in parallel with optional chunking.
+
+    A process pool is used, and keyword arguments are supported.
 
     Parameters
     ----------

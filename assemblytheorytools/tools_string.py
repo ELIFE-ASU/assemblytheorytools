@@ -44,7 +44,8 @@ def load_fasta(file_path: str) -> str:
 
 
 def prep_joint_string_ai(input_list: list[str]) -> tuple[str, list[str]]:
-    """Combine a list of strings by concatenating them with unique delimiters.
+    """
+    Combine a list of strings by concatenating them with unique delimiters.
 
     Parameters
     ----------
@@ -66,6 +67,15 @@ def prep_joint_string_ai(input_list: list[str]) -> tuple[str, list[str]]:
     ------
     ValueError
         If an empty string is found in the input list.
+
+    Examples
+    --------
+    >>> import assemblytheorytools as att
+    >>> att.prep_joint_string_ai(["abracadabra", "abra"])
+    ('abracadabra0abra', ['0'])
+
+    The separator is chosen by :func:`get_unique_char` so that it cannot
+    appear in any of the inputs.
     """
     if not input_list:
         raise ValueError("Input list cannot be empty")
@@ -88,7 +98,8 @@ def prep_joint_string_ai(input_list: list[str]) -> tuple[str, list[str]]:
 
 
 def get_unique_char(input_str: str) -> str:
-    """Find a unique character that is not present in the given input string.
+    """
+    Find a unique character that is not present in the given input string.
 
     This function first attempts to find a unique character from the set of
     printable ASCII characters. If no unique character is found, it falls
@@ -109,6 +120,17 @@ def get_unique_char(input_str: str) -> str:
     ValueError
         If no unique character can be found within the specified ranges of
         characters.
+
+    Examples
+    --------
+    This returns a character *absent* from the input, not the input's
+    alphabet. It is how :func:`prep_joint_string_ai` picks a safe separator:
+
+    >>> import assemblytheorytools as att
+    >>> att.get_unique_char("abracadabra")
+    '0'
+    >>> att.get_unique_char("abc0")
+    '1'
     """
     # Try ASCII printable characters first
     for char in string.printable:
@@ -128,7 +150,8 @@ def get_unique_char(input_str: str) -> str:
 def get_undir_str_molecule(
         undir_str: str, debug: bool = False
 ) -> tuple[nx.Graph, dict[str, str]]:
-    """Create a molecular graph from an undirected string.
+    """
+    Create a molecular graph from an undirected string.
 
     The resulting molecular graph has the same assembly index as the string,
     and the paths correspond between the two.
@@ -178,7 +201,8 @@ def get_undir_str_molecule(
 
 
 def get_dir_str_molecule(dir_str: str) -> nx.Graph:
-    """Create a molecular graph from a directed string.
+    """
+    Create a molecular graph from a directed string.
 
     The assembly index of the string is determined by the molecular graph,
     and the shortest paths correspond.
@@ -227,6 +251,19 @@ def generate_random_strings(n_pool: int, n_length: int) -> list[str]:
     -------
     list[str]
         A list of randomly generated strings.
+
+    Examples
+    --------
+    Useful as a null model: a random string has almost no repetition to
+    exploit, so its assembly index sits close to its length.
+
+    >>> import assemblytheorytools as att
+    >>> pool = att.generate_random_strings(3, 8)
+    >>> len(pool), {len(s) for s in pool}
+    (3, {8})
+
+    An 11-character random string scores 10, against 7 for
+    ``abracadabra``; the difference is what the internal structure buys.
     """
     # Define the character set to include lowercase letters
     chars = string.ascii_lowercase

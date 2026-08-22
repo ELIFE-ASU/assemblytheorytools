@@ -105,7 +105,36 @@ We recommend checking coverage locally to ensure you haven't unknowingly altered
 
 -----
 
-## 5\. Pull Request Checklist
+## 5\. Documentation
+
+The documentation lives in `docs/` and is published at
+[assemblytheorytools.readthedocs.io](https://assemblytheorytools.readthedocs.io/).
+
+### Building it locally
+
+```console
+$ pip install -e ".[docs]"
+$ make -C docs strict
+```
+
+The `strict` target treats warnings as errors, which is exactly what Read the Docs runs. A clean local build therefore
+means a clean remote one. The output lands in `docs/build/html`.
+
+Nothing is mocked: autodoc imports the real package, so a missing runtime dependency or a broken docstring surfaces as a
+build failure rather than a silently empty page.
+
+### Adding a page
+
+* Narrative pages are MyST Markdown. The API stubs under `docs/source/api/` stay reStructuredText.
+* Every new page needs an entry in a `toctree`, or the build fails on an orphaned document.
+* Code snippets in the user guide are expected to run as written. Check yours against a real environment before
+  submitting.
+* When you add a public function, add it to the `autosummary` list at the top of its module's `docs/source/api/*.rst`
+  page.
+
+-----
+
+## 6\. Pull Request Checklist
 
 Before submitting your PR, please ensure you have checked the following boxes:
 
@@ -113,6 +142,7 @@ Before submitting your PR, please ensure you have checked the following boxes:
 - [ ] **Tests:** I have added unit tests for new functionality.
 - [ ] **Coverage:** I have verified that my changes do not decrease test coverage.
 - [ ] **Documentation:** I have added/updated docstrings (Numpy style, max 76 chars width).
+- [ ] **Docs build:** `make -C docs strict` passes, and any new public function appears in its module's `autosummary`.
 - [ ] **Types:** I have added type hints to all new functions and classes.
 - [ ] **Tooling:** I have used current project tooling and dependencies.
 

@@ -10,3 +10,4 @@
 # mirrors the "docs" extra in pyproject.toml.
 sphinx>=8.0
 sphinx-rtd-theme>=3.0
+myst-parser>=4.0

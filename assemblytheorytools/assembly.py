@@ -531,7 +531,7 @@ def compile_assembly_cpp() -> None:
 
 def joint_assembly_index_correction(mol: Union[nx.Graph, Chem.Mol], ass_index: int) -> int:
     """
-    Corrects the assembly index based on the joint assembly components.
+    Correct the assembly index based on the joint assembly components.
 
     Parameters
     ----------
@@ -668,6 +668,33 @@ def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
       a system temporary directory is used.
     - For reproducible behaviour consider using ``debug=True`` to preserve the
       temporary folder and log files.
+    - ``strip_hydrogen=True`` strips a copy, so ``graph`` is left unchanged
+      and stays safe to reuse for a later calculation.
+    - The order of ``virt_obj`` is not stable between runs; compare virtual
+      objects as a set rather than by position.
+
+    Examples
+    --------
+    >>> import assemblytheorytools as att
+    >>> graph = att.smi_to_nx("CN1C=NC2=C1C(=O)N(C(=O)N2C)C")  # caffeine
+    >>> ai, virt_obj, pathway = att.calculate_assembly_index(
+    ...     graph, strip_hydrogen=True)
+    >>> ai
+    9
+    >>> len(virt_obj)
+    14
+
+    Hydrogens change the answer, so strip them for anything compared
+    against published molecular assembly indices. Stripping works on a
+    copy, so one graph can serve both calls:
+
+    >>> ethanol = att.smi_to_nx("CCO")
+    >>> att.calculate_assembly_index(ethanol)[0]
+    6
+    >>> att.calculate_assembly_index(ethanol, strip_hydrogen=True)[0]
+    1
+    >>> ethanol.number_of_nodes()
+    9
     """
     # Initialize variables
     ai = -1
@@ -935,6 +962,26 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
       returns an upper bound; no external binary is invoked.
     - For reproducible behaviour consider using ``debug=True`` to preserve the
       temporary folder and log files.
+    - Undirected calculations only run through the molecule calculator, so
+      ``directed=False`` switches ``mode`` to 'mol' and warns if it was not
+      already set.
+
+    Examples
+    --------
+    >>> import assemblytheorytools as att
+    >>> ai, virt_obj, pathway = att.calculate_string_assembly_index(
+    ...     "abracadabra")
+    >>> ai
+    7
+
+    Building the string character by character would take ten joins; the
+    index is 7 because ``abra`` is reused once it exists.
+
+    Pass a list for a joint index that shares substrings across the set:
+
+    >>> att.calculate_string_assembly_index(
+    ...     ["abracadabra", "abra"], directed=False, mode="mol")[0]
+    7
     """
 
     if not directed:
@@ -1238,6 +1285,21 @@ def calculate_assembly_index_parallel(graphs: List[Union[nx.Graph, Chem.Mol]],
       in parallel workers and expects ``mp_calc`` to return a sequence of per-item
       results (one tuple per graph).
     - An empty ``graphs`` iterable yields an empty list.
+    - The three returned lists are aligned with the input order, so results
+      stay matched to their inputs even though the workers finish out of
+      order.
+
+    Examples
+    --------
+    ``settings`` has no default; pass ``None`` to use the defaults of
+    :func:`calculate_assembly_index`.
+
+    >>> import assemblytheorytools as att
+    >>> graphs = [att.smi_to_nx(s) for s in ["NCC(=O)O", "CC(N)C(=O)O"]]
+    >>> ai, virt_obj, pathway = att.calculate_assembly_index_parallel(
+    ...     graphs, dict(strip_hydrogen=True))
+    >>> ai
+    [3, 4]
     """
     # Validate input
     if graphs is None or not hasattr(graphs, "__iter__"):
@@ -1324,12 +1386,17 @@ def load_assembly_time() -> float:
       colon-separated value whose final token is the numeric time (matching the
       historical behavior of the project). The numeric value is interpreted as
       microseconds and converted to seconds by multiplying with ``1e-6``.
-    - Uses :func:`_get_most_recent_calc` to find the latest calculation folder.
+    - Uses the private helper ``_get_most_recent_calc`` to find the latest
+      calculation folder.
 
     Examples
     --------
-    >>> t = load_assembly_time()
-    >>> isinstance(t, float)
+    This reads the most recent ``ai_calc_`` folder in the working directory,
+    so it only works after a calculation has been run with ``save_dir=True``
+    (or ``debug=True``); otherwise it raises :exc:`FileNotFoundError`.
+
+    >>> t = load_assembly_time()  # doctest: +SKIP
+    >>> isinstance(t, float)  # doctest: +SKIP
     True
     """
     # Locate the most recent assembly calculation folder
@@ -1619,6 +1686,17 @@ def calculate_assembly_index_similarity(graphs: List[Union[nx.Graph, Chem.Mol]],
     - The similarity index provides a measure of how the whole compares to
       the sum of its parts, which can be greater than 1.0 due to synergistic
       effects or structural efficiencies.
+
+    Examples
+    --------
+    >>> import assemblytheorytools as att
+    >>> att.calculate_assembly_index_similarity(
+    ...     [att.smi_to_nx("NCC(=O)O"), att.smi_to_nx("CC(N)C(=O)O")])
+    0.6363636363636365
+
+    Glycine and alanine share most of their structure, so the joint
+    assembly index (4) sits well below the sum of the separate indices
+    (3 + 4 = 7). That gap is what this score reports.
     """
 
     settings = settings or {}
@@ -1701,8 +1779,8 @@ def _parse_pathway_file(data: Dict[str, Any]) -> Dict[str, Any]:
     -----
     - Missing fields default to empty lists, so a partial pathway file still
       yields a usable structure.
-    - The returned structure is safe for direct use by functions such as
-      :func:`_calculate_jo_from_pathway`.
+    - The returned structure is safe for direct use by functions such as the
+      private helper ``_calculate_jo_from_pathway``.
     """
     return {
         'file_graph': _parse_graph_entries(data.get('file_graph', [])),
@@ -2012,6 +2090,19 @@ def calculate_assembly_index_rust(mol: Union[nx.Graph, Chem.Mol]) -> int:
     -----
     - If the input is a NetworkX graph, it is first converted to an RDKit `Chem.Mol` object
       using the `nx_to_mol` function.
+    - This backend returns the index only: no virtual objects and no
+      pathway. Use :func:`calculate_assembly_index` when those are needed.
+    - Hydrogens are always stripped, so only compare the result against
+      ``calculate_assembly_index(..., strip_hydrogen=True)``.
+
+    Examples
+    --------
+    >>> import assemblytheorytools as att
+    >>> att.calculate_assembly_index_rust(
+    ...     att.smi_to_nx("CN1C=NC2=C1C(=O)N(C(=O)N2C)C"))
+    9
+    >>> att.calculate_assembly_index_rust(att.smi_to_nx("CCO"))
+    1
     """
     if type(mol) is nx.Graph:
         mol = nx_to_mol(mol)  # Convert NetworkX graph to RDKit molecule if necessary

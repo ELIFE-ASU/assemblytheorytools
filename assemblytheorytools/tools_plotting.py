@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import networkx as nx
 import numpy as np
+import pandas as pd
 import random
 import tempfile
 from IPython.display import HTML
@@ -29,7 +30,7 @@ from matplotlib.axes import Axes
 from matplotlib.cm import ScalarMappable
 from matplotlib.figure import Figure
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
-from matplotlib.patches import Circle, FancyArrowPatch
+from matplotlib.patches import ArrowStyle, Circle, FancyArrowPatch
 from pyvis.network import Network
 from rdkit import Chem
 from rdkit.Chem import Draw, rdFMCS
@@ -515,7 +516,7 @@ def _draw_edge_arrowhead(ax: Axes,
                          edge_patch: FancyArrowPatch,
                          position: float,
                          color: str,
-                         plt_arrow_style,
+                         plt_arrow_style: Union[str, ArrowStyle],
                          arrow_size: int,
                          width: float = 2.5) -> None:
     """
@@ -536,7 +537,7 @@ def _draw_edge_arrowhead(ax: Axes,
         to 1 at the target.
     color : str
         Colour of the arrowhead.
-    plt_arrow_style : str or ArrowStyle object from matplotlib.patches
+    plt_arrow_style : str or matplotlib.patches.ArrowStyle
         Style of the arrowhead.
     arrow_size : int
         Size of the arrowhead (matplotlib mutation scale).
@@ -591,7 +592,7 @@ def plot_pathway(graph: nx.DiGraph,
                  frame_on: bool = True,
                  font_size: int = 11,
                  arrow_color: str = '#264f70',
-                 plt_arrow_style='->',
+                 plt_arrow_style: Union[str, ArrowStyle] = '->',
                  arrow_pos: float = 1.0,
                  arrow_size: int = 20,
                  auto_fig_size: bool = False) -> tuple[Figure, Axes]:
@@ -626,7 +627,7 @@ def plot_pathway(graph: nx.DiGraph,
         Font size for string assembly paths, by default 11.
     arrow_color : str, optional
         Color for arrows in hex format, by default '#264f70'.
-    plt_arrow_style : str or ArrowStyle object from matplotlib.patches, optional
+    plt_arrow_style : str or matplotlib.patches.ArrowStyle, optional
         Style of the arrowheads in the plot, by default '->'.
     arrow_pos : float, optional
         Fraction along each edge at which the arrowhead is drawn, from 0 at the
@@ -649,6 +650,21 @@ def plot_pathway(graph: nx.DiGraph,
     ------
     ValueError
         If arrow_style is not '1' or '2'.
+
+    Examples
+    --------
+    >>> import matplotlib.pyplot as plt
+    >>> import assemblytheorytools as att
+    >>> graph = att.smi_to_nx("NCC(=O)O.CC(N)C(=O)O")
+    >>> _, _, pathway = att.calculate_assembly_index(
+    ...     graph, strip_hydrogen=True)
+    >>> fig, ax = att.plot_pathway(pathway, plot_type="graph")
+    >>> fig.savefig("pathway.svg")  # doctest: +SKIP
+    >>> plt.show()  # doctest: +SKIP
+
+    Use ``plot_type="mol"`` to draw molecular structures instead of graph
+    diagrams, and ``auto_fig_size=True`` to size the canvas to the pathway
+    rather than fixing it in advance.
     """
     graph = graph.copy()  # Avoid modifying the original graph
     # If the input is a graph check if it contains molecule graphs and convert to smiles
@@ -839,7 +855,7 @@ def plot_pathway_mid_arrow(graph: nx.DiGraph,
                            frame_on: bool = True,
                            font_size: int = 11,
                            arrow_color: str = '#264f70',
-                           plt_arrow_style='->',
+                           plt_arrow_style: Union[str, ArrowStyle] = '->',
                            arrow_pos: float = 0.5,
                            arrow_size: int = 20,
                            auto_fig_size: bool = False) -> tuple[Figure, Axes]:
@@ -872,7 +888,7 @@ def plot_pathway_mid_arrow(graph: nx.DiGraph,
         Font size for string assembly paths, by default 11.
     arrow_color : str, optional
         Color for arrows in hex format, by default '#264f70'.
-    plt_arrow_style : str or ArrowStyle object from matplotlib.patches, optional
+    plt_arrow_style : str or matplotlib.patches.ArrowStyle, optional
         Style of the arrowheads in the plot, by default '->'.
     arrow_pos : float, optional
         Fraction along each edge at which the arrowhead is drawn, from 0 at the
@@ -906,10 +922,11 @@ def plot_pathway_mid_arrow(graph: nx.DiGraph,
 
 def _average_angles(angles: np.ndarray) -> float:
     """
+    Average a set of angles, respecting their circular nature.
 
-    This function calculates the sum of a set of angles, taking into account their circular nature.
-    The calculation is performed by converting each angle to its corresponding unit vector (using sine and cosine),
-    summing the components, and then computing the angle of the resultant vector.
+    Each angle is converted to its corresponding unit vector (using sine and
+    cosine), the components are summed, and the angle of the resultant
+    vector is returned.
 
     Parameters
     ----------
@@ -959,64 +976,82 @@ def _plot_directed_network(nodes: List[str],
                            spacing_hyperbolic_factor: float = 0.4
                            ) -> Tuple[plt.Figure, plt.Axes]:
     """
-    Generate and save a circle network plot as a PNG file.
+    Draw a directed network on top of concentric circles.
 
-    This function creates a visualization of a directed network using a list of nodes,
-    their positions, and an adjacency matrix defining the edges. The network is drawn
-    on top of concentric circles, and the plot is saved to a file.
+    Creates a visualisation of a directed network from a list of nodes,
+    their positions, and an adjacency matrix defining the edges. Curved
+    arrows are drawn first, then the concentric circles, then the nodes and
+    their labels. The figure is written to disk only when ``filename`` is
+    given.
 
     Parameters
     ----------
-    nodes : List[str]
+    nodes : list of str
         List of node names in the network.
-
     adjacency_matrix : np.ndarray
-        Square adjacency matrix (shape: [n_nodes, n_nodes]) representing directed edges.
-        If adjacency_matrix[i, j] != 0, there is a directed edge from node i to node j.
-
+        Square adjacency matrix (shape ``[n_nodes, n_nodes]``) representing
+        directed edges. If ``adjacency_matrix[i, j] != 0`` there is a
+        directed edge from node ``i`` to node ``j``.
     x : np.ndarray
-        1D array of x-coordinates for each node (same order as `nodes`).
-
+        1D array of x-coordinates for each node (same order as ``nodes``).
     y : np.ndarray
-        1D array of y-coordinates for each node (same order as `nodes`).
-
+        1D array of y-coordinates for each node (same order as ``nodes``).
     max_ai : int
-        Maximum assembly index (defines the number of concentric circles to draw).
-
-    'labels' can be a boolean (draw/no draw) or a list of per-node labels (strings).
-    If a list is provided, empty strings or None entries will not render text but
-    nodes remain present.
-
+        Maximum assembly index, which sets the number of concentric circles
+        drawn.
+    labels : bool or sequence of str
+        If a boolean, whether to label each node with its own name. If a
+        sequence, the per-node label strings; empty or ``None`` entries
+        render no text but the node itself is still drawn.
     node_size : float
-        Size of the nodes in the plot.
-
+        Marker size of the nodes, in points squared.
     arrow_size : float
         Size of the arrowheads for directed edges.
-
     node_color : str
-        Color of the nodes.
-
+        Colour of the nodes.
+    node_edge_color : str
+        Colour of the node borders.
+    node_linewidth : float
+        Line width of the node borders.
     edge_color : str
-        Color of the edges.
-
+        Colour of the edges.
+    arrow_alpha : float
+        Alpha of the edge arrows, from 0.0 to 1.0.
     fig_size : float
-        Size of the figure (width and height in inches).
-
-    filename : str
-        Name of the output PNG file.
-
-    `spacing_mode` ("linear" or "hyperbolic")
-    `spacing_hyperbolic_factor` controls the strength of the sinh term when
+        Size of the figure in inches, used for both width and height.
+    filename : str or None, optional
+        Path to save the rendered figure to. Default is None, which saves
+        nothing.
+    dpi : int, optional
+        Resolution in dots per inch used when saving. Default is 300.
+    fig : matplotlib.figure.Figure or None, optional
+        Figure to draw onto. Default is None, which creates a new figure.
+    ax : matplotlib.axes.Axes or None, optional
+        Axes to draw onto. Default is None, which creates new axes.
+    save_kwargs : dict or None, optional
+        Extra keyword arguments forwarded to ``Figure.savefig`` when
+        ``filename`` is given. Default is None, which uses
+        ``bbox_inches="tight"`` and ``pad_inches=0.02``.
+    spacing_mode : {"linear", "hyperbolic"}, optional
+        Radial spacing of the concentric circles. ``"linear"`` places circle
+        ``i`` at radius ``i``; ``"hyperbolic"`` places it at ``i +
+        spacing_hyperbolic_factor * sinh(i)``. Default is ``"linear"``.
+    spacing_hyperbolic_factor : float, optional
+        Multiplier for the sinh term under hyperbolic spacing. Default is
+        0.4.
 
     Returns
     -------
     fig : matplotlib.figure.Figure
         The matplotlib Figure object containing the plot.
-
     ax : matplotlib.axes.Axes
         The matplotlib Axes object containing the plot.
 
-
+    Raises
+    ------
+    ValueError
+        If ``nodes``, ``adjacency_matrix``, ``x`` and ``y`` do not all have
+        the same length.
     """
     if len(nodes) != len(adjacency_matrix) or len(adjacency_matrix) != len(x) or len(x) != len(y):
         raise ValueError("Lengths of nodes, adjacency_matrix, x, and y must be equal.")
@@ -1171,36 +1206,40 @@ def plot_assembly_circle(nodes: Sequence[Any],
                          spacing_mode: str = "linear",
                          spacing_hyperbolic_factor: float = 0.4,
                          auto_fig_size: bool = False
-                         ):
+                         ) -> Tuple[Figure, Axes]:
     """
-    Nodes are placed on concentric rings whose radius is proportional to their
-    assembly index. Edges between nodes are rendered as curved directed arrows.
-    Optional per-node labels, icons (molecule / atoms / graph), colormap/norm
-    support and file saving are provided. The function delegates low-level
-    drawing to an internal routine and may compute missing inputs (assembly
-    indices or adjacency) if they are not supplied.
+    Plot an assembly pathway as a set of concentric rings.
+
+    Nodes are placed on concentric rings whose radius is proportional to
+    their assembly index. Edges between nodes are rendered as curved
+    directed arrows. Optional per-node labels, icons (molecule / atoms /
+    graph), colormap/norm support and file saving are provided. The function
+    delegates low-level drawing to an internal routine and may compute
+    missing inputs (assembly indices or adjacency) if they are not supplied.
 
     Parameters
     ----------
     nodes : sequence
-        Sequence of node identifiers (hashable). Order is used when `adj_matrix`
-        or `assembly_indices` correspond by index.
+        Sequence of node identifiers (hashable). Order is used when
+        `adj_matrix` or `assembly_indices` correspond by index.
     adj_matrix : array-like
-        Square adjacency matrix (shape ``[n_nodes, n_nodes]``) indicating directed
-        edges. Non-zero entries denote an edge from row index to column index.
+        Square adjacency matrix (shape ``[n_nodes, n_nodes]``) indicating
+        directed edges. Non-zero entries denote an edge from row index to
+        column index.
     assembly_indices : array-like of int
-        Assembly index for each node (lower values are closer to the center).
+        Assembly index for each node (lower values are closer to the
+        center).
     labels : bool or sequence, optional
-        If a boolean, ``True`` displays node identifiers as labels, ``False``
-        hides labels. If a sequence, per-node label strings to render; empty or
-        ``None`` entries suppress text for that node.
+        If a boolean, ``True`` displays node identifiers as labels,
+        ``False`` hides labels. If a sequence, per-node label strings to
+        render; empty or ``None`` entries suppress text for that node.
     node_size : float, optional
         Marker size for nodes. Default is ``1000``.
     arrow_size : float, optional
         Arrowhead size for directed edges. Default is ``80``.
     node_color : str or sequence, optional
-        Color for nodes; may be a single color string or a sequence of colors
-        (one per node). Default is ``'#264f70'``.
+        Color for nodes; may be a single color string or a sequence of
+        colors (one per node). Default is ``'#264f70'``.
     node_edge_color : str, optional
         Color for node borders. Default is ``'black'``.
     node_linewidth : float, optional
@@ -1210,8 +1249,8 @@ def plot_assembly_circle(nodes: Sequence[Any],
     arrow_alpha : float, optional
         Alpha/transparency for arrows (0.0 - 1.0). Default is ``1.0``.
     fig_size : float or tuple, optional
-        Size of the figure in inches. If a single float is provided it is used
-        for both width and height. Default is ``10``.
+        Size of the figure in inches. If a single float is provided it is
+        used for both width and height. Default is ``10``.
     filename : str or None, optional
         If provided, save the rendered figure to this path (PNG). Default is
         ``None`` (no file saved).
@@ -1222,20 +1261,26 @@ def plot_assembly_circle(nodes: Sequence[Any],
     ax : matplotlib.axes.Axes or None, optional
         Axes to draw onto. If ``None`` a new axes is created.
     cmap : matplotlib.colors.Colormap or str or None, optional
-        Colormap to map per-node values if node colors are provided as numeric
-        values. If provided together with ``norm``, a colorbar may be added.
+        Colormap to map per-node values if node colors are provided as
+        numeric values. If provided together with ``norm``, a colorbar may
+        be added.
     norm : matplotlib.colors.Normalize or None, optional
         Normalization instance used with ``cmap`` for color scaling.
     colorbar_label : str or None, optional
         Label for the colorbar when a colormap and norm are supplied.
     save_kwargs : dict or None, optional
-        Extra keyword arguments forwarded to ``Figure.savefig`` when ``filename``
-        is provided (e.g. ``bbox_inches``).
-    spacing_mode: "linear" (radii = ai+1) or "hyperbolic" (radii = (ai+1) + spacing_hyperbolic_factor * sinh(ai+1))
-    spacing_hyperbolic_factor : float. Multiplier for the sinh term in hyperbolic spacing (default 0.4).
+        Extra keyword arguments forwarded to ``Figure.savefig`` when
+        ``filename`` is provided (e.g. ``bbox_inches``).
+    spacing_mode : {"linear", "hyperbolic"}, optional
+        Radial spacing of the rings. ``"linear"`` uses a radius of ``ai +
+        1``; ``"hyperbolic"`` uses ``(ai + 1) + spacing_hyperbolic_factor *
+        sinh(ai + 1)``. Default is ``"linear"``.
+    spacing_hyperbolic_factor : float, optional
+        Multiplier for the sinh term under hyperbolic spacing. Default is
+        0.4.
     auto_fig_size : bool, optional
-        If True, ignore `fig_size` and compute a size scaled to the number of
-        `nodes` instead, by default False.
+        If True, ignore `fig_size` and compute a size scaled to the number
+        of `nodes` instead, by default False.
 
     Returns
     -------
@@ -1247,8 +1292,9 @@ def plot_assembly_circle(nodes: Sequence[Any],
     Raises
     ------
     ValueError
-        If provided arrays (e.g. ``nodes``, ``adj_matrix``, ``assembly_indices``)
-        have inconsistent lengths or if ``adj_matrix`` is not square when supplied.
+        If provided arrays (e.g. ``nodes``, ``adj_matrix``,
+        ``assembly_indices``) have inconsistent lengths or if ``adj_matrix``
+        is not square when supplied.
     TypeError
         If inputs cannot be interpreted as the expected types (e.g. numeric
         assembly indices or a 2D adjacency array).
@@ -1256,16 +1302,17 @@ def plot_assembly_circle(nodes: Sequence[Any],
     Notes
     -----
     - Node placement: nodes with the same assembly index share the same radius and
-      are arranged by angle. Building-block nodes (minimum assembly index) are
-      evenly spaced around the innermost circle; other nodes inherit an average
-      angle from their parents via adjacency propagation.
+      are arranged by angle. Building-block nodes (minimum assembly index)
+      are evenly spaced around the innermost circle; other nodes inherit an
+      average angle from their parents via adjacency propagation.
     - Edges are rendered as curved arcs; curvature is chosen heuristically from
       relative node positions to improve readability.
     - When ``cmap`` and ``norm`` are provided the function adds a colorbar using
-      the provided label and places it on the figure prior to optional saving.
+      the provided label and places it on the figure prior to optional
+      saving.
     - The function may call internal helpers (e.g. a directed-network plotting
-      routine) to perform low-level drawing; modify the returned ``ax`` after
-      calling if custom axis limits or annotations are required.
+      routine) to perform low-level drawing; modify the returned ``ax``
+      after calling if custom axis limits or annotations are required.
     """
 
     n_nodes = len(nodes)
@@ -1580,7 +1627,8 @@ def plot_contourf_full(x: Union[np.ndarray, List],
 
     Returns
     -------
-    fig : matplotlib.figure.FigureMatplotlib Figure object containing the contour plot.
+    fig : matplotlib.figure.Figure
+        Matplotlib Figure object containing the contour plot.
     ax : matplotlib.axes.Axes
         Matplotlib Axes object containing the contour plot.
     """
@@ -1723,7 +1771,7 @@ def scatter_plot_3d_with_colorbar(x: Union[np.ndarray, List],
     -------
     fig : matplotlib.figure.Figure
         Matplotlib Figure containing the 3D scatter and colorbar.
-    ax : matplotlib.axes._subplots.Axes3DSubplot
+    ax : mpl_toolkits.mplot3d.axes3d.Axes3D
         Matplotlib 3D Axes containing the scatter plot.
     """
     # Create a figure and 3D axis
@@ -1786,10 +1834,10 @@ def plot_hexbin_scatter(x: Union[np.ndarray, List],
     """
     Create a hexbin scatter plot with optional y=x guideline and colorbar.
 
-    Generates a hexagonal-binned 2D density plot using Matplotlib's ``hexbin`` to
-    visualize the joint distribution of ``x`` and ``y``. Provides configurable
-    colormap, bin scaling (e.g. ``'log'``), figure sizing and font sizing, and an
-    optional red dashed y=x guideline.
+    Generates a hexagonal-binned 2D density plot using Matplotlib's
+    ``hexbin`` to visualize the joint distribution of ``x`` and ``y``.
+    Provides configurable colormap, bin scaling (e.g. ``'log'``), figure
+    sizing and font sizing, and an optional red dashed y=x guideline.
 
     Parameters
     ----------
@@ -1802,19 +1850,19 @@ def plot_hexbin_scatter(x: Union[np.ndarray, List],
     ylab : str, optional
         Label for the y-axis. Default is ``'y'``.
     guide_line : bool, optional
-        If ``True``, draw a reference line for ``y = x`` (red dashed). Default is ``True``.
+        If ``True``, draw a reference line for ``y = x`` (red dashed).
+        Default is ``True``.
     cmap : str or matplotlib.colors.Colormap, optional
         Colormap used for the hexbin plot. Default is ``'viridis'``.
     figsize : tuple of float, optional
         Figure size in inches as ``(width, height)``. Default is ``(8, 5)``.
     fontsize : int, optional
-        Font size used for axis labels and colorbar label. Default is ``16``.
+        Font size used for axis labels and colorbar label. Default is
+        ``16``.
     bins_scale : {str, None}, optional
-        Bin scaling mode passed to Matplotlib's ``hexbin`` ``bins`` parameter.
-        Common value: ``'log'`` for logarithmic binning; if ``None`` (default) uses linear counts.
-    gridsize : int or tuple, optional
-        The number of hexagons in the x-direction (int) or a (nx, ny) tuple.
-        Controls hexagon resolution. Default is ``30``.
+        Bin scaling mode passed to Matplotlib's ``hexbin`` ``bins``
+        parameter. Common value: ``'log'`` for logarithmic binning; if
+        ``None`` (default) uses linear counts.
 
     Returns
     -------
@@ -1833,9 +1881,9 @@ def plot_hexbin_scatter(x: Union[np.ndarray, List],
     Notes
     -----
     - The function wraps Matplotlib's ``ax.hexbin`` and adds a colorbar labeled
-      ``'counts'`` by default; when ``bins_scale == 'log'``, zero-count hexagons are
-      not shown on a log scale.
-    - Setting ``gridsize`` larger increases spatial resolution but may increase plotting time.
+      ``'counts'`` by default; when ``bins_scale == 'log'``, zero-count
+      hexagons are not shown on a log scale.
+    - The hexagon resolution is fixed at a ``gridsize`` of 30 in x.
     - The optional guideline is drawn across the data range and helps to visually
       assess deviations from the identity relationship.
     """
@@ -2281,7 +2329,7 @@ def multipartite_layout_crossmin(G: nx.Graph,
         nodes.sort(key=lambda n: (G.degree(n), str(n)))
 
     # Helper function to create a mapping of node indices within a layer
-    def index_map(nodes):
+    def index_map(nodes: List[Any]) -> Dict[Any, int]:
         """
         Map each node to its position within a layer.
 
@@ -2298,7 +2346,7 @@ def multipartite_layout_crossmin(G: nx.Graph,
         return {u: i for i, u in enumerate(nodes)}
 
     # Helper function to calculate edge weights
-    def edge_w(u, v):
+    def edge_w(u: Any, v: Any) -> float:
         """
         Return the weight of the edge between two nodes.
 
@@ -2319,7 +2367,7 @@ def multipartite_layout_crossmin(G: nx.Graph,
         return G[u][v].get(weight, 1.0)
 
     # Order nodes in a layer based on the barycenter heuristic
-    def ordered_by_barycenter(target_nodes, neighbor_nodes):
+    def ordered_by_barycenter(target_nodes: List[Any], neighbor_nodes: List[Any]) -> List[Any]:
         """
         Order a layer by the barycenter heuristic.
 
@@ -2361,7 +2409,7 @@ def multipartite_layout_crossmin(G: nx.Graph,
         return [u for _, __, u in scores]
 
     # Order nodes in a layer based on the median heuristic
-    def ordered_by_median(target_nodes, neighbor_nodes):
+    def ordered_by_median(target_nodes: List[Any], neighbor_nodes: List[Any]) -> List[Any]:
         """
         Order a layer by the median heuristic.
 
@@ -2594,9 +2642,9 @@ def multipartite_layout_crossmin_long(G: nx.Graph,
     routes = []
     dummy_id_counter = 0
 
-    def edge_w(u, v, data=None):
+    def edge_w(u: Any, v: Any, data: Optional[Dict[str, Any]] = None) -> float:
         """
-        Calculates the weight of an edge.
+        Calculate the weight of an edge.
 
         Parameters
         ----------
@@ -2623,9 +2671,10 @@ def multipartite_layout_crossmin_long(G: nx.Graph,
             return 1.0
 
     # Helper to add an (undirected) edge into neighbors with weight accumulation
-    def add_edge(u, v, w):
+    def add_edge(u: Any, v: Any, w: float) -> None:
         """
-        Adds an undirected edge to the neighbors dictionary, accumulating weights.
+        Add an undirected edge to the neighbors dictionary, accumulating
+        weights.
 
         Parameters
         ----------
@@ -2635,6 +2684,10 @@ def multipartite_layout_crossmin_long(G: nx.Graph,
             Target node.
         w : float
             Weight of the edge.
+
+        Returns
+        -------
+        None
         """
         neighbors[u][v] += w
         neighbors[v][u] += w
@@ -2701,9 +2754,9 @@ def multipartite_layout_crossmin_long(G: nx.Graph,
             routes.append({"endpoints": (u, v), "nodes": [u, v]})
 
     # Ordering heuristics on adjacent layers only
-    def index_map(nodes):
+    def index_map(nodes: List[Any]) -> Dict[Any, int]:
         """
-        Creates a mapping of node indices within a layer.
+        Create a mapping of node indices within a layer.
 
         Parameters
         ----------
@@ -2717,9 +2770,9 @@ def multipartite_layout_crossmin_long(G: nx.Graph,
         """
         return {u: i for i, u in enumerate(nodes)}
 
-    def ordered_by_barycenter(target_nodes, neighbor_nodes):
+    def ordered_by_barycenter(target_nodes: List[Any], neighbor_nodes: List[Any]) -> List[Any]:
         """
-        Orders nodes in a layer based on the barycenter heuristic.
+        Order nodes in a layer based on the barycenter heuristic.
 
         Parameters
         ----------
@@ -2748,9 +2801,9 @@ def multipartite_layout_crossmin_long(G: nx.Graph,
         scores.sort()
         return [u for _, __, u in scores]
 
-    def ordered_by_median(target_nodes, neighbor_nodes):
+    def ordered_by_median(target_nodes: List[Any], neighbor_nodes: List[Any]) -> List[Any]:
         """
-        Orders nodes in a layer based on the median heuristic.
+        Order nodes in a layer based on the median heuristic.
 
         Parameters
         ----------
@@ -2855,13 +2908,9 @@ class _BIT:
     """
     Fenwick tree (binary indexed tree) over float weights.
 
-    Supports point updates and prefix-sum queries in logarithmic time, which is
-    used to count weighted edge crossings while sweeping a layered layout.
-
-    Parameters
-    ----------
-    n : int
-        Number of elements the tree must hold.
+    Supports point updates and prefix-sum queries in logarithmic time, which
+    is used to count weighted edge crossings while sweeping a layered
+    layout.
 
     Attributes
     ----------
@@ -2873,26 +2922,30 @@ class _BIT:
 
     def __init__(self, n: int) -> None:
         """
-        Initializes the Fenwick tree.
+        Create an empty Fenwick tree.
 
         Parameters
         ----------
         n : int
-            The size of the tree (number of elements).
+            Number of elements the tree must hold.
         """
         self.n = n
         self.t = [0.0] * (n + 1)
 
     def add(self, i: int, delta: float) -> None:
         """
-        Adds a value to the element at index `i`.
+        Add a value to the element at a given index.
 
         Parameters
         ----------
         i : int
-            The index (0-based) to which the value will be added.
+            The zero-based index to which the value will be added.
         delta : float
             The value to add.
+
+        Returns
+        -------
+        None
         """
         i += 1
         while i <= self.n:
@@ -2901,7 +2954,7 @@ class _BIT:
 
     def sum_prefix(self, i: int) -> float:
         """
-        Computes the prefix sum from index 0 to `i` (inclusive).
+        Compute the prefix sum from index 0 to `i` (inclusive).
 
         Parameters
         ----------
@@ -3160,9 +3213,9 @@ def multipartite_layout_sa(G: nx.Graph,
         layers[i].sort(key=lambda n: (G.degree(n), str(n)))
 
     # Build adjacent-only edges (insert dummies if requested)
-    def _edge_w(u, v, data=None):
+    def _edge_w(u: Any, v: Any, data: Optional[Dict[str, Any]] = None) -> float:
         """
-        Calculates the weight of an edge.
+        Calculate the weight of an edge.
 
         Parameters
         ----------
@@ -3195,9 +3248,9 @@ def multipartite_layout_sa(G: nx.Graph,
 
     dummy_counter = 0
 
-    def _add_edge_pair(i_left, u, v, w):
+    def _add_edge_pair(i_left: int, u: Any, v: Any, w: float) -> None:
         """
-        Adds an edge between two nodes in adjacent layers.
+        Add an edge between two nodes in adjacent layers.
 
         Parameters
         ----------
@@ -3209,6 +3262,10 @@ def multipartite_layout_sa(G: nx.Graph,
             Target node in the right layer.
         w : float
             Weight of the edge.
+
+        Returns
+        -------
+        None
         """
         if i_left < 0 or i_left >= L - 1:
             return
@@ -3267,9 +3324,9 @@ def multipartite_layout_sa(G: nx.Graph,
                 routes.append({"endpoints": (uu, vv), "nodes": [uu, vv]})
 
     # Crossing objective: sum over adjacent layer pairs
-    def pair_cross(i):
+    def pair_cross(i: int) -> float:
         """
-        Calculates the weighted crossings between two adjacent layers.
+        Calculate the weighted crossings between two adjacent layers.
 
         Parameters
         ----------
@@ -3289,9 +3346,9 @@ def multipartite_layout_sa(G: nx.Graph,
             return 0.0
         return _pair_crossings_weighted(left, right, edges_by_pair[i])
 
-    def total_cross():
+    def total_cross() -> float:
         """
-        Calculates the total weighted crossings for all layer pairs.
+        Calculate the total weighted crossings for all layer pairs.
 
         Returns
         -------
@@ -3301,9 +3358,9 @@ def multipartite_layout_sa(G: nx.Graph,
         return sum(pair_cross(i) for i in range(L - 1))
 
     # Initial temperature (optional estimation)
-    def estimate_T0(samples=64):
+    def estimate_T0(samples: int = 64) -> float:
         """
-        Estimates the initial temperature for simulated annealing.
+        Estimate the initial temperature for simulated annealing.
 
         Parameters
         ----------
@@ -3351,9 +3408,9 @@ def multipartite_layout_sa(G: nx.Graph,
     best_total = current_total
     last_improve_at = 0
 
-    def propose_swap(i):
+    def propose_swap(i: int) -> Optional[Tuple[int, int, int]]:
         """
-        Proposes a swap of two nodes in a layer.
+        Propose a swap of two nodes in a layer.
 
         Parameters
         ----------
@@ -3362,8 +3419,10 @@ def multipartite_layout_sa(G: nx.Graph,
 
         Returns
         -------
-        tuple
-            A tuple (i, a, b) representing the layer index and the indices of the nodes to swap.
+        tuple or None
+            A tuple ``(i, a, b)`` of the layer index and the indices of the
+            two nodes to swap, or ``None`` when the layer holds fewer than
+            two nodes.
         """
         n = len(layers[i])
         if n < 2:
@@ -3443,9 +3502,9 @@ def multipartite_layout_sa(G: nx.Graph,
         pos_all = {u: (scale * x, scale * y) for u, (x, y) in pos_all.items()}
 
     # Only original nodes unless requested
-    def _is_dummy(n):
+    def _is_dummy(n: Any) -> bool:
         """
-        Checks if a node is a dummy node.
+        Check if a node is a dummy node.
 
         Parameters
         ----------
@@ -3497,7 +3556,7 @@ def show_common_bonds(
         timeout_s: int = 5,
         ring_matches_ring_only: bool = True,
         complete_rings_only: bool = True,
-):
+) -> Image.Image:
     """
     Visualize the maximum common substructure (MCS) between two molecules.
 
@@ -3598,7 +3657,7 @@ def show_common_bonds(
         )
 
     # Map MCS bonds to bond indices in each molecule
-    def _mcs_bond_indices(parent_mol, match: Tuple[int, ...]) -> List[int]:
+    def _mcs_bond_indices(parent_mol: Chem.Mol, match: Tuple[int, ...]) -> List[int]:
         """
         Map the bonds in the MCS to their indices in the parent molecule.
 
@@ -3657,7 +3716,7 @@ def draw_mol_grid(
         sub_img_size: tuple = (200, 200),
         max_mols: Optional[int] = None,
         use_svg: bool = False,
-):
+) -> Union[Image.Image, str]:
     """
     Generate a grid image of molecular structures.
 
@@ -3748,7 +3807,7 @@ def draw_mol_grid_box(
         gap: int = 12,
         outer_margin: int = 12,
         inner_pad: int = 10,
-):
+) -> Image.Image:
     """
     Draw a grid of molecules, each on its own shaded tile.
 
@@ -3951,7 +4010,7 @@ def plot_ase_atoms(
         fig_size: Tuple[float, float] = (6, 6),
         dpi: int = 300,
         transparent: bool = False,
-):
+) -> Tuple[Figure, Axes]:
     """
     Visualize an ASE Atoms object using Matplotlib.
 
@@ -4009,7 +4068,10 @@ def plot_ase_atoms(
     return fig, ax
 
 
-def plot_ms2_spectrum(ms2_processed, parent_mz, tree, figsize: Tuple[float, float] = (8, 5), ):
+def plot_ms2_spectrum(ms2_processed: pd.DataFrame,
+                      parent_mz: float,
+                      tree: Dict[float, Any],
+                      figsize: Tuple[float, float] = (8, 5)) -> None:
     """
     Plot the MS2 spectrum for a given parent m/z value, using processed MS2 data or a fragmentation tree.
 

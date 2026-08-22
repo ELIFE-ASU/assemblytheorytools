@@ -2,8 +2,15 @@
 
 # `AssemblyTheoryTools` <!-- [![Stars](https://img.shields.io/github/stars/ELIFE-ASU/assemblytheorytools.svg?style=social&maxAge=3600&label=Star)](https://github.com/ELIFE-ASU/assemblytheorytools/stargazers)-->
 
+[![Documentation Status](https://readthedocs.org/projects/assemblytheorytools/badge/?version=latest)](https://assemblytheorytools.readthedocs.io/en/latest/)
+[![PyPI](https://img.shields.io/pypi/v/assemblytheorytools.svg)](https://pypi.org/project/assemblytheorytools/)
+
 A centralised set of tools for doing assembly theory calculations [\[1\]](#ref1) written in Python.
 Reference coming soon!
+
+📖 **Full documentation: [assemblytheorytools.readthedocs.io](https://assemblytheorytools.readthedocs.io/)** — installation,
+a user guide covering molecules, strings, graphs, pathways, parallel runs, complexity scores and mass spectrometry, the
+worked protocols, and the complete API reference.
 
 ## 🗺️ Overview
 

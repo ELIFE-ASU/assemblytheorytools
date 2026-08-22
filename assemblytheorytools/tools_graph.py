@@ -87,7 +87,7 @@ def bond_order_assout_to_int(edge_color: str | int) -> int:
 
     Parameters
     ----------
-    edge_color : str | int
+    edge_color : str or int
         The edge colour representing the bond order. It can be a string
         ("single", "double", etc.) or an integer.
 
@@ -294,13 +294,37 @@ def remove_hydrogen_from_graph(graph: nx.Graph) -> nx.Graph:
     Returns
     -------
     nx.Graph
-        The modified graph with all hydrogen atoms removed.
+        A new graph with all hydrogen atoms removed. The input graph is left
+        unchanged.
+
+    Notes
+    -----
+    Node identifiers are preserved, so the returned graph is numbered with
+    the surviving indices of the input rather than renumbered from 0. Pass it
+    through :func:`canonicalize_node_labels` if contiguous labels starting at
+    0 are needed, as the assembly calculators require.
+
+    Examples
+    --------
+    >>> import assemblytheorytools as att
+    >>> graph = att.smi_to_nx("CCO")
+    >>> stripped = att.remove_hydrogen_from_graph(graph)
+    >>> stripped.number_of_nodes(), stripped.number_of_edges()
+    (3, 2)
+
+    The input is not modified, so it can be reused:
+
+    >>> graph.number_of_nodes()
+    9
     """
-    nodes = list(graph.nodes())
-    for node in nodes:
-        if graph.nodes[node]["color"] == "H":
-            graph.remove_node(node)
-    return graph
+    # Operate on a copy: callers routinely reuse the graph they passed (for a
+    # second calculation, or for a complexity score), and stripping it in
+    # place would silently give them the hydrogen-free answer both times.
+    stripped = graph.copy()
+    for node in list(stripped.nodes()):
+        if stripped.nodes[node]["color"] == "H":
+            stripped.remove_node(node)
+    return stripped
 
 
 def write_ass_graph_file(graph: nx.Graph, file_name: str = "graph_info") -> None:
@@ -361,19 +385,31 @@ def is_graph_isomorphic(g1: nx.Graph, g2: nx.Graph) -> bool:
     -------
     bool
         True if the graphs are isomorphic, False otherwise.
+
+    Examples
+    --------
+    Node and edge colours are matched, so this is stricter than bare
+    structural isomorphism:
+
+    >>> import assemblytheorytools as att
+    >>> graph = att.smi_to_nx("CCO")
+    >>> att.is_graph_isomorphic(graph, att.scramble_node_indices(graph))
+    True
+    >>> att.is_graph_isomorphic(graph, att.smi_to_nx("CCC"))
+    False
     """
     return nx.is_isomorphic(g1, g2)
 
 
 def scramble_node_indices(graph: nx.Graph, seed: int | None = None) -> nx.Graph:
     """
-    Returns a new graph with randomly scrambled node labels.
+    Return a new graph with randomly scrambled node labels.
 
     Parameters
     ----------
     graph : nx.Graph
         The input graph to be scrambled.
-    seed : int | None, optional
+    seed : int, optional
         Seed for the random number generator for reproducibility. Default is None.
 
     Returns
@@ -482,7 +518,7 @@ def join_graphs(graphs: List[nx.Graph], disjoint: int = True, rename_prefix: str
 
 def write_graphml(graph: nx.Graph, file_name: str = "graph.graphml") -> None:
     """
-    Writes a NetworkX graph to a GraphML file.
+    Write a NetworkX graph to a GraphML file.
 
     Parameters
     ----------
@@ -500,7 +536,7 @@ def write_graphml(graph: nx.Graph, file_name: str = "graph.graphml") -> None:
 
 def read_graphml(file_name: str = "graph.graphml") -> nx.Graph:
     """
-    Reads a NetworkX graph from a GraphML file.
+    Read a NetworkX graph from a GraphML file.
 
     Parameters
     ----------
@@ -584,6 +620,19 @@ def nx_to_smi(graph: nx.Graph, add_hydrogens: bool = True, sanitize: bool = True
     - The SMILES string is generated with explicit hydrogens and Kekulé form if specified.
     - The 'color' attribute of nodes and edges in the graph is used to define atomic symbols
       and bond orders, respectively.
+
+    Examples
+    --------
+    This is the inverse of :func:`smi_to_nx`, and the usual way to read the
+    virtual objects a calculation returns:
+
+    >>> import assemblytheorytools as att
+    >>> graph = att.smi_to_nx("CN1C=NC2=C1C(=O)N(C(=O)N2C)C")
+    >>> ai, virt_obj, pathway = att.calculate_assembly_index(
+    ...     graph, strip_hydrogen=True)
+    >>> smiles = [att.nx_to_smi(g, add_hydrogens=False) for g in virt_obj]
+    >>> "C=O" in smiles
+    True
     """
     mol = nx_to_mol(graph, add_hydrogens=add_hydrogens, sanitize=sanitize)
     return Chem.MolToSmiles(mol, allHsExplicit=False, kekuleSmiles=True)
@@ -622,6 +671,28 @@ def smi_to_nx(smiles: str, add_hydrogens: bool = True, sanitize: bool = True) ->
     -----
     - The 'color' attribute of nodes corresponds to the atomic symbol (e.g., "C" for carbon).
     - The 'color' attribute of edges corresponds to the bond type as an integer.
+
+    Examples
+    --------
+    >>> import assemblytheorytools as att
+    >>> graph = att.smi_to_nx("CCO")
+    >>> graph.number_of_nodes(), graph.number_of_edges()
+    (9, 8)
+    >>> graph.nodes[0]["color"]
+    'C'
+
+    The result satisfies the calculator's input requirements, so it can be
+    passed straight to
+    :func:`~assemblytheorytools.assembly.calculate_assembly_index`:
+
+    >>> att.calculate_assembly_index(graph, strip_hydrogen=True)[0]
+    1
+
+    Use a ``.`` separator to build a disconnected graph for a joint
+    calculation:
+
+    >>> att.smi_to_nx("NCC(=O)O.CC(N)C(=O)O").number_of_nodes()
+    23
     """
     mol = smi_to_mol(smiles, add_hydrogens=add_hydrogens, sanitize=sanitize)
     if mol is None:
@@ -795,7 +866,7 @@ def longest_path_length(digraph: nx.DiGraph) -> int:
 
 def relabel_digraph(graph: nx.DiGraph) -> nx.DiGraph:
     """
-    Relabels the nodes of a directed graph with their topological step.
+    Relabel the nodes of a directed graph with their topological step.
 
     This function assigns a "label" attribute to each node in the graph,
     where the label indicates the topological step (generation) of the node
@@ -868,6 +939,19 @@ def canonicalize_node_labels(graph: nx.Graph) -> nx.Graph:
     nx.Graph
         A new NetworkX graph with nodes relabeled to a sequence of integers
         from 0 to n-1.
+
+    Examples
+    --------
+    Two isomorphic graphs numbered differently canonicalise to the same
+    labelling, which is why
+    :func:`~assemblytheorytools.assembly.calculate_assembly_index` applies
+    this by default:
+
+    >>> import assemblytheorytools as att
+    >>> graph = att.smi_to_nx("CCO")
+    >>> canonical = att.canonicalize_node_labels(graph)
+    >>> sorted(canonical.nodes()) == list(range(graph.number_of_nodes()))
+    True
     """
     # Get the current node labels from the graph
     current_labels = list(graph.nodes())
@@ -960,7 +1044,9 @@ def compose_graphs(graphs: Iterable[nx.Graph]) -> Union[nx.Graph, nx.DiGraph, nx
 
 def set_graph_layer(digraph: nx.DiGraph) -> nx.DiGraph:
     """
-    Assigns a "layer" attribute to each node in a directed acyclic graph (DAG) based on its topological generation.
+    Assign a "layer" attribute to each node of a DAG.
+
+    The layer is taken from the node's topological generation.
 
     This function iterates through the topological generations of the input directed graph
     and assigns a "layer" attribute to each node. The layer number corresponds to the
@@ -1018,13 +1104,15 @@ def strip_digraph_layer(digraph: nx.DiGraph, layer: int) -> nx.DiGraph:
 
 def top_n_degree_subgraph(G: nx.DiGraph, n: int, must_keep: List[nx.Graph]) -> nx.DiGraph:
     """
-    Extract a subgraph containing the top `n` nodes with the highest degrees,
-    while ensuring that specific subgraphs are retained.
+    Extract a subgraph of the highest-degree nodes.
 
-    This function creates a subgraph from the input directed graph `G` by selecting
-    the top `n` nodes based on their degree (sum of in-degree and out-degree).
-    Additionally, it ensures that nodes corresponding to the `must_keep` subgraphs
-    are included in the resulting subgraph.
+    The top ``n`` nodes by degree are kept, while ensuring that specific
+    subgraphs are retained.
+
+    This function creates a subgraph from the input directed graph `G` by
+    selecting the top `n` nodes based on their degree (sum of in-degree and
+    out-degree). Additionally, it ensures that nodes corresponding to the
+    `must_keep` subgraphs are included in the resulting subgraph.
 
     Parameters
     ----------
@@ -1038,15 +1126,17 @@ def top_n_degree_subgraph(G: nx.DiGraph, n: int, must_keep: List[nx.Graph]) -> n
     Returns
     -------
     nx.DiGraph
-        A subgraph of the input graph `G` containing the top `n` nodes by degree
-        and nodes corresponding to the `must_keep` subgraphs.
+        A subgraph of the input graph `G` containing the top `n` nodes by
+        degree and nodes corresponding to the `must_keep` subgraphs.
 
     Notes
     -----
     - If the `must_keep` subgraphs contain hydrogen atoms ('H') but the input graph
-      does not, the hydrogen atoms are removed from the `must_keep` subgraphs.
+      does not, the comparison is made against hydrogen-free copies of them.
+      The caller's `must_keep` graphs are not modified.
     - The function ensures that all nodes in the `must_keep` subgraphs are included
-      in the resulting subgraph, even if they are not among the top `n` nodes by degree.
+      in the resulting subgraph, even if they are not among the top `n`
+      nodes by degree.
     """
     # Create a copy of the input graph to avoid modifying the original
     G = G.copy()

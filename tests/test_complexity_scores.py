@@ -361,7 +361,15 @@ def test_compression_zlib_graph():
     Asserts:
         - The compressed size with higher compression is smaller than with lower compression.
         - The compressed size without hydrogens matches the expected value (111).
-        - The compressed size with hydrogens matches the expected value (111).
+        - The compressed size with hydrogens matches the expected value (152).
+
+    Notes:
+        - The with-hydrogens assertion was 111 until 2026-08-17, matching the
+          without-hydrogens value. That was an artefact of
+          `remove_hydrogen_from_graph` stripping in place: the earlier
+          `add_hydrogens=False` call mutated `graph`, so the `add_hydrogens=True`
+          call re-measured the stripped graph. Each measurement now gets its own
+          graph, and 152 is the true with-hydrogens size.
     """
     print(flush=True)
     # Create a simple graph with colors
@@ -406,7 +414,11 @@ def test_compression_zlib_graph():
     # Assert that the compressed size without hydrogens matches the expected value
     assert compressed == 111
     # Assert that the compressed size with hydrogens matches the expected value
-    assert h_compressed == 111
+    assert h_compressed == 152
+    # The hydrogens make the graph bigger, so it must not compress to the same size
+    assert h_compressed > compressed
+    # The input graph must be untouched by any of the calls above
+    assert graph.number_of_nodes() == 15
 
 
 def test_compression_ratio_zlib_graph():
@@ -448,7 +460,14 @@ def test_calculate_assembly_ratio():
 
     Asserts:
         - The assembly ratio with hydrogen stripping is approximately 2.50.
-        - The assembly ratio without hydrogen stripping is approximately 1.50.
+        - The assembly ratio without hydrogen stripping is approximately 1.67.
+
+    Notes:
+        - The unstripped assertion was 1.50 until 2026-08-17. That was the
+          *stripped* ratio measured a second time: `remove_hydrogen_from_graph`
+          stripped in place, so the earlier `strip_hydrogen=True` call mutated
+          `graph` and the `strip_hydrogen=False` call never saw its hydrogens.
+          The true unstripped ratio is 1.67.
     """
     print(flush=True)
     smi = "C1=CC=C(C=C1)C(=O)O"  # SMILES for benzoic acid
@@ -458,9 +477,11 @@ def test_calculate_assembly_ratio():
     print(f"Compression ratio: {ratio:.2f}", flush=True)
     assert np.allclose(ratio, 2.50, atol=0.01)
 
+    # The call above must not have stripped `graph`, or this measures it twice
+    assert graph.number_of_nodes() == 15
     ratio = att.calculate_assembly_index_ratio(graph, settings={'strip_hydrogen': False})
     print(f"Compression ratio: {ratio:.2f}", flush=True)
-    assert np.allclose(ratio, 1.50, atol=0.01)
+    assert np.allclose(ratio, 1.6667, atol=0.01)
 
 
 def test_calculate_jo_assembly_ratio():
@@ -475,7 +496,14 @@ def test_calculate_jo_assembly_ratio():
 
     Asserts:
         - The joining operation assembly ratio with hydrogen stripping is approximately 2.14.
-        - The joining operation assembly ratio without hydrogen stripping is approximately 1.29.
+        - The joining operation assembly ratio without hydrogen stripping is approximately 1.50.
+
+    Notes:
+        - The unstripped assertion was 1.29 until 2026-08-17. That was the
+          *stripped* ratio measured a second time: `remove_hydrogen_from_graph`
+          stripped in place, so the earlier `strip_hydrogen=True` call mutated
+          `graph` and the `strip_hydrogen=False` call never saw its hydrogens.
+          The true unstripped ratio is 1.50.
     """
     print(flush=True)
     smi = "C1=CC=C(C=C1)C(=O)O"  # SMILES for benzoic acid
@@ -485,9 +513,11 @@ def test_calculate_jo_assembly_ratio():
     print(f"Compression ratio: {ratio:.2f}", flush=True)
     assert np.allclose(ratio, 2.14, atol=0.01)
 
+    # The call above must not have stripped `graph`, or this measures it twice
+    assert graph.number_of_nodes() == 15
     ratio = att.calculate_assembly_index_jo_ratio(graph, settings={'strip_hydrogen': False})
     print(f"Compression ratio: {ratio:.2f}", flush=True)
-    assert np.allclose(ratio, 1.29, atol=0.01)
+    assert np.allclose(ratio, 1.50, atol=0.01)
 
 
 def test_fcfp4():

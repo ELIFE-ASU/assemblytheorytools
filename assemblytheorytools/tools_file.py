@@ -223,7 +223,7 @@ def _edge_colours_replacer(match: Match[str]) -> str:
     return '"EdgeColours": [' + ', '.join(fixed_items) + ']'
 
 
-def remove_file_pattern(pattern: str):
+def remove_file_pattern(pattern: str) -> None:
     """
     Remove all files matching a specific glob pattern.
 
@@ -245,7 +245,7 @@ def remove_file_pattern(pattern: str):
             pass
 
 
-def safe_folder_remove(folder_path: str):
+def safe_folder_remove(folder_path: str) -> None:
     """
     Safely remove a folder and all its contents.
 

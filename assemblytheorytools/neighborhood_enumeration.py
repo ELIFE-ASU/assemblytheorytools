@@ -70,6 +70,24 @@ def enumerate_neighborhood(graphs: List[nx.Graph],
     --------
     Input graphs are assumed to be distinct. Duplicate graphs may lead
     to redundant computations.
+
+    Examples
+    --------
+    >>> import assemblytheorytools as att
+    >>> result = att.enumerate_neighborhood(
+    ...     [att.remove_hydrogen_from_graph(att.smi_to_nx("CCO"))])
+    >>> sorted(result)
+    ['N_graphs', 'down_jos', 'input_graphs', 'up_jos']
+    >>> len(result["N_graphs"])
+    8
+
+    ``N_graphs`` is the neighbourhood -- every distinct graph one edit away.
+    ``up_jos`` and ``down_jos`` are the joining operations that produce each
+    neighbour. Deduplication is by graph isomorphism rather than node
+    numbering, so relabelling the inputs gives an equivalent answer.
+
+    Strip hydrogens first: the neighbourhood grows quickly with graph size,
+    and the isomorphism check is pairwise against everything found so far.
     """
 
     # Canonicalize the input graphs
@@ -191,6 +209,21 @@ def enumerate_down(graph: nx.Graph, allow_dots: bool = True) -> List[List[List[T
     -----
     This is a brute-force method that enumerates all possible edge subsets.
     Time complexity is ``O(2^|E|)``, where ``|E|`` is the number of edges.
+
+    Examples
+    --------
+    >>> import networkx as nx
+    >>> import assemblytheorytools as att
+    >>> graph = nx.Graph()
+    >>> graph.add_edges_from([(0, 1), (1, 2)])
+    >>> for i in graph.nodes:
+    ...     graph.nodes[i]["color"] = "C"
+    >>> for e in graph.edges:
+    ...     graph.edges[e]["color"] = 1
+    >>> att.enumerate_down(graph)
+    [[[(0, 1)], [(1, 2)]]]
+
+    The two-edge path splits one way: into its two single edges.
     """
     partition_pairs = []
     edges = list(graph.edges())
@@ -306,6 +339,34 @@ def enumerate_up(graph1: nx.Graph,
     4. Compute the outer product of combinations across all colors.
     5. Filter out combinations that create multi-edges.
     6. Generate output graphs from the valid vertex identifications.
+
+    Both inputs need at least one edge: joining against a single isolated
+    node yields nothing, since there is no bond to form.
+
+    Examples
+    --------
+    >>> import networkx as nx
+    >>> import assemblytheorytools as att
+    >>> def path_graph(n_edges):
+    ...     g = nx.Graph()
+    ...     g.add_edges_from([(k, k + 1) for k in range(n_edges)])
+    ...     for i in g.nodes:
+    ...         g.nodes[i]["color"] = "C"
+    ...     for e in g.edges:
+    ...         g.edges[e]["color"] = 1
+    ...     return g
+    >>> ups = att.enumerate_up(path_graph(2), path_graph(2))
+    >>> len(ups)
+    19
+
+    Many of those are isomorphic; deduplicate for the distinct structures:
+
+    >>> unique = [ups[0]]
+    >>> for g in ups[1:]:
+    ...     if not any(nx.is_isomorphic(g, u) for u in unique):
+    ...         unique.append(g)
+    >>> len(unique)
+    5
     """
 
     # Check that we have the information for valence checks

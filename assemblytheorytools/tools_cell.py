@@ -344,7 +344,7 @@ def tile_cell_shells(
     )
 
 
-def cif_to_nx(file,
+def cif_to_nx(file: str,
               reps: tuple[int, int, int] = (3, 3, 3),
               cutoff_mult: float = 1.2,
               eps: float = 1e-9) -> nx.Graph:
@@ -405,17 +405,21 @@ def guess_bond_orders(
         max_bond_order: int = 4,
 ) -> Tuple[nx.Graph, bool, Dict]:
     """
-    Assign bond orders to edges in a molecular graph using constraint satisfaction.
+    Assign bond orders to edges in a molecular graph using constraint
+    satisfaction.
 
-    This function uses backtracking search with constraint propagation to assign
-    bond orders that satisfy atomic valence requirements based on periodic table data.
+    This function uses backtracking search with constraint propagation to
+    assign bond orders that satisfy atomic valence requirements based on
+    periodic table data.
 
     Parameters
     ----------
     G : nx.Graph
-        Input molecular graph with nodes having 'color' attribute (element symbol).
+        Input molecular graph with nodes having 'color' attribute (element
+        symbol).
     formal_charge_attr : Optional[str], optional
-        Attribute name for formal charge on nodes. Default is "formal_charge".
+        Attribute name for formal charge on nodes. Default is
+        "formal_charge".
     max_bond_order : int, optional
         Maximum allowed bond order. Default is 4.
 
@@ -426,8 +430,19 @@ def guess_bond_orders(
     success : bool
         True if all valence constraints were satisfied, False otherwise.
     info : Dict
-        Diagnostic information including target valences, remaining valences,
-        and search statistics.
+        Diagnostic information including target valences, remaining
+        valences, and search statistics.
+
+    Raises
+    ------
+    ValueError
+        If a node carries an element symbol that is not in the periodic
+        table.
+
+    Warns
+    -----
+    UserWarning
+        Always, because the bond order search is experimental.
     """
 
     # Raise a warning that the code is experimental
@@ -507,7 +522,7 @@ def guess_bond_orders(
     backtracks = 0
 
     # Initialize each edge's domain: 1..max_bond_order, limited by each endpoint's residual
-    def edge_domain(u, v):
+    def edge_domain(u: int, v: int) -> List[int]:
         """
         List the bond orders still assignable to an edge.
 
@@ -528,7 +543,7 @@ def guess_bond_orders(
         return [o for o in (1, 2, 3) if o <= r]
 
     # Feasibility check after tentative assignment: can each node still be satisfied?
-    def feasible_after(u, v, order) -> bool:
+    def feasible_after(u: int, v: int, order: int) -> bool:
         """
         Test whether assigning a bond order leaves the problem satisfiable.
 
@@ -583,7 +598,7 @@ def guess_bond_orders(
         return True
 
     # Select next edge (MRV: smallest domain)
-    def select_edge():
+    def select_edge() -> Tuple[Optional[Tuple[int, int]], Optional[List[int]]]:
         """
         Choose the next edge to assign, by minimum remaining values.
 
@@ -607,7 +622,9 @@ def guess_bond_orders(
             if best is None or len(dom) < len(best_domain):
                 best = (u, v)
                 best_domain = dom
-        return best, best_domain if best is not None else (None, None)
+        # best and best_domain are only ever assigned together, so both are
+        # None exactly when every edge has already been assigned.
+        return best, best_domain
 
     # Backtracking search
     best_partial = {}
