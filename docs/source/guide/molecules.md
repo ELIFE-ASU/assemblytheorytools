@@ -100,6 +100,38 @@ att.calculate_assembly_index_rust(graph)    # 9 for caffeine
 It returns a bare integer and always strips hydrogens, so only compare it with
 `strip_hydrogen=True` results.
 
+Two further functions reach the same backend.
+{func}`~assemblytheorytools.assembly.calculate_assembly_depth_rust` gives the
+molecule's minimum assembly depth, and
+{func}`~assemblytheorytools.assembly.calculate_assembly_index_rust_search`
+exposes the search itself:
+
+```python
+att.calculate_assembly_depth_rust(att.smi_to_nx("c1ccccc1"))   # 3 for benzene
+
+result = att.calculate_assembly_index_rust_search(graph, timeout=10)
+result.index, result.num_matches, result.states_searched
+```
+
+:::{warning}
+The depth search is far more expensive than the index search and takes no
+timeout, so it is only practical on small molecules. Benzene returns instantly
+and naphthalene takes around four minutes, while both of their indices come back
+in well under a second.
+:::
+
+`num_matches` counts the edge-disjoint isomorphic subgraph pairs the search had
+to consider and `states_searched` is `None` if the timeout fired, which together
+say whether a slow molecule is slow because it is large or because it is
+repetitive. The search options — `canonize`, `parallel`, `memoize`, `kernel` and
+`bounds` — are documented on the function; the defaults are the backend's own.
+On releases that support it, `max_pathways` also reconstructs the minimum
+assembly pathways; see [Pathways](pathways.md).
+
+{func}`~assemblytheorytools.assembly.get_molecule_info_rust` prints the graph
+the backend actually builds, which is the quickest way to confirm that
+hydrogens were dropped or that a ring was kekulised.
+
 When an exact search is too slow, bound the answer instead:
 
 ```python

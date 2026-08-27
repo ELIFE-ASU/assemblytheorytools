@@ -21,9 +21,15 @@ This describes the assemblyCPP calculator that ATT drives by default.
 
 ## The Rust calculator
 
-The [assembly-theory](https://github.com/DaymudeLab/assembly-theory) crate,
-reached through
-{func}`~assemblytheorytools.assembly.calculate_assembly_index_rust`.
+Vimal, D., Parzych, G., Smith, O. M., Parkar, D., Bergen, H., Daymude, J. J.,
+& Mathis, C. (2026). assembly-theory: Open, reproducible calculation of assembly
+indices. *Journal of Open Source Software*, 11(117), 9318.
+[doi:10.21105/joss.09318](https://doi.org/10.21105/joss.09318)
+
+This describes the [assembly-theory](https://github.com/DaymudeLab/assembly-theory)
+crate, reached through
+{func}`~assemblytheorytools.assembly.calculate_assembly_index_rust` and the
+other Rust-backed functions.
 
 ## Method-specific references
 

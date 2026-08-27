@@ -100,3 +100,14 @@ Creates a complex fragmentation tree.
 Estimates the molecular assembly (MA) for a given precursor mass-to-charge ratio (m/z).
 Prints the tree structure, tree depth, and the estimated MA.
 This script shows how to use the `MAEstimator` for fragmentation tree analysis.
+
+## 9_rust_backend.py
+
+Demonstrates the Rust-backed `assembly-theory` calculator on anthracene.
+
+Computes the assembly index with att.calculate_assembly_index_rust.
+Computes the assembly depth of benzene with att.calculate_assembly_depth_rust.
+Inspects the graph the backend builds with att.get_molecule_info_rust.
+Runs att.calculate_assembly_index_rust_search to report the search statistics, and
+reconstructs and plots a minimum assembly pathway where the installed release supports it.
+This script shows how to reach the Rust calculator's full API rather than the index alone.

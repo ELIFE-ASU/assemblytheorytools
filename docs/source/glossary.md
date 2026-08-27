@@ -73,7 +73,9 @@ Assembly depth
   usually not associated with the assembly index path.
 
   In ATT: {func}`~assemblytheorytools.construction.assign_levels` annotates each
-  pathway node with its depth. See {doc}`guide/pathways`.
+  pathway node with the depth of the pathway it belongs to, while
+  {func}`~assemblytheorytools.assembly.calculate_assembly_depth_rust` returns the
+  object's minimum achievable assembly depth. See {doc}`guide/pathways`.
 
 Virtual objects
   *Symbol: $o_v$.* The contingent sub-objects along a given assembly path. In

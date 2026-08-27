@@ -16,8 +16,9 @@ worked protocols, and the complete API reference.
 
 The aim is that this package provides a platform to do assembly theory calculations that work out of the box.
 We currently interface with [C++](https://github.com/croningp/assemblycpp-v5) [\[2\]](#ref2)
-and [Rust](https://github.com/DaymudeLab/assembly-theory) [\[3\]](#ref3) assembly calculators, and this package comes
-with precompiled versions of both.
+and [Rust](https://github.com/DaymudeLab/assembly-theory) [\[3\]](#ref3) assembly calculators.
+Precompiled C++ binaries ship inside this package, and the Rust calculator is installed alongside it
+as a wheel, so a calculation works out of the box either way.
 This version works best on Unix-based systems, and to use this package, it is strongly suggested that you use Linux
 subsystem if you are using Windows.
 
@@ -210,7 +211,10 @@ MIT License. We ask that you cite the relevant papers, please!
 - <a id="ref2">\[2\]</a> Seet, I., Patarroyo, K. Y., Siebert, G., Walker, S. I., & Cronin, L. (2024). Rapid computation
   of the assembly index of molecular graphs. arXiv preprint arXiv:2410.09100. [doi:10.48550/arXiv.2410.09100](
   https://doi.org/10.48550/arXiv.2410.09100).
-- <a id="ref3">\[3\]</a> https://github.com/DaymudeLab/assembly-theory
+- <a id="ref3">\[3\]</a> Vimal, D., Parzych, G., Smith, O. M., Parkar, D., Bergen, H., Daymude, J. J., &
+  Mathis, C. (2026). assembly-theory: Open, reproducible calculation of assembly indices. Journal of Open
+  Source Software, 11(117), 9318. [doi:10.21105/joss.09318](https://doi.org/10.21105/joss.09318).
+  https://github.com/DaymudeLab/assembly-theory
 
 ## 🛠️ Full installation instructions
 
@@ -259,13 +263,13 @@ conda update conda --all -y
 #### Install the requirements.
 
 ```
-conda install numpy scipy matplotlib networkx rdkit pyvis ase -y
+conda install numpy scipy matplotlib networkx pydot rdkit pyvis ase -y
 ```
 
 Then, install the ELIFE packages.
 
 ```
-pip install git+https://github.com/ELIFE-ASU/dagviz.git assemblycfg
+pip install git+https://github.com/ELIFE-ASU/dagviz.git assemblycfg assembly-theory
 ```
 
 Then, install AssemblyTheoryTools.
@@ -313,13 +317,13 @@ conda update conda --all -y
 Install the requirements.
 
 ```
-conda install numpy scipy matplotlib networkx rdkit pyvis ase pytest -y
+conda install numpy scipy matplotlib networkx pydot rdkit pyvis ase pytest -y
 ```
 
 Then, install the ELIFE packages.
 
 ```
-pip install git+https://github.com/ELIFE-ASU/dagviz.git assemblycfg
+pip install git+https://github.com/ELIFE-ASU/dagviz.git assemblycfg assembly-theory
 ```
 
 Clone the repo using Git or GitKraken. Then, open your favourite IDE (PyCharm/VS Code) and the cloned repo.
@@ -431,5 +435,5 @@ export ASS_PATH=$HOME/assemblycpp-v5/v5/asscpp
    <summary>Dependencies</summary>
    <br>
    All testing performed in python 3.12. Dependent packages are as follows:
-   ase>=3.23.0, numpy>=2.1.3, scipy>=1.15.1, pandas>=2.2.3, matplotlib>=3.9.2, networkx>=3.4.2, rdkit>=2024.03.5, ipython>=8.30.0, pyvis>=0.3.2, pubchempy>=1.0.5, cairosvg>=2.8.2, pillow>=10.1.0, dagviz>=0.5.0, assembly-theory>=0.6.0, assemblycfg>=1.2.2
+   ase>=3.23.0, numpy>=2.1.3, scipy>=1.15.1, pandas>=2.2.3, matplotlib>=3.9.2, networkx>=3.4.2, pydot>=3.0.1, rdkit>=2024.03.5, ipython>=8.30.0, pyvis>=0.3.2, pubchempy>=1.0.5, cairosvg>=2.8.2, pillow>=10.1.0, dagviz>=0.5.0, assembly-theory>=0.6.0, assemblycfg>=1.2.2
 </details>

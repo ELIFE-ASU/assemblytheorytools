@@ -9,8 +9,9 @@ results.
 Assembly theory quantifies the complexity of an object by the minimal number of
 joining steps needed to build it from elementary parts, reusing every
 intermediate that has already been made. ``assemblytheorytools`` (ATT) wraps the
-C++ and Rust assembly calculators behind one Python API and ships precompiled
-binaries for both, so a calculation works out of the box.
+C++ and Rust assembly calculators behind one Python API. The C++ binaries ship
+precompiled inside the package and the Rust calculator installs alongside it as
+a wheel, so a calculation works out of the box.
 
 Installation
 ------------

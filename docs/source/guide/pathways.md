@@ -97,6 +97,57 @@ Alternative renderings:
   layout taking an adjacency matrix and per-node indices, used for comparing
   many objects at once.
 
+## Pathways from the Rust backend
+
+The Rust backend can reconstruct minimum assembly pathways too, and reports them
+as DOT strings.
+{func}`~assemblytheorytools.assembly.calculate_assembly_index_rust_search`
+loads them for you:
+
+```python
+result = att.calculate_assembly_index_rust_search(
+    att.smi_to_nx("c1ccccc1"), max_pathways=1)
+
+pathway = result.pathways[0]
+fig, ax = att.plot_pathway(pathway, plot_type="mol")
+```
+
+`max_pathways` is the number of pathways to reconstruct: a positive integer for
+at most that many, `0` for all of them, or `None` (the default) to skip
+reconstruction. Asking for all of them is the exact counterpart of
+{func}`~assemblytheorytools.find_other_paths.all_shortest_paths` below, which
+samples rather than enumerates.
+
+:::{warning}
+Pathway reconstruction was added to `assembly-theory` after release 0.6.1. On an
+older release, passing `max_pathways` raises `NotImplementedError`; everything
+else on this page works regardless.
+:::
+
+These pathways are {class}`~networkx.MultiDiGraph` objects rather than
+{class}`~networkx.DiGraph` ones, because a fragment joined to a copy of itself
+produces two parallel edges. They carry the same `type`, `vo` and `label` node
+attributes as every other ATT pathway, so `assign_levels`, `set_graph_layer` and
+all the plots above work on them unchanged.
+
+They also carry a `bonds` attribute the other backends do not: on a node, the
+indices of the bonds its fragment contains; on an edge, the bonds the source
+fragment occupies inside the fragment being built. The indices refer to the
+molecule as the backend loaded it, which is why the pathway must be read back
+against that same molecule.
+{func}`~assemblytheorytools.construction.parse_pathway_dot` does that pairing
+explicitly when you have a DOT string from elsewhere:
+
+```python
+from rdkit import Chem
+
+mol = Chem.MolFromMolBlock(mol_block)
+pathway = att.parse_pathway_dot(dot_string, mol=mol)
+```
+
+Fragments are returned kekulised, matching the graph the backend searches. Pass
+`mol=None` to read a pathway's structure without building any chemistry.
+
 ## Alternative shortest pathways
 
 A shortest pathway is rarely unique.

@@ -91,9 +91,16 @@ assemblyCPP
 
 assembly-theory (Rust)
 : Reached through
-  {func}`~assemblytheorytools.assembly.calculate_assembly_index_rust`. Returns
-  the index only — no virtual objects, no pathway — and always strips
-  hydrogens, so compare it against `strip_hydrogen=True` results.
+  {func}`~assemblytheorytools.assembly.calculate_assembly_index_rust`, which
+  returns the index alone. It always strips hydrogens, so compare it against
+  `strip_hydrogen=True` results.
+  {func}`~assemblytheorytools.assembly.calculate_assembly_depth_rust` gives the
+  molecule's minimum assembly depth, and
+  {func}`~assemblytheorytools.assembly.calculate_assembly_index_rust_search`
+  exposes the search options and reports how many duplicate subgraph pairs and
+  assembly states the search saw. That function also reconstructs minimum
+  assembly pathways, on releases that support it — see
+  [Pathways](guide/pathways.md).
 
 assemblycfg
 : A fast approximate method based on context-free grammars, used by the

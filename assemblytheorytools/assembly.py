@@ -24,12 +24,14 @@ import tempfile
 import time
 import traceback
 from datetime import datetime
-from functools import partial
+from functools import cache, partial
+from importlib.metadata import PackageNotFoundError, version
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
-from typing import Union, List, Optional, Tuple, Dict, Any
+from typing import Union, List, Optional, Sequence, Tuple, Dict, Any, NamedTuple
 
 from .construction import (parse_pathway_file,
+                           parse_pathway_dot,
                            parse_string_pathway_file,
                            molstr_to_str,
                            convert_digraph_vo_to_target)
@@ -2063,6 +2065,137 @@ def calculate_assembly_index_jo_ratio(graph: Union[nx.Graph, Chem.Mol], settings
     return n_edges / jo
 
 
+class RustSearchResult(NamedTuple):
+    """
+    Result of a Rust-backed assembly index search.
+
+    Attributes
+    ----------
+    index : int
+        The molecule's assembly index, or the best upper bound found so far if
+        the search timed out.
+    num_matches : int
+        The number of edge-disjoint isomorphic subgraph pairs in the molecule.
+    states_searched : int or None
+        The number of assembly states visited, or None if the search timed out
+        before finishing.
+    pathways : list of nx.MultiDiGraph
+        The minimum assembly pathways that were reconstructed. Empty unless
+        ``max_pathways`` was given.
+    """
+    index: int
+    num_matches: int
+    states_searched: Optional[int]
+    pathways: List[nx.MultiDiGraph]
+
+
+def _rust_version() -> str:
+    """
+    Report the installed version of the Rust assembly-theory package.
+
+    Returns
+    -------
+    str
+        The version string, or 'unknown' if the package metadata is missing.
+    """
+    try:
+        return version("assembly-theory")
+    except PackageNotFoundError:
+        return "unknown"
+
+
+@cache
+def _rust_supports_pathways() -> bool:
+    """
+    Report whether the installed Rust backend can reconstruct pathways.
+
+    Returns
+    -------
+    bool
+        True if ``index_search`` accepts ``max_pathways``.
+
+    Notes
+    -----
+    - The backend rejects unknown keyword arguments before it looks at the mol
+      block, so an empty mol block is enough to ask the question without
+      running a search: a release that understands ``max_pathways`` complains
+      about the molecule, and one that does not complains about the argument.
+    - Release 0.6.1 reports a ``__text_signature__`` that omits arguments it
+      does in fact accept, so the signature cannot be trusted for this.
+    """
+    try:
+        at_rust.index_search("", max_pathways=0)
+    except TypeError:
+        return False
+    except Exception:
+        pass
+    return True
+
+
+def _mol_to_molblock(mol: Union[nx.Graph, Chem.Mol]) -> str:
+    """
+    Convert a molecule to the V2000 mol block the Rust backend expects.
+
+    Parameters
+    ----------
+    mol : Union[nx.Graph, Chem.Mol]
+        The input molecule, either a NetworkX graph or an RDKit molecule.
+
+    Returns
+    -------
+    str
+        The molecule as a V2000 mol block.
+
+    Raises
+    ------
+    ValueError
+        If the molecule is neither a NetworkX graph nor an RDKit molecule, or
+        if it has more than 999 atoms or bonds, which RDKit can only write as
+        V3000, a format the Rust backend rejects.
+
+    Notes
+    -----
+    - Hydrogens are not added, because the Rust backend discards them when it
+      loads the mol block.
+    - Directed graphs are undirected first, since a molecular graph has no
+      direction.
+    """
+    if isinstance(mol, nx.Graph):
+        # A molecular graph carries no direction, so undirect anything that
+        # does before nx_to_mol tries to add each bond twice
+        mol = nx_to_mol(mol.to_undirected() if mol.is_directed() else mol,
+                        add_hydrogens=False)
+
+    if not isinstance(mol, Chem.Mol):
+        raise ValueError("Expected a NetworkX graph or an RDKit molecule, got "
+                         f"{type(mol).__name__}.")
+
+    n_atoms, n_bonds = mol.GetNumAtoms(), mol.GetNumBonds()
+    if n_atoms > 999 or n_bonds > 999:
+        raise ValueError(f"The Rust backend only reads V2000 mol blocks, which hold at most "
+                         f"999 atoms and 999 bonds; this molecule has {n_atoms} atoms and "
+                         f"{n_bonds} bonds.")
+
+    return Chem.MolToMolBlock(mol)
+
+
+def _rust_error(error: OSError) -> ValueError:
+    """
+    Translate a mol block error from the Rust backend into a ValueError.
+
+    Parameters
+    ----------
+    error : OSError
+        The error raised by the Rust backend.
+
+    Returns
+    -------
+    ValueError
+        The equivalent error, with context on what the backend rejected.
+    """
+    return ValueError(f"The Rust backend could not read this molecule: {error}")
+
+
 def calculate_assembly_index_rust(mol: Union[nx.Graph, Chem.Mol]) -> int:
     """
     Calculate the assembly index of a molecule using the Rust-based assembly theory library.
@@ -2084,14 +2217,17 @@ def calculate_assembly_index_rust(mol: Union[nx.Graph, Chem.Mol]) -> int:
     Raises
     ------
     ValueError
-        If the input molecule cannot be converted to an RDKit `Chem.Mol` object.
+        If the molecule is not a NetworkX graph or an RDKit molecule, if it is
+        too large for a V2000 mol block, or if the Rust backend cannot read it.
 
     Notes
     -----
     - If the input is a NetworkX graph, it is first converted to an RDKit `Chem.Mol` object
       using the `nx_to_mol` function.
     - This backend returns the index only: no virtual objects and no
-      pathway. Use :func:`calculate_assembly_index` when those are needed.
+      pathway. Use :func:`calculate_assembly_index` when those are needed, or
+      :func:`calculate_assembly_index_rust_search` for search statistics and
+      pathways.
     - Hydrogens are always stripped, so only compare the result against
       ``calculate_assembly_index(..., strip_hydrogen=True)``.
 
@@ -2104,9 +2240,229 @@ def calculate_assembly_index_rust(mol: Union[nx.Graph, Chem.Mol]) -> int:
     >>> att.calculate_assembly_index_rust(att.smi_to_nx("CCO"))
     1
     """
-    if type(mol) is nx.Graph:
-        mol = nx_to_mol(mol)  # Convert NetworkX graph to RDKit molecule if necessary
-    return at_rust.index(Chem.MolToMolBlock(mol))  # Compute the assembly index using the Rust library
+    try:
+        return at_rust.index(_mol_to_molblock(mol))
+    except OSError as e:
+        raise _rust_error(e) from e
+
+
+def calculate_assembly_depth_rust(mol: Union[nx.Graph, Chem.Mol]) -> int:
+    """
+    Calculate the assembly depth of a molecule using the Rust-based library.
+
+    Assembly depth counts the joining operations along the longest branch of an
+    assembly pathway, as if independent joins ran concurrently, so it is
+    generally smaller than the assembly index. See Pagel et al. (2024).
+
+    Parameters
+    ----------
+    mol : Union[nx.Graph, Chem.Mol]
+        The input molecule, which can be either a NetworkX graph or an RDKit
+        `Chem.Mol` object.
+
+    Returns
+    -------
+    int
+        The assembly depth of the molecule.
+
+    Raises
+    ------
+    ValueError
+        If the molecule is not a NetworkX graph or an RDKit molecule, if it is
+        too large for a V2000 mol block, or if the Rust backend cannot read it.
+
+    Notes
+    -----
+    - Unlike :func:`~assemblytheorytools.construction.assign_levels`, which
+      reports the depth of one particular pathway, this is the molecule's
+      minimum achievable assembly depth.
+    - The depth search is far more expensive than the index search and takes no
+      timeout, so it is only practical on small molecules. Benzene returns
+      instantly and naphthalene takes around four minutes, while both of their
+      indices come back in well under a second.
+    - Hydrogens are stripped, as they are for every Rust-backed calculation.
+
+    Examples
+    --------
+    >>> import assemblytheorytools as att
+    >>> att.calculate_assembly_depth_rust(att.smi_to_nx("c1ccccc1"))
+    3
+    """
+    try:
+        return at_rust.depth(_mol_to_molblock(mol))
+    except OSError as e:
+        raise _rust_error(e) from e
+
+
+def get_molecule_info_rust(mol: Union[nx.Graph, Chem.Mol]) -> str:
+    """
+    Describe the graph the Rust backend builds for a molecule.
+
+    This returns the backend's own view of the molecule as a DOT-formatted
+    undirected graph, listing every atom and bond it will work with. It is the
+    quickest way to check what the backend actually sees, for example that
+    hydrogens have been dropped or that a ring has been kekulised.
+
+    Parameters
+    ----------
+    mol : Union[nx.Graph, Chem.Mol]
+        The input molecule, which can be either a NetworkX graph or an RDKit
+        `Chem.Mol` object.
+
+    Returns
+    -------
+    str
+        A DOT-formatted description of the molecule's atoms and bonds.
+
+    Raises
+    ------
+    ValueError
+        If the molecule is not a NetworkX graph or an RDKit molecule, if it is
+        too large for a V2000 mol block, or if the Rust backend cannot read it.
+
+    Notes
+    -----
+    - Atom and bond indices in this description match the indices of the mol
+      block, and therefore of an RDKit molecule parsed from that same mol
+      block. Pathway bond indices refer to the same numbering.
+
+    Examples
+    --------
+    >>> import assemblytheorytools as att
+    >>> info = att.get_molecule_info_rust(att.smi_to_nx("CCO"))
+    >>> info.count('label = "Atom')
+    3
+    """
+    try:
+        return at_rust.mol_info(_mol_to_molblock(mol))
+    except OSError as e:
+        raise _rust_error(e) from e
+
+
+def calculate_assembly_index_rust_search(mol: Union[nx.Graph, Chem.Mol],
+                                         timeout: Optional[float] = None,
+                                         canonize: str = "tree-nauty",
+                                         parallel: str = "depth-one",
+                                         memoize: str = "canon-index",
+                                         kernel: str = "none",
+                                         bounds: Sequence[str] = ("int", "matchable-edges"),
+                                         max_pathways: Optional[int] = None,
+                                         vo_type: str = "smiles") -> RustSearchResult:
+    """
+    Run the Rust backend's assembly index search with explicit options.
+
+    Where :func:`calculate_assembly_index_rust` returns only the index, this
+    exposes the backend's search parameters and reports what the search did:
+    how many duplicate subgraph pairs it found, how many states it visited,
+    and, on backends that support it, the minimum assembly pathways themselves.
+
+    Parameters
+    ----------
+    mol : Union[nx.Graph, Chem.Mol]
+        The input molecule, which can be either a NetworkX graph or an RDKit
+        `Chem.Mol` object.
+    timeout : float, optional
+        Seconds after which to stop searching and return the best index found
+        so far. Note that the Rust backend takes milliseconds; the conversion
+        is done here so that this argument matches
+        :func:`calculate_assembly_index`. Default is None, meaning no limit.
+    canonize : str, optional
+        Canonisation mode: 'nauty', 'faulon', 'tree-nauty' or 'tree-faulon'.
+        Default is 'tree-nauty'.
+    parallel : str, optional
+        Parallelisation mode: 'none', 'depth-one' or 'always'. Default is
+        'depth-one'. Use 'none' to make `states_searched` deterministic.
+    memoize : str, optional
+        Memoisation mode: 'none' or 'canon-index'. Default is 'canon-index'.
+    kernel : str, optional
+        Kernelisation mode: 'none', 'once', 'depth-one' or 'always'. Default
+        is 'none'.
+    bounds : Sequence[str], optional
+        Branch-and-bound strategies to apply, drawn from 'log', 'int',
+        'vec-simple', 'vec-small-frags' and 'matchable-edges'. Pass an empty
+        sequence for an exhaustive search. Default is
+        ``("int", "matchable-edges")``.
+    max_pathways : int, optional
+        How many minimum assembly pathways to reconstruct: a positive integer
+        for at most that many, 0 for all of them, or None to skip
+        reconstruction entirely. Default is None.
+    vo_type : str, optional
+        Representation for the virtual objects in the reconstructed pathways:
+        'graph', 'mol', 'smiles' or 'inchi'. Default is 'smiles'.
+
+    Returns
+    -------
+    RustSearchResult
+        A named 4-tuple of the assembly index, the number of matching subgraph
+        pairs, the number of states searched (None if the search timed out),
+        and the list of reconstructed pathways.
+
+    Raises
+    ------
+    ValueError
+        If the molecule is not a NetworkX graph or an RDKit molecule, if it is
+        too large for a V2000 mol block, if the Rust backend cannot read it, or
+        if any of the mode strings is not recognised.
+    NotImplementedError
+        If `max_pathways` is given but the installed ``assembly-theory`` release
+        does not support pathway reconstruction.
+
+    Notes
+    -----
+    - Pathway reconstruction was added upstream after release 0.6.1. Support is
+      detected at call time, so this function works on older releases as long
+      as `max_pathways` is left as None.
+    - Each pathway is parsed by
+      :func:`~assemblytheorytools.construction.parse_pathway_dot` against the
+      molecule that was searched, so its bond indices always line up.
+    - Hydrogens are stripped, as they are for every Rust-backed calculation.
+
+    Examples
+    --------
+    >>> import assemblytheorytools as att
+    >>> result = att.calculate_assembly_index_rust_search(
+    ...     att.smi_to_nx("c1ccccc1"), parallel="none")
+    >>> result.index
+    3
+
+    The pathways are ordinary graphs, so they plot with
+    :func:`~assemblytheorytools.tools_plotting.plot_pathway` like any other
+    assembly pathway:
+
+    >>> result = att.calculate_assembly_index_rust_search(  # doctest: +SKIP
+    ...     att.smi_to_nx("c1ccccc1"), max_pathways=1)
+    >>> fig, ax = att.plot_pathway(result.pathways[0])  # doctest: +SKIP
+    """
+    mol_block = _mol_to_molblock(mol)
+
+    options = {"timeout": None if timeout is None else int(timeout * 1000),
+               "canonize_str": canonize,
+               "parallel_str": parallel,
+               "memoize_str": memoize,
+               "kernel_str": kernel,
+               "bound_strs": list(bounds)}
+
+    # max_pathways is only accepted by releases that can reconstruct pathways,
+    # so leave it out entirely when no pathways were asked for
+    if max_pathways is not None:
+        if not _rust_supports_pathways():
+            raise NotImplementedError(
+                f"The installed assembly-theory release ({_rust_version()}) cannot reconstruct "
+                "assembly pathways. Leave max_pathways as None, or upgrade once pathway support "
+                "is released; see https://github.com/DaymudeLab/assembly-theory/issues/155.")
+        options["max_pathways"] = max_pathways
+
+    try:
+        result = at_rust.index_search(mol_block, **options)
+    except OSError as e:
+        raise _rust_error(e) from e
+
+    # Older releases return a 3-tuple, without the list of pathway DOT strings
+    dot_pathways = result[3] if len(result) > 3 else []
+    parsed_mol = Chem.MolFromMolBlock(mol_block)
+    pathways = [parse_pathway_dot(dot, mol=parsed_mol, vo_type=vo_type) for dot in dot_pathways]
+
+    return RustSearchResult(result[0], result[1], result[2], pathways)
 
 
 def calculate_integer_chain(n: int) -> int:

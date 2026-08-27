@@ -10,6 +10,7 @@ dependencies:
   - pandas
   - matplotlib
   - networkx
+  - pydot
   - ase
   - rdkit
   - ipython

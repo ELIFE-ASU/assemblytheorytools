@@ -412,3 +412,35 @@ def test_plot_ase_atoms():
     plt.show()
     assert fig is not None, "Failed to create the figure."
     assert ax is not None, "Failed to create the axes."
+
+
+def test_plot_pathway_from_rust_dot(data_dir):
+    """
+    Test plotting an assembly pathway loaded from the Rust backend's DOT output.
+
+    This function loads the anthracene pathway from its DOT representation and
+    plots it as molecules, as graphs, and with mid-edge arrows, confirming that
+    a Rust-backed pathway drops straight into the existing pathway plots.
+    """
+    print(flush=True)
+
+    mol = att.molfile_to_mol(str(data_dir / "mol_files" / "anthracene.mol"),
+                             add_hydrogens=False)
+    dot = (data_dir / "pathway" / "anthracene_pathway.dot").read_text()
+
+    pathway = att.parse_pathway_dot(dot, mol=mol)
+    fig, ax = att.plot_pathway(pathway, plot_type='mol')
+    plt.show()
+    assert fig is not None, "Failed to create the figure."
+    assert ax is not None, "Failed to create the axes."
+
+    fig, ax = att.plot_pathway_mid_arrow(pathway, plot_type='mol')
+    plt.show()
+    assert fig is not None, "Failed to create the figure."
+    assert ax is not None, "Failed to create the axes."
+
+    graph_pathway = att.parse_pathway_dot(dot, mol=mol, vo_type="graph")
+    fig, ax = att.plot_pathway(graph_pathway, plot_type='graph')
+    plt.show()
+    assert fig is not None, "Failed to create the figure."
+    assert ax is not None, "Failed to create the axes."

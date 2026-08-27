@@ -9,8 +9,9 @@ Unix-like systems; on Windows, use the Windows Subsystem for Linux.
 pip install assemblytheorytools
 ```
 
-This pulls in every runtime dependency and the precompiled assembly calculators,
-which is all that is needed for the {doc}`quick start <index>`.
+This pulls in every runtime dependency, the precompiled C++ assembly
+calculators and the Rust `assembly-theory` wheel, which is all that is needed
+for the {doc}`quick start <index>`.
 
 ## From source
 
@@ -45,8 +46,8 @@ conda update conda --all -y
 Install the compiled dependencies through conda, then the rest through pip:
 
 ```bash
-conda install numpy scipy matplotlib networkx rdkit pyvis ase -y
-pip install git+https://github.com/ELIFE-ASU/dagviz.git assemblycfg
+conda install numpy scipy matplotlib networkx pydot rdkit pyvis ase -y
+pip install git+https://github.com/ELIFE-ASU/dagviz.git assemblycfg assembly-theory
 pip install assemblytheorytools
 ```
 

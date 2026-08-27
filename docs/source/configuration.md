@@ -106,6 +106,52 @@ functions built on it.
 `dir_code`
 : Explicit path to the calculator executable, overriding `ASS_PATH`.
 
+## Rust backend options
+
+The Rust backend needs no environment variable and no binary of its own: it is
+installed as the `assembly-theory` wheel and called in-process. Its search is
+configured entirely through the arguments of
+{func}`~assemblytheorytools.assembly.calculate_assembly_index_rust_search`.
+
+`timeout` (default `None`)
+: Seconds after which to stop searching and return the best index found so far.
+  Given in seconds to match
+  {func}`~assemblytheorytools.assembly.calculate_assembly_index`, although the
+  backend itself takes milliseconds. Unlike the C++ backend, a timed-out search
+  still returns an answer — an upper bound — with `states_searched` set to
+  `None` to say so.
+
+`canonize` (default `'tree-nauty'`)
+: Canonisation mode: `'nauty'`, `'faulon'`, `'tree-nauty'` or `'tree-faulon'`.
+
+`parallel` (default `'depth-one'`)
+: Parallelisation mode: `'none'`, `'depth-one'` or `'always'`. Use `'none'` to
+  make `states_searched` reproducible.
+
+`memoize` (default `'canon-index'`)
+: Memoisation mode: `'none'` or `'canon-index'`.
+
+`kernel` (default `'none'`)
+: Kernelisation mode: `'none'`, `'once'`, `'depth-one'` or `'always'`.
+
+`bounds` (default `('int', 'matchable-edges')`)
+: Branch-and-bound strategies, drawn from `'log'`, `'int'`, `'vec-simple'`,
+  `'vec-small-frags'` and `'matchable-edges'`. Pass an empty sequence for an
+  exhaustive search.
+
+`max_pathways` (default `None`)
+: How many minimum assembly pathways to reconstruct: a positive integer for at
+  most that many, `0` for all of them, or `None` to skip reconstruction. Only
+  available on releases newer than 0.6.1 — see
+  [Pathways](guide/pathways.md#pathways-from-the-rust-backend).
+
+`vo_type` (default `'smiles'`)
+: Representation for the virtual objects in any reconstructed pathway:
+  `'graph'`, `'mol'`, `'smiles'` or `'inchi'`.
+
+Unlike the C++ backend, this one always strips hydrogens and does not accept
+`strip_hydrogen`, `joint_corr` or `canonicalize`.
+
 ## Graph input requirements
 
 The calculator input format constrains what the graph may contain:

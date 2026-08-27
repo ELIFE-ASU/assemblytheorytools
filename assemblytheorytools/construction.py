@@ -9,10 +9,14 @@ assembly digraphs from a target structure.
 """
 
 import copy
+import io
 import json
 import networkx as nx
 import numpy as np
 import os
+import pydot
+import re
+from contextlib import redirect_stderr, redirect_stdout
 from rdkit import Chem
 from rdkit.Chem.rdchem import RWMol
 from typing import List, Dict, Tuple, Optional, Any, Union
@@ -20,6 +24,7 @@ from typing import List, Dict, Tuple, Optional, Any, Union
 from .tools_graph import (bond_order_assout_to_int,
                           bond_order_int_to_rdkit,
                           canonicalize_node_labels,
+                          mol_to_nx,
                           nx_to_smi,
                           nx_to_inchi,
                           nx_to_mol,
@@ -1051,6 +1056,329 @@ def parse_pathway_file(file: str,
         return graph, vo_list, construction_object.pathway_log_string()
     return graph, vo_list
 
+
+# Matches a petgraph BitSet label such as "{}", "{14}" or "{3, 4, 5}"
+_BOND_SET_PATTERN = re.compile(r"^\{\s*(\d+(?:\s*,\s*\d+)*)?\s*\}$")
+
+# Raised wherever a DOT string does not look like an assembly pathway
+_DOT_PARSE_ERROR = "Could not parse the assembly pathway as DOT."
+
+
+def _read_single_digraph(dot: str) -> "pydot.Dot":
+    """
+    Parse *dot* and return the single directed graph it describes.
+
+    Parameters
+    ----------
+    dot : str
+        A DOT-formatted graph, as emitted by the Rust ``assembly_theory``
+        backend.
+
+    Returns
+    -------
+    pydot.Dot
+        The parsed graph.
+
+    Raises
+    ------
+    ValueError
+        If the string is not valid DOT, describes more than one graph, or
+        describes an undirected graph.
+    """
+    # pydot reports syntax errors by printing them rather than raising, so
+    # capture that text and fold it into the exception message instead.
+    report = io.StringIO()
+    with redirect_stdout(report), redirect_stderr(report):
+        graphs = pydot.graph_from_dot_data(dot)
+
+    if not graphs:
+        detail = report.getvalue().strip()
+        raise ValueError(f"{_DOT_PARSE_ERROR} {detail}" if detail else _DOT_PARSE_ERROR)
+    if len(graphs) != 1:
+        raise ValueError(f"Expected a single DOT graph, found {len(graphs)}.")
+    if graphs[0].get_type() != "digraph":
+        raise ValueError("An assembly pathway must be a DOT 'digraph', "
+                         f"found '{graphs[0].get_type()}'.")
+    return graphs[0]
+
+
+def _dot_node_id(name: str) -> int:
+    """
+    Convert a DOT node name to the integer node identifier ATT uses.
+
+    Parameters
+    ----------
+    name : str
+        The node name read from the DOT string, possibly quoted.
+
+    Returns
+    -------
+    int
+        The node identifier.
+
+    Raises
+    ------
+    ValueError
+        If the name is not an integer.
+    """
+    text = str(name).strip().strip('"')
+    try:
+        return int(text)
+    except ValueError as e:
+        raise ValueError("Assembly pathway node names must be integers, "
+                         f"found {name!r}.") from e
+
+
+def _parse_bond_set(label: Optional[str], where: str) -> frozenset:
+    """
+    Parse a DOT bond-set label into a frozen set of bond indices.
+
+    Parameters
+    ----------
+    label : str or None
+        The ``label`` attribute of a DOT node or edge, e.g. ``'"{3, 4, 5}"'``.
+    where : str
+        A description of the node or edge, used in error messages.
+
+    Returns
+    -------
+    frozenset of int
+        The bond indices named by the label.
+
+    Raises
+    ------
+    ValueError
+        If the label is missing or is not a set of integers.
+    """
+    if label is None:
+        raise ValueError(f"Assembly pathway {where} has no 'label' attribute.")
+
+    # pydot keeps the surrounding quotes on attribute values
+    match = _BOND_SET_PATTERN.match(str(label).strip().strip('"').strip())
+    if match is None:
+        raise ValueError(f"Assembly pathway {where} has a malformed bond set "
+                         f"label {label!r}; expected something like '{{3, 4, 5}}'.")
+
+    body = match.group(1)
+    return frozenset() if body is None else frozenset(int(i) for i in body.split(","))
+
+
+def _format_bond_set(bonds: frozenset) -> str:
+    """
+    Render a set of bond indices the way the Rust backend labels it.
+
+    Parameters
+    ----------
+    bonds : frozenset of int
+        The bond indices.
+
+    Returns
+    -------
+    str
+        The indices in ascending order, e.g. ``"{3, 4, 5}"``.
+    """
+    return "{" + ", ".join(str(bond) for bond in sorted(bonds)) + "}"
+
+
+def _bonds_to_vo(mol: Chem.Mol, bonds: frozenset, vo_type: str) -> Any:
+    """
+    Build the virtual object for a pathway node from its bond indices.
+
+    Parameters
+    ----------
+    mol : Chem.Mol
+        The target molecule, which must be the one that was searched so that
+        the bond indices line up.
+    bonds : frozenset of int
+        The bond indices making up the fragment.
+    vo_type : str
+        One of 'graph', 'mol', 'smiles' or 'inchi'.
+
+    Returns
+    -------
+    nx.Graph or Chem.Mol or str
+        The fragment in the requested representation.
+
+    Raises
+    ------
+    ValueError
+        If `vo_type` is not recognised.
+    """
+    # Fragments carry open valences, so leave them unsanitised
+    fragment = Chem.PathToSubmol(mol, sorted(bonds))
+    if vo_type == "mol":
+        return fragment
+    if vo_type == "smiles":
+        return Chem.MolToSmiles(fragment)
+    if vo_type == "inchi":
+        return Chem.MolToInchi(fragment)
+    if vo_type == "graph":
+        return mol_to_nx(fragment, add_hydrogens=False, sanitize=False)
+    raise ValueError(_VO_TYPE_ERROR)
+
+
+def _validate_pathway_dag(graph: nx.MultiDiGraph) -> None:
+    """
+    Check that a parsed pathway obeys the Rust backend's bond bookkeeping.
+
+    Every joined node must be the disjoint union of the fragments joined into
+    it, and every edge must carry as many bonds as its source fragment, since
+    the edge names an isomorphic copy of that fragment inside the target.
+
+    Parameters
+    ----------
+    graph : nx.MultiDiGraph
+        A pathway produced by :func:`parse_pathway_dot`.
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    ValueError
+        If any node or edge breaks the bookkeeping.
+    """
+    for node, bonds in graph.nodes(data="bonds"):
+        covered = set()
+        for source, _, data in graph.in_edges(node, data=True):
+            overlap = covered & data["bonds"]
+            if overlap:
+                raise ValueError(f"Assembly pathway node {node} reuses bond(s) "
+                                 f"{sorted(overlap)} from more than one input.")
+            covered |= data["bonds"]
+
+        if graph.in_degree(node) and covered != set(bonds):
+            raise ValueError(f"Assembly pathway node {node} covers bonds "
+                             f"{sorted(bonds)} but its inputs supply "
+                             f"{sorted(covered)}.")
+
+    for source, target, data in graph.edges(data=True):
+        expected = len(graph.nodes[source]["bonds"])
+        if len(data["bonds"]) != expected:
+            raise ValueError(f"Assembly pathway edge {source} -> {target} places "
+                             f"{len(data['bonds'])} bond(s), but its source "
+                             f"fragment has {expected}.")
+
+
+def parse_pathway_dot(dot: str,
+                      mol: Optional[Chem.Mol] = None,
+                      vo_type: str = "smiles",
+                      strict: bool = True) -> nx.MultiDiGraph:
+    """
+    Parse a DOT assembly pathway from the Rust backend into a graph.
+
+    The Rust ``assembly_theory`` backend reports each minimum assembly pathway
+    as a DOT-formatted directed acyclic multigraph. Nodes are fragments,
+    labelled by the indices of the bonds they contain; edges are joining
+    operations, labelled by the bonds the source fragment occupies inside the
+    fragment being built. This function turns that string into a NetworkX
+    graph carrying the same node attributes as
+    :meth:`AssemblyConstruction.get_assembly_digraph`, so the result works
+    with :func:`assign_levels`,
+    :func:`~assemblytheorytools.tools_graph.set_graph_layer` and
+    :func:`~assemblytheorytools.tools_plotting.plot_pathway` unchanged.
+
+    Parameters
+    ----------
+    dot : str
+        The DOT-formatted pathway.
+    mol : Chem.Mol, optional
+        The molecule the pathway was computed for. Bond indices only mean
+        anything against the exact molecule that was searched, so this must be
+        the molecule parsed from the same mol block that was passed to the
+        backend. If None, fragments are not built and each ``vo`` falls back
+        to the node's bond-set label. Default is None.
+    vo_type : str, optional
+        Representation for the virtual objects: 'graph', 'mol', 'smiles' or
+        'inchi'. Default is 'smiles'.
+    strict : bool, optional
+        If True, check that each node is the disjoint union of the fragments
+        joined into it and that each edge places as many bonds as its source
+        fragment holds. Default is True.
+
+    Returns
+    -------
+    nx.MultiDiGraph
+        The pathway. Nodes are integers carrying ``type`` (always
+        'virtual_object'), ``bonds`` (a frozenset of bond indices), ``label``
+        (those indices as a string) and ``vo``. Edges carry ``bonds`` and
+        ``label``. A multigraph is used because a fragment joined to itself
+        produces parallel edges.
+
+    Raises
+    ------
+    ValueError
+        If the string is not a single DOT digraph, if a node or edge label is
+        not a set of bond indices, if a node name is not an integer, if a bond
+        index is out of range for `mol`, if `vo_type` is not recognised, or if
+        `strict` is True and the bond bookkeeping does not add up.
+
+    Notes
+    -----
+    - Pathway reconstruction is only available from ``assembly_theory``
+      releases that accept ``max_pathways``; see
+      :func:`~assemblytheorytools.assembly.calculate_assembly_index_rust_search`,
+      which calls this function for you with the right molecule.
+    - Fragments are built with ``Chem.PathToSubmol`` and left unsanitised,
+      since they generally have open valences.
+
+    Examples
+    --------
+    Load a pathway that was written to a file, together with the mol block it
+    was computed from:
+
+    >>> from rdkit import Chem
+    >>> import assemblytheorytools as att
+    >>> mol = Chem.MolFromMolBlock(open("anthracene.mol").read())  # doctest: +SKIP
+    >>> pathway = att.parse_pathway_dot(  # doctest: +SKIP
+    ...     open("pathway.dot").read(), mol=mol)
+    >>> sorted(d["vo"] for _, d in pathway.nodes(data=True))[:2]  # doctest: +SKIP
+    ['cc', 'cc']
+
+    Pass ``vo_type="graph"`` to get the fragments as NetworkX graphs, or omit
+    `mol` to read the pathway's structure without building any chemistry.
+    """
+    if vo_type not in ("graph", "mol", "smiles", "inchi"):
+        raise ValueError(_VO_TYPE_ERROR)
+
+    parsed = nx.nx_pydot.from_pydot(_read_single_digraph(dot))
+    n_bonds = None if mol is None else mol.GetNumBonds()
+
+    if mol is not None:
+        # The backend searches the kekulised graph, and aromatic flags on a
+        # fragment torn out of a ring cannot be sanitised, so work on a
+        # kekulised copy rather than the caller's molecule
+        mol = Chem.Mol(mol)
+        try:
+            Chem.Kekulize(mol, clearAromaticFlags=True)
+        except Chem.KekulizeException:
+            pass
+
+    graph = nx.MultiDiGraph()
+    for name, data in parsed.nodes(data=True):
+        bonds = _parse_bond_set(data.get("label"), f"node {name!r}")
+        if n_bonds is not None and any(bond >= n_bonds for bond in bonds):
+            raise ValueError(f"Assembly pathway node {name!r} names bond "
+                             f"{max(bonds)}, but the molecule has {n_bonds} bonds. "
+                             "The pathway must be parsed against the molecule it "
+                             "was computed from.")
+        label = _format_bond_set(bonds)
+        graph.add_node(_dot_node_id(name),
+                       type="virtual_object",
+                       bonds=bonds,
+                       label=label,
+                       vo=label if mol is None else _bonds_to_vo(mol, bonds, vo_type))
+
+    for source, target, data in parsed.edges(data=True):
+        bonds = _parse_bond_set(data.get("label"), f"edge {source!r} -> {target!r}")
+        graph.add_edge(_dot_node_id(source), _dot_node_id(target),
+                       bonds=bonds, label=_format_bond_set(bonds))
+
+    if strict:
+        _validate_pathway_dag(graph)
+
+    return graph
 
 def get_level(G: nx.DiGraph, node: str) -> int | None:
     """

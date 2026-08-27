@@ -39,6 +39,7 @@ dependencies = [
     "pandas>=2.2.3",
     "matplotlib>=3.9.2",
     "networkx>=3.4.2",
+    "pydot>=3.0.1",
     "rdkit>=2024.03.5",
     "ipython>=8.30.0",
     "pyvis>=0.3.2",
@@ -87,6 +88,8 @@ markers = [
 ]
 filterwarnings = [
     "ignore:Setting the shape on a NumPy array has been deprecated:DeprecationWarning",
+    # pydot's DOT parser calls pyparsing's old camelCase API
+    "ignore:'set.*Action' deprecated:DeprecationWarning",
 ]
 
 [tool.coverage.run]

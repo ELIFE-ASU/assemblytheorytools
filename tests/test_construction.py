@@ -1,4 +1,6 @@
 import networkx as nx
+import pytest
+from rdkit import Chem
 
 import assemblytheorytools as att
 
@@ -185,3 +187,160 @@ def test_get_vos_on_layer():
     vos_layer_all = att.get_vos_on_layer(pathway, 'all')
     print("VOs on all layers:", vos_layer_all, flush=True)
     assert len(vos_layer_all) == 4
+
+
+def test_parse_pathway_dot(data_dir):
+    """
+    Test parsing a Rust-backend assembly pathway from its DOT representation.
+
+    This function performs the following steps:
+    1. Loads the anthracene mol file and the DOT pathway computed from it.
+    2. Parses the pathway into a graph with `parse_pathway_dot`.
+    3. Inspects the node and edge attributes it produced.
+
+    Asserts:
+        - The pathway is a MultiDiGraph with 8 nodes and 12 edges.
+        - Nodes are integers carrying type, bonds, label and vo attributes.
+        - The virtual objects build up from single bonds to anthracene.
+        - Edges carry the bond indices their source fragment occupies.
+    """
+    print(flush=True)
+    mol = att.molfile_to_mol(str(data_dir / "mol_files" / "anthracene.mol"),
+                             add_hydrogens=False)
+    dot = (data_dir / "pathway" / "anthracene_pathway.dot").read_text()
+
+    pathway = att.parse_pathway_dot(dot, mol=mol)
+    print("Pathway:", pathway, flush=True)
+
+    assert isinstance(pathway, nx.MultiDiGraph)
+    assert pathway.number_of_nodes() == 8
+    assert pathway.number_of_edges() == 12
+    assert all(isinstance(node, int) for node in pathway.nodes)
+    assert all(data["type"] == "virtual_object" for _, data in pathway.nodes(data=True))
+
+    # Fragments are kekulised, matching the graph the backend searches
+    vos = [pathway.nodes[node]["vo"] for node in sorted(pathway.nodes)]
+    print("Virtual objects:", vos, flush=True)
+    assert vos == ['CC', 'C=C', 'C=CC', 'CC=CC', 'C=CC=CC', 'CC=CC=CC=CC',
+                   'CC=CC1=CC=CC=C1', 'C1=CC=C2C=C3C=CC=CC3=CC2=C1']
+
+    # The root node covers every bond, the elementary parts exactly one
+    assert pathway.nodes[7]["bonds"] == frozenset(range(mol.GetNumBonds()))
+    assert pathway.nodes[7]["label"] == "{" + ", ".join(str(i) for i in range(16)) + "}"
+    assert pathway.nodes[0]["bonds"] == frozenset({14})
+
+    assert pathway[0][2][0]["bonds"] == frozenset({14})
+    assert pathway[2][3][0]["bonds"] == frozenset({14, 15})
+
+
+def test_parse_pathway_dot_vo_types(data_dir):
+    """
+    Test the virtual object representations offered by `parse_pathway_dot`.
+
+    This function performs the following steps:
+    1. Loads the anthracene mol file and its DOT pathway.
+    2. Parses the pathway once per supported vo_type.
+    3. Parses it again without a molecule.
+
+    Asserts:
+        - 'mol', 'graph', 'smiles' and 'inchi' give the expected payload types.
+        - Omitting the molecule falls back to the bond-set label.
+        - The caller's molecule is not modified.
+    """
+    print(flush=True)
+    mol = att.molfile_to_mol(str(data_dir / "mol_files" / "anthracene.mol"),
+                             add_hydrogens=False)
+    dot = (data_dir / "pathway" / "anthracene_pathway.dot").read_text()
+    before = Chem.MolToSmiles(mol)
+
+    assert isinstance(att.parse_pathway_dot(dot, mol=mol, vo_type="mol").nodes[2]["vo"],
+                      Chem.Mol)
+    assert isinstance(att.parse_pathway_dot(dot, mol=mol, vo_type="graph").nodes[2]["vo"],
+                      nx.Graph)
+    assert att.parse_pathway_dot(dot, mol=mol, vo_type="smiles").nodes[2]["vo"] == "C=CC"
+    assert att.parse_pathway_dot(dot, mol=mol, vo_type="inchi").nodes[7]["vo"].startswith(
+        "InChI=1S/C14H10")
+
+    # Without a molecule the pathway still carries its structure
+    bare = att.parse_pathway_dot(dot)
+    print("Bare virtual object:", bare.nodes[2], flush=True)
+    assert bare.nodes[2]["vo"] == "{14, 15}"
+    assert bare.nodes[2]["bonds"] == frozenset({14, 15})
+
+    assert Chem.MolToSmiles(mol) == before, "parse_pathway_dot modified the caller's molecule"
+
+
+def test_parse_pathway_dot_errors(data_dir):
+    """
+    Test that `parse_pathway_dot` rejects malformed input.
+
+    This function performs the following steps:
+    1. Builds a series of invalid DOT strings and arguments.
+    2. Checks that each raises a ValueError.
+    3. Checks that strict=False lets bookkeeping violations through.
+
+    Asserts:
+        - Non-DOT input, undirected graphs, malformed labels, missing labels,
+          non-integer node names, out-of-range bonds, unknown vo_types and
+          broken bond bookkeeping all raise ValueError.
+        - strict=False parses a graph whose bookkeeping does not add up.
+    """
+    print(flush=True)
+    mol = att.molfile_to_mol(str(data_dir / "mol_files" / "anthracene.mol"),
+                             add_hydrogens=False)
+    mismatched = 'digraph { 0 [ label = "{1}" ]\n1 [ label = "{2, 3}" ]\n' \
+                 '0 -> 1 [ label = "{2}" ] }'
+
+    cases = {
+        "not DOT at all": dict(dot="hello world"),
+        "undirected": dict(dot='graph { 0 [ label = "{1}" ] }'),
+        "malformed label": dict(dot='digraph { 0 [ label = "nope" ] }'),
+        "missing label": dict(dot="digraph { 0 }"),
+        "non-integer node": dict(dot='digraph { a [ label = "{1}" ] }'),
+        "bond out of range": dict(dot='digraph { 0 [ label = "{99}" ] }', mol=mol),
+        "unknown vo_type": dict(dot=mismatched, vo_type="banana"),
+        "inputs do not add up": dict(dot=mismatched),
+        "edge too large": dict(dot='digraph { 0 [ label = "{1}" ]\n'
+                                   '1 [ label = "{2, 3}" ]\n'
+                                   '0 -> 1 [ label = "{2, 3}" ] }'),
+    }
+    for name, kwargs in cases.items():
+        print("Checking:", name, flush=True)
+        with pytest.raises(ValueError):
+            att.parse_pathway_dot(**kwargs)
+
+    relaxed = att.parse_pathway_dot(mismatched, strict=False)
+    print("Relaxed pathway:", relaxed, flush=True)
+    assert relaxed.number_of_nodes() == 2
+
+
+def test_parse_pathway_dot_assign_levels(data_dir):
+    """
+    Test that a parsed Rust pathway works with the rest of the pathway tools.
+
+    This function performs the following steps:
+    1. Parses the anthracene DOT pathway.
+    2. Re-inserts its nodes in topological order, as `assign_levels` requires.
+    3. Assigns levels and reads the layers back.
+
+    Asserts:
+        - Every node is assigned a level.
+        - The elementary parts sit at level 0 and the target at the deepest
+          level.
+    """
+    print(flush=True)
+    mol = att.molfile_to_mol(str(data_dir / "mol_files" / "anthracene.mol"),
+                             add_hydrogens=False)
+    dot = (data_dir / "pathway" / "anthracene_pathway.dot").read_text()
+    pathway = att.parse_pathway_dot(dot, mol=mol)
+
+    ordered = nx.MultiDiGraph()
+    ordered.add_nodes_from((n, pathway.nodes[n]) for n in nx.topological_sort(pathway))
+    ordered.add_edges_from(pathway.edges(data=True))
+
+    att.assign_levels(ordered)
+    levels = {node: data["level"] for node, data in ordered.nodes(data=True)}
+    print("Levels:", levels, flush=True)
+
+    assert levels[0] == 0 and levels[1] == 0
+    assert levels[7] == max(levels.values())
