@@ -13,9 +13,10 @@ if __name__ == "__main__":
     # Settings:
     # - strip_hydrogen: Removes hydrogen atoms from the graph
     # - timeout: Maximum time allowed for the calculation per graph (in seconds)
+    # - exact: Return -1 rather than a positive upper bound after a timeout
     sample['assembly_index'] = att.calculate_assembly_index_parallel(
         graphs,
-        settings={'strip_hydrogen': True, 'timeout': 120.0}
+        settings={'strip_hydrogen': True, 'timeout': 120.0, 'exact': True}
     )[0]
 
     # Filter the sample to include only molecules with AI >= 1 and reset the index
@@ -42,20 +43,20 @@ if __name__ == "__main__":
     # Display the heatmap
     plt.show()
 
-    # Get first nine molecules with short nicknames
-    idxs = [i for i in range(len(sample)) if len(sample['nickname'][i]) <= 14]
-
-    # Generate labels for the first 9 molecules in the sample
-    labs = [f"{sample['nickname'][i]}, AI={sample['assembly_index'][i]}" for i in idxs[:9]]
-
-    # Reorder them according to their assembly index
-    labs = [lab for _, lab in sorted(zip(sample['assembly_index'][idxs[:9]], labs))]
-
-    # Extract the SMILES strings for the first 9 molecules
-    smis = [sample['smiles'][i] for i in range(len(labs))]
+    # Select nine short-named molecules and sort the rows once so each structure,
+    # label, and assembly index stays aligned.
+    selected = sample[sample['nickname'].str.len() <= 14].head(9)
+    selected = selected.sort_values('assembly_index').reset_index(drop=True)
+    labs = [
+        f"{row.nickname}, AI={row.assembly_index}"
+        for row in selected.itertuples()
+    ]
+    smis = selected['smiles'].tolist()
 
     # Create a grid of molecule images with legends
-    img = att.draw_mol_grid_box(smis, legends=labs, n_cols=3, sort_by=sample['assembly_index'])
+    img = att.draw_mol_grid_box(
+        smis, legends=labs, n_cols=3,
+        sort_by=selected['assembly_index'].tolist())
 
     # Save the molecule grid as a PNG file
     img.save("molecule_grid.png")

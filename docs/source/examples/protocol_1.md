@@ -4,7 +4,7 @@
 
 ## Results
 
-```{figure} ../../../examples/protocols/1/mol_pathway_example.png
+```{figure} ../../../examples/protocols/1/mol_pathway_example.svg
 :alt: Molecular assembly pathway for the combined system
 :width: 100%
 
@@ -12,7 +12,7 @@ The joint assembly pathway for the combined molecular system, showing the
 virtual objects shared between the inputs.
 ```
 
-```{figure} ../../../examples/protocols/1/str_pathway_example.png
+```{figure} ../../../examples/protocols/1/str_pathway_example.svg
 :alt: String assembly pathway
 :width: 100%
 

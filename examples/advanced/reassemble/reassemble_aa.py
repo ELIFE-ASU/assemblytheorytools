@@ -26,37 +26,34 @@ if __name__ == "__main__":
 
     print(virt_obj, flush=True)
 
-    # Convert pathway molecules to InChI strings for easy comparison/printing
+    # Convert pathway SMILES to RDKit molecules for reassembly
     mols_out = [att.smi_to_mol(smile, add_hydrogens=True) for smile in virt_obj]
 
     # Reassemble the original molecule(s) from substructures, multiple times
     re_mols = att.reassemble_old(mols_out, n_mol_needed=20, mw_min=75, mw_max=200)
 
-    smiles = [Chem.MolToSmiles(mol) for mol in re_mols]
-    # Get a list of unique smiles
-    smiles = list(set(smiles))
+    # Deduplicate products by canonical SMILES
+    smiles = sorted({Chem.MolToSmiles(mol) for mol in re_mols})
     moles_out = [att.smi_to_mol(smile, add_hydrogens=True) for smile in smiles]
 
     # Convert to graph
     graphs = [att.mol_to_nx(mol) for mol in moles_out]
     # Remove the hydrogens
     graphs = [att.remove_hydrogen_from_graph(g) for g in graphs]
-    graphs = list(set(graphs))
-
-    moles_out = [att.nx_to_mol(g) for g in graphs]
+    moles_out = att.get_unique_mols([att.nx_to_mol(g) for g in graphs])
 
     # α-amino-acid backbone:
     #  N — Cα — C(=O)O(H or -)
     # - allows primary/secondary amines (incl. proline) and protonated amines
     AA_BACKBONE = Chem.MolFromSmarts(
         '[$([NX3;H1,H2,H3;+0,+1]),$([NX4+])] - [CX4] - '
-        '[$([CX3](=O)[OX1H]),$([CX3](=O)[O-])]'
+        '[$([CX3](=O)[OX2H1]),$([CX3](=O)[O-])]'
     )
 
     # Variant that also accepts esters (e.g., methyl/ethyl esters of amino acids)
     AA_BACKBONE_OR_ESTER = Chem.MolFromSmarts(
         '[$([NX3;H1,H2,H3;+0,+1]),$([NX4+])] - [CX4] - '
-        '[$([CX3](=O)[OX1H]),$([CX3](=O)[O-]),$([CX3](=O)[OX2H0][#6])]'
+        '[$([CX3](=O)[OX2H1]),$([CX3](=O)[O-]),$([CX3](=O)[OX2H0][#6])]'
     )
 
 
@@ -66,16 +63,14 @@ if __name__ == "__main__":
 
 
     moles_out = keep_alpha_amino_acid_like(moles_out, include_esters=True)
-
-    smiles = [Chem.MolToSmiles(mol) for mol in re_mols]
-    # Get a list of unique smiles
-    smiles = list(set(smiles))
-    moles_out = [att.smi_to_mol(smile, add_hydrogens=True) for smile in smiles]
-    # remove molecules with lower mw than 75 or higher than 200
-    moles_out = [mol for mol in moles_out if Descriptors.MolWt(mol) >= 75 and Descriptors.MolWt(mol) <= 200]
+    # Keep products within the requested molecular-weight range
+    moles_out = [
+        mol for mol in moles_out
+        if 75 <= Descriptors.MolWt(mol) <= 200
+    ]
 
     img = Draw.MolsToGridImage(moles_out, molsPerRow=10)
     img.save('Mols.png')
 
-    # Convert reassembled molecules to smiles for output
-    print([Chem.MolToSmiles(mol) for mol in re_mols], flush=True)
+    # Convert the filtered products to SMILES for output
+    print([Chem.MolToSmiles(mol) for mol in moles_out], flush=True)

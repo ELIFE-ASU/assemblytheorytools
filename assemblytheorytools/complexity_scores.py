@@ -380,8 +380,8 @@ def tanimoto_similarity(mol1: Mol, mol2: Mol) -> float:
     ...                               att.smi_to_mol("CC(N)C(=O)O")), 4)
     0.3265
 
-    This compares fingerprint bits. The assembly-theoretic score for the
-    same pair is 0.636 -- see
+    This compares fingerprint bits. With hydrogens stripped, the
+    assembly-theoretic score for the same pair is 0.75 -- see
     :func:`~assemblytheorytools.assembly.calculate_assembly_index_similarity`
     -- which asks instead how much of the construction work is shared.
     """

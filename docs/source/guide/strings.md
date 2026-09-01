@@ -51,10 +51,11 @@ Adding `abra` to `abracadabra` costs nothing: `abra` is already built as an
 intermediate of the longer string, so the joint index equals the index of
 `abracadabra` alone.
 
-`mode="mol"` routes the joint calculation through the molecule calculator,
-which is what supports sharing across components. {func}`~assemblytheorytools.tools_string.prep_joint_string_ai`
-does the encoding, joining the inputs with a separator character that does not
-appear in any of them:
+List inputs share intermediates in both the default directed string mode and
+the molecule-graph mode. This example uses `mode="mol"` because undirected
+strings require it. {func}`~assemblytheorytools.tools_string.prep_joint_string_ai`
+does the multi-string encoding, joining the inputs with a separator character
+that does not appear in any of them:
 
 ```python
 joined, separators = att.prep_joint_string_ai(["abracadabra", "abra"])
@@ -101,12 +102,13 @@ observed = att.calculate_string_assembly_index(sequence)[0]
 baseline = [att.calculate_string_assembly_index(s)[0]
             for s in att.generate_random_strings(20, len(sequence))]
 
-print(observed, statistics.mean(baseline))   # 7 10
+print(observed, statistics.mean(baseline))   # 7; baseline varies
 ```
 
 A random 11-character string over 26 letters has almost no repetition to
-exploit, so it consistently scores 10. `abracadabra` scores 7 — the difference
-is what its internal structure buys.
+exploit, so its mean is typically close to the character-by-character upper
+bound of 10. The sample is unseeded and varies between runs. `abracadabra`
+scores 7 — the difference is what its internal structure buys.
 
 ## See also
 

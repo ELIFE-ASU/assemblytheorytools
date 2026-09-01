@@ -1,8 +1,9 @@
 Examples
 ========
 
-Every script referenced here ships in the ``examples/`` directory of the
-repository and runs as written.
+Every page links to source shipped in the repository's ``examples/`` directory.
+Some advanced workflows need an external dataset, optional dependency or HPC
+environment; each page calls that out where applicable.
 
 The **protocols** reproduce published results end to end and are the best
 starting point for a real workflow. The **basic** examples are minimal
@@ -22,5 +23,5 @@ specialised use cases.
    :maxdepth: 1
    :caption: Example scripts
 
-   basic
+   Basic examples <basic>
    advanced

@@ -36,9 +36,9 @@ print(att.rma_tree_depth(tree))
 a Monte Carlo method, so it returns a distribution rather than a single number:
 
 ```python
-estimator = att.MAEstimator(same_level=True, tol=0.5, n_samples=20, min_chunk=20.0)
+estimator = att.MAEstimator(same_level=True, tol=0.5, n_samples=20)
 
-estimate = estimator.estimate_ma(tree=tree, mw=400.0, progress_levels=0)
+estimate = estimator.estimate_MA(tree=tree, mw=400.0, progress_levels=0)
 
 print(f"{np.mean(estimate):.2f} +/- {np.std(estimate):.2f}")
 ```
@@ -59,7 +59,9 @@ rather not hold estimator state.
 
 {func}`~assemblytheorytools.tools_mzml.process_mzml_file` decodes an mzML
 document — handling the compression schemes and binary precisions the format
-allows — and writes the extracted spectra to a directory:
+declares — and writes the extracted spectra to a directory. The current parser
+supports zlib-compressed binary arrays; unsupported or uncompressed encodings
+raise an error:
 
 ```python
 att.process_mzml_file(
@@ -70,8 +72,9 @@ att.process_mzml_file(
 )
 ```
 
-`int_threshold` drops peaks below an absolute intensity; set `relative=True` to
-treat it as a fraction of the base peak instead.
+`int_threshold` always drops peaks below an absolute intensity. Set
+`relative=True` to normalise the intensities that remain to percentages of the
+base peak; it does not change how the threshold is interpreted.
 
 {func}`~assemblytheorytools.tools_ms_json.process_mzml_json` consumes the JSON
 representation produced from those files, which is the more convenient form once
@@ -101,9 +104,10 @@ The 400–1500 cm⁻¹ window is the fingerprint region, where peak count tracks
 structural complexity most closely.
 {func}`~assemblytheorytools.tools_data.apply_sg_filter` applies a
 Savitzky-Golay smooth first, because peak finding on raw spectra picks up noise;
-{func}`~assemblytheorytools.tools_data.find_n_peak_indices_in_range` returns a
-fixed number of the most prominent peaks when a consistent feature count is
-needed across a dataset.
+{func}`~assemblytheorytools.tools_data.find_n_peak_indices_in_range` returns the
+**number** of peaks found in the requested range. Use
+{func}`~assemblytheorytools.tools_data.find_peak_indices_in_range` when the
+indices themselves are needed.
 
 {func}`~assemblytheorytools.tools_data.process_chemotion_ir_data` loads and
 cleans a whole Chemotion IR dataset into a DataFrame, and
@@ -111,8 +115,8 @@ cleans a whole Chemotion IR dataset into a DataFrame, and
 that maps peak counts onto assembly index:
 
 ```python
-params = att.estimate_ai_from_ir_peaks(peak_counts, ai_observed,
-                                       att.linear_func, params_0=[1.0, 0.0])
+params, ai_predicted = att.estimate_ai_from_ir_peaks(
+    peak_counts, ai_observed, att.linear_func, params_0=[1.0, 0.0])
 ```
 
 {func}`~assemblytheorytools.tools_data.linear_func` through

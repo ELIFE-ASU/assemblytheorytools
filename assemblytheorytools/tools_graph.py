@@ -386,17 +386,19 @@ def is_graph_isomorphic(g1: nx.Graph, g2: nx.Graph) -> bool:
     bool
         True if the graphs are isomorphic, False otherwise.
 
+    Notes
+    -----
+    This helper checks topology only. It does not compare node or edge
+    attributes such as ``color``; use NetworkX match functions when those
+    attributes are significant.
+
     Examples
     --------
-    Node and edge colours are matched, so this is stricter than bare
-    structural isomorphism:
 
     >>> import assemblytheorytools as att
     >>> graph = att.smi_to_nx("CCO")
     >>> att.is_graph_isomorphic(graph, att.scramble_node_indices(graph))
     True
-    >>> att.is_graph_isomorphic(graph, att.smi_to_nx("CCC"))
-    False
     """
     return nx.is_isomorphic(g1, g2)
 
@@ -925,9 +927,9 @@ def canonicalize_node_labels(graph: nx.Graph) -> nx.Graph:
     """
     Relabel the nodes of a NetworkX graph to a sequence of integers from 0 to n-1.
 
-    This function ensures that the node labels in the input graph are a contiguous
-    sequence of integers starting from 0. This is useful for stabilizing the graph
-    structure when the original node labels are non-sequential or arbitrary.
+    This function maps nodes, in their current iteration order, to a contiguous
+    integer sequence starting at 0. It prepares input for the external
+    calculator but does not compute a canonical graph-isomorphism labelling.
 
     Parameters
     ----------
@@ -942,10 +944,9 @@ def canonicalize_node_labels(graph: nx.Graph) -> nx.Graph:
 
     Examples
     --------
-    Two isomorphic graphs numbered differently canonicalise to the same
-    labelling, which is why
-    :func:`~assemblytheorytools.assembly.calculate_assembly_index` applies
-    this by default:
+    The resulting node identifiers are always contiguous, which is why
+    :func:`~assemblytheorytools.assembly.calculate_assembly_index` applies this
+    normalisation by default:
 
     >>> import assemblytheorytools as att
     >>> graph = att.smi_to_nx("CCO")

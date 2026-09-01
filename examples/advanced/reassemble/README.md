@@ -20,5 +20,5 @@ it combines the molecules into one superstructure with `att.combine_mols` and re
 interesting variant: the starting pool is exactly the set of intermediates the assembly pathway already built, so the
 result shows what *else* those same building blocks could have made.
 
-See the [reassembly guide](https://assemblytheorytools.readthedocs.io/en/latest/guide/reassembly.html) for the class API
+See the [reassembly guide](../../../docs/source/guide/reassembly.md) for the class API
 these scripts drive.

@@ -1,7 +1,8 @@
 # Parallel calculations
 
-Assembly index calculations are independent of one another and each spawns an
-external process, so they parallelise well.
+Assembly index calculations are independent of one another. The default C++
+backend spawns an external process for each calculation, so batches parallelise
+well.
 
 ## Many molecules at once
 
@@ -40,9 +41,9 @@ if __name__ == "__main__":
 ```
 
 :::{important}
-Python 3.14 starts worker processes with the **forkserver** method, which
-pickles the target function by reference. The function must therefore be
-importable from a real module at import time:
+On POSIX platforms, Python 3.14 starts worker processes with the **forkserver**
+method, which pickles the target function by reference. For portable code, the
+function must be importable from a real module at import time:
 
 * define it at module level in a `.py` file — not in a closure, a `lambda`, or
   a comprehension;
@@ -57,16 +58,16 @@ Variants:
 
 * {func}`~assemblytheorytools.tools_mp.mp_calc_chunked` — batches items before
   dispatch. Use it for large inputs where per-item dispatch overhead dominates;
-  `chunksize=None` picks a size from the input length.
+  `chunksize=None` uses one item per batch.
 * {func}`~assemblytheorytools.tools_mp.mp_calc_star` — for functions taking
   several arguments, mapping over tuples.
 * {func}`~assemblytheorytools.tools_mp.tp_calc` — threads instead of processes.
   Only worth it for I/O-bound work such as PubChem downloads; assembly
   calculations are process-bound and should use `mp_calc`.
 
-`n` sets the worker count and defaults to 28. Match it to the machine — on a
-shared HPC node, set it to the cores your job was allocated, not the cores the
-node has.
+`n` sets the worker count and defaults to `multiprocessing.cpu_count()`. Match
+it to the machine — on a shared HPC node, set it to the cores your job was
+allocated, not the cores the node has.
 
 ## Timeouts at scale
 
@@ -76,14 +77,16 @@ batch, then filter the results:
 
 ```python
 ai, virt_obj, pathway = att.calculate_assembly_index_parallel(
-    graphs, dict(strip_hydrogen=True, timeout=30.0))
+    graphs, dict(strip_hydrogen=True, timeout=30.0, exact=True))
 
-ok = [(g, a) for g, a in zip(graphs, ai) if a >= 1]
+ok = [(g, a) for g, a in zip(graphs, ai) if a >= 0]
 ```
 
-An index below 1 marks a calculation that did not produce a usable answer. This
-filter is the pattern used by
-[Protocol 2](../examples/protocol_2.md), which runs 10,000 molecules.
+A negative index marks a calculation that did not produce an exact answer;
+zero is valid for an object with one elementary bond. Without `exact=True`, a
+positive result after a timeout may be an upper bound rather than the exact
+index. [Protocol 2](../examples/protocol_2.md) deliberately excludes both
+failures and the trivial zero-index case from its plotted subset.
 
 ## Working on an HPC cluster
 

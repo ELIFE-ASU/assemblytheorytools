@@ -4,7 +4,7 @@
 
 ## Results
 
-```{figure} ../../../examples/protocols/4/processed_MS2.png
+```{figure} ../../../examples/protocols/4/processed_MS2.svg
 :alt: Processed MS2 spectrum with fragmentation tree
 :width: 100%
 

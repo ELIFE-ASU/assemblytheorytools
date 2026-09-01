@@ -1,6 +1,20 @@
-Here, is an example of how to infer molecular assembly from mass spectrometry data using the pyopenms library.
+This directory contains two mass-spectrometry workflows.
 
-Make sure to install pyopenms for this example `pip install pyopenms`. It requires Python 3.9-3.13.
+`ms_Infer.py` builds a fragmentation-tree JSON file from an external mzML file.
+It requires the optional `pyopenms` library:
 
-See: Jirasek, M., (2024). Investigating and quantifying molecular complexity using assembly theory and spectroscopy.
-ACS Central Science, 10(5), 1054-1064.
+```bash
+pip install pyopenms
+python ms_Infer.py /path/to/sample.mzML
+```
+
+`ma_estimate_real_data.py` runs ATT's recursive estimator on the five bundled
+pickle files under `recursive_ma/`; run it from this directory so those relative
+paths resolve:
+
+```bash
+python ma_estimate_real_data.py
+```
+
+See [Jirasek et al. (2024), *Investigating and quantifying molecular complexity
+using assembly theory and spectroscopy*](https://doi.org/10.1021/acscentsci.4c00120).

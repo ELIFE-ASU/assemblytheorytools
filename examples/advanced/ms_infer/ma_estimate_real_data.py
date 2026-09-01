@@ -31,7 +31,7 @@ if __name__ == "__main__":
 
     # Build a fragmentation tree from the processed data.
     # The tree is constructed up to a maximum level of 3.
-    test_data = att.build_tree(pickle_files, max_level=3)
+    test_data = att.rma_build_tree(pickle_files, max_level=3)
 
     # Extract the molecular weight (MW) from the tree.
     # The MW is the first key in the tree structure.
@@ -39,7 +39,7 @@ if __name__ == "__main__":
 
     # Estimate the molecular assembly (MA) for the tree.
     # The MA is calculated as the mean of the estimated values.
-    ma = np.mean(estimator.estimate_ma(test_data, mw))
+    ma = np.mean(estimator.estimate_MA(test_data, mw))
 
     # Print the molecular weight (MW) and molecular assembly (MA) to the console.
     print(mw, ma, flush=True)

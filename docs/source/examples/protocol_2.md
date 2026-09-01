@@ -4,7 +4,7 @@
 
 ## Results
 
-```{figure} ../../../examples/protocols/2/assembly_index_heatmap.png
+```{figure} ../../../examples/protocols/2/assembly_index_heatmap.svg
 :alt: Density heatmap of assembly index against molecular weight
 :width: 100%
 
@@ -29,9 +29,10 @@ python protocol_2.py
 ```
 
 This is the longest-running protocol: it calculates assembly indices for 10,000
-molecules. It sets a per-molecule timeout and strips hydrogens to keep the load
-manageable, then filters to molecules with an index of 1 or greater — an index
-below that marks a calculation that did not produce a usable answer.
+molecules. It sets a per-molecule timeout, requests exact results, and strips
+hydrogens to keep the load manageable. The plot filters to indices of 1 or
+greater, deliberately excluding both failed negative results and the valid but
+trivial zero-index case.
 
 Tune the worker count to your machine before running; see
 [Parallel calculations](../guide/parallel.md).

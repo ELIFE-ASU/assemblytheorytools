@@ -1,113 +1,57 @@
-# Assembly Theory Tools – Example Scripts
+# Basic examples
 
-This repository contains a set of minimal examples showing how to use assemblytheorytools to:
+These small scripts demonstrate one ATT feature at a time. Run them from this
+directory so generated plots and calculator artifacts stay together:
 
-- Compute assembly indices for molecules, strings, and graphs
+```bash
+cd examples/basic
+python 1_simple_molecule_example.py
+```
 
-- Compare objects via assembly similarity and more traditional metrics
+## `1_simple_molecule_example.py`
 
-- Run calculations in parallel
+Calculates benzene's molecular assembly index and prints its virtual objects.
+This is the shortest end-to-end molecular example.
 
-- Visualise assembly pathways as plots
+## `2_simple_string_example.py`
 
-## 1_simple_molecule_example.py
+Calculates the undirected string assembly index, virtual objects, and pathway
+for `abracadabra` through the molecular-graph mode.
 
-Converts a benzene SMILES string (c1ccccc1) into a molecule object.
+## `3_simple_arb_graph.py`
 
-Computes its assembly index with att.calculate_assembly_index(mol).
+Builds a labelled NetworkX graph, draws it, and calculates its assembly index.
+It shows the required node and edge `color` attributes for non-molecular input.
 
-Prints the assembly index and the associated virtual object.
+## `4_joint_pathway.py`
 
-This is the simplest “hello world” for molecular assembly.
+Compares glycine and alanine with
+`att.calculate_assembly_index_similarity`, Bertz complexity, and Tanimoto
+similarity. It then calculates their joint assembly pathway and saves molecule-
+and graph-style pathway plots. The optional metro renderer runs only on Linux.
 
-## 2_simple_string_example.py
+## `5_joint_undirected_string_example.py`
 
-Takes a single input string (e.g. "abracadabra"). Uses string assembly index calculator to compute the string’s assembly
-index.
+Calculates the joint undirected assembly index of `abracadabra` and `abra` via
+the molecular-graph string mode, sharing repeated substrings across the inputs.
 
-Prints:
+## `6_parallel_calculations.py`
 
-- The assembly index
-- The virtual object
-- The assembly path
+Calculates hydrogen-stripped assembly indices for a batch of SMILES strings
+with `att.calculate_assembly_index_parallel`.
 
-This demonstrates how to treat strings as objects for assembly analysis.
+## `7_pathway_vis.py`
 
-## 3_simple_arb_graph.py
+Plots the glycine/alanine joint pathway from both RDKit-molecule and NetworkX
+inputs. The optional metro renderer runs only on Linux.
 
-Builds a small undirected networkx graph with node and edge "color" labels.
-Draws the graph using matplotlib.
-Calls att.calculate_assembly_index(graph) and prints the graph’s assembly index.
-This shows how to compute assembly indices on arbitrary labelled graphs.
+## `8_recursive_ma_example.py`
 
-## 4_joint_pathway.py
+Builds a synthetic MS/MS fragmentation tree and estimates a distribution of
+molecular assembly values with `att.MAEstimator`.
 
-Works with two amino acids (glycine and alanine).
-Converts SMILES to both networkx graphs and RDKit molecules.
-Computes assembly similarity between the two graphs with
-att.calculate_assembly_similarity.
+## `9_rust_backend.py`
 
-Calculates:
-
-- Bertz complexity for each molecule
-
-- Tanimoto similarity between the molecules
-
-Builds a joint molecular object (two molecules separated by "."), then:
-
-- Computes its assembly index
-
-- Extracts its assembly pathway
-
-Visualises the pathway:
-
-- Optional metro-style diagram of the assembly digraph (Linux-only)
-
-- Standard pathway plots (molecule and graph forms), saved as SVG files
-
-This example showcases similarity metrics and joint assembly pathways.
-
-## 5_joint_undirected_string_example.py
-
-Analyses a set of strings, e.g. ["abracadabra", "abra"].
-
-Uses att.calculate_string_assembly_index in undirected "mol" mode to obtain a joint assembly index and pathway shared
-across the strings.
-This illustrates joint assembly and reuse of substructures across multiple strings.
-
-## 6_parallel_calculations.py
-
-Defines a list of SMILES strings (e.g. glycine, alanine, ethane, with some duplicates).
-Converts each SMILES to a graph with att.smi_to_nx.
-Runs att.calculate_assembly_index_parallel over all graphs with strip_hydrogen=True.
-This demonstrates parallel batch calculation of assembly indices.
-
-## 7_pathway_vis.py
-
-Uses a combined SMILES string for glycine and alanine joined by ".".
-Computes the assembly index and pathway for the molecule representation and:
-Optionally generates a metro-style digraph plot of the pathway (Linux-only)
-Plots and saves a standard pathway visualisation as an SVG file
-Converts the same SMILES to a networkx graph, recomputes the assembly index, and:
-Plots the pathway with plot_type='graph'
-This script focuses on visualising assembly pathways for both molecule and graph representations.
-
-## 8_recursive_ma_example.py
-
-Demonstrates the use of the Mass Spectrometry Molecular Assembly (MA) Estimator.
-
-Creates a complex fragmentation tree.
-Estimates the molecular assembly (MA) for a given precursor mass-to-charge ratio (m/z).
-Prints the tree structure, tree depth, and the estimated MA.
-This script shows how to use the `MAEstimator` for fragmentation tree analysis.
-
-## 9_rust_backend.py
-
-Demonstrates the Rust-backed `assembly-theory` calculator on anthracene.
-
-Computes the assembly index with att.calculate_assembly_index_rust.
-Computes the assembly depth of benzene with att.calculate_assembly_depth_rust.
-Inspects the graph the backend builds with att.get_molecule_info_rust.
-Runs att.calculate_assembly_index_rust_search to report the search statistics, and
-reconstructs and plots a minimum assembly pathway where the installed release supports it.
-This script shows how to reach the Rust calculator's full API rather than the index alone.
+Exercises the Rust-backed index, minimum-depth, graph-inspection, and search
+APIs. It reconstructs and plots a minimum pathway when the installed
+`assembly-theory` release supports pathway output.

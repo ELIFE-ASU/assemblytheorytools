@@ -1,10 +1,11 @@
 """
 Enumeration of the graph neighbourhood of a molecule.
 
-This module generates the molecular graphs that lie one edit away from a given
-structure: ``enumerate_up`` adds an atom or bond, ``enumerate_down`` removes one,
-and ``enumerate_neighborhood`` combines both. Results are deduplicated by graph
-isomorphism using colour-matched node and edge comparisons.
+This module generates graphs one assembly join away from given structures.
+``enumerate_up`` identifies compatible vertices of two graphs,
+``enumerate_down`` partitions a graph's full edge set between two connected
+subgraphs, and ``enumerate_neighborhood`` combines both directions. Results are
+deduplicated by colour-aware graph isomorphism.
 """
 
 import itertools
@@ -30,9 +31,10 @@ def enumerate_neighborhood(graphs: List[nx.Graph],
     """
     Generate the neighborhood of input graphs in assembly space.
 
-    Computes the set of graphs that are one joining operation away from the
-    input graphs. This includes both "down joins" (decompositions) and "up joins"
-    (combinations). Results are deduplicated by graph isomorphism.
+    Computes the set of graphs that are one assembly joining operation away
+    from the input graphs. A down join partitions every edge of an input between
+    two connected subgraphs; an up join identifies compatible vertices between
+    two inputs. Results are deduplicated by graph isomorphism.
 
     Parameters
     ----------
@@ -81,7 +83,8 @@ def enumerate_neighborhood(graphs: List[nx.Graph],
     >>> len(result["N_graphs"])
     8
 
-    ``N_graphs`` is the neighbourhood -- every distinct graph one edit away.
+    ``N_graphs`` is the neighbourhood -- every distinct graph one assembly join
+    away.
     ``up_jos`` and ``down_jos`` are the joining operations that produce each
     neighbour. Deduplication is by graph isomorphism rather than node
     numbering, so relabelling the inputs gives an equivalent answer.
@@ -340,8 +343,9 @@ def enumerate_up(graph1: nx.Graph,
     5. Filter out combinations that create multi-edges.
     6. Generate output graphs from the valid vertex identifications.
 
-    Both inputs need at least one edge: joining against a single isolated
-    node yields nothing, since there is no bond to form.
+    An input may be an isolated node. A join is possible when the inputs share
+    a compatible vertex colour and, when enabled, the identified vertices have
+    sufficient remaining valence.
 
     Examples
     --------

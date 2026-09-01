@@ -1650,9 +1650,8 @@ def calculate_assembly_index_similarity(graphs: List[Union[nx.Graph, Chem.Mol]],
     Calculate the assembly index similarity for a set of graphs.
 
     This function computes the assembly index for the joint graph (combined
-    from all input graphs) and compares it to the sum of the assembly indices
-    of the individual graphs. The similarity is defined as the ratio of the
-    sum of individual AIs to the AI of the joint graph.
+    from all input graphs) and compares it to the sum of the individual
+    assembly indices. The score is ``(sum_ai / joint_ai) - 1``.
 
     Parameters
     ----------
@@ -1671,8 +1670,8 @@ def calculate_assembly_index_similarity(graphs: List[Union[nx.Graph, Chem.Mol]],
     Returns
     -------
     float
-        The calculated similarity index, which should be close to 1.0 for
-        similar structures and significantly different for dissimilar ones.
+        The calculated shared-assembly score. For two inputs it lies between
+        0.0 and 1.0; for more inputs it can be as high as ``len(graphs) - 1``.
         Returns -1.0 if any underlying calculation failed.
 
     Raises
@@ -1685,16 +1684,17 @@ def calculate_assembly_index_similarity(graphs: List[Union[nx.Graph, Chem.Mol]],
 
     Notes
     -----
-    - The similarity index provides a measure of how the whole compares to
-      the sum of its parts, which can be greater than 1.0 due to synergistic
-      effects or structural efficiencies.
+    - Exact mode is enabled by default so a timeout upper bound is not treated
+      as an exact similarity value. Set ``enforce_exact_mode=False`` only when
+      that tradeoff is intentional.
 
     Examples
     --------
     >>> import assemblytheorytools as att
     >>> att.calculate_assembly_index_similarity(
-    ...     [att.smi_to_nx("NCC(=O)O"), att.smi_to_nx("CC(N)C(=O)O")])
-    0.6363636363636365
+    ...     [att.smi_to_nx("NCC(=O)O"), att.smi_to_nx("CC(N)C(=O)O")],
+    ...     settings={"strip_hydrogen": True})
+    0.75
 
     Glycine and alanine share most of their structure, so the joint
     assembly index (4) sits well below the sum of the separate indices

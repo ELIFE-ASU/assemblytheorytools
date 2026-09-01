@@ -10,7 +10,9 @@ plt.rcParams['axes.linewidth'] = 2.0
 
 
 def get_ai(smi):
-    ai, _, _ = att.calculate_assembly_index(att.smi_to_nx(smi), strip_hydrogen=True, timeout=60.0 * 5)
+    ai, _, _ = att.calculate_assembly_index(
+        att.smi_to_nx(smi), strip_hydrogen=True,
+        timeout=60.0 * 5, exact=True)
     return ai
 
 

@@ -12,11 +12,16 @@
 
 cd $SLURM_SUBMIT_DIR
 
-export ASS_PATH=/data/grp_swalke10/asscpp/v5_boost/asscpp_v5_boost_recursive
+: "${ATT_ASS_PATH:?Set ATT_ASS_PATH to your assemblyCPP executable}"
+: "${ATT_DATA_DIR:?Set ATT_DATA_DIR to the directory containing CBRdb_C.csv.zip}"
+: "${ATT_ENV_NAME:?Set ATT_ENV_NAME to your conda environment name}"
 
-ENV_NAME="monsterproteinstability"
+export ASS_PATH="$ATT_ASS_PATH"
+
 module load mamba/latest
-source activate $ENV_NAME
+source activate "$ATT_ENV_NAME"
+
+ATT_PYTHON="${ATT_PYTHON:-$HOME/.conda/envs/$ATT_ENV_NAME/bin/python3}"
 
 # Run the Python script, passing the SLURM_ARRAY_TASK_ID to the script
-$HOME/.conda/envs/$ENV_NAME/bin/python3 calc_info.py "${SLURM_ARRAY_TASK_ID}"
+"$ATT_PYTHON" calc_info.py "${SLURM_ARRAY_TASK_ID}" --data-dir "$ATT_DATA_DIR"

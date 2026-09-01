@@ -9,20 +9,24 @@ Unix-like systems; on Windows, use the Windows Subsystem for Linux.
 pip install assemblytheorytools
 ```
 
-This pulls in every runtime dependency, the precompiled C++ assembly
-calculators and the Rust `assembly-theory` wheel, which is all that is needed
-for the {doc}`quick start <index>`.
+This pulls in every runtime dependency and the Rust `assembly-theory` wheel. On
+Linux x86-64, the package also includes precompiled C++ calculators, which is
+all that is needed for the {doc}`quick start <index>`. Other platforms need a
+source build and must configure `ASS_PATH` for graph/molecule calculations and
+`ASS_STR_PATH` for directed strings (a compatible combined build may serve
+both); see
+[Configuration](configuration.md#bundled-binaries).
 
 ## From source
 
 ```bash
 git clone https://github.com/ELIFE-ASU/assemblytheorytools.git
 cd assemblytheorytools
-pip install -e ".[dev]"
+pip install -e ".[dev,docs]"
 ```
 
 The `dev` extra adds `pytest` and `pytest-cov`; the `docs` extra adds Sphinx and
-the theme used to build this site.
+the theme used to build this site. Omit either extra when it is not needed.
 
 ## Conda environment
 
@@ -38,9 +42,8 @@ ASE builds can be resolved against incompatible channels:
 
 ```bash
 conda config --env --add channels conda-forge
-conda config --set channel_priority true
+conda config --env --set channel_priority strict
 conda config --show channels
-conda update conda --all -y
 ```
 
 Install the compiled dependencies through conda, then the rest through pip:

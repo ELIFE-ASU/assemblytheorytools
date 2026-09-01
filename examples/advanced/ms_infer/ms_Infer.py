@@ -1,3 +1,4 @@
+from argparse import ArgumentParser
 import json
 import numpy as np
 from bisect import bisect_right
@@ -663,7 +664,12 @@ def prune_to_depth(mz_dict, max_depth, current_depth=1):
 
 
 if __name__ == "__main__":
-    fname = ""  # add path to mzml file
+    parser = ArgumentParser(
+        description="Build a fragmentation tree from an mzML file with pyOpenMS.")
+    parser.add_argument("mzml", help="Path to the input .mzML file")
+    args = parser.parse_args()
+
+    fname = args.mzml
     mz_tol_ppm = 10.0
     min_intensity = 0.0
 

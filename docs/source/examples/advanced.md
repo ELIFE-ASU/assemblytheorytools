@@ -4,13 +4,15 @@
 :parser: myst
 ```
 
-Each subdirectory of `examples/advanced/` is self-contained.
+Requirements vary by subdirectory; the sections below identify external data,
+optional packages, and cluster-specific setup where needed.
 
 ## Amino acid joint assembly
 
 ```{include} ../../../examples/advanced/amino_acid_joint_assembly/README.md
 :parser: myst
 :start-line: 1
+:relative-docs: ../../../
 ```
 
 ## Forward enumeration
@@ -18,6 +20,7 @@ Each subdirectory of `examples/advanced/` is self-contained.
 ```{include} ../../../examples/advanced/forward_enumeration/README.md
 :parser: myst
 :start-line: 1
+:relative-docs: ../../../
 ```
 
 ## KEGG compounds
@@ -37,6 +40,8 @@ Each subdirectory of `examples/advanced/` is self-contained.
 ```{include} ../../../examples/advanced/reassemble/README.md
 :parser: myst
 :start-line: 1
+:heading-offset: 1
+:relative-docs: ../../../
 ```
 
 ## Miscellaneous
@@ -44,6 +49,7 @@ Each subdirectory of `examples/advanced/` is self-contained.
 ```{include} ../../../examples/advanced/other/README.md
 :parser: myst
 :start-line: 1
+:heading-offset: 1
 ```
 
 ## Related documentation

@@ -22,3 +22,4 @@ that call so the rest of the script still runs elsewhere.
 * [Arbitrary graphs guide](../guide/graphs.md) — script 3.
 * [Pathways guide](../guide/pathways.md) — script 7.
 * [Spectroscopy and mass spectrometry](../guide/mass_spectrometry.md) — script 8.
+* [Molecules guide: Rust backend](../guide/molecules.md#choosing-a-backend) — script 9.

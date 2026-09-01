@@ -31,6 +31,7 @@ including the joint, parallel, bounded and Rust-backed variants.
    calculate_assembly_index_ratio
    calculate_assembly_index_jo_ratio
    calculate_assembly_index_rust
+   RustSearchResult
    calculate_assembly_index_rust_search
    calculate_assembly_depth_rust
    get_molecule_info_rust

@@ -1,7 +1,7 @@
 assemblytheorytools.find_other_paths
 ====================================
 
-Enumeration of alternative shortest assembly pathways.
+Stochastic sampling of virtual objects found in shortest assembly calculations.
 
 .. currentmodule:: assemblytheorytools.find_other_paths
 

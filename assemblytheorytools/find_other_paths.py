@@ -1,9 +1,10 @@
 """
-Enumeration of alternative assembly pathways.
+Sampling of virtual objects found in shortest assembly calculations.
 
-This module finds the complete set of shortest paths through an assembly graph,
-which is used to identify degenerate pathways that reach the same target with an
-equal number of joining steps.
+The historical :func:`all_shortest_paths` name is retained for compatibility,
+but the function does not return or exhaustively enumerate pathways. It repeats
+the default calculation after random atom renumberings and collects the unique
+virtual-object SMILES strings encountered.
 """
 
 import numpy as np
@@ -83,7 +84,7 @@ def all_shortest_paths(mol: Mol,
                        f_graph_care: bool = False,
                        max_attempts: int = 3) -> List[str]:
     """
-    Generate all unique shortest paths of a molecule by scrambling atom indices.
+    Sample unique virtual objects by scrambling a molecule's atom indices.
 
     Parameters
     ----------
@@ -100,8 +101,8 @@ def all_shortest_paths(mol: Mol,
     Returns
     -------
     List[str]
-        A list of unique virtual object (VO) InChI strings representing the
-        shortest paths.
+        Unique virtual-object (VO) SMILES strings encountered across the sampled
+        calculations. These strings are not pathway representations.
 
     Raises
     ------
@@ -110,11 +111,11 @@ def all_shortest_paths(mol: Mol,
 
     Notes
     -----
-    The function uses atom index scrambling to explore different molecular
-    representations and identify all unique virtual objects. The total number
-    of attempts is calculated as 4 times the number of bonds in the molecule,
-    but the search terminates early if no new VOs are found for `max_attempts`
-    consecutive iterations.
+    This is a stochastic sampler, not an exhaustive pathway enumerator. It uses
+    atom-index scrambling to expose different calculator results and collect
+    their virtual objects. The attempt budget is four times the number of bonds,
+    with early termination after `max_attempts` consecutive iterations find no
+    new VO.
     """
     if not isinstance(mol, Chem.Mol):
         raise ValueError("Input must be an RDKit molecule object.")

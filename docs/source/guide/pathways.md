@@ -104,25 +104,29 @@ as DOT strings.
 {func}`~assemblytheorytools.assembly.calculate_assembly_index_rust_search`
 loads them for you:
 
-```python
-result = att.calculate_assembly_index_rust_search(
-    att.smi_to_nx("c1ccccc1"), max_pathways=1)
+:::{warning}
+Pathway reconstruction was added to `assembly-theory` after release 0.6.1. On
+an older compatible release, passing `max_pathways` raises
+`NotImplementedError`, so guard the optional call as below.
+:::
 
-pathway = result.pathways[0]
-fig, ax = att.plot_pathway(pathway, plot_type="mol")
+```python
+try:
+    result = att.calculate_assembly_index_rust_search(
+        att.smi_to_nx("c1ccccc1"), max_pathways=1)
+except NotImplementedError:
+    print("Upgrade assembly-theory to reconstruct pathways")
+else:
+    pathway = result.pathways[0]
+    fig, ax = att.plot_pathway(pathway, plot_type="mol")
+
 ```
 
 `max_pathways` is the number of pathways to reconstruct: a positive integer for
 at most that many, `0` for all of them, or `None` (the default) to skip
-reconstruction. Asking for all of them is the exact counterpart of
-{func}`~assemblytheorytools.find_other_paths.all_shortest_paths` below, which
-samples rather than enumerates.
-
-:::{warning}
-Pathway reconstruction was added to `assembly-theory` after release 0.6.1. On an
-older release, passing `max_pathways` raises `NotImplementedError`; everything
-else on this page works regardless.
-:::
+reconstruction. This is the API to use when the pathways themselves are
+required. The sampling helper below collects virtual objects rather than
+pathway graphs and is not an equivalent enumerator.
 
 These pathways are {class}`~networkx.MultiDiGraph` objects rather than
 {class}`~networkx.DiGraph` ones, because a fragment joined to a copy of itself
@@ -148,21 +152,24 @@ pathway = att.parse_pathway_dot(dot_string, mol=mol)
 Fragments are returned kekulised, matching the graph the backend searches. Pass
 `mol=None` to read a pathway's structure without building any chemistry.
 
-## Alternative shortest pathways
+## Sampling virtual objects from shortest pathways
 
-A shortest pathway is rarely unique.
-{func}`~assemblytheorytools.find_other_paths.all_shortest_paths` enumerates the
-alternatives for a molecule:
+A shortest pathway is rarely unique. Despite its historical name,
+{func}`~assemblytheorytools.find_other_paths.all_shortest_paths` does **not**
+return paths. It repeatedly renumbers a molecule's atoms, runs the default
+calculator, and collects the unique virtual-object SMILES strings encountered:
 
 ```python
 mol = att.smi_to_mol("CN1C=NC2=C1C(=O)N(C(=O)N2C)C")
-paths = att.all_shortest_paths(mol)
-print(len(paths))
+virtual_objects = att.all_shortest_paths(mol, max_attempts=3)
+print(len(virtual_objects))
 ```
 
-The count itself is informative: a molecule with many distinct shortest
-pathways is less constrained in how it can be assembled than one with a single
-route.
+The result is a stochastic sample: the search stops after `max_attempts`
+consecutive runs find no new virtual object, or after four times the molecule's
+bond count. Its length is therefore a count of sampled unique virtual objects,
+not a count of pathways. Use the Rust `max_pathways` option above when you need
+actual pathway graphs.
 
 ## Parsing a saved pathway
 
@@ -192,5 +199,5 @@ For string pathways, use
 ## See also
 
 * {doc}`../api/construction` — pathway parsing, levelling and conversion.
-* {doc}`../api/find_other_paths` — alternative shortest pathways.
+* {doc}`../api/find_other_paths` — sampled virtual objects from shortest pathways.
 * {doc}`../api/tools_plotting` — every plotting function.

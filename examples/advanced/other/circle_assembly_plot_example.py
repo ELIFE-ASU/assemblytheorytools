@@ -1,4 +1,3 @@
-import CFG
 import numpy as np
 
 import assemblytheorytools as att
@@ -7,11 +6,10 @@ import assemblytheorytools as att
 Here is example a code to plot a graph, where objects are displayed in concentric
 circles according to their assembly index. 
 
-adj_matri (OPTIONAL, but recommended): numpy.ndarray
+adj_matrix: numpy.ndarray
 A square adjacency matrix representing the relationships between nodes.
 If adj_matrix[i, j] >= 1, it signifies that node i points to node j.
-If not provided, rules_graph will be used as adjacency matrix.
-IMPORTANT: if provided, must be assembly-consistent, that is, all nodes
+It must be assembly-consistent: all nodes
 must be pointed to by at least one node with a lower assembly index, 
 except for nodes with the minimum assembly index, which will be considered
 the building blocks. 
@@ -37,10 +35,17 @@ if __name__ == "__main__":
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     ])
 
-    # Specifying adjacency matrix:
-    att.plot_assembly_circle(nodes, adj_matrix, filename='circle_plot.svg', node_size=800)
+    assembly_indices = [
+        att.calculate_string_assembly_index(node, mode="cfg")[0]
+        for node in nodes
+    ]
 
-    # Without specifying adjacency matrix with given parameters:
+    # Minimal call:
+    att.plot_assembly_circle(
+        nodes, adj_matrix, assembly_indices,
+        filename='circle_plot.svg', node_size=800)
+
+    # Styled call:
     labels = nodes
     node_size = 1000
     arrow_size = 50
@@ -51,6 +56,7 @@ if __name__ == "__main__":
     att.plot_assembly_circle(nodes,
                              labels=labels,
                              adj_matrix=adj_matrix,
+                             assembly_indices=assembly_indices,
                              node_size=node_size,
                              arrow_size=arrow_size,
                              node_color=node_color,
@@ -58,10 +64,5 @@ if __name__ == "__main__":
                              fig_size=fig_size,
                              filename=filename)
 
-    # Example with providing assembly indices (can be substituted by other criteria)
-    n_nodes = len(nodes)
-    assembly_indices = np.zeros(n_nodes, dtype=int)
-    for i in range(n_nodes):
-        assembly_indices[i] = CFG.ai_with_pathways(nodes[i], f_print=False)[0]
-
+    # Assembly indices can be substituted with another integer criterion.
     att.plot_assembly_circle(nodes, adj_matrix=adj_matrix, assembly_indices=assembly_indices)

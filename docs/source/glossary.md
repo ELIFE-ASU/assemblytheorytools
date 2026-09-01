@@ -1,9 +1,8 @@
 # Glossary
 
-The vocabulary of assembly theory, as agreed between the Walker and Cronin
-groups. The definitions below are reproduced from that glossary; only the term
-itself has been lifted out to form the heading, and cross-references into the
-ATT API have been added under each entry where one exists.
+The terminology used here follows the assembly-theory literature cited under
+{doc}`citing`. ATT-specific notes and cross-references are added where the API
+implements a term directly.
 
 {doc}`theory` puts these terms into a narrative; {doc}`concepts` covers the
 smaller set of them that the API surfaces directly.
@@ -84,7 +83,8 @@ Virtual objects
   virtual objects are not necessarily measurable/observable.
 
   In ATT: the second value returned by
-  {func}`~assemblytheorytools.assembly.calculate_assembly_index`, as graphs.
+  {func}`~assemblytheorytools.assembly.calculate_assembly_index`: graphs for a
+  NetworkX input, or SMILES strings for an RDKit `Mol` input.
 
 Virtual copy number
   *Symbol: $n_v$.* Is defined for the virtual objects along the assembly path,
@@ -100,7 +100,7 @@ Assembly space
 Joint assembly space
   Corresponds to the set of (virtual) objects and joining operations that
   describe the construction process of an ensemble of objects. Due to its
-  computationally extensive nature, it is sometimes approximated by the union of
+  computationally intensive nature, it is sometimes approximated by the union of
   individual assembly spaces of all the observed objects.
 
   In ATT: pass a disconnected graph to
@@ -146,8 +146,8 @@ Assembly contingent
 Assembly observed
   *Symbol: $A_O$.* Represents the space of the observed objects, which is a
   subset of assembly contingent. The observed objects are usually experimentally
-  measured and present in higher copy numbers. Assembly contingent is
-  constructed by breaking the observed objects apart to their elementary
+  measured and present in higher copy numbers. Assembly observed is
+  reconstructed by breaking the observed objects apart to their elementary
   building blocks and reconstructing a minimum path to construct those objects.
   $A_O$ is represented by the joint assembly space.
 :::
@@ -200,9 +200,9 @@ Selectivity
   selectivity among the basic assembly units from which objects are built, but
   only represents (virtual) object-level interactions.
 
-  The assembly contingent space includes objects based on selectivity principles
-  which have not been observed (i.e., discovered but not produced) as well as
-  objects that are not physically realistic.
+  The assembly contingent space can include selected objects that have been
+  discovered along permitted histories but have not yet been produced or
+  observed.
 
 Complexity-diversity space
   Any physical temporal process can be represented in complexity-diversity space

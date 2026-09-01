@@ -1,9 +1,9 @@
 # Reassembly
 
 {mod}`assemblytheorytools.reassembler` builds molecules by applying SMARTS
-reaction templates. Where {doc}`enumeration` performs raw graph edits, reassembly
-works through chemical templates, so the structures it produces are plausible
-reaction products rather than arbitrary bonds.
+reaction templates. Where {doc}`enumeration` performs graph joins by vertex
+identification and edge partitioning, reassembly works through chemical
+templates, so the structures it produces are plausible reaction products.
 
 ## Joining two molecules
 

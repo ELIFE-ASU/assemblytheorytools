@@ -9,9 +9,9 @@ results.
 Assembly theory quantifies the complexity of an object by the minimal number of
 joining steps needed to build it from elementary parts, reusing every
 intermediate that has already been made. ``assemblytheorytools`` (ATT) wraps the
-C++ and Rust assembly calculators behind one Python API. The C++ binaries ship
-precompiled inside the package and the Rust calculator installs alongside it as
-a wheel, so a calculation works out of the box.
+C++ and Rust assembly calculators behind one Python API. Linux x86-64 packages
+include precompiled C++ binaries, and the Rust calculator installs alongside
+ATT as a wheel. Other platforms need a C++ source build for the default backend.
 
 Installation
 ------------
@@ -20,9 +20,9 @@ Installation
 
    pip install assemblytheorytools
 
-The package bundles a precompiled assembly calculator, so nothing else is
-required for the quick start below. See :doc:`install` for conda, HPC and
-build-from-source instructions.
+On Linux x86-64, the bundled calculator is enough for the quick start below.
+See :doc:`install` for other platforms, conda, HPC and build-from-source
+instructions.
 
 Quick start
 -----------

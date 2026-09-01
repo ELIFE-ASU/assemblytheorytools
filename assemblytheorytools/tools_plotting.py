@@ -1213,9 +1213,8 @@ def plot_assembly_circle(nodes: Sequence[Any],
     Nodes are placed on concentric rings whose radius is proportional to
     their assembly index. Edges between nodes are rendered as curved
     directed arrows. Optional per-node labels, icons (molecule / atoms /
-    graph), colormap/norm support and file saving are provided. The function
-    delegates low-level drawing to an internal routine and may compute
-    missing inputs (assembly indices or adjacency) if they are not supplied.
+    graph), colormap/norm support and file saving are provided. Both the
+    adjacency matrix and one assembly index per node are required.
 
     Parameters
     ----------
@@ -1252,8 +1251,8 @@ def plot_assembly_circle(nodes: Sequence[Any],
         Size of the figure in inches. If a single float is provided it is
         used for both width and height. Default is ``10``.
     filename : str or None, optional
-        If provided, save the rendered figure to this path (PNG). Default is
-        ``None`` (no file saved).
+        If provided, save the rendered figure to this path; the extension
+        selects the output format. Default is ``None`` (no file saved).
     dpi : int, optional
         Resolution in dots-per-inch when saving. Default is ``300``.
     fig : matplotlib.figure.Figure or None, optional

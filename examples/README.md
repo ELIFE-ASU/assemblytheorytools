@@ -1,6 +1,7 @@
-This folder contains various examples demonstrating how to use the features of the `assembly-theory-tools` project. Each
-example is self-contained and includes instructions on how to run it. These examples cover a range of use cases and can
-serve as a starting point for users looking to implement similar functionality in their own projects.
+This folder contains worked examples for `assemblytheorytools`. Basic scripts
+use packaged features directly; protocols and advanced workflows may require
+external datasets, optional dependencies, or an HPC environment. Read the
+README beside a script before running it.
 
 ## Protocols
 
@@ -43,4 +44,3 @@ includes:
 - Building a fragmentation tree by linking parent and child ions within a mass tolerance.
 - Comparing a mass-only approximation against the fragment-informed recursive estimate, and both against a known
   reference value.
-

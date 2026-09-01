@@ -10,7 +10,7 @@ if __name__ == "__main__":
     # The function `calculate_string_assembly_index` computes the assembly index,
     # virtual objects, and assembly pathway for the given list of strings.
     # Parameters:
-    # - dir_code: Direction code (set to None for no specific direction).
+    # - dir_code: Optional path to the calculator executable (None uses the bundled one).
     # - timeout: Maximum time allowed for the calculation (100.0 seconds).
     # - directed: Boolean indicating whether the assembly is directed (False for undirected).
     # - mode: Specifies the assembly logic mode ("mol" for molecular assembly logic).
