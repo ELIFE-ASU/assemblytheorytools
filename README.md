@@ -1,439 +1,327 @@
-<img width="2096" height="934" alt="Frame - 1 (2)" src="https://github.com/user-attachments/assets/4cc72e01-3ea4-4c0e-abd8-ba1af100b79b" />
+<img
+  src="https://github.com/user-attachments/assets/4cc72e01-3ea4-4c0e-abd8-ba1af100b79b"
+  alt="AssemblyTheoryTools banner"
+  width="100%"
+/>
 
-# `AssemblyTheoryTools` <!-- [![Stars](https://img.shields.io/github/stars/ELIFE-ASU/assemblytheorytools.svg?style=social&maxAge=3600&label=Star)](https://github.com/ELIFE-ASU/assemblytheorytools/stargazers)-->
+# AssemblyTheoryTools
 
 [![Documentation Status](https://readthedocs.org/projects/assemblytheorytools/badge/?version=latest)](https://assemblytheorytools.readthedocs.io/en/latest/)
 [![PyPI](https://img.shields.io/pypi/v/assemblytheorytools.svg)](https://pypi.org/project/assemblytheorytools/)
+[![Python versions](https://img.shields.io/pypi/pyversions/assemblytheorytools.svg)](https://pypi.org/project/assemblytheorytools/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/ELIFE-ASU/assemblytheorytools/blob/main/LICENSE)
 
-A centralised set of tools for doing assembly theory calculations [\[1\]](#ref1) written in Python.
-Reference coming soon!
+AssemblyTheoryTools (ATT) provides a unified Python interface for assembly-index calculations across molecules, strings,
+and arbitrary graphs.
 
-📖 **Full documentation: [assemblytheorytools.readthedocs.io](https://assemblytheorytools.readthedocs.io/)** — installation,
-a user guide covering molecules, strings, graphs, pathways, parallel runs, complexity scores and mass spectrometry, the
-worked protocols, and the complete API reference.
+[Documentation](https://assemblytheorytools.readthedocs.io/) ·
+[Examples](https://github.com/ELIFE-ASU/assemblytheorytools/tree/main/examples) ·
+[API reference](https://assemblytheorytools.readthedocs.io/en/latest/modules.html) ·
+[PyPI](https://pypi.org/project/assemblytheorytools/) ·
+[Issues](https://github.com/ELIFE-ASU/assemblytheorytools/issues) ·
+[Releases](https://github.com/ELIFE-ASU/assemblytheorytools/releases)
 
-## 🗺️ Overview
+<details>
+<summary><strong>What is assembly theory?</strong></summary>
 
-The aim is that this package provides a platform to do assembly theory calculations that work out of the box.
-We currently interface with [C++](https://github.com/croningp/assemblycpp-v5) [\[2\]](#ref2)
-and [Rust](https://github.com/DaymudeLab/assembly-theory) [\[3\]](#ref3) assembly calculators.
-Precompiled C++ binaries ship inside this package, and the Rust calculator is installed alongside it
-as a wheel, so a calculation works out of the box either way.
-This version works best on Unix-based systems, and to use this package, it is strongly suggested that you use Linux
-subsystem if you are using Windows.
+Assembly theory quantifies the complexity of an object by the smallest number of joining steps needed to build it from
+elementary parts, while allowing previously created intermediates to be reused. The reuse rule captures internal
+structure and repetition rather than size alone.
 
-AssemblyTheoryTools (ATT) is a Python package that facilitates assembly theory calculations
-across various domains. It provides a unified interface to perform complex assembly theory computations,
-leveraging the power of the underlying assembly calculators.
+For molecules, the elementary parts are bonds and the calculation is performed on the molecular graph. ATT exposes the
+[assemblyCPP](https://github.com/LouieSlocombe/assemblycpp-v5) C++ calculator, the
+[assembly-theory](https://github.com/DaymudeLab/assembly-theory) Rust calculator, and
+[assemblycfg](https://github.com/ELIFE-ASU/assemblycfg) for fast approximate string calculations through one Python
+package.
 
-Assembly theory is a framework that aims to quantify the complexity of
-objects by considering the minimal number of steps needed to assemble them
-from their fundamental building blocks. It essentially treats objects not as simple
-particles, but as entities defined by their possible formation histories, and it
-provides a way to measure how much selection was required to produce a given
-object or set of objects.
+See the [concepts guide](https://assemblytheorytools.readthedocs.io/en/latest/concepts.html) and
+[theory overview](https://assemblytheorytools.readthedocs.io/en/latest/theory.html) for more background.
 
-Currently, ATT supports and connects to:
+</details>
 
-- General undirected graphs via NetworkX.
-- Molecules via RDKit.
-- Directed and undirected strings.
-- Approximate fast methods [assemblycfg](https://github.com/ELIFE-ASU/assemblycfg).
+## Quick start
 
-If you find this package useful, please cite the following papers:
-Sharma _et al._ 2023 [\[1\]](#ref1) and Seet _et al._ 2024 [\[2\]](#ref2), found in the paper.bib.
+ATT requires **Python 3.12 or newer**. Install the current release from PyPI:
 
-## 🔧 Installing
-
-Check out the requirements and installation instructions below.
-
-The simplest way to install ATT is to use pip, which is the recommended package manager for Python. Installation is as
-simple as,
-
-```
-pip install assemblytheorytools
+```bash
+python -m pip install assemblytheorytools
 ```
 
-The code needs a compiled assemblyCPP, which is included in this package by default.
-However, if you want to use your version, you can set the `ASS_PATH` environmental
-variable to the path of your AssemblyCPP installation.
-For example, put `export ASS_PATH=/home/user/asscpp` in your submission
-script or your `.bashrc`.
-For compilation instructions to build your version from source, check out AssemblyCPP.
+> **Platform note:** The bundled C++ calculators target Linux x86-64. On Windows, use WSL; on other platforms, provide
+> a compatible assemblyCPP build as described under **Use a custom assemblyCPP build** below.
 
-### ORCA - Optional
+Calculate and plot the assembly pathway for caffeine:
 
-Components of this code use ORCA, a flexible, efficient, and easy-to-use general-purpose quantum chemistry program
-package. ORCA is free for academic use but requires registration.
+```python
+import matplotlib.pyplot as plt
 
-1. Go to the [ORCA Forum](https://orcaforum.kofo.mpg.de/) and register for an account.
-2. Once registered, navigate to the "Downloads" section.
-3. Download the appropriate version for your Linux system (e.g., `ORCA 6.1.1, Linux, x86-64, shared-linked, .tar.xz`).
-4. Move the downloaded archive to your desired installation directory (e.g., `$HOME/orca_6_1_1`) and extract it.
-5. Add the ORCA executable to `ORCA_PATH` to path so that ATT can point to it. For example, put
-   `export ORCA_PATH=$HOME/orca_6_1_1/orca` in your submission
-   script or your `.bashrc`.
-
-## 💡 Example
-
-For most use cases, the general calculation can be
-exposed via the `calculate_assembly_index` function.
-
-Here is a simple example for Caffeine. First, bring up a terminal
-and activate the conda or pip environment where you installed ATT. Type in:
-
-```
-python3
-```
-
-In Python, first import the package:
-
-```
 import assemblytheorytools as att
-```
 
-Next, there are several ways to define a system. In this example case, we are
-going to use a SMILES string which corresponds to Caffeine.
-
-```
-smi = 'CN1C=NC2=C1C(=O)N(C(=O)N2C)C'
-```
-
-Next, we must convert our SMILES string into a molecular graph.
-
-```
+smi = "CN1C=NC2=C1C(=O)N(C(=O)N2C)C"
 graph = att.smi_to_nx(smi)
-```
 
-We are now ready to calculate the assembly index using the `calculate_assembly_index` function.
-We will also get the virtual objects and the assembly path.
+ai, virtual_objects, pathway = att.calculate_assembly_index(
+    graph,
+    strip_hydrogen=True,
+)
 
-```
-ai, virt_obj, pathway = att.calculate_assembly_index(graph, strip_hydrogen=True)
-```
+print(f"Assembly index: {ai}")
 
-Here, the `ai` integer represents the assembly index,
-`virt_obj` contains the virtual objects along the assembly path.
-The `pathway` contains the assembly pathway used to calculate the assembly index.
-The `pathway` is a directional graph where each node represents a virtual object,
-and each edge represents a joining operation that combines input virtual objects
-into one output virtual object.
-
-Convert the virtual object graphs to a SMILES string.
-
-```
-virt_obj = [att.nx_to_smi(graph, add_hydrogens=False) for graph in virt_obj]
-```
-
-We should be able to print the results:
-
-```
-print(f"Assembly index: {ai}", flush=True)
-print(f"virt_obj: {virt_obj}", flush=True)
-```
-
-We should see the output:
-
-```
-Assembly index: 9
-virt_obj: ['C=NC=CC', 'CN(C)C', 'CN', 'CC1=CN=CN1C', 'CNC', 'C=O', 'C=NC', 'CN(C)C=O', 'CC', 'C=C', 'C=CN=C', 'CC1=C(N(C)C=O)N=CN1C', 'C=N', 'CN1C(=O)C2=C(N=CN2C)N(C)C1=O']
-```
-
-Let's plot the results.
-
-```
-att.plot_pathway(pathway, plot_type='graph')
+fig, ax = att.plot_pathway(pathway, plot_type="graph")
 plt.show()
 ```
 
-![readme_example.png](readme_example.png)
+```text
+Assembly index: 9
+```
 
-## 💭 Feedback
+![Assembly pathway for caffeine](https://raw.githubusercontent.com/ELIFE-ASU/assemblytheorytools/main/readme_example.png)
 
-### ⚠️ Issue Tracker
+<details>
+<summary><strong>Understanding the result</strong></summary>
 
-Found a bug? Have an enhancement request? Head over to the [GitHub issue
-tracker](https://github.com/ELIFE-ASU/assemblytheorytools/issues) if you need to report
-or ask something. If you are filing in on a bug, please include as much
-information as possible about the issue, and try to recreate the same bug
-in a simple, easily reproducible situation.
+- `ai` is the assembly index.
+- `virtual_objects` contains reusable intermediates found along the pathway. The collection is unordered; do not rely on
+  positional order.
+- `pathway` is a NetworkX `DiGraph`: its nodes are virtual objects and its directed edges are joining operations.
 
-### 🏗️ Contributing
+Convert the virtual-object graphs back to SMILES with:
 
-Contributions of all kinds—bug reports, feature suggestions, code improvements, and documentation updates - are welcome!
+```python
+virtual_smiles = [
+    att.nx_to_smi(obj, add_hydrogens=False)
+    for obj in virtual_objects
+]
+```
+
+Most published molecular assembly indices exclude hydrogens. Use `strip_hydrogen=True` when comparing against those
+values. ATT strips a copy, leaving the original graph unchanged.
+
+</details>
+
+## What ATT includes
+
+- Exact assembly-index calculations for molecules, arbitrary labelled graphs, and directed or undirected strings.
+- Default C++ and alternative Rust search interfaces, plus fast graph bounds and CFG-based string approximations.
+- Joint assembly, parallel execution, pathway parsing, pathway visualisation, and alternative-path enumeration.
+- Molecular complexity metrics, structure conversion, reassembly, crystal-cell, spectroscopy, and mass-spectrometry
+  utilities.
+
+<details>
+<summary><strong>Calculator backends and important differences</strong></summary>
+
+| Backend | Main interface | Best suited to | Result |
+| --- | --- | --- | --- |
+| assemblyCPP (C++) | `calculate_assembly_index` | Default molecule and graph calculations | Index, virtual objects, and pathway |
+| assembly-theory (Rust) | `calculate_assembly_index_rust` | Fast molecular index calculations | Index |
+| assembly-theory search (Rust) | `calculate_assembly_index_rust_search` | Search statistics, options, and supported pathway reconstruction | Structured search result |
+| Graph bounds | `calculate_assembly_index_upper_bound` and `calculate_assembly_index_lower_bound` | Fast size-based estimates | Upper or lower bound |
+| assemblycfg | String calculations with `mode="cfg"` | Fast approximate string calculations | Upper bound and pathway |
+
+The Rust backend always strips hydrogens. For a meaningful comparison, compare it with
+`calculate_assembly_index(..., strip_hydrogen=True)`.
+
+The PyPI distribution contains precompiled assemblyCPP executables for **Linux x86-64**. On Windows, use the Windows
+Subsystem for Linux (WSL). On another platform, build assemblyCPP for that platform and set `ASS_PATH` to the full path
+of its executable. See [configuration](https://assemblytheorytools.readthedocs.io/en/latest/configuration.html) for all
+backend options and environment variables.
+
+</details>
+
+## Installation
+
+The one-line PyPI install above resolves ATT's runtime dependencies. The authoritative dependency list and minimum
+versions live in
+[`pyproject.toml`](https://github.com/ELIFE-ASU/assemblytheorytools/blob/main/pyproject.toml).
+
+<details>
+<summary><strong>Install from source for development</strong></summary>
+
+```bash
+git clone https://github.com/ELIFE-ASU/assemblytheorytools.git
+cd assemblytheorytools
+python -m pip install -e ".[dev]"
+pytest
+```
+
+Install `.[docs]` instead of `.[dev]`, or install both extras, to build the documentation:
+
+```bash
+python -m pip install -e ".[dev,docs]"
+make -C docs strict
+```
+
 See
 [`CONTRIBUTING.md`](https://github.com/ELIFE-ASU/assemblytheorytools/blob/main/CONTRIBUTING.md)
-for more details.
-
-## 👥 Contributors
-
-Louie Slocombe, orchestration, development, and conceptualisation.
-
-Gage Siebert, string assembly index calculations and CFG integration.
-
-Estelle Janin, bonding and joint assembly index calculations.
-
-Joey Fedrow, development, maintenance, and documentation.
-
-Veronica Mierzejewski, integration of reassembly calculations.
-
-Mohammadreza Shahjahan, branding, development.
-
-Marina Fernandez-Ruz, visualisation and circle plots.
-
-Sebastian Pagel, reassembly calculations and visualisation.
-
-Amit Kahana, recursive MA integration.
-
-Stuart Marshall, debugging and optimization.
-
-Ian Seet, joining operations index calculations.
-
-Keith Patarroyo, assembly path reconstruction and visualisation.
-
-Michael Jirasek, mass spectrometry measurement pipeline.
-
-Abhishek Sharma, administrative support.
-
-Lee Cronin, conceptual, funding, and administrative support.
-
-Sara Walker, conceptual, funding, and administrative support.
-
-## ⚖️ License
-
-MIT License. We ask that you cite the relevant papers, please!
-
-## 📚 References
-
-- <a id="ref1">\[1\]</a> Sharma, A., Czégel, D., Lachmann, M., Kempes, C. P., Walker, S. I., & Cronin, L. (2023).
-  Assembly theory explains and quantifies selection and evolution. Nature, 622(7982),
-  321-328. [doi:10.1038/s41586-023-06600-9](https://doi.org/10.1038/s41586-023-06600-9).
-- <a id="ref2">\[2\]</a> Seet, I., Patarroyo, K. Y., Siebert, G., Walker, S. I., & Cronin, L. (2024). Rapid computation
-  of the assembly index of molecular graphs. arXiv preprint arXiv:2410.09100. [doi:10.48550/arXiv.2410.09100](
-  https://doi.org/10.48550/arXiv.2410.09100).
-- <a id="ref3">\[3\]</a> Vimal, D., Parzych, G., Smith, O. M., Parkar, D., Bergen, H., Daymude, J. J., &
-  Mathis, C. (2026). assembly-theory: Open, reproducible calculation of assembly indices. Journal of Open
-  Source Software, 11(117), 9318. [doi:10.21105/joss.09318](https://doi.org/10.21105/joss.09318).
-  https://github.com/DaymudeLab/assembly-theory
-
-## 🛠️ Full installation instructions
-
-<details>
-<summary>Local</summary>
-<br>
-
-### Fresh environment
-
-It is recommended that you start from a fresh environment to prevent issues.
-
-```
-conda create -n ass_env python=3.13
-```
-
-Activate the new env.
-
-```
-conda activate ass_env
-```
-
-Add channels in this order.
-
-```
-conda config --env --add channels conda-forge
-```
-
-Best to make the channels strict to prevent conflicts.
-
-```
-conda config --set channel_priority true
-```
-
-To check your updated channel list.
-
-```
-conda config --show channels
-```
-
-Make sure to upgrade the conda env to force the channel priority.
-
-```
-conda update conda --all -y
-```
-
-#### Install the requirements.
-
-```
-conda install numpy scipy matplotlib networkx pydot rdkit pyvis ase -y
-```
-
-Then, install the ELIFE packages.
-
-```
-pip install git+https://github.com/ELIFE-ASU/dagviz.git assemblycfg assembly-theory
-```
-
-Then, install AssemblyTheoryTools.
-
-```
-pip install assemblytheorytools
-```
+for the full development workflow.
 
 </details>
 
 <details>
-<summary>Development</summary>
-<br>
+<summary><strong>Use a Conda environment</strong></summary>
 
-It is recommended that you start from a fresh environment to prevent issues.
+Create an isolated environment, then install ATT with pip so the package metadata remains the single source of truth for
+its dependencies:
 
-```
-conda create -n ass_env python=3.13
-```
-
-Activate the new environment.
-
-```
-conda activate ass_env
+```bash
+conda create -n att -c conda-forge python=3.13
+conda activate att
+conda config --env --set channel_priority strict
+python -m pip install assemblytheorytools
 ```
 
-Add channels in this order.
-
-```
-conda config --env --add channels conda-forge
-```
-
-Best to make them strict.
-
-```
-conda config --set channel_priority true
-```
-
-Make sure to upgrade the conda env to force the channel priority.
-
-```
-conda update conda --all -y
-```
-
-Install the requirements.
-
-```
-conda install numpy scipy matplotlib networkx pydot rdkit pyvis ase pytest -y
-```
-
-Then, install the ELIFE packages.
-
-```
-pip install git+https://github.com/ELIFE-ASU/dagviz.git assemblycfg assembly-theory
-```
-
-Clone the repo using Git or GitKraken. Then, open your favourite IDE (PyCharm/VS Code) and the cloned repo.
+For development, clone the repository and replace the final command with `python -m pip install -e ".[dev]"`.
 
 </details>
 
 <details>
-<summary>HPC-SOL</summary>
-<br>
+<summary><strong>Install on an HPC system (including SOL)</strong></summary>
 
-Load Mamba
+Module names vary between systems. On SOL, a typical setup is:
 
-```
+```bash
 module load mamba/latest
+mamba create -n att -c conda-forge python=3.13
+source activate att
+python -m pip install assemblytheorytools
 ```
 
-It is recommended that you start from a fresh environment to prevent issues.
+When submitting a scheduled job, use the environment's Python executable explicitly:
 
-```
-mamba create -n ass_env -c conda-forge python=3.13 
-```
-
-Activate the new env.
-
-```
-source activate ass_env
-```
-
-Install all the dependencies. If it kills, feel free to split the installs.
-
-```
-mamba install -c conda-forge numpy scipy matplotlib networkx rdkit pyvis ase -y
-```
-
-Install AssemblyTheoryTools.
-
-```
-pip install assemblytheorytools
-```
-
-When running on an HPC, you should run Python using the absolute path to the directory, for example:
-`srun $HOME/.conda/envs/myEnv/bin/python3`
-
-</details>
-
-<details>
-<summary>Manual assemblycpp instructions using Intel oneAPI</summary>
-<br>
-
-Manually compiling assemblycpp using the oneAPI can result in significantly faster code if you have an Intel chipset.
-Installing Intel oneAPI, look for an
-offline [installer](https://www.intel.com/content/www/us/en/developer/tools/oneapi/dpc-compiler-download.html?operatingsystem=linux&distribution-linux=offline)
-
-```
-bash ./intel-dpcpp-cpp-compiler-2025.0.4.20_offline.sh
-```
-
-Source the env.
-
-```
-source /home/louie/intel/oneapi/setvars.sh
-```
-
-Get the boost code.
-
-```
-wget https://archives.boost.io/release/1.89.0/source/boost_1_89_0.tar.gz
-```
-
-Uncompress.
-
-```
-tar -xvzf boost_1_89_0.tar.gz
-```
-
-Remove the tar file.
-
-```
-rm -rf boost_1_89_0.tar.gz
-```
-
-Get the assemblycpp code.
-
-```
-git clone --branch script https://github.com/LouieSlocombe/assemblycpp-v5.git
-```
-
-Change into the code directory.
-
-```
-cd assemblycpp-v5/v5/
-```
-
-Compile.
-
-```
-icpx main.cpp -o asscpp -I $HOME/boost_1_89_0/ -O3 -ipo -xHost -ffast-math -qopt-zmm-usage=high -fno-alias
-```
-
-Add the file to your .bashrc.
-
-```
-export ASS_PATH=$HOME/assemblycpp-v5/v5/asscpp
+```bash
+srun "$HOME/.conda/envs/att/bin/python3" my_script.py
 ```
 
 </details>
 
 <details>
-   <summary>Dependencies</summary>
-   <br>
-   All testing performed in python 3.12. Dependent packages are as follows:
-   ase>=3.23.0, numpy>=2.1.3, scipy>=1.15.1, pandas>=2.2.3, matplotlib>=3.9.2, networkx>=3.4.2, pydot>=3.0.1, rdkit>=2024.03.5, ipython>=8.30.0, pyvis>=0.3.2, pubchempy>=1.0.5, cairosvg>=2.8.2, pillow>=10.1.0, dagviz>=0.5.0, assembly-theory>=0.6.0, assemblycfg>=1.2.2
+<summary><strong>Use a custom assemblyCPP build</strong></summary>
+
+The bundled C++ executables are generic Linux x86-64 builds. A platform-specific build is required elsewhere, and an
+optimised local build can be faster on supported hardware.
+
+Set `ASS_PATH` to the **full path of the executable**, not its containing directory:
+
+```bash
+export ASS_PATH=/absolute/path/to/asscpp
+```
+
+If you also build the dedicated string calculator, set:
+
+```bash
+export ASS_STR_PATH=/absolute/path/to/string-calculator
+```
+
+For the maintained Intel oneAPI recipe, including the compiler and Boost setup, see the
+[installation guide](https://assemblytheorytools.readthedocs.io/en/latest/install.html#optional-a-faster-assemblycpp-with-intel-oneapi).
+
 </details>
+
+<details>
+<summary><strong>Optional: configure ORCA</strong></summary>
+
+[ORCA](https://orcaforum.kofo.mpg.de/) is only required by energy and geometry-optimisation helpers in
+`assemblytheorytools.tools_atoms`; ordinary assembly-index calculations do not use it. ORCA is free for academic use but
+requires registration.
+
+After downloading and extracting the appropriate ORCA build, point ATT at the executable:
+
+```bash
+export ORCA_PATH=/absolute/path/to/orca
+```
+
+See the [installation guide](https://assemblytheorytools.readthedocs.io/en/latest/install.html#optional-orca) for the
+complete setup.
+
+</details>
+
+<details>
+<summary><strong>Verify the installation</strong></summary>
+
+```python
+import assemblytheorytools as att
+
+print(att.__version__)
+print(
+    att.calculate_assembly_index(
+        att.smi_to_nx("CCO"),
+        strip_hydrogen=True,
+    )[0]
+)
+```
+
+The second line prints `1`, the assembly index of hydrogen-stripped ethanol.
+
+</details>
+
+## Documentation and examples
+
+| Resource | Description |
+| --- | --- |
+| [Concepts](https://assemblytheorytools.readthedocs.io/en/latest/concepts.html) | Assembly indices, virtual objects, pathways, joint assembly, and backends |
+| [User guide](https://assemblytheorytools.readthedocs.io/en/latest/guide/index.html) | Molecules, strings, graphs, pathways, parallel runs, complexity, and mass spectrometry |
+| [Runnable examples](https://github.com/ELIFE-ASU/assemblytheorytools/tree/main/examples) | Basic and advanced scripts included with the repository |
+| [Published protocols](https://github.com/ELIFE-ASU/assemblytheorytools/tree/main/examples/protocols) | Reproducible end-to-end research workflows |
+| [Configuration](https://assemblytheorytools.readthedocs.io/en/latest/configuration.html) | Environment variables, binaries, graph requirements, and search options |
+| [API reference](https://assemblytheorytools.readthedocs.io/en/latest/modules.html) | Complete module and function documentation |
+
+## Support and contributing
+
+Found a bug or have a feature request? Open an issue in the
+[GitHub tracker](https://github.com/ELIFE-ASU/assemblytheorytools/issues). Bug reports should include the ATT version,
+Python version, operating system, and a minimal reproducible example.
+
+Contributions are welcome. Read
+[`CONTRIBUTING.md`](https://github.com/ELIFE-ASU/assemblytheorytools/blob/main/CONTRIBUTING.md)
+before opening a pull request.
+
+<details>
+<summary><strong>Contributors and acknowledgements</strong></summary>
+
+- Louie Slocombe — orchestration, development, and conceptualisation
+- Gage Siebert — string assembly-index calculations and CFG integration
+- Estelle Janin — bonding and joint assembly-index calculations
+- Joey Fedrow — development, maintenance, and documentation
+- Veronica Mierzejewski — integration of reassembly calculations
+- Mohammadreza Shahjahan — branding and development
+- Marina Fernandez-Ruz — visualisation and circle plots
+- Sebastian Pagel — reassembly calculations and visualisation
+- Amit Kahana — recursive MA integration
+- Stuart Marshall — debugging and optimisation
+- Ian Seet — joining-operations index calculations
+- Keith Patarroyo — assembly-path reconstruction and visualisation
+- Michael Jirasek — mass-spectrometry measurement pipeline
+- Abhishek Sharma — administrative support
+- Lee Cronin — concept, funding, and administrative support
+- Sara Walker — concept, funding, and administrative support
+
+</details>
+
+## Citing
+
+If ATT contributes to published work, cite the papers associated with the methods you use. The repository also includes
+an [`att.bib`](https://github.com/ELIFE-ASU/assemblytheorytools/blob/main/att.bib) bibliography for ATT and its scientific
+Python dependencies.
+
+<details>
+<summary><strong>References</strong></summary>
+
+1. Sharma, A., Czégel, D., Lachmann, M., Kempes, C. P., Walker, S. I., & Cronin, L. (2023). Assembly theory explains
+   and quantifies selection and evolution. *Nature*, 622(7982), 321–328.
+   [doi:10.1038/s41586-023-06600-9](https://doi.org/10.1038/s41586-023-06600-9)
+2. Seet, I., Patarroyo, K. Y., Siebert, G., Walker, S. I., & Cronin, L. (2024). Rapid computation of the assembly index
+   of molecular graphs. *arXiv preprint*, arXiv:2410.09100.
+   [doi:10.48550/arXiv.2410.09100](https://doi.org/10.48550/arXiv.2410.09100)
+3. Vimal, D., Parzych, G., Smith, O. M., Parkar, D., Bergen, H., Daymude, J. J., & Mathis, C. (2026).
+   assembly-theory: Open, reproducible calculation of assembly indices. *Journal of Open Source Software*, 11(117),
+   9318. [doi:10.21105/joss.09318](https://doi.org/10.21105/joss.09318)
+
+Method-specific references for spectroscopy and mass-spectrometry workflows are listed in the
+[citing guide](https://assemblytheorytools.readthedocs.io/en/latest/citing.html).
+
+</details>
+
+## License
+
+AssemblyTheoryTools is available under the
+[MIT License](https://github.com/ELIFE-ASU/assemblytheorytools/blob/main/LICENSE).
