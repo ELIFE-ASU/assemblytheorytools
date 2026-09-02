@@ -4,7 +4,7 @@
 
 ## Results
 
-```{figure} ../../../examples/protocols/3/example_ir_spectrum.png
+```{figure} ../../../examples/protocols/3/example_ir_spectrum.svg
 :alt: IR spectrum with identified peaks
 :width: 100%
 
@@ -20,7 +20,7 @@ runs over the 400–1500 cm⁻¹ fingerprint region after a Savitzky-Golay smoot
 The 3D structure of the same molecule, rendered with `att.plot_ase_atoms`.
 ```
 
-```{figure} ../../../examples/protocols/3/ir_ai_correlation_heatmap.png
+```{figure} ../../../examples/protocols/3/ir_ai_correlation_heatmap.svg
 :alt: Observed against predicted assembly index
 :width: 100%
 
@@ -32,8 +32,11 @@ value comes from a linear model on IR peak count alone.
 
 ```bash
 cd examples/protocols/3
-python protocol_3.py
+python protocol_3.py /path/to/10.22000-OGoEQGlsZGElrgst.tar
 ```
+
+The Chemotion IR archive is external data and is not included in the
+repository. Pass the downloaded `.tar` file as the positional argument.
 
 ## Related documentation
 

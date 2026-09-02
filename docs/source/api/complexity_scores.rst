@@ -1,8 +1,8 @@
 assemblytheorytools.complexity_scores
 =====================================
 
-Molecular complexity measures and similarity metrics, for comparison
-against the assembly index.
+Molecular, graph and string complexity measures and similarity metrics, for
+comparison against the assembly index.
 
 .. currentmodule:: assemblytheorytools.complexity_scores
 

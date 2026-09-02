@@ -1,14 +1,20 @@
+from argparse import ArgumentParser
 import os
-import sys
 
 import pandas as pd
 from rdkit import Chem
 import assemblytheorytools as att
 
 if __name__ == "__main__":
+    parser = ArgumentParser(description="Calculate one CBRDB row in a Slurm array.")
+    parser.add_argument("index", type=int, help="Zero-based filtered CBRDB row")
+    parser.add_argument("--data-dir", default=".",
+                        help="Directory containing CBRdb_C.csv.zip")
+    args = parser.parse_args()
+
     max_heavy = 50
     timeout = 59.0 * 60.0 * 4  # Just shy of 4 hours
-    data_dir = os.path.abspath(r"/scratch/lslocomb/mol_data/")
+    data_dir = os.path.abspath(args.data_dir)
     in_file = "CBRdb_C.csv.zip"
     at_out_file = in_file.split(".")[0] + "_at.csv"
     # Load the data
@@ -38,10 +44,11 @@ if __name__ == "__main__":
     mol_id = df["compound_id"].values
 
     # Running AT in parallel
-    i = int(sys.argv[1])
+    i = args.index
     # Convert the molecule to a mol object
     mol = att.smi_to_mol(smiles[i])
     # Calculate the assembly index
-    at, virt_obj, _ = att.calculate_assembly_index(mol, timeout=timeout, strip_hydrogen=True)
+    at, virt_obj, _ = att.calculate_assembly_index(
+        mol, timeout=timeout, strip_hydrogen=True, exact=True)
     # Write the data to the shared file
     att.write_to_shared_file(f"{i}, {mol_id[i]}, {at}, {virt_obj}\n", at_out_file)

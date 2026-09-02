@@ -19,6 +19,7 @@ Parsing, levelling and conversion of assembly pathways.
    tables_to_nx
    AssemblyConstruction
    parse_pathway_file
+   parse_pathway_dot
    get_level
    assign_levels
    immediate_predecessors

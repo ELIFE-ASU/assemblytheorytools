@@ -8,13 +8,13 @@ if __name__ == "__main__":
     # Calculate the string assembly index
     # The function `calculate_string_assembly_index` computes the assembly index, virtual objects,
     # and assembly pathway for the given input string. The parameters are:
-    # - dir_code: Direction code (set to None for no specific direction)
+    # - dir_code: Optional path to the calculator executable (None uses the bundled one)
     # - timeout: Maximum time allowed for the calculation (100.0 seconds)
     # - directed: Boolean indicating whether the assembly is directed (False for undirected)
     # - mode: Specifies the assembly logic mode ("mol" for molecular assembly logic)
     ai, virt_obj, path = att.calculate_string_assembly_index(
         s_inpt,
-        dir_code=None,  # No direction code applied
+        dir_code=None,  # Use the bundled calculator executable
         timeout=100.0,  # Maximum time allowed for calculation
         directed=False,  # Treat as undirected assembly
         mode="mol"  # Use molecular assembly logic (general case)

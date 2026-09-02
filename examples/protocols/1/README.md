@@ -1,8 +1,8 @@
 # Protocol 1: Calculating Assembly Indices
 
 This directory contains examples demonstrating the fundamental operations for calculating the Assembly Index (AI) for
-different types of data. This is a partial recapitulation of Figure 1 from Sharma et al. (2023)
-10.1038/s41586-023-06600-9
+different types of data. This partially recapitulates Figure 1 from
+[Sharma et al. (2023)](https://doi.org/10.1038/s41586-023-06600-9).
 
 The first part of script (`protocol_1.py`) demonstrates how to calculate the Assembly Index for a set of molecules, both
 individually and as a combined system. It performs the following steps:
@@ -23,4 +23,3 @@ The second part of script (`protocol_1.py`) extends the concept to arbitrary dat
    assembly pathway.
 3. **Visualization**: Plots the assembly pathway for the string and saves the visualization as `str_pathway_example.svg`
    and `str_pathway_example.png`.
-

@@ -21,7 +21,7 @@ def random_string(length, pool):
 
 def _random_string_helper(_, n=10, pool=None):
     """
-    Helper function to calculate the assembly index of a random string.
+    Helper function to calculate the CFG/RePair upper bound of a random string.
 
     Args:
         _ (Any): Placeholder for an unused parameter.
@@ -29,14 +29,14 @@ def _random_string_helper(_, n=10, pool=None):
         pool (str or list, optional): The pool of characters to choose from. Defaults to None.
 
     Returns:
-        int: The assembly index of the generated random string.
+        int: The approximate assembly-index upper bound of the generated string.
     """
     return att.calculate_string_assembly_index(random_string(n, pool), mode='cfg')[0]
 
 
 def random_string_parallel(n_reps, n, pool):
     """
-    Generate assembly indices for multiple random strings in parallel.
+    Generate CFG/RePair assembly-index upper bounds for random strings in parallel.
 
     Args:
         n_reps (int): The number of random strings to generate.
@@ -44,7 +44,7 @@ def random_string_parallel(n_reps, n, pool):
         pool (str or list): The pool of characters to choose from.
 
     Returns:
-        list: A list of assembly indices for the generated random strings.
+        list: Approximate assembly-index upper bounds for the generated strings.
     """
     func = partial(_random_string_helper, n=n, pool=pool)
     return att.mp_calc(func, range(n_reps))
@@ -61,7 +61,7 @@ if __name__ == "__main__":
     data = random_string_parallel(n_reps, len(seq), pool_ss)
 
     ai, _, _ = att.calculate_string_assembly_index(seq, mode='cfg')
-    print(f"Assembly Index: {ai}", flush=True)
+    print(f"CFG/RePair assembly-index upper bound: {ai}", flush=True)
 
     fontsize = 16
     fig, ax = plt.subplots(figsize=(7, 3))
@@ -77,7 +77,7 @@ if __name__ == "__main__":
                label='3CC2 RNA')
     att.ax_plot(fig,
                 ax,
-                xlab='Assembly Index',
+                xlab='CFG/RePair assembly-index upper bound',
                 ylab='Frequency',
                 xs=fontsize,
                 ys=fontsize)

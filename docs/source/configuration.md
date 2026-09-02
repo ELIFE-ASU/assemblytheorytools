@@ -2,16 +2,17 @@
 
 ## Environment variables
 
-ATT reads the following variables. None is required for a default install — the
-package ships precompiled calculators and falls back to them.
+ATT reads the following variables. On Linux x86-64, none is required for the
+default calculators because the package includes compatible binaries. Other
+platforms must build assemblyCPP and configure its path.
 
 `ASS_PATH`
-: Directory holding the assemblyCPP executable used for molecule and graph
+: Full path to the assemblyCPP executable used for molecule and graph
   calculations. If unset,
   {func}`~assemblytheorytools.assembly.add_assembly_to_path` locates the
-  binary bundled in `assemblytheorytools/precompiled/`, compiling one if
-  necessary, and sets the variable for the rest of the session. Set it to use
-  your own build — for example an
+  bundled binary in `assemblytheorytools/precompiled/` and sets the variable
+  for the current Python process. If the packaged binary is missing, the helper
+  attempts a source build. Set it to use your own build — for example an
   [oneAPI build](install.md#optional-a-faster-assemblycpp-with-intel-oneapi):
 
   ```bash
@@ -19,9 +20,9 @@ package ships precompiled calculators and falls back to them.
   ```
 
 `ASS_STR_PATH`
-: The same, for the *string* calculator. Resolved by the same helper when
-  `str_mode=True`, and backed by a separate bundled binary. Only set it if you
-  have built the string calculator yourself.
+: Full path to the *string* calculator. The same helper resolves it when
+  `str_mode=True`, using a separate bundled binary. Only set it if you have
+  built the string calculator yourself.
 
 `ORCA_PATH`
 : Full path to the ORCA executable, including the binary name. Read by the
@@ -30,7 +31,8 @@ package ships precompiled calculators and falls back to them.
   {func}`~assemblytheorytools.tools_atoms.optimise_atoms`,
   {func}`~assemblytheorytools.tools_atoms.calculate_ccsd_energy`,
   {func}`~assemblytheorytools.tools_atoms.calculate_free_energy` and
-  friends). Defaults to `orca`, i.e. whatever is on `PATH`. Not used by any
+  friends). Set it explicitly (or pass `orca_path` where supported); the
+  helpers do not share a reliable `PATH`-only fallback. It is not used by any
   assembly index calculation.
 
   ```bash
@@ -42,13 +44,11 @@ package ships precompiled calculators and falls back to them.
   {func}`~assemblytheorytools.tools_atoms.cp2k_calc_preset`. Defaults to
   `cp2k.popt`.
 
-Every function that reads one of these also takes an explicit path argument,
-which wins over the environment. Prefer the argument in library code and the
-variable in interactive or batch use.
-
-{func}`~assemblytheorytools.assembly.add_assembly_to_path` can persist the
-setting for you by appending an `export` line to `~/.bashrc` and `~/.profile`;
-it only does so when asked, since it edits files outside the project.
+The assembly entry points also take `dir_code`, which wins over `ASS_PATH` or
+`ASS_STR_PATH`. Prefer that argument in library code and an environment variable
+in interactive or batch use. `add_assembly_to_path` changes only the current
+process; add an `export` line to your shell configuration yourself when the
+setting should persist.
 
 ## Bundled binaries
 
@@ -58,11 +58,12 @@ The wheel ships three static Linux builds under
 | File | Used for |
 | --- | --- |
 | `asscpp_combined_static_linux` | Molecule and graph assembly indices |
-| `asscpp_combined_static_strings` | String assembly indices |
-| `asscpp_public_static_linux` | Public build, used as a fallback |
+| `asscpp_public_static_linux` | Directed string assembly indices |
+| `asscpp_combined_static_strings` | Legacy combined/string build; not selected automatically |
 
 They are Linux x86-64 binaries. On other platforms, build assemblyCPP from
-source and set `ASS_PATH`.
+source and set `ASS_PATH`. Directed-string calculations also require
+`ASS_STR_PATH`; both variables may point to one compatible combined build.
 
 `assemblytheorytools/data/integer_chain_9999.txt` is a lookup table of
 precomputed integer-chain assembly indices used by
@@ -81,38 +82,92 @@ functions built on it.
 
 `timeout` (default `100.0` seconds)
 : Wall-clock limit for the external calculator. The search is exponential in
-  the worst case, so a large molecule can exceed any limit; on timeout the
-  calculation is abandoned rather than returning a partial answer. Raise it for
-  big structures, and prefer
+  the worst case, so a large molecule can exceed any limit. With the default
+  timeout handling, a timed-out calculation returns the best upper bound logged
+  so far, or `-1` if it found none. A calculation that finishes still returns an
+  exact result. Raise the limit for large structures, or use
   {func}`~assemblytheorytools.assembly.calculate_assembly_index_upper_bound`
-  when an approximate answer will do.
+  when the edge-count bound is sufficient.
 
 `joint_corr` (default `True`)
 : Apply the component-count correction for disconnected inputs. See
   [Joint assembly](concepts.md#joint-assembly).
 
 `exact` (default `False`)
-: Force the calculator's exact mode.
+: Require an exact result. A timed-out calculation returns `-1` instead of the
+  best upper bound found so far.
 
 `canonicalize` (default `True`)
-: Canonicalise node labels before writing the calculator input, so that two
-  isomorphic graphs with different node numbering give the same result.
+: Relabel nodes, in their current iteration order, to contiguous integers
+  starting at zero before writing the calculator input. This satisfies the
+  input format; despite the historical name, it is not canonical graph
+  labelling.
 
 `debug` (default `False`) and `save_dir` (default `False`)
-: Keep the temporary working directory and print the calculator's output.
-  Useful when a calculation fails or returns a surprising index; the directory
-  holds the generated input file and the calculator's raw log.
+: Keep the temporary working directory; `debug=True` also prints ATT's Python
+  diagnostics. Useful when a calculation fails or returns a surprising index;
+  the directory holds the generated input file and the calculator's standard
+  output/error in `assembly_output.log`.
 
 `dir_code`
 : Explicit path to the calculator executable, overriding `ASS_PATH`.
 
+## Rust backend options
+
+The Rust backend needs no environment variable and no binary of its own: it is
+installed as the `assembly-theory` wheel and called in-process. Its search is
+configured entirely through the arguments of
+{func}`~assemblytheorytools.assembly.calculate_assembly_index_rust_search`.
+
+`timeout` (default `None`)
+: Seconds after which to stop searching and return the best index found so far.
+  Given in seconds to match
+  {func}`~assemblytheorytools.assembly.calculate_assembly_index`, although the
+  backend itself takes milliseconds. A timed-out search returns its best upper
+  bound, like the default C++ mode; Rust specifically sets `states_searched` to
+  `None` to mark the incomplete search.
+
+`canonize` (default `'tree-nauty'`)
+: Canonisation mode: `'nauty'`, `'faulon'`, `'tree-nauty'` or `'tree-faulon'`.
+
+`parallel` (default `'depth-one'`)
+: Parallelisation mode: `'none'`, `'depth-one'` or `'always'`. Use `'none'` to
+  make `states_searched` reproducible.
+
+`memoize` (default `'canon-index'`)
+: Memoisation mode: `'none'` or `'canon-index'`.
+
+`kernel` (default `'none'`)
+: Kernelisation mode: `'none'`, `'once'`, `'depth-one'` or `'always'`.
+
+`bounds` (default `('int', 'matchable-edges')`)
+: Branch-and-bound strategies, drawn from `'log'`, `'int'`, `'vec-simple'`,
+  `'vec-small-frags'` and `'matchable-edges'`. Pass an empty sequence for an
+  exhaustive search.
+
+`max_pathways` (default `None`)
+: How many minimum assembly pathways to reconstruct: a positive integer for at
+  most that many, `0` for all of them, or `None` to skip reconstruction. Only
+  available on releases newer than 0.6.1 — see
+  [Pathways](guide/pathways.md#pathways-from-the-rust-backend).
+
+`vo_type` (default `'smiles'`)
+: Representation for the virtual objects in any reconstructed pathway:
+  `'graph'`, `'mol'`, `'smiles'` or `'inchi'`.
+
+Unlike the C++ backend, this one always strips hydrogens and does not accept
+`strip_hydrogen`, `joint_corr` or `canonicalize`.
+
 ## Graph input requirements
 
-The calculator input format constrains what the graph may contain:
+The calculator input format constrains what the graph may contain. The default
+`canonicalize=True` handles the first rule before writing the input; it matters
+when calling {func}`~assemblytheorytools.tools_graph.write_ass_graph_file`
+directly or disabling canonicalisation.
 
 * Node indices must start at 0 and be contiguous.
-* Every node needs a `color` attribute — the element symbol for molecules, any
-  label for arbitrary graphs.
+* Every node needs a string `color` attribute without spaces — the element
+  symbol for molecules, any label for arbitrary graphs.
 * Every edge needs a `color` attribute that is an **integer** (bond order for
   molecules, starting at 1). A string here raises an `AssertionError` from
   {func}`~assemblytheorytools.tools_graph.write_ass_graph_file`.

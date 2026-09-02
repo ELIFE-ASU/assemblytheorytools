@@ -1,4 +1,3 @@
-import CFG
 import matplotlib.pyplot as plt
 import numpy as np
 import random
@@ -37,12 +36,14 @@ if __name__ == "__main__":
         s_inpt = generate_random_string(int(length), "atgc")
 
         start_time = time.time()
-        ai, _, _ = att.calculate_string_assembly_index(s_inpt, timeout=1000.0, directed=True, mode="mol")
+        ai, _, _ = att.calculate_string_assembly_index(
+            s_inpt, timeout=1000.0, directed=True, mode="str")
         end_time = time.time()
         time_list.append(end_time - start_time)
 
         start_time = time.time()
-        ai_cfg, _, _ = CFG.ai_with_pathways(s_inpt, f_print=False)
+        ai_cfg, _, _ = att.calculate_string_assembly_index(
+            s_inpt, directed=True, mode="cfg")
         end_time = time.time()
         time_cfg_list.append(end_time - start_time)
 

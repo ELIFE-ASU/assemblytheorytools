@@ -88,10 +88,12 @@ The topological re-ordering is required;
 {func}`~assemblytheorytools.construction.assign_levels` raises `KeyError` on the
 pathway as returned. {doc}`guide/pathways` explains why.
 
-Note what this does *not* give you. The depth printed above is the depth of a
-shortest-*index* pathway, and the path that minimises depth is generally not the
-path that minimises the index. ATT reports the former; a minimum-depth
-construction would be a separate search.
+The depth printed above belongs to the returned shortest-*index* pathway, and
+the path that minimises depth is generally not the path that minimises the
+index. The separate
+{func}`~assemblytheorytools.assembly.calculate_assembly_depth_rust` search
+returns the object's minimum achievable depth, though it is substantially more
+expensive and has no timeout.
 
 ## Copy number and the assembly equation
 

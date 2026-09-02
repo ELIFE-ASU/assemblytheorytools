@@ -20,7 +20,11 @@ def draw_edges_from_metabolites(graph, color_to_index, metabolites):
         if metabolite in color_to_index:
             for connection in connections:
                 if connection in color_to_index:
-                    graph.add_edge(color_to_index[metabolite], color_to_index[connection])
+                    graph.add_edge(
+                        color_to_index[metabolite],
+                        color_to_index[connection],
+                        color=1,
+                    )
     return graph
 
 

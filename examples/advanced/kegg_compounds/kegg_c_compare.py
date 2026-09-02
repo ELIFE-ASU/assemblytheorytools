@@ -11,7 +11,8 @@ plt.rcParams['axes.linewidth'] = 2.0
 
 
 def get_ai(smi):
-    ai, _, _ = att.calculate_assembly_index(att.smi_to_nx(smi), strip_hydrogen=True)
+    ai, _, _ = att.calculate_assembly_index(
+        att.smi_to_nx(smi), strip_hydrogen=True, exact=True)
     return ai
 
 
@@ -66,8 +67,8 @@ if __name__ == "__main__":
     # Drop rows with nan or inf values in the assembly_index column
     df = df.replace([np.inf, -np.inf], np.nan).dropna(subset=['bertz_complexity', 'bottcher_complexity'])
 
-    # Remove rows with assembly index greater than 20
-    df = df[df['assembly_index'] <= 30]
+    # Remove failed calculations and indices outside the plotted range
+    df = df[df['assembly_index'].between(0, 30)]
 
     att.scatter_plot_3d_with_colorbar(df['bottcher_complexity'],
                                       df['bertz_complexity'],

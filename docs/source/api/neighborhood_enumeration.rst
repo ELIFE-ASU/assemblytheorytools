@@ -1,7 +1,8 @@
 assemblytheorytools.neighborhood_enumeration
 ============================================
 
-Generation of the graphs one edit away from a given structure.
+Generation of graphs one assembly join away by vertex identification or edge
+partitioning.
 
 .. currentmodule:: assemblytheorytools.neighborhood_enumeration
 

@@ -1,8 +1,8 @@
 # Protocol 4: Estimating Assembly from Tandem Mass Spectrometry
 
 This script (`protocol_4.py`) estimates the Molecular Assembly (MA) index of a compound directly from its tandem mass
-spectrometry data, without using its structure. This is the measurement route described in Jirasek et al. (2024)
-https://doi.org/10.1021/acscentsci.4c00120
+spectrometry data, without using its structure. This is the measurement route
+described by [Jirasek et al. (2024)](https://doi.org/10.1021/acscentsci.4c00120).
 
 The test compound is a phosphonate ester, `COC(=O)C(NC(=O)OC(C)(C)C)P(=O)(OC)OC` (MW 297.2, parent m/z 296.26), whose
 assembly index is independently known to be 14. The structure is used only to render the reference figure and to check

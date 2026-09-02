@@ -24,15 +24,18 @@ A **virtual object** (VO) is an intermediate that appears on the assembly path.
 Every VO is either an elementary part or the result of joining two earlier VOs,
 and the final object is the last VO in the sequence.
 
-`calculate_assembly_index` returns the virtual objects as graphs. Convert them
-back to SMILES with {func}`~assemblytheorytools.tools_graph.nx_to_smi`:
+For a NetworkX input, `calculate_assembly_index` returns the virtual objects as
+graphs. Convert them to SMILES with
+{func}`~assemblytheorytools.tools_graph.nx_to_smi`:
 
 ```python
 virt_smiles = [att.nx_to_smi(g, add_hydrogens=False) for g in virt_obj]
 ```
 
-The order of the returned list is not stable between runs, so compare virtual
-objects as a set rather than by position.
+For an RDKit `Mol` input, ATT converts the virtual objects and pathway node
+values to SMILES before returning them. In either case, the order of the
+returned list is not stable between runs, so compare virtual objects as a set
+rather than by position.
 
 ## The assembly pathway
 
@@ -41,9 +44,11 @@ The **pathway** is the record of how the object was built: a
 joining operations pointing from inputs to output. Elementary parts have
 in-degree zero; the target object has out-degree zero.
 
-An object usually has more than one shortest pathway. The calculator returns
-one of them; {func}`~assemblytheorytools.find_other_paths.all_shortest_paths`
-enumerates the alternatives.
+An object usually has more than one shortest pathway. The default calculator
+returns one of them. The Rust search can reconstruct several; the older
+{func}`~assemblytheorytools.find_other_paths.all_shortest_paths` helper only
+samples the virtual objects found after random atom renumberings and does not
+return pathways.
 
 See {doc}`guide/pathways` for parsing, levelling and plotting pathways.
 
@@ -60,8 +65,9 @@ ai, virt_obj, pathway = att.calculate_assembly_index(joint, strip_hydrogen=True)
 ```
 
 Because the two amino acids share most of their structure, the joint index (4)
-is far below the sum of the separate indices (3 + 4 = 7). The gap is a measure
-of how much the objects have in common, and is what
+is far below the sum of the separate indices (3 + 4 = 7). The ratio between
+those values is a measure of how much construction work the objects share, and
+is what
 {func}`~assemblytheorytools.assembly.calculate_assembly_index_similarity` turns
 into a similarity score.
 
@@ -87,21 +93,27 @@ assemblyCPP
 : The default. A C++ branch-and-bound calculator, invoked by
   {func}`~assemblytheorytools.assembly.calculate_assembly_index`. Precompiled
   static binaries ship in the wheel, and `ASS_PATH` overrides them. This is the
-  only backend that returns virtual objects and a pathway.
+  default source of virtual objects and one assembly pathway.
 
 assembly-theory (Rust)
 : Reached through
-  {func}`~assemblytheorytools.assembly.calculate_assembly_index_rust`. Returns
-  the index only — no virtual objects, no pathway — and always strips
-  hydrogens, so compare it against `strip_hydrogen=True` results.
+  {func}`~assemblytheorytools.assembly.calculate_assembly_index_rust`, which
+  returns the index alone. It always strips hydrogens, so compare it against
+  `strip_hydrogen=True` results.
+  {func}`~assemblytheorytools.assembly.calculate_assembly_depth_rust` gives the
+  molecule's minimum assembly depth, and
+  {func}`~assemblytheorytools.assembly.calculate_assembly_index_rust_search`
+  exposes the search options and reports how many duplicate subgraph pairs and
+  assembly states the search saw. That function also reconstructs minimum
+  assembly pathways and their virtual objects, on releases that support it — see
+  [Pathways](guide/pathways.md).
 
 assemblycfg
-: A fast approximate method based on context-free grammars, used by the
-  upper- and lower-bound helpers
-  {func}`~assemblytheorytools.assembly.calculate_assembly_index_upper_bound`
-  and
-  {func}`~assemblytheorytools.assembly.calculate_assembly_index_lower_bound`.
-  Use it when an exact search would be too slow.
+: A context-free-grammar approximation for strings, selected with
+  `calculate_string_assembly_index(..., mode="cfg")`. The molecular/graph
+  upper bound is simply the edge count minus one; the lower bound comes from an
+  integer addition chain (or a logarithm for very large graphs). Those analytic
+  helpers do not call `assemblycfg`.
 
 ## Hydrogens
 

@@ -1,148 +1,120 @@
-# Contributing to `AssemblyTheoryTools`
+# Contributing to AssemblyTheoryTools
 
-First off, thank you for considering contributing to `AssemblyTheoryTools`\! It's people like you that make this tool
-better for everyone.
+Thank you for considering a contribution to AssemblyTheoryTools. Bug reports,
+documentation improvements, tests, and code changes are all welcome.
 
-We welcome contributions from everyone. By participating in this project, you agree to abide by our Code of Conduct (if
-applicable).
+## Getting started
 
-## 1\. Getting Started
+### Reporting bugs and requesting features
 
-### Reporting Bugs & Requesting Features
+For substantial bug fixes or new features, open an
+[issue](https://github.com/ELIFE-ASU/assemblytheorytools/issues) before starting
+a pull request.
 
-For larger bug fixes or new features, **please file an issue before submitting a pull request.**
+- For bugs, include a minimal reproducible example, your operating system, the
+  ATT version, and your Python version.
+- For features, explain the motivation and how the proposal fits the existing
+  architecture. Wait for feedback before investing in a large change.
 
-* **Bugs:** Include a minimal reproducible example, your OS, and your Python version.
-* **Features:** Explain the motivation and how it fits into the existing architecture. If the change isn't trivial, it
-  is best to wait for feedback on the issue to avoid wasted effort.
+### Development environment
 
-### Setting Up Your Development Environment
+The project supports Python 3.12 and newer. Fork and clone the repository,
+create an isolated environment, then install the package and development tools:
 
-This project targets **Python 3.12+**. Please ensure your local environment matches this requirement.
-
-1. **Fork and Clone** the repository to your local machine.
-2. **Create an Environment** to keep dependencies isolated.
-3. **Install Dependencies**.
-   ```console
-   $ pip install -e .[dev]
-   ```
-
------
-
-## 2\. Development Workflow
-
-1. **Create a Branch:** Always create a new branch for your changes.
-   ```console
-   $ git checkout -b feature/my-new-feature
-   ```
-2. **Make Changes:** Implement your feature or bug fix.
-3. **Run Tests:** Ensure all tests pass locally before pushing (see "Running Tests" below).
-4. **Commit:** Write clear, concise commit messages.
-    * *Bad:* "Fixed stuff"
-    * *Good:* "Fix(parser): Handle empty strings in input validation"
-5. **Push:** Push your branch to your fork.
-6. **Pull Request:** Open a PR against the `main` branch of the original repository.
-
------
-
-## 3\. Coding Guidelines
-
-We enforce strict standards to maintain code quality and readability.
-
-### General Standards
-
-* **Modern Python:** Use features available in Python 3.12+ (e.g., modern type hinting syntax).
-* **Modularity:** New functionality must be packaged into reusable functions or classes. Avoid global state.
-* **Type Hints:** All function signatures and class attributes **must** have type hints.
-
-### Docstrings (Numpy Style)
-
-We use the **Numpy** docstring format.
-
-* **Line Length:** Docstring lines must not exceed **76 characters** to ensure clean rendering in standard terminals.
-* **Content:** Every public class and function must have a docstring explaining parameters, returns, and errors raised.
-
-**Example:**
-
-```python
-def calculate_assembly_index(molecule_data: dict, threshold: float = 0.5) -> int:
-    """
-    Calculates the assembly index based on molecular graph data.
-
-    Parameters
-    ----------
-    molecule_data : dict
-        A dictionary containing graph edges and nodes.
-    threshold : float, optional
-        The cutoff value for filtering noise (default is 0.5).
-
-    Returns
-    -------
-    int
-        The calculated assembly index value.
-    """
-    pass
+```console
+python -m pip install -e ".[dev]"
 ```
 
------
+## Development workflow
 
-## 4\. Testing
+1. Create a focused branch:
 
-We take testing seriously. Code changes must not reduce existing test coverage.
+   ```console
+   git switch -c feature/my-new-feature
+   ```
 
-### Writing Tests
+2. Implement the change and add or update tests and documentation.
+3. Run the relevant checks locally.
+4. Commit with a concise message that explains the change.
+5. Push the branch to your fork and open a pull request against `main`.
 
-* Tests are written using the standard library `pytest` module.
-* Place new tests in the `tests/` directory, mirroring the structure of the source code.
+Keep pull requests focused. Separate unrelated refactoring from functional
+changes so each review remains understandable.
 
-### Running Tests
+## Coding guidelines
 
-You can run the full suite using pytest.
+- Use features supported by Python 3.12 and newer.
+- Package reusable behaviour in functions or classes and avoid unnecessary
+  global state.
+- Add type hints to public function signatures and class attributes.
+- Write NumPy-style docstrings for every public class and function, including
+  parameters, return values, and raised exceptions.
+- Keep docstring lines at or below 76 characters so API documentation renders
+  cleanly.
 
-### Checking Coverage
+## Testing
 
-We recommend checking coverage locally to ensure you haven't unknowingly altered other code.
+Tests use the third-party [pytest](https://docs.pytest.org/) framework and live
+under `tests/`. Add focused regression tests alongside every bug fix or new
+behaviour.
 
------
+Run the default, self-contained test suite:
 
-## 5\. Documentation
+```console
+pytest
+```
+
+Integration tests need a live service, external data, or an executable such as
+ORCA, and slow tests are excluded from the normal development loop. Enable them
+explicitly when the change requires them:
+
+```console
+pytest --run-integration
+pytest --run-slow
+pytest --run-integration --run-slow
+```
+
+Generate branch coverage for the default suite:
+
+```console
+pytest --cov --cov-report=term-missing
+```
+
+New work should not reduce existing coverage. See the
+[test-suite guide](https://github.com/ELIFE-ASU/assemblytheorytools/blob/main/tests/README.md)
+for marker and plotting details.
+
+## Documentation
 
 The documentation lives in `docs/` and is published at
 [assemblytheorytools.readthedocs.io](https://assemblytheorytools.readthedocs.io/).
-
-### Building it locally
+Install the documentation extra and run the strict build:
 
 ```console
-$ pip install -e ".[docs]"
-$ make -C docs strict
+python -m pip install -e ".[docs]"
+make -C docs strict
 ```
 
-The `strict` target treats warnings as errors, which is exactly what Read the Docs runs. A clean local build therefore
-means a clean remote one. The output lands in `docs/build/html`.
+The strict target treats warnings as errors and writes the HTML output to
+`docs/build/html`. Autodoc imports the real package, so missing runtime
+dependencies and broken docstrings fail the build.
 
-Nothing is mocked: autodoc imports the real package, so a missing runtime dependency or a broken docstring surfaces as a
-build failure rather than a silently empty page.
+When changing documentation:
 
-### Adding a page
+- Write narrative pages in MyST Markdown; keep API stubs under
+  `docs/source/api/` in reStructuredText.
+- Add every new page to a `toctree`.
+- Check that user-guide snippets run as written.
+- Add every new public function or class to its module's `autosummary` in
+  `docs/source/api/*.rst`.
 
-* Narrative pages are MyST Markdown. The API stubs under `docs/source/api/` stay reStructuredText.
-* Every new page needs an entry in a `toctree`, or the build fails on an orphaned document.
-* Code snippets in the user guide are expected to run as written. Check yours against a real environment before
-  submitting.
-* When you add a public function, add it to the `autosummary` list at the top of its module's `docs/source/api/*.rst`
-  page.
+## Pull request checklist
 
------
-
-## 6\. Pull Request Checklist
-
-Before submitting your PR, please ensure you have checked the following boxes:
-
-- [ ] **Scope:** The changes are focused (do not include unrelated refactoring).
-- [ ] **Tests:** I have added unit tests for new functionality.
-- [ ] **Coverage:** I have verified that my changes do not decrease test coverage.
-- [ ] **Documentation:** I have added/updated docstrings (Numpy style, max 76 chars width).
-- [ ] **Docs build:** `make -C docs strict` passes, and any new public function appears in its module's `autosummary`.
-- [ ] **Types:** I have added type hints to all new functions and classes.
-- [ ] **Tooling:** I have used current project tooling and dependencies.
-
+- [ ] The change is focused and excludes unrelated refactoring.
+- [ ] New behaviour and bug fixes have tests.
+- [ ] The relevant default, integration, or slow test groups pass.
+- [ ] Coverage does not decrease.
+- [ ] Public APIs have type hints and NumPy-style docstrings.
+- [ ] User-facing behaviour is documented.
+- [ ] `make -C docs strict` passes when documentation or public APIs change.
+- [ ] New public objects appear in the appropriate API `autosummary`.

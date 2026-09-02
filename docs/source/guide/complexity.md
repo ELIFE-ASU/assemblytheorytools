@@ -4,7 +4,7 @@ Assembly index is one complexity measure among many.
 {mod}`assemblytheorytools.complexity_scores` implements the common alternatives
 so they can be computed on the same molecules and compared directly.
 
-All of these take an RDKit `Mol`:
+Most molecular scores take an RDKit `Mol`:
 
 ```python
 import assemblytheorytools as att
@@ -40,23 +40,25 @@ att.count_non_h_bonds(mol)  # 15
 * {func}`~assemblytheorytools.complexity_scores.mc1` and
   {func}`~assemblytheorytools.complexity_scores.mc2` — molecular complexity
   measures.
-* {func}`~assemblytheorytools.complexity_scores.shannon_entropy` — entropy over
-  the atom-type distribution.
+* {func}`~assemblytheorytools.complexity_scores.shannon_entropy` — character
+  entropy of an input string (for example, a SMILES string). This is an
+  exception to the `Mol` input convention.
 
 **Compression-based measures** — how far a standard compressor shrinks the
 structure, a crude proxy for redundancy:
 
 * {func}`~assemblytheorytools.complexity_scores.compression_zlib_smi`,
   {func}`~assemblytheorytools.complexity_scores.compression_bz2_smi`,
-  {func}`~assemblytheorytools.complexity_scores.compression_lzma_smi` — on the
-  SMILES string.
+  {func}`~assemblytheorytools.complexity_scores.compression_lzma_smi` — take an
+  RDKit `Mol`, standardise it internally, and compress the resulting SMILES.
 * {func}`~assemblytheorytools.complexity_scores.compression_zlib_graph` and
   {func}`~assemblytheorytools.complexity_scores.compression_ratio_zlib_graph` —
   on the graph.
 
-Compression scores depend on the exact SMILES written, so canonicalise first
-with {func}`~assemblytheorytools.tools_mol.standardise_smiles` or results will
-not be comparable between sources.
+The SMILES compression helpers standardise the molecule internally, so pass the
+`Mol` directly. The graph compression helpers instead take a NetworkX graph;
+their serialised representation can reflect labels and insertion order, so
+normalise inputs before comparing values from different sources.
 
 **Bulk descriptors** —
 {func}`~assemblytheorytools.complexity_scores.get_mol_descriptors` returns
@@ -79,7 +81,8 @@ Compare that against the assembly-theoretic score for the same pair:
 
 ```python
 att.calculate_assembly_index_similarity(
-    [att.smi_to_nx("NCC(=O)O"), att.smi_to_nx("CC(N)C(=O)O")])   # 0.636
+    [att.smi_to_nx("NCC(=O)O"), att.smi_to_nx("CC(N)C(=O)O")],
+    settings={"strip_hydrogen": True})   # 0.75
 ```
 
 The two disagree because they measure different things: Tanimoto compares

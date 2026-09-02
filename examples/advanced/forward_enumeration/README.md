@@ -1,18 +1,21 @@
 # Forward enumeration
 
-This example shows how assembly forward enumeration can be performed.
-Forward enumeration systematically explores the assembly space constructed from a pool of objects: starting from a set
-of starting structures, it generates everything reachable in one joining step, then repeats.
+This example shows one forward assembly join. Upward enumeration takes two
+graphs and generates every valid result of identifying compatible vertices
+between them; it does not add a single bond.
 
-`enum_forward.py` starts from four amino acids — glycine, alanine, serine and proline — and drives
-`att.enumerate_neighborhood` over them to map the space around that pool.
+`enum_forward.py` first calculates the joint pathway of glycine, alanine, serine
+and proline. It selects the `CN` and `C=O` virtual objects by their SMILES (the
+returned list order is not stable), calls `att.enumerate_up` once, and draws the
+new objects beneath those two inputs.
 
 Two things to watch:
 
-- The space grows combinatorially with each generation, so start small and strip hydrogens
-  (`att.remove_hydrogen_from_graph`) before enumerating.
-- Deduplication is by graph isomorphism, which is a pairwise check against everything found so far. This, rather than
-  the generation step itself, is what dominates the runtime as the pool grows.
+- `enumerate_up` can contain isomorphic duplicates. Use
+  `att.enumerate_neighborhood` when you need a colour-aware deduplicated
+  neighbourhood and join-index records.
+- Repeating the operation over successive generations grows combinatorially,
+  so start from small hydrogen-stripped fragments.
 
-See the [neighbourhood enumeration guide](https://assemblytheorytools.readthedocs.io/en/latest/guide/enumeration.html)
+See the [neighbourhood enumeration guide](../../../docs/source/guide/enumeration.md)
 for the underlying functions.

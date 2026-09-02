@@ -44,14 +44,17 @@ Other entry points into the same graph format:
 
 ## Reading the virtual objects
 
-`virt_obj` comes back as graphs. Convert them to SMILES to inspect them:
+For the NetworkX input in the first example, `virt_obj` comes back as graphs.
+Convert them to SMILES to inspect them:
 
 ```python
 virt_smiles = [att.nx_to_smi(g, add_hydrogens=False) for g in virt_obj]
 ```
 
 For caffeine this yields fragments such as `C=O`, `CN`, `CC1=CN=CN1C` and the
-full molecule. The list order is not stable between runs — treat it as a set.
+full molecule. With an RDKit `Mol` input, ATT performs this conversion before
+returning, so `virt_obj` is already a list of SMILES strings. The list order is
+not stable between runs — treat it as a set.
 
 ## Joint assembly
 
@@ -74,13 +77,18 @@ The joint index is 4 against a separate total of 7: the two amino acids share
 most of their structure, so nearly everything built for one is reused for the
 other.
 
-{func}`~assemblytheorytools.assembly.calculate_assembly_index_similarity` turns
-that gap into a score between 0 and 1:
+{func}`~assemblytheorytools.assembly.calculate_assembly_index_similarity`
+reports `(sum of separate indices / joint index) - 1`. For two objects the
+score lies between 0 and 1; with more inputs it can be larger:
 
 ```python
 att.calculate_assembly_index_similarity(
-    [att.smi_to_nx(glycine), att.smi_to_nx(alanine)])   # 0.636...
+    [att.smi_to_nx(glycine), att.smi_to_nx(alanine)],
+    settings={"strip_hydrogen": True})   # 0.75
 ```
+
+The helper enables exact mode by default so that a timed-out upper bound is not
+mistaken for a similarity value.
 
 Related helpers:
 {func}`~assemblytheorytools.assembly.calculate_sum_assembly_index` for the
@@ -100,22 +108,58 @@ att.calculate_assembly_index_rust(graph)    # 9 for caffeine
 It returns a bare integer and always strips hydrogens, so only compare it with
 `strip_hydrogen=True` results.
 
-When an exact search is too slow, bound the answer instead:
+Two further functions reach the same backend.
+{func}`~assemblytheorytools.assembly.calculate_assembly_depth_rust` gives the
+molecule's minimum assembly depth, and
+{func}`~assemblytheorytools.assembly.calculate_assembly_index_rust_search`
+exposes the search itself:
+
+```python
+att.calculate_assembly_depth_rust(att.smi_to_nx("c1ccccc1"))   # 3 for benzene
+
+result = att.calculate_assembly_index_rust_search(graph, timeout=10)
+result.index, result.num_matches, result.states_searched
+```
+
+:::{warning}
+The depth search is far more expensive than the index search and takes no
+timeout, so it is only practical on small molecules. Benzene returns instantly
+and naphthalene takes around four minutes, while both of their indices come back
+in well under a second.
+:::
+
+`num_matches` counts the edge-disjoint isomorphic subgraph pairs the search had
+to consider and `states_searched` is `None` if the timeout fired, which together
+say whether a slow molecule is slow because it is large or because it is
+repetitive. The search options — `canonize`, `parallel`, `memoize`, `kernel` and
+`bounds` — are documented on the function; the defaults are the backend's own.
+On releases that support it, `max_pathways` also reconstructs the minimum
+assembly pathways; see [Pathways](pathways.md).
+
+{func}`~assemblytheorytools.assembly.get_molecule_info_rust` returns a DOT
+string describing the graph the backend actually builds, which is the quickest
+way to confirm that hydrogens were dropped or that a ring was kekulised.
+
+When an exact search is too slow, bound the answer analytically instead:
 
 ```python
 att.calculate_assembly_index_upper_bound(graph)
 att.calculate_assembly_index_lower_bound(graph)
 ```
 
-These use the approximate `assemblycfg` method and return quickly on molecules
-where the exact search would time out.
+The upper bound is the number of bonds minus one. The lower bound is the
+addition-chain length for fewer than 1,000 bonds, falling back to `log2` from
+1,000 onward. Pass `strip_hydrogen=True` when the comparison should use only
+heavy-atom bonds.
 
 ## When a calculation times out
 
 The search is exponential in the worst case. `calculate_assembly_index` gives
-the external calculator `timeout=100.0` seconds and abandons the run rather than
-returning a partial answer. For large molecules, either raise the timeout or
-switch to the bound helpers above.
+the external calculator `timeout=100.0` seconds. If that limit is reached, the
+default mode returns the best upper bound recorded so far, or `-1` if none was
+found; virtual objects and a pathway may be unavailable. Pass `exact=True` to
+return `-1` instead of an upper bound, raise the timeout, or use the bound
+helpers above.
 
 To see what the calculator actually did, keep the working directory:
 
@@ -124,8 +168,9 @@ ai, virt_obj, pathway = att.calculate_assembly_index(
     graph, strip_hydrogen=True, debug=True, save_dir=True)
 ```
 
-This prints the calculator's output and leaves the generated input file and raw
-log in place for inspection.
+This prints ATT's diagnostics and leaves the generated input file and
+`assembly_output.log` in place. The calculator's own standard output and error
+are redirected into that log rather than echoed to the terminal.
 
 ## See also
 

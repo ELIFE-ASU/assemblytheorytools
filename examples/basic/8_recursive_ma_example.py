@@ -77,12 +77,10 @@ if __name__ == "__main__":
     # - same_level: Whether to consider fragments at the same level (True).
     # - tol: Mass tolerance in Daltons (0.5 Da).
     # - n_samples: Number of Monte Carlo samples for estimation (20 samples).
-    # - min_chunk: Minimum fragment size to consider (20.0 Da).
     estimator = att.MAEstimator(
         same_level=True,
         tol=0.5,
-        n_samples=20,
-        min_chunk=20.0
+        n_samples=20
     )
 
     # Define the precursor m/z value for which MA will be estimated
@@ -94,7 +92,7 @@ if __name__ == "__main__":
     # - tree: The fragmentation tree to analyze.
     # - mw: The precursor m/z value.
     # - progress_levels: Level of progress reporting (0 for no progress).
-    ma_estimate = estimator.estimate_ma(
+    ma_estimate = estimator.estimate_MA(
         tree=simple_tree,
         mw=precursor_mz,
         progress_levels=0

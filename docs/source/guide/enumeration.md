@@ -1,14 +1,15 @@
 # Neighbourhood enumeration
 
 {mod}`assemblytheorytools.neighborhood_enumeration` generates the graphs that
-lie one edit away from a given structure — the structures reachable by adding or
-removing a single bond. This is how the local assembly landscape around an
-object is explored.
+lie one assembly join away from a given structure. An upward join identifies
+(coalesces) compatible vertices from two graphs; a downward join partitions all
+of a graph's edges between two connected subgraphs. These are assembly-space
+operations, not single-bond edits.
 
 ## One step up
 
 {func}`~assemblytheorytools.neighborhood_enumeration.enumerate_up` joins two
-graphs in every way a single new bond allows:
+graphs by identifying vertices with the same `color` in every valid way:
 
 ```python
 import networkx as nx
@@ -41,18 +42,21 @@ for g in ups[1:]:
 print(len(unique))   # 5
 ```
 
-Both input graphs need at least one edge — joining against a single isolated
-node yields nothing, since there is no bond to form.
+The inputs may include isolated nodes. A join is possible when the two graphs
+have compatible vertex colours and, when valence checking is enabled, enough
+remaining valence at the vertices being identified.
 
 `obey_valence=True` (the default) refuses joins that would exceed an atom's
 valence, using a standard table. Pass `custom_valence_table` to override it, or
 `obey_valence=False` for non-chemical graphs where valence is meaningless.
-`allow_dots=True` permits disconnected results.
+`allow_dots` mainly affects downward partitions: when it is `False`, the two
+parts must also form a connected union. Each individual part remains connected.
 
 ## One step down
 
 {func}`~assemblytheorytools.neighborhood_enumeration.enumerate_down` returns the
-ways a graph can be split by removing a bond, as lists of edge partitions:
+ways **all** edges can be partitioned into two non-empty connected subgraphs,
+as lists of edge partitions:
 
 ```python
 att.enumerate_down(path_graph(2))
@@ -80,11 +84,12 @@ The returned dictionary holds:
 : The graphs that were passed in.
 
 `N_graphs`
-: The neighbourhood — every distinct graph one edit away.
+: The neighbourhood — every distinct graph one assembly join away.
 
 `up_jos` and `down_jos`
-: The joining operations that produce each neighbour, as index tuples
-  identifying which inputs combined and how.
+: Index triples recording each join. A down triple `(n1, n2, s)` says
+  neighbourhood graphs `n1` and `n2` join to input `s`; an up triple
+  `(s1, s2, n)` says inputs `s1` and `s2` join to neighbour `n`.
 
 Because deduplication is by isomorphism rather than node numbering, the result
 does not depend on how the inputs were labelled — passing

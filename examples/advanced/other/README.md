@@ -11,9 +11,9 @@ input before relying on it at scale.
 ## `circle_assembly_plot_example.py`
 
 Demonstrates `att.plot_assembly_circle`, which arranges objects in concentric circles by assembly index — the innermost
-ring holds the simplest objects, the outermost the most complex. Takes an optional square adjacency matrix; where
-`adj_matrix[i, j] >= 1`, an arrow is drawn from node `i` to node `j`. This is the clearest way to show many objects and
-their relationships in one figure.
+ring holds the simplest objects, the outermost the most complex. It takes a square adjacency matrix and one assembly
+index per node; where `adj_matrix[i, j] >= 1`, an arrow is drawn from node `i` to node `j`. This is the clearest way to
+show many objects and their relationships in one figure.
 
 ## `figure5.py`
 
@@ -28,6 +28,7 @@ properties over it. An example of applying the machinery to a biological network
 
 ## `rna_string.py`
 
-Treats RNA sequences as strings and computes their assembly indices, comparing real sequences against random strings
-drawn from the same nucleotide pool. The gap between the two is the quantity of interest — it is what distinguishes a
-structured sequence from an arbitrary one of the same length and composition.
+Treats RNA sequences as strings and compares their fast CFG/RePair approximate
+assembly-index upper bounds with those of random strings drawn from the same
+nucleotide pool. These are not exact assembly indices; the gap is a null-model
+comparison for strings of the same length and composition.

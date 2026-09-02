@@ -879,6 +879,237 @@ def test_calculate_rust_ai():
     assert ai_v5 == ai_r, f"Expected AI to be {ai_v5}, but got {ai_r}"
 
 
+def test_calculate_rust_ai_graph_types():
+    """
+    Test that the Rust backend accepts every NetworkX graph type.
+
+    This function performs the following steps:
+    1. Builds an ethanol molecular graph.
+    2. Wraps it as a DiGraph and a MultiGraph.
+    3. Calculates the assembly index for each.
+
+    Asserts:
+        - All three graph types give the same assembly index.
+    """
+    print(flush=True)
+    graph = att.smi_to_nx("CCO")
+    results = [att.calculate_assembly_index_rust(g)
+               for g in (graph, nx.DiGraph(graph), nx.MultiGraph(graph))]
+    print("Assembly indices:", results, flush=True)
+    assert results == [1, 1, 1], f"Expected all indices to be 1, but got {results}"
+
+
+def test_calculate_rust_ai_errors():
+    """
+    Test that the Rust backend wrappers reject unusable input.
+
+    This function performs the following steps:
+    1. Passes a string where a molecule is expected.
+    2. Passes a molecule too large for a V2000 mol block.
+
+    Asserts:
+        - Both raise ValueError rather than leaking an RDKit or OSError.
+    """
+    print(flush=True)
+    with pytest.raises(ValueError):
+        att.calculate_assembly_index_rust("CCO")
+
+    too_big = att.smi_to_mol("C" * 1200, add_hydrogens=False)
+    print("Atoms:", too_big.GetNumAtoms(), flush=True)
+    with pytest.raises(ValueError):
+        att.calculate_assembly_index_rust(too_big)
+
+
+def test_calculate_assembly_depth_rust():
+    """
+    Test the calculation of assembly depth using the Rust-based implementation.
+
+    This function performs the following steps:
+    1. Converts a benzene SMILES string to a molecular graph.
+    2. Calculates its assembly depth.
+    3. Repeats for ethanol.
+
+    Asserts:
+        - Benzene has an assembly depth of 3.
+        - Ethanol has an assembly depth of 1.
+    """
+    print(flush=True)
+    depth = att.calculate_assembly_depth_rust(att.smi_to_nx("c1ccccc1"))
+    print("Benzene depth:", depth, flush=True)
+    assert depth == 3, f"Expected depth to be 3, but got {depth}"
+
+    depth = att.calculate_assembly_depth_rust(att.smi_to_nx("CCO"))
+    print("Ethanol depth:", depth, flush=True)
+    assert depth == 1, f"Expected depth to be 1, but got {depth}"
+
+
+def test_get_molecule_info_rust(data_dir):
+    """
+    Test the molecule description reported by the Rust backend.
+
+    This function performs the following steps:
+    1. Loads anthracene from a mol file.
+    2. Asks the Rust backend to describe the graph it builds.
+    3. Counts the atoms and bonds in that description.
+
+    Asserts:
+        - The backend sees 14 atoms, 9 single bonds and 7 double bonds.
+        - Hydrogens are dropped, so an explicit-hydrogen molecule is unchanged.
+    """
+    print(flush=True)
+    mol = att.molfile_to_mol(str(data_dir / "mol_files" / "anthracene.mol"),
+                             add_hydrogens=False)
+    info = att.get_molecule_info_rust(mol)
+    counts = (info.count('label = "Atom'),
+              info.count('label = "Single"'),
+              info.count('label = "Double"'))
+    print("Atoms, single, double:", counts, flush=True)
+    assert counts == (14, 9, 7), f"Expected (14, 9, 7), but got {counts}"
+
+    with_hydrogens = att.get_molecule_info_rust(att.smi_to_mol("CCO", add_hydrogens=True))
+    print("Ethanol atoms:", with_hydrogens.count('label = "Atom'), flush=True)
+    assert with_hydrogens.count('label = "Atom') == 3
+
+
+def test_calculate_assembly_index_rust_search(data_dir):
+    """
+    Test the Rust-based assembly index search and its reported statistics.
+
+    This function performs the following steps:
+    1. Loads anthracene from a mol file.
+    2. Runs the search with a deterministic, unmemoised configuration.
+    3. Runs it again with a timeout too short to finish.
+
+    Asserts:
+        - The search reports the known index, match count and state count.
+        - The result unpacks as a 4-tuple and reports no pathways by default.
+        - A timed-out search reports None for the number of states searched.
+    """
+    print(flush=True)
+    mol = att.molfile_to_mol(str(data_dir / "mol_files" / "anthracene.mol"),
+                             add_hydrogens=False)
+
+    result = att.calculate_assembly_index_rust_search(
+        mol, parallel="none", memoize="none", kernel="none")
+    print("Search result:", result, flush=True)
+
+    assert (result.index, result.num_matches, result.states_searched) == (6, 466, 491)
+    assert result.pathways == []
+    index, num_matches, states, pathways = result
+    assert (index, num_matches, states, pathways) == (6, 466, 491, [])
+
+    timed_out = att.calculate_assembly_index_rust_search(
+        mol, timeout=0.001, parallel="none", memoize="none", kernel="none", bounds=[])
+    print("Timed out states:", timed_out.states_searched, flush=True)
+    assert timed_out.states_searched is None
+
+
+def test_calculate_assembly_index_rust_search_options():
+    """
+    Test that the Rust search rejects unrecognised option strings.
+
+    This function performs the following steps:
+    1. Runs the search with an invalid value for each mode argument in turn.
+
+    Asserts:
+        - Every invalid mode raises a ValueError naming the offending option.
+    """
+    print(flush=True)
+    graph = att.smi_to_nx("CCO")
+    for kwargs in ({"canonize": "nope"}, {"parallel": "nope"}, {"memoize": "nope"},
+                   {"kernel": "nope"}, {"bounds": ["nope"]}):
+        print("Checking:", kwargs, flush=True)
+        with pytest.raises(ValueError):
+            att.calculate_assembly_index_rust_search(graph, **kwargs)
+
+
+def test_calculate_assembly_index_rust_search_pathways():
+    """
+    Test pathway reconstruction, or the error raised when it is unavailable.
+
+    This function performs the following steps:
+    1. Asks the Rust backend for one minimum assembly pathway for benzene.
+    2. Either checks the reconstructed pathway, or checks the error raised by
+       releases that cannot reconstruct pathways.
+
+    Asserts:
+        - On a release with pathway support, one pathway is returned as a graph
+          whose deepest node is the whole molecule.
+        - On a release without it, a NotImplementedError is raised.
+    """
+    print(flush=True)
+    graph = att.smi_to_nx("c1ccccc1")
+
+    if not assembly_module._rust_supports_pathways():
+        print("Installed release has no pathway support", flush=True)
+        with pytest.raises(NotImplementedError):
+            att.calculate_assembly_index_rust_search(graph, max_pathways=1)
+        return
+
+    result = att.calculate_assembly_index_rust_search(graph, parallel="none", max_pathways=1)
+    print("Pathways:", result.pathways, flush=True)
+
+    assert len(result.pathways) == 1
+    pathway = result.pathways[0]
+    assert isinstance(pathway, nx.MultiDiGraph)
+
+    target = [n for n in pathway.nodes if pathway.out_degree(n) == 0]
+    assert len(target) == 1
+    assert att.standardise_smiles(pathway.nodes[target[0]]["vo"],
+                                  add_hydrogens=False) == att.standardise_smiles(
+        "c1ccccc1", add_hydrogens=False)
+
+
+def test_calculate_assembly_index_rust_search_pathway_parsing(data_dir, monkeypatch):
+    """
+    Test that pathways reported by the Rust backend are parsed into graphs.
+
+    Pathway reconstruction needs an assembly-theory release newer than 0.6.1, so
+    this stands in a stub backend that returns the known anthracene pathway.
+
+    This function performs the following steps:
+    1. Loads anthracene and the DOT pathway computed from it.
+    2. Replaces the Rust backend with a stub returning that pathway.
+    3. Runs the search and inspects what came back.
+
+    Asserts:
+        - The DOT string is parsed into a graph with the expected shape.
+        - The bond indices still line up after the mol block round trip, so the
+          deepest virtual object is the whole molecule.
+        - max_pathways is forwarded to the backend.
+    """
+    print(flush=True)
+    mol = att.molfile_to_mol(str(data_dir / "mol_files" / "anthracene.mol"),
+                             add_hydrogens=False)
+    dot = (data_dir / "pathway" / "anthracene_pathway.dot").read_text()
+    forwarded = {}
+
+    class FakeRust:
+        @staticmethod
+        def index_search(mol_block, **kwargs):
+            forwarded.update(kwargs)
+            return 6, 466, 491, [dot]
+
+    monkeypatch.setattr(assembly_module, "at_rust", FakeRust)
+    monkeypatch.setattr(assembly_module, "_rust_supports_pathways", lambda: True)
+
+    result = att.calculate_assembly_index_rust_search(mol, max_pathways=1)
+    print("Forwarded options:", forwarded, flush=True)
+    assert forwarded["max_pathways"] == 1
+
+    assert len(result.pathways) == 1
+    pathway = result.pathways[0]
+    assert isinstance(pathway, nx.MultiDiGraph)
+    assert (pathway.number_of_nodes(), pathway.number_of_edges()) == (8, 12)
+
+    target = [n for n in pathway.nodes if pathway.out_degree(n) == 0]
+    print("Target virtual object:", pathway.nodes[target[0]]["vo"], flush=True)
+    assert len(target) == 1
+    assert att.standardise_smiles(pathway.nodes[target[0]]["vo"],
+                                  add_hydrogens=False) == att.standardise_smiles(
+        "c1ccc2cc3ccccc3cc2c1", add_hydrogens=False)
+
+
 def test_calculate_assembly():
     """
     Test the `calculate_assembly` function for a set of molecular graphs.

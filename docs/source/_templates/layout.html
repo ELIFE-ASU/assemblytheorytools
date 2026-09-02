@@ -1,0 +1,12 @@
+{% extends "!layout.html" %}
+
+{% block extrabody %}
+  {{ super() }}
+  <a class="skip-to-content" href="#main-content">Skip to main content</a>
+{% endblock %}
+
+{% block document %}
+  <div id="main-content" tabindex="-1">
+    {{ super() }}
+  </div>
+{% endblock %}

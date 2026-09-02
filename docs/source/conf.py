@@ -66,8 +66,8 @@ intersphinx_mapping = {
     'matplotlib': ('https://matplotlib.org/stable', None),
     'networkx': ('https://networkx.org/documentation/stable', None),
 }
-# Do not fail the build when a docs site is unreachable; a network blip during a
-# release build must not block it.
+# Limit how long inventory downloads can delay a build. A failed download still
+# emits a warning and therefore fails the project's strict ``-W`` build.
 intersphinx_timeout = 30
 
 # -- Autosummary -------------------------------------------------------------
@@ -156,6 +156,7 @@ napoleon_preprocess_types = True
 
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
+html_css_files = ['accessibility.css']
 html_title = f'{project} {version}'
 
 # Drives the theme's "Edit on GitHub" link and the version banner.
@@ -170,5 +171,5 @@ html_context = {
 html_theme_options = {
     'collapse_navigation': False,
     'navigation_depth': 3,
-    'titles_only': False,
+    'titles_only': True,
 }

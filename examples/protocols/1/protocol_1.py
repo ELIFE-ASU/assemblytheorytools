@@ -22,7 +22,10 @@ if __name__ == "__main__":
     # Calculate the assembly index for each individual molecule in parallel
     ai_i = att.calculate_assembly_index_parallel(graphs,
                                                  settings={'strip_hydrogen': True,
-                                                           'timeout': timeout})[0]
+                                                           'timeout': timeout,
+                                                           'exact': True})[0]
+    if any(ai < 0 for ai in ai_i):
+        raise RuntimeError("An individual assembly search timed out before finding an exact result")
     # Print the assembly indices for each individual molecule
     print(f"Individual assembly indices:", flush=True)
     for i, name in enumerate(molecules.keys()):
@@ -34,7 +37,10 @@ if __name__ == "__main__":
     # Calculate the assembly index, virtual objects, and pathway for the combined graph
     jai, virt_obj, pathway = att.calculate_assembly_index(combined_graph,
                                                           strip_hydrogen=True,
-                                                          timeout=timeout)
+                                                          timeout=timeout,
+                                                          exact=True)
+    if jai < 0:
+        raise RuntimeError("The joint assembly search timed out before finding an exact result")
     # Convert the virtual objects (graphs) back to SMILES strings
     virt_obj = [att.nx_to_smi(vo, add_hydrogens=False) for vo in virt_obj]
     print(f"Joint assembly index: {jai}", flush=True)

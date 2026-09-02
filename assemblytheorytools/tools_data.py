@@ -2213,7 +2213,7 @@ def get_github_file(
     filename : str
         The name of the file to download.
     repo_url : str
-        The URL of the GitHub repository (e.g., "https://raw.githubusercontent.com/user/repo/branch").
+        Base raw-content URL for the GitHub repository and branch.
     dest_dir : str or pathlib.Path, optional
         The directory where the file will be saved. Defaults to the current working directory.
     overwrite : bool, optional

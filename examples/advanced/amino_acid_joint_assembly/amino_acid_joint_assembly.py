@@ -31,18 +31,25 @@ if __name__ == "__main__":
         # Calculate the assembly index and virtual objects for the current graph
         # The assembly index is a measure of molecular complexity, and virtual objects
         # represent intermediate structures in the assembly process
-        ai, virt_obj, _ = att.calculate_assembly_index(graph, timeout=timeout)
+        ai, virt_obj, _ = att.calculate_assembly_index(
+            graph, timeout=timeout, exact=True)
+
+        # Exact mode uses a negative result to report that the search timed out
+        # before proving a minimum.
+        if ai < 0:
+            print("No exact assembly index found before the timeout.\n", flush=True)
+            continue
 
         # Convert the virtual objects into SMILES strings
         # This step generates SMILES representations of the virtual objects for output
-        smiles_output = [Chem.MolToSmiles(att.nx_to_mol(graph)) for graph in virt_obj]
+        smiles_output = [Chem.MolToSmiles(att.nx_to_mol(vo)) for vo in virt_obj]
 
         # Print the assembly index and the SMILES representation of the input graph
         print(f"Assembly index: {ai}", flush=True)
-        print(f"Input graph: {smiles_output[0]}", flush=True)
+        print(f"Input graph: {att.nx_to_smi(graph, add_hydrogens=False)}", flush=True)
 
         # Print the SMILES strings of the virtual objects
         print("VO SMILES:", flush=True)
-        for smi in smiles_output[1:]:
+        for smi in smiles_output:
             print(smi, flush=True)
         print(flush=True)

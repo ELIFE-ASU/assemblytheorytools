@@ -1,15 +1,22 @@
+from argparse import ArgumentParser
+
 import matplotlib.pyplot as plt
 import numpy as np
 
 import assemblytheorytools as att
 
 if __name__ == "__main__":
+    parser = ArgumentParser(
+        description="Correlate Chemotion IR peak counts with assembly index.")
+    parser.add_argument("dataset", help="Path to the Chemotion IR .tar archive")
+    args = parser.parse_args()
+
     # Index of the spectrum to visualize
     view_idx = 5
 
     # Process Chemotion IR data from a given file path
-    # The dataset is filtered to include molecules with a maximum of 30 NH bonds
-    df = att.process_chemotion_ir_data('/home/louie/Downloads/10.22000-OGoEQGlsZGElrgst.tar')
+    # The dataset is filtered to molecules with at most 30 non-hydrogen bonds
+    df = att.process_chemotion_ir_data(args.dataset)
     df = att.filter_by_nh_bonds(df, max_bonds=30)
 
     # Apply Savitzky-Golay filter to smooth the IR spectra in parallel
@@ -47,7 +54,9 @@ if __name__ == "__main__":
     graphs = att.mp_calc(att.smi_to_nx, df['smiles'].tolist())
 
     # Calculate the Assembly Index (AI) for each molecule in parallel
-    df['ai'] = att.calculate_assembly_index_parallel(graphs, settings={'strip_hydrogen': True})[0]
+    df['ai'] = att.calculate_assembly_index_parallel(
+        graphs, settings={'strip_hydrogen': True, 'exact': True})[0]
+    df = df[df['ai'] >= 0].reset_index(drop=True)
 
     # Extract the number of peaks and observed AI values as NumPy arrays
     n_peaks = df['n_peaks'].to_numpy()
