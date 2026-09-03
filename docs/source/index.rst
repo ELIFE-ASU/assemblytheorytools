@@ -63,6 +63,8 @@ Plot the pathway:
 Where to go next
 ----------------
 
+* :doc:`route_map` — every quantity ATT computes, with its inputs, outputs
+  and what it is used for.
 * :doc:`concepts` — what the assembly index measures and how ATT represents it.
 * :doc:`theory` — background on assembly theory: copy number, the assembly
   equation, the nested assembly spaces and what separates selectivity from
@@ -81,6 +83,7 @@ Where to go next
    :hidden:
 
    install
+   route_map
    concepts
    configuration
 
