@@ -75,14 +75,16 @@ reused on later runs:
 chemotion_ir_data/          <- created by step 1
 ├── meta_data.json
 ├── IR_data.tar.xz
-└── IR_data/                <- created by step 3, holds the .jdx spectra
+├── IR_data/                <- created by step 3, holds the .jdx spectra
+└── chemotion_ir_data.pkl.gz    <- only when you pass save=True
 ```
 
-> **Leave `save=False`.** Passing `save=True` writes a
-> `chemotion_ir_data.csv.gz` cache into your *working* directory, and the next
-> call short-circuits to it — but CSV has no array type, so the reloaded
-> `spectrum` column comes back as strings and the filtering step fails. If you
-> have such a file lying about, delete it before re-running.
+> **Caching.** Pass `save=True` to keep the processed DataFrame as
+> `chemotion_ir_data.pkl.gz` inside the extraction directory; later runs against
+> the same archive reload it instead of reparsing every spectrum. It is pickled
+> rather than written as CSV because the `spectrum` column holds arrays, which
+> CSV would flatten to strings. A `chemotion_ir_data.csv.gz` left in your working
+> directory by an older version of ATT is no longer read and can be deleted.
 
 ## Running it
 

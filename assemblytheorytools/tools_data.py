@@ -1652,16 +1652,17 @@ def process_chemotion_ir_data(target_file: str, save: bool = False) -> pd.DataFr
     Process Chemotion IR data from a tar file and return it as a pandas DataFrame.
 
     This function extracts metadata and IR spectra from a Chemotion tar file, processes
-    the data, and merges the metadata with the corresponding IR spectra. The resulting
-    DataFrame is saved to a compressed CSV file for future use. The archive is the
-    external Chemotion IR collection [Jung2024]_, which is not distributed with ATT.
+    the data, and merges the metadata with the corresponding IR spectra. The result can
+    optionally be cached to disk for future use. The archive is the external Chemotion IR
+    collection [Jung2024]_, which is not distributed with ATT.
 
     Parameters
     ----------
     target_file : str
         Path to the Chemotion tar file containing the IR data and metadata.
     save : bool, optional
-        Whether to save the processed DataFrame to a compressed CSV file. Default is False.
+        Whether to cache the processed DataFrame beside the extracted data. Default is
+        False.
 
     Returns
     -------
@@ -1670,10 +1671,16 @@ def process_chemotion_ir_data(target_file: str, save: bool = False) -> pd.DataFr
 
     Notes
     -----
-    - If the processed data file (`chemotion_ir_data.csv.gz`) already exists, the function
-      skips processing and loads the data directly from the file.
     - The function extracts the tar file to a directory named `chemotion_ir_data` in the
-      same location as the `target_file`.
+      same location as the `target_file`, and assumes one archive per directory.
+    - With `save=True` the result is cached as `chemotion_ir_data.pkl.gz` inside that
+      extraction directory, and later calls for the same archive reload it instead of
+      reprocessing. The cache is pickled rather than written as CSV because the
+      `spectrum` column holds `(N, 2)` arrays, which CSV would flatten to strings.
+    - A cache that cannot be read back, for instance one pickled by a different pandas
+      version, is ignored and the archive is reprocessed.
+    - Caches written by earlier versions of ATT (`chemotion_ir_data.csv.gz`, saved to the
+      working directory) are not read; delete them.
     - Rows with any missing values are dropped from the final DataFrame.
 
     References
@@ -1685,12 +1692,20 @@ def process_chemotion_ir_data(target_file: str, save: bool = False) -> pd.DataFr
        https://doi.org/10.22000/OGoEQGlsZGElrgst
     """
     extract_dir = os.path.join(os.path.dirname(target_file), "chemotion_ir_data")
-    out_file = "chemotion_ir_data.csv.gz"
+    # Cache beside the extracted data so it is keyed to the archive rather than to
+    # whichever directory the caller happens to be running from.
+    out_file = os.path.join(extract_dir, "chemotion_ir_data.pkl.gz")
 
     # Check if the processed data file already exists
     if os.path.exists(out_file):
-        print(f"{out_file} already exists. Skipping processing.", flush=True)
-        return pd.read_csv(out_file)
+        try:
+            cached = pd.read_pickle(out_file)
+        except Exception as err:
+            # A stale or partly written cache must not be fatal; reprocess instead.
+            print(f"Ignoring unreadable cache {out_file}: {err}", flush=True)
+        else:
+            print(f"{out_file} already exists. Skipping processing.", flush=True)
+            return cached
 
     # Extract the tar file if the extraction directory does not exist
     if not os.path.exists(extract_dir):
@@ -1707,8 +1722,8 @@ def process_chemotion_ir_data(target_file: str, save: bool = False) -> pd.DataFr
     # Drop rows with any NaN values
     merged_data = merged_data.dropna()
     if save:
-        # Save the merged data to a compressed CSV file
-        merged_data.to_csv(out_file, index=False)
+        # Pickle, not CSV: the 'spectrum' column holds arrays that CSV cannot round-trip.
+        merged_data.to_pickle(out_file)
     return merged_data
 
 
