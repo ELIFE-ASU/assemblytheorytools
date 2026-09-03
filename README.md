@@ -7,6 +7,7 @@
 # AssemblyTheoryTools
 
 [![Documentation Status](https://readthedocs.org/projects/assemblytheorytools/badge/?version=latest)](https://assemblytheorytools.readthedocs.io/en/latest/)
+[![Tests](https://github.com/ELIFE-ASU/assemblytheorytools/actions/workflows/tests.yml/badge.svg)](https://github.com/ELIFE-ASU/assemblytheorytools/actions/workflows/tests.yml)
 [![PyPI](https://img.shields.io/pypi/v/assemblytheorytools.svg)](https://pypi.org/project/assemblytheorytools/)
 [![Python versions](https://img.shields.io/pypi/pyversions/assemblytheorytools.svg)](https://pypi.org/project/assemblytheorytools/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/ELIFE-ASU/assemblytheorytools/blob/main/LICENSE)
