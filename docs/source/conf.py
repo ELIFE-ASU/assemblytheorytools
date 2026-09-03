@@ -88,9 +88,78 @@ intersphinx_mapping = {
     'matplotlib': ('https://matplotlib.org/stable', None),
     'networkx': ('https://networkx.org/documentation/stable', None),
 }
-# Limit how long inventory downloads can delay a build. A failed download still
-# emits a warning and therefore fails the project's strict ``-W`` build.
+# Limit how long inventory downloads can delay a build.
 intersphinx_timeout = 30
+
+# Covers the warnings raised by an explicit ``:external:`` role -- an unknown
+# inventory name, or an ambiguous match across inventories. It does NOT cover a
+# failed inventory *download*: intersphinx logs that one without a warning type,
+# and `suppress_warnings` matches on type only (`is_suppressed_warning` in
+# sphinx.util.logging returns early when the type is None), so it cannot be
+# silenced this way. That case is handled by the filter below instead.
+suppress_warnings = ['intersphinx.external']
+
+# -- Unreachable inventories -------------------------------------------------
+# Under the project's strict ``-W`` build, an inventory that cannot be fetched
+# is a hard failure -- so an offline build, a network blip, or one of the six
+# upstream docs sites being briefly down breaks the build for a reason that has
+# nothing to do with this project's sources. The message is therefore demoted to
+# INFO: it still appears in the build log, but it no longer fails the build.
+#
+# Demoting that message is not enough on its own. Every `nx.Graph` or
+# `pd.DataFrame` in a signature then resolves against nothing, and `nitpicky`
+# reports each one: an offline build of this project produces 358 such
+# warnings, none of which are real. So a build that lost an inventory also
+# drops out of nitpicky mode -- the check cannot be performed honestly without
+# the inventories it depends on, and running it anyway only reports their
+# absence 358 times over.
+#
+# This is scoped to the degraded build alone. When all six inventories load --
+# CI, Read the Docs, and any normal local build -- nitpicky stays fully on and
+# a dead reference in prose still fails the build exactly as before.
+import logging as _stdlib_logging
+
+from sphinx.util import logging as _sphinx_logging
+
+# Substring of the intersphinx message, stable across Sphinx 4-9. If a future
+# release rewords it, the filter stops matching and the build fails loudly
+# again -- the safe direction for this to break in.
+_UNREACHABLE_INVENTORY = 'failed to reach any of the inventories'
+
+# Set by the filter below, read once the inventories have been loaded.
+_inventory_unreachable = False
+
+
+class _DemoteUnreachableInventory(_stdlib_logging.Filter):
+    """Log a failed inventory download as INFO rather than as a warning."""
+
+    def filter(self, record):
+        """Demote the download-failure record; pass everything else through."""
+        global _inventory_unreachable
+        if _UNREACHABLE_INVENTORY in str(record.msg):
+            _inventory_unreachable = True
+            record.levelno = _stdlib_logging.INFO
+            record.levelname = 'INFO'
+            # The status stream expects a trailing newline. Without it the next
+            # progress line is appended to the end of the failure text.
+            record.msg = f'{record.msg}\n'
+        return True
+
+
+def _relax_nitpicky_without_inventories(app):
+    """Drop out of nitpicky mode if an inventory could not be downloaded.
+
+    Returns: None
+    """
+    if not _inventory_unreachable:
+        return
+    app.config.nitpicky = False
+    _sphinx_logging.getLogger('conf').info(
+        'an intersphinx inventory could not be downloaded, so nitpicky mode is '
+        'OFF for this build: every reference into an unreachable project would '
+        'otherwise be reported as unresolved. Re-run with the inventories '
+        'reachable to check cross-references.'
+    )
 
 # -- Autosummary -------------------------------------------------------------
 # The API pages carry summary tables only; `automodule` still owns every object
@@ -239,5 +308,16 @@ def _edit_link_to_real_notebook(app, pagename, templatename, context, doctree):
 
 
 def setup(app):
+    # Attached to intersphinx's own logger, not to the `sphinx` root: a stdlib
+    # filter only sees records logged directly through the logger it is on, not
+    # records propagated up from children. `getLogger` re-derives the real name
+    # (Sphinx prefixes its own 'sphinx.') rather than hard-coding it here.
+    _sphinx_logging.getLogger('sphinx.ext.intersphinx').logger.addFilter(
+        _DemoteUnreachableInventory()
+    )
+    # intersphinx loads the inventories on `builder-inited` at the default
+    # priority of 500, so a later priority sees the outcome of that load.
+    app.connect('builder-inited', _relax_nitpicky_without_inventories,
+                priority=900)
     app.connect('config-inited', _copy_protocol_notebooks)
     app.connect('html-page-context', _edit_link_to_real_notebook)
