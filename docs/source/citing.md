@@ -44,6 +44,24 @@ Cite these in addition when you use the corresponding part of the package:
   spectroscopy. *ACS Central Science*, 10(5), 1054–1064.
   [doi:10.1021/acscentsci.4c00120](https://doi.org/10.1021/acscentsci.4c00120)
 
+## Datasets
+
+Cite the data as well as the method when a workflow depends on an external
+dataset:
+
+* **Chemotion IR** — Jung, N., Tremouilhac, P., Punjabi, D., & Huang, P.-C.
+  (2024). *Chemotion Repository - Data collection: FT-IR spectroscopy data
+  (Chemotion IR)* [Data set]. Karlsruhe Institute of Technology.
+  [doi:10.22000/OGoEQGlsZGElrgst](https://doi.org/10.22000/OGoEQGlsZGElrgst)
+
+  The 4183 JCAMP-DX spectra behind
+  {func}`~assemblytheorytools.tools_data.process_chemotion_ir_data` and
+  {doc}`Protocol 3 <examples/protocol_3>`. Released under
+  [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), so
+  redistributed or derived spectra must keep the attribution and the same
+  licence. ATT neither bundles nor redistributes the archive — the protocol
+  downloads it from the DOI.
+
 ## BibTeX
 
 `att.bib` in the repository root holds BibTeX entries for these papers and for

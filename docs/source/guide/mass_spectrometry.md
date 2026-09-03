@@ -110,7 +110,11 @@ Savitzky-Golay smooth first, because peak finding on raw spectra picks up noise;
 indices themselves are needed.
 
 {func}`~assemblytheorytools.tools_data.process_chemotion_ir_data` loads and
-cleans a whole Chemotion IR dataset into a DataFrame, and
+cleans a whole Chemotion IR dataset into a DataFrame. The archive it expects is
+the Chemotion IR collection
+([doi:10.22000/OGoEQGlsZGElrgst](https://doi.org/10.22000/OGoEQGlsZGElrgst)),
+external CC BY-SA 4.0 data that ATT does not bundle — see {doc}`../citing` for
+the citation to use.
 {func}`~assemblytheorytools.tools_data.estimate_ai_from_ir_peaks` fits the model
 that maps peak counts onto assembly index:
 

@@ -9,11 +9,26 @@ dataset, and fits a linear model to estimate assembly index from IR peak count
 alone. Every step is explained in the notebook, and the heavy steps are timed
 with `%%time`.
 
-The Chemotion IR archive is **external data** and is not bundled with the
-repository. Download it, then either set the `CHEMOTION_IR_ARCHIVE` environment
-variable to its path or edit the `DATASET` parameter in the notebook. The
-archive is named after its DOI, for example `10.22000-OGoEQGlsZGElrgst.tar`. It
-is unpacked into a `chemotion_ir_data/` directory beside the archive.
+## The data
+
+The spectra come from the Chemotion IR collection, which is **external data**
+and is not bundled with this repository. Download the archive from its DOI, then
+either set the `CHEMOTION_IR_ARCHIVE` environment variable to its path or edit
+the `DATASET` parameter in the notebook. The archive is named after its DOI, for
+example `10.22000-OGoEQGlsZGElrgst.tar`, and is unpacked into a
+`chemotion_ir_data/` directory beside itself.
+
+> Jung, N., Tremouilhac, P., Punjabi, D., & Huang, P.-C. (2024). *Chemotion
+> Repository - Data collection: FT-IR spectroscopy data (Chemotion IR)*
+> [Data set]. Karlsruhe Institute of Technology.
+> [doi:10.22000/OGoEQGlsZGElrgst](https://doi.org/10.22000/OGoEQGlsZGElrgst)
+
+The collection is released under
+[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Cite it
+alongside Jirasek et al. (2024) in anything you publish from this protocol, and
+keep the attribution and licence on any spectra you redistribute or derive.
+BibTeX for both is in [`att.bib`](../../../att.bib) (`jung2024chemotion`,
+`jirasek2024molecular`).
 
 ## Running it
 

@@ -1653,7 +1653,8 @@ def process_chemotion_ir_data(target_file: str, save: bool = False) -> pd.DataFr
 
     This function extracts metadata and IR spectra from a Chemotion tar file, processes
     the data, and merges the metadata with the corresponding IR spectra. The resulting
-    DataFrame is saved to a compressed CSV file for future use.
+    DataFrame is saved to a compressed CSV file for future use. The archive is the
+    external Chemotion IR collection [Jung2024]_, which is not distributed with ATT.
 
     Parameters
     ----------
@@ -1674,6 +1675,14 @@ def process_chemotion_ir_data(target_file: str, save: bool = False) -> pd.DataFr
     - The function extracts the tar file to a directory named `chemotion_ir_data` in the
       same location as the `target_file`.
     - Rows with any missing values are dropped from the final DataFrame.
+
+    References
+    ----------
+    .. [Jung2024] Jung, N., Tremouilhac, P., Punjabi, D., & Huang, P.-C. (2024).
+       Chemotion Repository - Data collection: FT-IR spectroscopy data (Chemotion IR)
+       [Data set]. Karlsruhe Institute of Technology. Released under CC BY-SA 4.0;
+       cite it in work derived from these spectra.
+       https://doi.org/10.22000/OGoEQGlsZGElrgst
     """
     extract_dir = os.path.join(os.path.dirname(target_file), "chemotion_ir_data")
     out_file = "chemotion_ir_data.csv.gz"
