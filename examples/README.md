@@ -25,9 +25,10 @@ includes:
 Provides an end-to-end workflow for analyzing the relationship between Molecular Weight (MW) and Molecular Assembly (MA)
 on a large scale. This includes:
 
-- Acquiring and sampling data from a molecular database.
+- Acquiring and sampling data from a molecular database (CBRDB) and from PubChem.
 - Performing large-scale, parallelized assembly calculations.
-- Visualizing the results as a heatmap and a molecule grid.
+- Visualizing the results as heatmaps and a molecule grid, and comparing the two datasets.
+- Running the same workflow on your own molecules, from a list or a CSV file, and placing them on the database heatmap.
 
 ### [Protocol 3: Correlating Assembly with IR Spectroscopy](./protocols/3/)
 

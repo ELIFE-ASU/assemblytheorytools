@@ -397,6 +397,30 @@ def test_draw_mol_grid():
     img.show()
 
 
+def test_plot_heatmap_accepts_bin_edges():
+    """
+    Test that plot_heatmap accepts explicit bin edges.
+
+    A pair of edge arrays is passed through to ``numpy.histogram2d`` unchanged,
+    so the image has one cell per bin and the axes span exactly the outer
+    edges. This is what lets several heatmaps share identical axes.
+    """
+    print(flush=True)
+    rng = np.random.default_rng(0)
+    x = rng.uniform(50.0, 340.0, 200)
+    y = rng.integers(1, 12, 200)
+    x_edges = np.arange(0.0, 351.0, 10.0)  # 35 bins of 10
+    y_edges = np.arange(0.5, 12.0, 1.0)    # 11 bins centred on 1..11
+
+    fig, ax = att.plot_heatmap(x, y, "x", "y", nbins=(x_edges, y_edges))
+    plt.show()
+
+    image = ax.images[0]
+    assert image.get_array().shape == (len(y_edges) - 1, len(x_edges) - 1)
+    assert np.allclose(image.get_extent(), [0.0, 350.0, 0.5, 11.5])
+    assert np.allclose(ax.get_xlim(), (0.0, 350.0))
+
+
 def test_plot_ase_atoms():
     """
     Test the plotting of an ASE Atoms object.

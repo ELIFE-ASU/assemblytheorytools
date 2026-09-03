@@ -1655,7 +1655,7 @@ def plot_heatmap(x: Union[np.ndarray, List],
                  xlab: str,
                  ylab: str,
                  c_map: str = 'viridis',
-                 nbins: int | Tuple[int, int] = 50,
+                 nbins: int | Tuple[int, int] | Tuple[np.ndarray, np.ndarray] = 50,
                  figsize: Tuple[float, float] = (8, 5),
                  fontsize: int = 16) -> Tuple[Figure, Axes]:
     """
@@ -1678,10 +1678,14 @@ def plot_heatmap(x: Union[np.ndarray, List],
         Label for the y-axis.
     c_map : str or matplotlib.colors.Colormap, optional
         Colormap used for the heatmap. Default is ``'viridis'``.
-    nbins : int or tuple, optional
-        Number of bins to use for the 2D histogram. If an int, the same number of
-        bins is applied to both axes. If a tuple ``(nx, ny)``, uses ``nx`` and
-        ``ny`` bins for x and y respectively. Default is ``50``.
+    nbins : int, tuple of int, or tuple of array-like, optional
+        Binning for the 2D histogram, passed to ``numpy.histogram2d``. If an
+        int, the same number of bins is applied to both axes. If a tuple
+        ``(nx, ny)`` of ints, uses ``nx`` and ``ny`` bins for x and y
+        respectively. If a tuple ``(x_edges, y_edges)`` of monotonically
+        increasing arrays, they are used as the explicit bin edges, which fixes
+        the bin widths and the axis extent so that several heatmaps can share
+        identical axes. Default is ``50``.
     figsize : tuple of float, optional
         Figure size in inches as ``(width, height)``. Default is ``(8, 5)``.
     fontsize : int, optional
