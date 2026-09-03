@@ -33,14 +33,24 @@ extensions = [
     'sphinx.ext.coverage',  # Report undocumented objects via `make coverage`
     'sphinx.ext.autosummary',  # Per-module summary tables on the API pages
     'sphinx.ext.intersphinx',  # Resolve types to the upstream project's docs
-    'myst_parser',  # Narrative pages are Markdown; also enables `include`
+    'myst_nb',  # Renders the protocol notebooks and the Markdown pages. It wraps
+                # myst_parser, so do NOT also list 'myst_parser' here: registering
+                # the MyST config values twice raises an ExtensionError.
 ]
 
 templates_path = ['_templates']
 exclude_patterns = []
 
-# The narrative pages are MyST Markdown, the API stubs stay reStructuredText.
-source_suffix = {'.rst': 'restructuredtext', '.md': 'markdown'}
+# The narrative pages are MyST Markdown, the protocol pages are Jupyter
+# notebooks, and the API stubs stay reStructuredText. MyST-NB owns both '.md'
+# and '.ipynb': the plain 'markdown' parser is no longer registered once
+# myst_parser is loaded via myst_nb, so mapping '.md' to 'myst-nb' is required,
+# not optional. Ordinary Markdown falls back to the MyST parser transparently.
+source_suffix = {
+    '.rst': 'restructuredtext',
+    '.md': 'myst-nb',
+    '.ipynb': 'myst-nb',
+}
 
 # colon_fence lets directives be written as ::: blocks, which survives being
 # viewed on GitHub; deflist is used by the configuration reference; dollarmath
@@ -49,6 +59,18 @@ myst_enable_extensions = ['colon_fence', 'deflist', 'dollarmath']
 # The included READMEs carry their own `#` title, so allow headings to start
 # below the page title without a warning.
 myst_heading_anchors = 3
+
+# -- MyST-NB (notebook rendering) --------------------------------------------
+# The four protocol pages are executed Jupyter notebooks committed with their
+# outputs. They are rendered as stored and never executed by the docs build:
+# they need external datasets, network access and a large amount of CPU time.
+# Re-execute them with `jupyter nbconvert --execute` after editing, not here.
+nb_execution_mode = 'off'
+# Collapse each stream into a single block instead of one per print() call.
+nb_merge_streams = True
+# Standard-error text (e.g. the mzML parser's log lines in Protocol 4) is shown
+# in the rendered output rather than turned into a build warning.
+nb_output_stderr = 'show'
 
 # `sphinx.ext.autosectionlabel` is deliberately NOT enabled: the example pages
 # include READMEs that repeat section titles ("It illustrates how to:"), which
@@ -173,3 +195,49 @@ html_theme_options = {
     'navigation_depth': 3,
     'titles_only': True,
 }
+
+# -- Protocol notebooks ------------------------------------------------------
+# The protocol pages live as executed notebooks under examples/protocols/N/, so
+# they render on GitHub and are committed with their outputs. Sphinx only reads
+# documents below the source directory, so each notebook is copied to
+# docs/source/examples/protocol_N.ipynb (git-ignored) before source discovery.
+# This keeps the docnames `examples/protocol_N` unchanged, so the toctree in
+# examples/index.rst and every {doc} cross-reference keep working.
+import filecmp
+import shutil
+
+_CONF_DIR = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.abspath(os.path.join(_CONF_DIR, '..', '..'))
+
+# Page docname -> notebook path relative to the repository root.
+PROTOCOL_NOTEBOOKS = {
+    f'examples/protocol_{n}': f'examples/protocols/{n}/protocol_{n}.ipynb'
+    for n in (1, 2, 3, 4)
+}
+
+
+def _copy_protocol_notebooks(app, config):
+    """Copy the source notebooks into the docs tree before Sphinx reads them."""
+    for docname, rel_path in PROTOCOL_NOTEBOOKS.items():
+        src = os.path.join(_REPO_ROOT, rel_path)
+        dst = os.path.join(app.srcdir, docname + '.ipynb')
+        # copy2 preserves mtime, so unchanged notebooks don't trigger rebuilds.
+        if not (os.path.exists(dst) and filecmp.cmp(src, dst, shallow=False)):
+            shutil.copy2(src, dst)
+
+
+def _edit_link_to_real_notebook(app, pagename, templatename, context, doctree):
+    """Point 'Edit on GitHub' at the real notebook, not the build-time copy."""
+    if pagename in PROTOCOL_NOTEBOOKS:
+        meta = dict(context.get('meta') or {})
+        meta['github_url'] = (
+            f"https://github.com/{html_context['github_user']}/"
+            f"{html_context['github_repo']}/blob/{html_context['github_version']}/"
+            f"{PROTOCOL_NOTEBOOKS[pagename]}"
+        )
+        context['meta'] = meta
+
+
+def setup(app):
+    app.connect('config-inited', _copy_protocol_notebooks)
+    app.connect('html-page-context', _edit_link_to_real_notebook)

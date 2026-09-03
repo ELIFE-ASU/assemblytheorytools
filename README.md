@@ -261,7 +261,7 @@ The second line prints `1`, the assembly index of hydrogen-stripped ethanol.
 | [Concepts](https://assemblytheorytools.readthedocs.io/en/latest/concepts.html) | Assembly indices, virtual objects, pathways, joint assembly, and backends |
 | [User guide](https://assemblytheorytools.readthedocs.io/en/latest/guide/index.html) | Molecules, strings, graphs, pathways, parallel runs, complexity, and mass spectrometry |
 | [Runnable examples](https://github.com/ELIFE-ASU/assemblytheorytools/tree/main/examples) | Basic and advanced scripts included with the repository |
-| [Published protocols](https://github.com/ELIFE-ASU/assemblytheorytools/tree/main/examples/protocols) | Reproducible end-to-end research workflows |
+| [Published protocols](https://github.com/ELIFE-ASU/assemblytheorytools/tree/main/examples/protocols) | Jupyter notebooks reproducing published workflows end to end, committed with their outputs |
 | [Configuration](https://assemblytheorytools.readthedocs.io/en/latest/configuration.html) | Environment variables, binaries, graph requirements, and search options |
 | [API reference](https://assemblytheorytools.readthedocs.io/en/latest/modules.html) | Complete module and function documentation |
 

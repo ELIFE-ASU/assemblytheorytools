@@ -6,9 +6,10 @@ Some advanced workflows need an external dataset, optional dependency or HPC
 environment; each page calls that out where applicable.
 
 The **protocols** reproduce published results end to end and are the best
-starting point for a real workflow. The **basic** examples are minimal
-single-purpose scripts, and the **advanced** ones cover larger or more
-specialised use cases.
+starting point for a real workflow. Each is a Jupyter notebook, rendered here
+from its committed outputs; "Edit on GitHub" opens the notebook in the
+repository. The **basic** examples are minimal single-purpose scripts, and the
+**advanced** ones cover larger or more specialised use cases.
 
 .. toctree::
    :maxdepth: 1

@@ -1,12 +1,15 @@
 This folder contains worked examples for `assemblytheorytools`. Basic scripts
-use packaged features directly; protocols and advanced workflows may require
-external datasets, optional dependencies, or an HPC environment. Read the
-README beside a script before running it.
+use packaged features directly; the protocol notebooks and advanced workflows
+may require external datasets, optional dependencies, or an HPC environment.
+Read the README beside an example before running it.
 
 ## Protocols
 
-The `protocols` directory contains scripts that reproduce key findings and workflows from published research, offering
-practical demonstrations of the library's capabilities.
+The `protocols` directory contains Jupyter notebooks that reproduce key findings
+and workflows from published research, offering practical demonstrations of the
+library's capabilities. Each is committed with its outputs. Install JupyterLab
+with `pip install -e ".[notebooks]"` (or use the development conda environment)
+and open one with `jupyter lab`; each protocol's README has the details.
 
 ### [Protocol 1: Calculating Assembly Indices](./protocols/1/)
 

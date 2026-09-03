@@ -83,8 +83,8 @@ the data has been extracted once.
 {func}`~assemblytheorytools.tools_plotting.plot_ms2_spectrum` plots a processed
 MS2 spectrum with its fragmentation tree overlaid.
 
-[Protocol 4](../examples/protocol_4.md) runs this pipeline end to end on a real
-stepped-MS3 sample.
+{doc}`Protocol 4 <../examples/protocol_4>` runs this pipeline end to end on a
+real stepped-MS3 sample.
 
 ## Infrared spectra
 
@@ -127,7 +127,7 @@ forms, and {func}`~assemblytheorytools.tools_data.get_r`,
 model is the published choice — prefer it unless a higher order is clearly
 justified, since peak count is a coarse feature and a quintic will fit noise.
 
-[Protocol 3](../examples/protocol_3.md) is the complete worked correlation.
+{doc}`Protocol 3 <../examples/protocol_3>` is the complete worked correlation.
 
 ## See also
 

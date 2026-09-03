@@ -1,26 +1,38 @@
 # Protocol 3: Correlating Assembly with IR Spectroscopy
 
-This script (`protocol_3.py`) investigates the relationship between a physical observable—Infrared (IR) spectroscopy—and
-the theoretical Molecular Assembly Index. It demonstrates how to approximate assembly complexity using experimental data
-features. This follows the workflow behind Figure 3c of
+This protocol follows the workflow behind Figure 3c of
 [Jirasek et al. (2024)](https://doi.org/10.1021/acscentsci.4c00120).
 
-The Chemotion IR archive used by the script is external data and is not bundled.
-Pass its path on the command line.
+[`protocol_3.ipynb`](./protocol_3.ipynb) correlates a physical observable, the
+number of infrared (IR) peaks, with the molecular assembly index across a
+dataset, and fits a linear model to estimate assembly index from IR peak count
+alone. Every step is explained in the notebook, and the heavy steps are timed
+with `%%time`.
 
-It illustrates how to:
+The Chemotion IR archive is **external data** and is not bundled with the
+repository. Download it, then either set the `CHEMOTION_IR_ARCHIVE` environment
+variable to its path or edit the `DATASET` parameter in the notebook. The
+archive is named after its DOI, for example `10.22000-OGoEQGlsZGElrgst.tar`. It
+is unpacked into a `chemotion_ir_data/` directory beside the archive.
 
-1. **Data Processing & Filtering**: Loads and processes a Chemotion IR dataset, keeps molecules with at most 30
-   non-hydrogen bonds, and cleans spectral data using Savitzky-Golay filters.
-2. **Single Molecule Visualization**: For a selected example molecule, it:
-    * Plots the **IR Spectrum** with identified peaks.
-    * Renders the **3D Atomic Structure**.
-    * Calculates and prints its individual **Assembly Index**.
-3. **Feature Extraction**: Automatically counts spectral peaks for each molecule in the entire dataset, filtering to
-   include only those with 1 to 40 peaks.
-4. **Large-Scale Assembly Calculation**: Computes the ground truth Assembly Index for the filtered dataset using
-   parallel processing.
-5. **Statistical Correlation**:
-    * Fits a linear model to estimate the Assembly Index based on the number of IR peaks.
-    * Evaluates the model using Pearson correlation (`r`) and RMSD.
-    * Generates a heatmap comparing **Observed vs. Predicted Assembly Index** to visualize the correlation.
+## Running it
+
+Install JupyterLab (`pip install -e ".[notebooks]"` from the repository root, or
+use the development conda environment), then open the notebook from this
+directory so the figures it saves land beside it:
+
+```bash
+cd examples/protocols/3
+CHEMOTION_IR_ARCHIVE=/path/to/10.22000-OGoEQGlsZGElrgst.tar jupyter lab protocol_3.ipynb
+```
+
+Re-run it headlessly to refresh the committed outputs:
+
+```bash
+cd examples/protocols/3
+CHEMOTION_IR_ARCHIVE=/path/to/archive.tar \
+    jupyter nbconvert --to notebook --execute --inplace protocol_3.ipynb
+```
+
+The notebook is committed with the outputs of a full run and is rendered in the
+[documentation](https://assemblytheorytools.readthedocs.io/en/latest/examples/protocol_3.html).

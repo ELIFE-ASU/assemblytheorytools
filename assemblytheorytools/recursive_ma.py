@@ -608,25 +608,28 @@ def _process_df(
         parent_bin=(ms_df.parent.round(n_digits) * 10 ** n_digits).astype(int),
     )
 
-    min_intensity_fn = lambda df: max(
-        min_abs_intensity[level], df["intensity"].max() * min_rel_intensity
-    )
-    filter_fn = (
-        lambda g: g[g["intensity"] > min_intensity_fn(g)]
-        .sort_values("intensity")
-        .tail(max_num_peaks)
-    )
-    ms_df = (
+    grouped = (
         ms_df.groupby(["mz_bin", "parent_bin"])
         .agg({"intensity": "sum", "mz": "median", "parent": "median"})
         .reset_index()
-        .groupby("parent_bin", group_keys=False)
-        .apply(filter_fn)
     )
 
+    # Per-parent intensity floor: the larger of the level's absolute floor and a
+    # fraction of that parent's strongest peak. `transform` broadcasts the
+    # per-group maximum back to every row.
+    group_max = grouped.groupby("parent_bin")["intensity"].transform("max")
+    min_intensity = np.maximum(min_abs_intensity[level],
+                               group_max * min_rel_intensity)
+
+    # Keep peaks above the floor, then the strongest `max_num_peaks` per parent.
+    # `groupby(...).tail` is used instead of `groupby(...).apply`, whose handling
+    # of the grouping column changed in pandas 3.0 (it is now dropped from the
+    # applied frame), which broke the previous two-stage implementation.
     result = (
-        ms_df.groupby("parent_bin", group_keys=False)
-        .apply(lambda g: g.sort_values("intensity").tail(max_num_peaks))
+        grouped[grouped["intensity"] > min_intensity]
+        .sort_values("intensity")
+        .groupby("parent_bin", group_keys=False)
+        .tail(max_num_peaks)
     )
 
     logging.debug(f"Level {level}: {len(result)} out of {original_len} peaks retained")

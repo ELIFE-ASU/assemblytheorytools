@@ -107,6 +107,11 @@ When changing documentation:
 - Check that user-guide snippets run as written.
 - Add every new public function or class to its module's `autosummary` in
   `docs/source/api/*.rst`.
+- The protocol pages are the executed notebooks under `examples/protocols/`,
+  rendered by MyST-NB from their committed outputs; the build never runs them.
+  After editing one, re-execute it with
+  `jupyter nbconvert --to notebook --execute --inplace protocol_N.ipynb` from
+  its own directory so the stored outputs stay current.
 
 ## Pull request checklist
 

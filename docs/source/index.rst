@@ -70,8 +70,8 @@ Where to go next
 * :doc:`glossary` — formal definitions of the assembly theory vocabulary.
 * :doc:`guide/index` — task-oriented walkthroughs for molecules, strings,
   graphs, pathways, parallel runs, complexity scores and mass spectrometry.
-* :doc:`examples/index` — the runnable scripts and published protocols shipped
-  in the repository.
+* :doc:`examples/index` — the runnable scripts and the protocol notebooks
+  shipped in the repository.
 * :doc:`configuration` — environment variables and the calculator backends.
 * :doc:`modules` — the full API reference.
 
