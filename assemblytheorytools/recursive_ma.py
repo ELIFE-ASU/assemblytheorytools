@@ -368,8 +368,8 @@ class MAEstimator:
         joint : bool, optional
             If True, sum the estimates of every child instead of searching over
             child/complement decompositions. This skips the connection cost the
-            default strategy adds, and a node with no children then yields the
-            integer ``0`` rather than a sample array. Defaults to False.
+            default strategy adds; a node with no children has nothing to sum, so it
+            falls back to the molecular-weight prior. Defaults to False.
 
         Returns
         -------
@@ -398,6 +398,12 @@ class MAEstimator:
         """
         children = rma_unify_trees([tree.get(mw, None) or self.precursors(tree, mw)])
         if joint:
+            if not children:
+                # Nothing to sum over. Fall back to the same molecular-weight prior
+                # the default strategy uses as its base case -- called positionally,
+                # so both share one `estimate_by_MW` cache entry -- rather than
+                # letting sum() over no children collapse to a bare int 0.
+                return self.estimate_by_MW(mw, bool(children))
             return sum(self.estimate_MA(children, child, progress_levels - 1) for child in children)
         child_estimates = {mw: self.estimate_by_MW(mw, bool(children))}
 
