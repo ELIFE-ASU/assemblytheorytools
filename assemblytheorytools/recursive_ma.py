@@ -115,6 +115,31 @@ def ma_distribution_params(mw: float) -> Tuple[float, float, float]:
     tuple
         A tuple (alpha, loc, scale) containing the skewness, location, and scale parameters
         for the skew-normal distribution.
+
+    Notes
+    -----
+    - The coefficients are hard-coded from an offline fit of assembly index against
+      molecular weight, the relationship reported by Marshall et al.
+      [Marshall2021a]_, over a reference set of molecules. They are not re-derived
+      from the data being analysed, and nothing checks that a fragment resembles
+      that reference set.
+    - What they describe is a prior over the assembly index molecules of this mass
+      usually have, not a property of any one molecule: two fragments of equal mass
+      get identical parameters however different their structures are.
+    - All three parameters are linear in `mw` and extrapolate without bound. Below
+      about 17 Da `loc` is negative, so samples pile up on the zero floor applied by
+      `ma_samples`; at several thousand Da it grows past any assembly index a real
+      molecule reaches. Masses far outside the ordinary small-molecule range are out
+      of scope.
+    - `mw` is not validated. A zero or negative mass returns parameters without
+      complaint.
+
+    References
+    ----------
+    .. [Marshall2021a] Marshall, S. M. *et al.* (2021). Identifying molecules as
+       biosignatures with assembly theory and mass spectrometry. Nature
+       Communications, 12, 3033.
+       https://doi.org/10.1038/s41467-021-23258-x
     """
     alpha = -0.0044321370413747405 * mw + -1.1014882364398888
     loc = 0.075 * mw - 1.3
@@ -141,6 +166,19 @@ def ma_samples(mw: float, n_samples: int) -> np.ndarray:
     -------
     np.ndarray
         An array of non-negative random samples from the MA distribution for the given molecular weight.
+
+    Notes
+    -----
+    - The draws stand in for an unknown structure. Their spread is the variation
+      across molecules of this mass, not a measurement uncertainty for one fragment.
+    - Negative draws are clipped to zero rather than rejected, so the result is not
+      a true skew-normal sample. At low molecular weight, where the distribution
+      sits near zero, much of the sample can be exactly 0 and the mean is biased
+      upwards relative to the underlying fit.
+    - Sampling uses the global NumPy random state; there is no `random_state`
+      argument. Seed NumPy yourself when a run has to be reproducible.
+    - The samples are continuous while an assembly index is an integer. Round at the
+      end of an analysis, not per fragment.
     """
     alpha, loc, scale = ma_distribution_params(mw)
     return np.maximum(skewnorm(alpha, loc, scale).rvs(n_samples), 0.)
@@ -210,6 +248,24 @@ class MAEstimator:
         Number of samples for MA estimation.
     zero : np.ndarray
         Array of zeros used when a fragment matches an isotope (MA = 0).
+
+    Notes
+    -----
+    - Everything this class produces is an estimate built from mass alone plus the
+      fragments that happened to be observed. It is neither the assembly index of
+      the molecule nor a proven bound on it: the search only sees peaks present in
+      the tree it was given, so a sparsely fragmented sample falls back to the
+      molecular-weight prior of `ma_distribution_params` and reports whatever that
+      prior says.
+    - Fragments are matched on mass within `tol` and nothing else. No check is made
+      that a candidate decomposition is chemically possible, so an accidental mass
+      coincidence is indistinguishable from a real precursor relationship. Match
+      `tol` to the instrument: too loose invents relationships, too tight discards
+      real ones.
+    - Results are Monte Carlo samples drawn from the global NumPy random state.
+      Report the mean with its spread, and seed NumPy for reproducibility.
+    - Fragments lighter than `MIN_CHUNK` (20 Da) are ignored throughout, so losses
+      of small neutrals never contribute.
     """
 
     def __init__(self,
@@ -259,6 +315,22 @@ class MAEstimator:
         -------
         np.ndarray
             An array of estimated MA values for the given molecular weight.
+
+        Notes
+        -----
+        - Results are cached per estimator instance and per ``(mw, has_children)``
+          pair, so repeated calls hand back the *same* array rather than fresh
+          draws. Equal-mass fragments in one tree therefore share a single sample,
+          which keeps a traversal self-consistent but means the sampling error does
+          not average out over reuse. Build a new estimator for an independent
+          sample.
+        - The isotope shortcut is a mass match and nothing more: any childless
+          fragment whose m/z falls within `tol` of a monoisotopic element mass is
+          assigned MA = 0. No charge or adduct correction is applied first, so an
+          ion whose m/z coincides with an element mass is read as a bare atom. A few
+          elements are commented out of `ISOTOPES` and never match.
+        - Fragments that do have children skip the isotope check and always draw
+          from the molecular-weight prior, however small they are.
         """
         lower, upper = mw - self.tol, mw + self.tol
         if not has_children:
@@ -289,14 +361,40 @@ class MAEstimator:
         mw : float
             The molecular weight for which to estimate the MA.
         progress_levels : int, optional
-            Number of recursive levels to consider in the estimation. Defaults to 0.
+            Depth, in recursion levels, for which progress is printed. It is
+            decremented on each recursive call and gates diagnostic printing only;
+            the recursion always runs to the leaves, so this argument does not
+            change the estimate. Defaults to 0 (silent).
         joint : bool, optional
-            If True, use a joint estimation strategy. Defaults to False.
+            If True, sum the estimates of every child instead of searching over
+            child/complement decompositions. This skips the connection cost the
+            default strategy adds, and a node with no children then yields the
+            integer ``0`` rather than a sample array. Defaults to False.
 
         Returns
         -------
         np.ndarray
             An array of estimated MA values for the given molecular weight.
+
+        Notes
+        -----
+        - The return value is a heuristic estimate, neither the exact assembly index
+          nor a proven bound on it. The search is greedy: at each node it keeps the
+          cheapest candidate decomposition by mean, drawn only from fragments present
+          in the tree, and never enumerates the full space of decompositions.
+        - Because each node keeps the cheapest candidate it can find, observing more
+          fragments generally lowers the estimate, so an under-fragmented spectrum
+          reads high.
+        - The costs charged for joining fragments are fixed heuristics: 1 for a
+          child/complement pair, 3 for the three-way split through a common
+          precursor. They stand in for the joins a real assembly pathway would need
+          and are not derived from the spectrum.
+        - Fragments and complements lighter than `MIN_CHUNK` (20 Da) are skipped.
+        - A node with no usable children falls back to `estimate_by_MW`, which knows
+          only the mass. For a tree with no fragmentation the whole result is the
+          molecular-weight prior.
+        - The recursion is not memoised across branches, so a wide tree revisits the
+          same masses repeatedly.
         """
         children = rma_unify_trees([tree.get(mw, None) or self.precursors(tree, mw)])
         if joint:
@@ -793,7 +891,9 @@ def rma_estimate_ma(tree: Dict[float, Any],
     mw : float
         The molecular weight (MW) for which to estimate the assembly number.
     progress_levels : int, optional
-        The number of recursive levels to consider in the estimation. Defaults to 0.
+        Depth, in recursion levels, for which progress is printed. It gates
+        diagnostic printing only and does not change the estimate. Defaults to 0
+        (silent).
     joint : bool, optional
         If True, use a joint estimation strategy for the assembly number. Defaults to False.
     **kwargs
@@ -803,6 +903,16 @@ def rma_estimate_ma(tree: Dict[float, Any],
     -------
     float
         The mean estimated assembly number (MA) for the given molecular weight.
+
+    Notes
+    -----
+    - This returns the mean of a Monte Carlo sample and throws the spread away. Call
+      `MAEstimator.estimate_MA` directly when the uncertainty matters, and report the
+      standard deviation with the mean.
+    - The value is not reproducible unless the global NumPy seed is set, and it
+      changes with the mass tolerance passed through `**kwargs`.
+    - See `MAEstimator.estimate_MA` for the heuristics behind the number: it is an
+      estimate from observed fragments and mass, not the assembly index itself.
     """
     estimator = MAEstimator(**kwargs)
     result = estimator.estimate_MA(
@@ -838,6 +948,17 @@ def rma_estimate_by_mw(mw: float,
     -------
     np.ndarray
         An array of estimated assembly numbers (MA) for the given molecular weight.
+
+    Notes
+    -----
+    - This is the molecular-weight prior on its own: no fragmentation data is used,
+      so the result says what assembly index molecules of this mass typically have,
+      not what this one's is. The spread is population variation, not measurement
+      error.
+    - `has_children=False` enables the isotope shortcut, which returns zeros when
+      `mw` falls within the estimator's tolerance of a monoisotopic element mass.
+    - A fresh estimator is built on each call, so successive calls give independent
+      samples -- unlike repeated calls on one estimator, which are cached.
     """
     estimator = MAEstimator(**kwargs)
     return estimator.estimate_by_MW(mw=mw, has_children=has_children)
