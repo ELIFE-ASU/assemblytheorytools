@@ -48,3 +48,13 @@ includes:
 - Building a fragmentation tree by linking parent and child ions within a mass tolerance.
 - Comparing a mass-only approximation against the fragment-informed recursive estimate, and both against a known
   reference value.
+
+### [Protocol 5: Copy Number, Abundance and Ensemble Assembly](./protocols/5/)
+
+Goes past the assembly index of a single object to the ensemble quantities that quantify selection, and to the question
+of where the copy numbers they need actually come from. This includes:
+
+- Composing a peptide's assembly index from the joint index of its amino acids and the assembly index of its sequence.
+- Simulating peptide formation weighted by copy number, with and without a selection pressure, and measuring ensemble
+  assembly and the exploration ratio on the result.
+- Testing which way of turning mass-spectrometry abundance into copy numbers survives unknown ionisation efficiencies.

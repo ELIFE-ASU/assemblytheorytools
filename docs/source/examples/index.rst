@@ -19,6 +19,7 @@ repository. The **basic** examples are minimal single-purpose scripts, and the
    protocol_2
    protocol_3
    protocol_4
+   protocol_5
 
 .. toctree::
    :maxdepth: 1

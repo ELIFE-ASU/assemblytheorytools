@@ -281,7 +281,7 @@ _REPO_ROOT = os.path.abspath(os.path.join(_CONF_DIR, '..', '..'))
 # Page docname -> notebook path relative to the repository root.
 PROTOCOL_NOTEBOOKS = {
     f'examples/protocol_{n}': f'examples/protocols/{n}/protocol_{n}.ipynb'
-    for n in (1, 2, 3, 4)
+    for n in (1, 2, 3, 4, 5)
 }
 
 

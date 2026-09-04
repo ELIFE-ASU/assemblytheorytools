@@ -43,6 +43,15 @@ Cite these in addition when you use the corresponding part of the package:
   Investigating and quantifying molecular complexity using assembly theory and
   spectroscopy. *ACS Central Science*, 10(5), 1054–1064.
   [doi:10.1021/acscentsci.4c00120](https://doi.org/10.1021/acscentsci.4c00120)
+* **Ensemble assembly and the exploration ratio** — Jirasek, M., Sharma, A.,
+  Wong, M., Munro, J., & Cronin, L. (2026). Quantifying the emergence of
+  selection prior to biological evolution. *arXiv preprint* arXiv:2512.18752.
+  [doi:10.48550/arXiv.2512.18752](https://doi.org/10.48550/arXiv.2512.18752)
+
+  The source for {func}`~assemblytheorytools.assembly.exploration_ratio`, the
+  union approximation of the joint assembly space behind
+  {func}`~assemblytheorytools.assembly.joint_assembly_space`, and
+  {doc}`Protocol 5 <examples/protocol_5>`.
 
 ## Datasets
 
