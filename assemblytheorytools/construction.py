@@ -31,6 +31,8 @@ from .tools_graph import (bond_order_assout_to_int,
                           set_graph_layer)
 from .tools_mol import smi_remove_implicit_hydrogen
 
+# The virtual object representations every vo_type argument is checked against
+_VO_TYPES = ("graph", "mol", "smiles", "inchi")
 # Raised wherever an unrecognised virtual object representation is requested
 _VO_TYPE_ERROR = "Invalid vo_type. Choose from 'graph', 'mol', 'smiles', or 'inchi'."
 
@@ -1339,7 +1341,7 @@ def parse_pathway_dot(dot: str,
     Pass ``vo_type="graph"`` to get the fragments as NetworkX graphs, or omit
     `mol` to read the pathway's structure without building any chemistry.
     """
-    if vo_type not in ("graph", "mol", "smiles", "inchi"):
+    if vo_type not in _VO_TYPES:
         raise ValueError(_VO_TYPE_ERROR)
 
     parsed = nx.nx_pydot.from_pydot(_read_single_digraph(dot))

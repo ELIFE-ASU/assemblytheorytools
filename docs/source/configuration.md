@@ -135,7 +135,8 @@ configured entirely through the arguments of
   make `states_searched` reproducible.
 
 `memoize` (default `'canon-index'`)
-: Memoisation mode: `'none'` or `'canon-index'`.
+: Memoisation mode: `'none'` or `'canon-index'`. The backend's error message
+  also lists `'frags-index'`, but rejects that value.
 
 `kernel` (default `'none'`)
 : Kernelisation mode: `'none'`, `'once'`, `'depth-one'` or `'always'`.
@@ -147,8 +148,8 @@ configured entirely through the arguments of
 
 `max_pathways` (default `None`)
 : How many minimum assembly pathways to reconstruct: a positive integer for at
-  most that many, `0` for all of them, or `None` to skip reconstruction. Only
-  available on releases newer than 0.6.1 — see
+  most that many, `0` for all of them, or `None` to skip reconstruction.
+  Requires `assembly-theory` 0.7.0 or newer — see
   [Pathways](guide/pathways.md#pathways-from-the-rust-backend).
 
 `vo_type` (default `'smiles'`)
