@@ -119,4 +119,4 @@ across seven scores on KEGG compounds.
 
 * {doc}`../api/complexity_scores` — every scoring function.
 * {doc}`../api/tools_data` — sampling, filtering and fitting helpers.
-* {doc}`../examples/protocol_2` — assembly index against molecular weight at scale.
+* {doc}`../examples/protocol_2` — assembly index against molecular weight at scale, for CBRDB, PubChem and your own molecules.

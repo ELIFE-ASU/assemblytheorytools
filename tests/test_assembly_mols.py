@@ -1004,6 +1004,124 @@ def test_calculate_assembly_index_rust_search(data_dir):
     assert timed_out.states_searched is None
 
 
+def test_rust_zero_answers():
+    """
+    Test that molecules with no joining operations report 0, not the sentinel.
+
+    The Rust backend counts joining operations in an unsigned 32-bit integer and
+    underflows to 4294967295 when there are none: a molecule with no bonds has
+    no index, and a molecule with one bond is already at full depth.
+
+    This function performs the following steps:
+    1. Calculates the index of molecules that have no bonds once hydrogens go.
+    2. Calculates the depth of a molecule needing no joining operations.
+    3. Runs the search on a bare atom.
+
+    Asserts:
+        - Every result is 0 rather than the underflow sentinel.
+    """
+    print(flush=True)
+    for smi in ("C", "O", "[Fe+2]", "[13CH4]"):
+        index = att.calculate_assembly_index_rust(att.smi_to_mol(smi))
+        print(f"{smi} index:", index, flush=True)
+        assert index == 0, f"Expected {smi} to have index 0, but got {index}"
+
+    depth = att.calculate_assembly_depth_rust(att.smi_to_nx("CC"))
+    print("Ethane depth:", depth, flush=True)
+    assert depth == 0, f"Expected ethane depth to be 0, but got {depth}"
+
+    result = att.calculate_assembly_index_rust_search(att.smi_to_mol("C"))
+    print("Methane search:", result, flush=True)
+    assert result.index == 0, f"Expected methane index 0, but got {result.index}"
+
+    empty = att.calculate_assembly_index_rust(nx.Graph())
+    print("Empty graph index:", empty, flush=True)
+    assert empty == 0, f"Expected empty graph index 0, but got {empty}"
+
+
+def test_calculate_assembly_index_rust_search_timeout():
+    """
+    Test how the search converts its timeout to the backend's milliseconds.
+
+    This function performs the following steps:
+    1. Runs a search with a sub-millisecond timeout.
+    2. Runs a search with a negative timeout.
+
+    Asserts:
+        - A sub-millisecond timeout rounds up rather than truncating to 0, so
+          the search still runs to completion instead of stopping immediately.
+        - A negative timeout raises ValueError rather than an OverflowError
+          from the backend.
+    """
+    print(flush=True)
+    result = att.calculate_assembly_index_rust_search(
+        att.smi_to_nx("CCO"), timeout=0.0001, parallel="none")
+    print("Sub-millisecond timeout:", result, flush=True)
+    assert result.states_searched is not None
+
+    with pytest.raises(ValueError, match="must not be negative"):
+        att.calculate_assembly_index_rust_search(att.smi_to_nx("CCO"), timeout=-1)
+
+
+def test_calculate_assembly_index_rust_search_argument_validation():
+    """
+    Test that the search rejects arguments the backend would misread.
+
+    This function performs the following steps:
+    1. Passes a single strategy name as a bare string rather than a sequence.
+    2. Passes an unrecognised vo_type with no pathways requested.
+    3. Passes 'frags-index', which the backend lists but does not accept.
+
+    Asserts:
+        - A bare string for `bounds` raises ValueError instead of being split
+          into characters.
+        - `vo_type` is validated even when no pathways are reconstructed.
+        - 'frags-index' is rejected, as documented, despite appearing in the
+          backend's own list of valid modes.
+    """
+    print(flush=True)
+    graph = att.smi_to_nx("CCO")
+
+    with pytest.raises(ValueError, match="not a single string"):
+        att.calculate_assembly_index_rust_search(graph, bounds="int")
+
+    with pytest.raises(ValueError, match="vo_type"):
+        att.calculate_assembly_index_rust_search(graph, vo_type="nope")
+
+    with pytest.raises(ValueError, match="Invalid memoization mode"):
+        att.calculate_assembly_index_rust_search(graph, memoize="frags-index")
+
+
+def test_calculate_assembly_index_rust_search_unreadable_pathways(monkeypatch):
+    """
+    Test that unreadable pathways raise rather than degrading silently.
+
+    When the searched mol block cannot be parsed back by RDKit, pathway bond
+    indices cannot be resolved to fragments, and the virtual objects would
+    otherwise fall back to bare bond-set labels without any warning.
+
+    This function performs the following steps:
+    1. Stands in a backend that returns a pathway DOT string.
+    2. Makes the mol block round trip fail.
+
+    Asserts:
+        - A ValueError is raised naming the mol block round trip.
+    """
+    print(flush=True)
+
+    class FakeRust:
+        @staticmethod
+        def index_search(mol_block, **kwargs):
+            return 1, 0, 1, ["digraph { 0 [ label = \"{0}\" ] }"]
+
+    monkeypatch.setattr(assembly_module, "at_rust", FakeRust)
+    monkeypatch.setattr(assembly_module, "_rust_supports_pathways", lambda: True)
+    monkeypatch.setattr(assembly_module.Chem, "MolFromMolBlock", lambda *a, **k: None)
+
+    with pytest.raises(ValueError, match="cannot be read back"):
+        att.calculate_assembly_index_rust_search(att.smi_to_nx("CCO"), max_pathways=1)
+
+
 def test_calculate_assembly_index_rust_search_options():
     """
     Test that the Rust search rejects unrecognised option strings.

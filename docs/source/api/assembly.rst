@@ -2,7 +2,8 @@ assemblytheorytools.assembly
 ============================
 
 Assembly index calculation for molecules, graphs and strings,
-including the joint, parallel, bounded and Rust-backed variants.
+including the joint, parallel, bounded and Rust-backed variants, and the
+ensemble quantities built on top of them.
 
 .. currentmodule:: assemblytheorytools.assembly
 
@@ -18,6 +19,10 @@ including the joint, parallel, bounded and Rust-backed variants.
    calculate_assembly_index
    calculate_assembly
    calculate_string_assembly
+   calculate_assembly_from_indices
+   count_copies
+   joint_assembly_space
+   exploration_ratio
    calculate_string_assembly_index
    regularise_assembly_index
    calculate_assembly_index_parallel

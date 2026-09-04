@@ -3,7 +3,8 @@ User guide
 
 Task-oriented walkthroughs. Each page is self-contained and ends with links to
 the API pages for the functions it uses. If you are new to the vocabulary, read
-:doc:`../concepts` first, and keep :doc:`../glossary` to hand.
+:doc:`../concepts` first, and keep :doc:`../glossary` to hand. To find the
+function for a particular quantity, start from :doc:`../route_map`.
 
 .. toctree::
    :maxdepth: 1

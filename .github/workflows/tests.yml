@@ -1,0 +1,140 @@
+# Run the test suite on every supported interpreter.
+#
+# The default `pytest` run is self-contained: conftest.py skips the
+# `integration` and `slow` groups unless their opt-in flag is passed, so this
+# workflow needs no network services, no external datasets and no ORCA.
+# The opt-in groups are exercised separately by the weekly job below.
+
+name: Tests
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+  workflow_dispatch:
+  # Called by python-publish.yml so a release runs the suite against the
+  # tagged commit before anything is uploaded.
+  workflow_call:
+  schedule:
+    # Monday 05:00 UTC. Catches breakage from unpinned dependencies (rdkit,
+    # pandas and scipy have all broken this package on a minor release) and
+    # from drift in the live services the integration tests call.
+    - cron: "0 5 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff
+        run: python -m pip install ruff
+
+      # Deliberately a narrow rule set: syntax errors (E9), undefined names
+      # (F82) and always-wrong comparisons (F63, F7). These are bugs rather
+      # than style, so the gate is green today without first reformatting the
+      # whole codebase; widen the selection once that backlog is cleared.
+      - name: Check for syntax errors and undefined names
+        # --isolated ignores any local ruff configuration, so the gate is
+        # exactly the rules named here, and --output-format=github annotates
+        # the offending lines in the pull-request diff.
+        run: ruff check --isolated --select E9,F63,F7,F82 --output-format=github .
+
+  test:
+    name: Python ${{ matrix.python-version }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+
+    strategy:
+      # One failing interpreter should not hide the result on the others.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.12", "3.13", "3.14"]
+        include:
+          # Smoke-test the other supported platform. macOS runners are arm64,
+          # which is the only macOS wheel assembly-theory publishes. There is
+          # no Windows job: the package is POSIX-only (see the classifiers in
+          # pyproject.toml) and assembly-theory ships no Windows wheel.
+          - os: macos-latest
+            python-version: "3.13"
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install the package and its test dependencies
+        # Editable so coverage paths line up with the checkout. The runtime
+        # dependency set is large (rdkit, ase, ...); the pip cache above keeps
+        # repeat runs cheap.
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Report the resolved dependency versions
+        # Dependencies are unpinned, so the failing version is the first thing
+        # anyone needs when a scheduled run goes red.
+        run: python -m pip list
+
+      - name: Run the test suite
+        run: pytest --cov --cov-report=xml --cov-report=term-missing
+
+      - name: Upload the coverage report
+        # One report is enough; they only differ by interpreter.
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          retention-days: 7
+
+  opt-in-groups:
+    # The integration and slow groups, which the pull-request runs skip. Live
+    # PubChem lookups and the long assembly calculations belong here, not on
+    # the critical path of a review. Tests needing ORCA or the Chemotion
+    # archive skip themselves when those are absent, which they are here.
+    name: Integration and slow tests
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install the package and its test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Run the integration and slow tests
+        run: pytest --run-integration --run-slow -m "integration or slow" -ra

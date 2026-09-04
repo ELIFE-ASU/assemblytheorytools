@@ -1,64 +1,142 @@
-# Build the sdist and wheel, then publish them to PyPI via trusted publishing
-# whenever a GitHub release is published.
+# Publish the sdist and wheel to PyPI when a GitHub release is published.
+#
+# The upload uses trusted publishing (OIDC), so there is no API token in the
+# repository secrets: PyPI is configured to trust this workflow file, running in
+# the `pypi` environment, on this repository. Changing the workflow's filename
+# or environment name breaks the upload until the publisher on PyPI is updated
+# to match.
+#
+# Release checklist:
+#   1. Bump `version` in pyproject.toml on main and merge it.
+#   2. Draft a release whose tag is `v<that version>`; the tag check below
+#      rejects a mismatch.
+#   3. Publish the release. This workflow runs the tests and the packaging
+#      checks, and only then uploads.
 
 name: Upload Python Package
 
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Index to upload to"
+        type: choice
+        options: [testpypi, pypi]
+        default: testpypi
 
 permissions:
   contents: read
 
 jobs:
-  release-build:
+  verify-tag:
+    # Cheap and first, so a mistyped tag fails in seconds instead of after the
+    # full test matrix. Skipped on a manual run, which has no release tag.
+    name: Verify the release tag
+    if: github.event_name == 'release'
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.x"
+          python-version: "3.12"
 
-      - name: Verify release tag matches package version
+      - name: Verify the release tag matches the package version
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           pkg="v$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
           [ "$pkg" = "$RELEASE_TAG" ] || { echo "::error::release tag $RELEASE_TAG does not match package version $pkg"; exit 1; }
 
-      - name: Build release distributions
-        run: |
-          python -m pip install build
-          python -m build
+  tests:
+    # A release is the one build nobody gets to retry, so run the suite again
+    # against the tagged commit rather than trusting the branch run.
+    name: Tests
+    needs: verify-tag
+    if: ${{ !cancelled() && !failure() }}
+    uses: ./.github/workflows/tests.yml
 
-      - name: Upload distributions
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-dists
-          path: dist/
+  packaging:
+    # Builds the distributions, checks their metadata and contents, and uploads
+    # them as the `release-dists` artifact that the publish job consumes. The
+    # files that go to PyPI are therefore exactly the ones that passed here.
+    name: Packaging
+    needs: verify-tag
+    if: ${{ !cancelled() && !failure() }}
+    uses: ./.github/workflows/packaging.yml
 
-  pypi-publish:
+  publish:
+    name: Publish to ${{ github.event_name == 'release' && 'PyPI' || inputs.target }}
+    needs: [tests, packaging]
     runs-on: ubuntu-latest
-    needs:
-      - release-build
+
     permissions:
-      # Mandatory for PyPI trusted publishing.
+      # Mandatory for trusted publishing: mints the OIDC token that stands in
+      # for an API token, and signs the PEP 740 attestations.
       id-token: write
 
     environment:
-      name: pypi
-      url: https://pypi.org/p/assemblytheorytools
+      name: ${{ github.event_name == 'release' && 'pypi' || inputs.target }}
+      url: ${{ github.event_name == 'release' && 'https://pypi.org/p/assemblytheorytools' || 'https://test.pypi.org/p/assemblytheorytools' }}
 
     steps:
-      - name: Retrieve release distributions
+      - name: Retrieve the built distributions
         uses: actions/download-artifact@v4
         with:
           name: release-dists
           path: dist/
 
-      - name: Publish release distributions to PyPI
+      - name: List what is about to be uploaded
+        run: ls -l dist/
+
+      - name: Publish to TestPyPI
+        # Manual dry run of the real upload path. It needs a pending publisher
+        # for this workflow on test.pypi.org, configured once under the
+        # `testpypi` environment; without it the run fails at this step and the
+        # release path is unaffected.
+        if: github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: dist/
+          # A version already uploaded to TestPyPI must not fail the rehearsal.
+          skip-existing: true
+
+      - name: Publish to PyPI
+        if: github.event_name == 'release' || inputs.target == 'pypi'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/
+          # PEP 740 provenance, so installers can verify the files were built
+          # by this workflow.
+          attestations: true
+
+  attach-to-release:
+    # Put the published files on the GitHub release too, so the tag and PyPI
+    # can be compared byte for byte later.
+    name: Attach the distributions to the release
+    needs: publish
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Retrieve the built distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: release-dists
+          path: dist/
+
+      - name: Upload the distributions to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$RELEASE_TAG" dist/* --clobber

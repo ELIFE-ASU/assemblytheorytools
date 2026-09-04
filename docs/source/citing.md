@@ -43,6 +43,33 @@ Cite these in addition when you use the corresponding part of the package:
   Investigating and quantifying molecular complexity using assembly theory and
   spectroscopy. *ACS Central Science*, 10(5), 1054–1064.
   [doi:10.1021/acscentsci.4c00120](https://doi.org/10.1021/acscentsci.4c00120)
+* **Ensemble assembly and the exploration ratio** — Jirasek, M., Sharma, A.,
+  Wong, M., Munro, J., & Cronin, L. (2026). Quantifying the emergence of
+  selection prior to biological evolution. *arXiv preprint* arXiv:2512.18752.
+  [doi:10.48550/arXiv.2512.18752](https://doi.org/10.48550/arXiv.2512.18752)
+
+  The source for {func}`~assemblytheorytools.assembly.exploration_ratio`, the
+  union approximation of the joint assembly space behind
+  {func}`~assemblytheorytools.assembly.joint_assembly_space`, and
+  {doc}`Protocol 5 <examples/protocol_5>`.
+
+## Datasets
+
+Cite the data as well as the method when a workflow depends on an external
+dataset:
+
+* **Chemotion IR** — Jung, N., Tremouilhac, P., Punjabi, D., & Huang, P.-C.
+  (2024). *Chemotion Repository - Data collection: FT-IR spectroscopy data
+  (Chemotion IR)* [Data set]. Karlsruhe Institute of Technology.
+  [doi:10.22000/OGoEQGlsZGElrgst](https://doi.org/10.22000/OGoEQGlsZGElrgst)
+
+  The 4183 JCAMP-DX spectra behind
+  {func}`~assemblytheorytools.tools_data.process_chemotion_ir_data` and
+  {doc}`Protocol 3 <examples/protocol_3>`. Released under
+  [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), so
+  redistributed or derived spectra must keep the attribution and the same
+  licence. ATT neither bundles nor redistributes the archive — the protocol
+  downloads it from the DOI.
 
 ## BibTeX
 

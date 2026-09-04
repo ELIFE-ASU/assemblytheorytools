@@ -105,9 +105,9 @@ as DOT strings.
 loads them for you:
 
 :::{warning}
-Pathway reconstruction was added to `assembly-theory` after release 0.6.1. On
-an older compatible release, passing `max_pathways` raises
-`NotImplementedError`, so guard the optional call as below.
+Pathway reconstruction needs `assembly-theory` 0.7.0 or newer. On an older
+compatible release, passing `max_pathways` raises `NotImplementedError`, so
+guard the optional call as below when the pinned version may vary.
 :::
 
 ```python

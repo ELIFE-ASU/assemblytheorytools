@@ -1,0 +1,22 @@
+# Keep the pinned action versions current.
+#
+# Only GitHub Actions are tracked. The Python dependencies in pyproject.toml are
+# deliberately open-ended lower bounds rather than pins, so there is nothing for
+# Dependabot to bump there; the weekly scheduled run in tests.yml is what
+# catches a new release of rdkit, pandas or scipy breaking the package.
+
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    # One pull request for all of them rather than four.
+    groups:
+      actions:
+        patterns: ["*"]
+    labels:
+      - dependencies
+    commit-message:
+      prefix: ci

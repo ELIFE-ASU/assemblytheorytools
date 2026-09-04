@@ -170,3 +170,10 @@ memUsage
 *.csv.gz
 *.tar
 *.gz
+# Protocol notebooks write these when run in place
+examples/protocols/3/chemotion_ir_data/
+examples/protocols/4/Sample_#15_Stepped_MS3.mzML
+examples/protocols/4/temp_mzml_output/
+
+# Build-time copies of the protocol notebooks made by docs/source/conf.py
+docs/source/examples/protocol_*.ipynb
