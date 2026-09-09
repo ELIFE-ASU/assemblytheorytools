@@ -25,11 +25,11 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           # Match the interpreter Read the Docs builds with.
           python-version: "3.12"
@@ -48,7 +48,7 @@ jobs:
         run: sphinx-build -W --keep-going -b html docs/source docs/build/html
 
       - name: Upload the built documentation
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: html-docs
           path: docs/build/html/
