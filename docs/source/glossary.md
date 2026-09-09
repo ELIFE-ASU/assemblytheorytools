@@ -52,6 +52,8 @@ Copy number
   In ATT: copy numbers are an input, not something the package measures — they
   are the `n_i` argument of
   {func}`~assemblytheorytools.assembly.calculate_assembly`.
+  {func}`~assemblytheorytools.assembly.count_copies` turns a list of
+  observations into the unique objects and counts that argument expects.
 
 Assembly
   *Symbol: $A$.* An integrated quantity over an ensemble of observed objects. It
@@ -62,6 +64,8 @@ Assembly
 
   In ATT: {func}`~assemblytheorytools.assembly.calculate_assembly`, and
   {func}`~assemblytheorytools.assembly.calculate_string_assembly` for strings.
+  {func}`~assemblytheorytools.assembly.calculate_assembly_from_indices`
+  evaluates the same equation from indices that are already known.
 
 Assembly depth
   *Symbol: $d$.* The number of steps along a path required to construct the
@@ -106,6 +110,7 @@ Joint assembly space
   In ATT: pass a disconnected graph to
   {func}`~assemblytheorytools.assembly.calculate_assembly_index` for the exact
   quantity, or merge separate pathways with
+  {func}`~assemblytheorytools.assembly.joint_assembly_space` or
   {class}`~assemblytheorytools.reassembler.MoleculeSpace` for the union
   approximation.
 
@@ -203,6 +208,21 @@ Selectivity
   The assembly contingent space can include selected objects that have been
   discovered along permitted histories but have not yet been produced or
   observed.
+
+Exploration ratio
+  The fraction of a {term}`joint assembly space` that was actually observed:
+  the number of observed objects divided by the total, which also counts the
+  contingent objects that were never observed but are required to construct
+  the observed ones along a minimum path. A ratio near one indicates
+  {term}`undirected exploration`, since the system realised nearly everything
+  its own construction implies; a markedly lower ratio indicates
+  {term}`directed exploration`, since most of the reachable space was left
+  unrealised. Unlike {term}`assembly`, it carries no notion of copy number, so
+  it reports {term}`selectivity` rather than {term}`selection`.
+
+  In ATT: {func}`~assemblytheorytools.assembly.exploration_ratio`, measured
+  over the space built by
+  {func}`~assemblytheorytools.assembly.joint_assembly_space`.
 
 Complexity-diversity space
   Any physical temporal process can be represented in complexity-diversity space

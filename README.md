@@ -7,6 +7,7 @@
 # AssemblyTheoryTools
 
 [![Documentation Status](https://readthedocs.org/projects/assemblytheorytools/badge/?version=latest)](https://assemblytheorytools.readthedocs.io/en/latest/)
+[![Tests](https://github.com/ELIFE-ASU/assemblytheorytools/actions/workflows/tests.yml/badge.svg)](https://github.com/ELIFE-ASU/assemblytheorytools/actions/workflows/tests.yml)
 [![PyPI](https://img.shields.io/pypi/v/assemblytheorytools.svg)](https://pypi.org/project/assemblytheorytools/)
 [![Python versions](https://img.shields.io/pypi/pyversions/assemblytheorytools.svg)](https://pypi.org/project/assemblytheorytools/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/ELIFE-ASU/assemblytheorytools/blob/main/LICENSE)
@@ -98,6 +99,28 @@ Most published molecular assembly indices exclude hydrogens. Use `strip_hydrogen
 values. ATT strips a copy, leaving the original graph unchanged.
 
 </details>
+
+## Quick start reference
+
+Which function computes which quantity. The
+[route map](https://assemblytheorytools.readthedocs.io/en/latest/route_map.html) carries the full table — every
+quantity ATT computes, with its inputs, its outputs, and what it is used for.
+
+| Quantity | Function | Input | Output |
+| --- | --- | --- | --- |
+| Assembly index | `calculate_assembly_index` | NetworkX graph or RDKit `Mol` | Index, virtual objects, pathway |
+| Assembly index without the pathway | `calculate_assembly_index_rust` | NetworkX graph or RDKit `Mol` | Index (hydrogens always stripped) |
+| String assembly index | `calculate_string_assembly_index` | String or list of strings | Index, virtual objects, pathway |
+| Joint assembly index | `calculate_assembly_index` on a joined graph | Graphs merged with `join_graphs` | Index for the whole set |
+| Shared-assembly score | `calculate_assembly_index_similarity` | List of graphs | Score; 0 to 1 for a pair |
+| Semi-metric distance | `calculate_assembly_index_semi_metric` | Two graphs | Distance; negative means cheaper together |
+| Assembly `A` | `calculate_assembly` | Graphs and their copy numbers | Ensemble assembly value |
+| Assembly depth | `calculate_assembly_depth_rust` | NetworkX graph or RDKit `Mol` | Minimum depth under concurrent joins |
+| Bounds | `calculate_assembly_index_upper_bound`, `calculate_assembly_index_lower_bound` | NetworkX graph or RDKit `Mol` | Instant bounds for screening |
+| Many indices at once | `calculate_assembly_index_parallel` | List of graphs | Indices, virtual objects, pathways |
+| Assembly index from tandem MS | `MAEstimator` | Fragmentation tree and molecular weight | Monte Carlo samples of MA |
+| Assembly index from IR peaks | `estimate_ai_from_ir_peaks` | Peak counts and reference indices | Fitted model and predicted indices |
+| Other complexity scores | `bertz_complexity`, `bottcher`, `wiener_index`, and more | RDKit `Mol` | Score, for comparison against the index |
 
 ## What ATT includes
 
@@ -258,10 +281,11 @@ The second line prints `1`, the assembly index of hydrogen-stripped ethanol.
 
 | Resource | Description |
 | --- | --- |
+| [Route map](https://assemblytheorytools.readthedocs.io/en/latest/route_map.html) | Every ATT quantity with its inputs, outputs, and applications |
 | [Concepts](https://assemblytheorytools.readthedocs.io/en/latest/concepts.html) | Assembly indices, virtual objects, pathways, joint assembly, and backends |
 | [User guide](https://assemblytheorytools.readthedocs.io/en/latest/guide/index.html) | Molecules, strings, graphs, pathways, parallel runs, complexity, and mass spectrometry |
 | [Runnable examples](https://github.com/ELIFE-ASU/assemblytheorytools/tree/main/examples) | Basic and advanced scripts included with the repository |
-| [Published protocols](https://github.com/ELIFE-ASU/assemblytheorytools/tree/main/examples/protocols) | Reproducible end-to-end research workflows |
+| [Published protocols](https://github.com/ELIFE-ASU/assemblytheorytools/tree/main/examples/protocols) | Jupyter notebooks reproducing published workflows end to end, committed with their outputs |
 | [Configuration](https://assemblytheorytools.readthedocs.io/en/latest/configuration.html) | Environment variables, binaries, graph requirements, and search options |
 | [API reference](https://assemblytheorytools.readthedocs.io/en/latest/modules.html) | Complete module and function documentation |
 

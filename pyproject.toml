@@ -47,7 +47,10 @@ dependencies = [
     "cairosvg>=2.8.2",
     "pillow>=10.1.0",
     "dagviz>=0.5.0",
-    "assembly-theory>=0.6.0",
+    # Pinned exactly: the search API gains keyword arguments between releases
+    # (0.6.0 rejects `timeout`, 0.6.1 rejects `max_pathways`), so the floor and
+    # the ceiling are the same version. Bump deliberately, with the tests.
+    "assembly-theory==0.7.0",
     "assemblycfg>=1.2.2",
 ]
 
@@ -60,6 +63,10 @@ docs = [
     "sphinx>=8.0",
     "sphinx-rtd-theme>=3.0",
     "myst-parser>=4.0",
+    "myst-nb>=1.4",
+]
+notebooks = [
+    "jupyterlab>=4.0",
 ]
 
 [project.urls]

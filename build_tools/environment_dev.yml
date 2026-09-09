@@ -19,6 +19,8 @@ dependencies:
   - pytest-cov
   - sphinx
   - sphinx-rtd-theme
+  - myst-nb
+  - jupyterlab
   - pubchempy
   - cairosvg
   - pillow

@@ -34,8 +34,8 @@ if __name__ == "__main__":
           f"states searched: {result.states_searched}", flush=True)
 
     # Reconstruct a minimum assembly pathway and plot it
-    # Pathway reconstruction needs an assembly-theory release newer than 0.6.1,
-    # so fall back gracefully when the installed one cannot do it
+    # Pathway reconstruction needs assembly-theory 0.7.0 or newer, so fall back
+    # gracefully when the installed release cannot do it
     try:
         result = att.calculate_assembly_index_rust_search(
             graph, parallel="none", max_pathways=1)

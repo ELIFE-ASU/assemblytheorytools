@@ -479,3 +479,66 @@ def test_ma_estimator_mock_data():
 
     # Assert that the parent's MA is less than or equal to the sum of the children's MAs plus 1.0
     assert parent_ma <= child1_ma + child2_ma + 1.0
+
+
+def test_ma_estimator_joint_leaf():
+    """
+    Test that the joint strategy returns a sample array for a childless node.
+
+    This function performs the following steps:
+    1. Initializes an MAEstimator with `tol=0.5` and `n_samples=20`.
+    2. Estimates the MA of a leaf tree with `joint=True`, asserting that the
+       result is an array of `n_samples` values rather than the bare int that
+       summing over no children would produce.
+    3. Asserts that the joint result matches the default strategy's base case,
+       the molecular-weight prior, for the same leaf.
+    4. Repeats the joint estimate through `rma_estimate_ma`, which takes the mean
+       of the result and so needs an array to work on.
+    5. Checks that a leaf on an isotope mass still estimates MA = 0, and that the
+       joint strategy on a tree that does have children is unaffected.
+
+    Assertions:
+        - The joint estimate of a leaf is an `n_samples`-long array of positive
+          values, equal to the default strategy's estimate of the same leaf.
+        - `rma_estimate_ma` with `joint=True` returns a positive float for a leaf.
+        - An isotope leaf estimates 0.0, and a joint estimate over real children
+          stays an `n_samples`-long array.
+    """
+    print(flush=True)
+    np.random.seed(0)
+    n_samples = 20
+    estimator = att.MAEstimator(
+        same_level=True,
+        tol=0.5,  # Mass tolerance in Da
+        n_samples=n_samples,  # Number of Monte Carlo samples
+    )
+
+    # A leaf has no children to sum over: the estimate falls back to the
+    # molecular-weight prior instead of collapsing to an int.
+    leaf_tree = {123.456: {}}
+    joint_leaf = estimator.estimate_MA(leaf_tree, 123.456, joint=True)
+    print(f"Joint MA of a leaf: {np.mean(joint_leaf):.2f}", flush=True)
+    assert isinstance(joint_leaf, np.ndarray)
+    assert joint_leaf.shape == (n_samples,)
+    assert np.mean(joint_leaf) > 0.0
+
+    # The fallback is the same base case the default strategy uses.
+    default_leaf = estimator.estimate_MA(leaf_tree, 123.456)
+    assert np.array_equal(joint_leaf, default_leaf)
+
+    # rma_estimate_ma averages the result, so it needs an array to work on.
+    ma_mean = att.rma_estimate_ma(leaf_tree, 123.456, joint=True, tol=0.5, n_samples=n_samples)
+    print(f"rma_estimate_ma of a leaf: {ma_mean:.2f}", flush=True)
+    assert isinstance(ma_mean, float)
+    assert ma_mean > 0.0
+
+    # A leaf on an isotope mass is still a bare atom.
+    iron_ma = estimator.estimate_MA({55.934939: {}}, 55.934939, joint=True)
+    assert np.mean(iron_ma) == 0.0
+
+    # A node that does have children is unaffected by the fallback.
+    joint_parent = estimator.estimate_MA({400.0: {200.0: {}, 100.0: {}}}, 400.0, joint=True)
+    print(f"Joint MA over children: {np.mean(joint_parent):.2f}", flush=True)
+    assert isinstance(joint_parent, np.ndarray)
+    assert joint_parent.shape == (n_samples,)
+    assert np.mean(joint_parent) > 0.0

@@ -229,8 +229,10 @@ def _load_molecules() -> dict[str, Molecule]:
     """
     mols: dict[str, Molecule] = {}
 
-    # Ensure the path is correct and the file exists
-    data_path = Path(__file__).parent.parent / "tests/data/test_molecule_data.csv"
+    # Bundled package data, not a sibling of the source tree: this module is
+    # imported by __init__.py, so the CSV has to be present in an installed
+    # wheel as well as in a checkout.
+    data_path = Path(__file__).parent / "data" / "test_molecule_data.csv"
     if not data_path.exists():
         raise FileNotFoundError(f"Data file not found: {data_path}")
 

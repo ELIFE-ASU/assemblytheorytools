@@ -26,11 +26,15 @@ import traceback
 from datetime import datetime
 from functools import cache, partial
 from importlib.metadata import PackageNotFoundError, version
+from math import ceil
 from rdkit import Chem
 from rdkit.Chem import AllChem as Chem
-from typing import Union, List, Optional, Sequence, Tuple, Dict, Any, NamedTuple
+from typing import (Union, List, Optional, Sequence, Tuple, Dict, Any,
+                    NamedTuple, Callable, Hashable, Iterable)
 
-from .construction import (parse_pathway_file,
+from .construction import (_VO_TYPES,
+                           _VO_TYPE_ERROR,
+                           parse_pathway_file,
                            parse_pathway_dot,
                            parse_string_pathway_file,
                            molstr_to_str,
@@ -148,30 +152,6 @@ def _prepare_bound_input(mol: Union[nx.Graph, Chem.Mol],
     if isinstance(mol, Chem.Mol):
         return Chem.RemoveHs(mol) if strip_hydrogen else mol
     raise ValueError("Input not supported")
-
-
-def _weighted_exp_sum(ai_list: List[Optional[int]], n_i: List[float]) -> float:
-    """
-    Combine per-object assembly indices into an overall assembly value.
-
-    The indices are regularised to be non-negative and then combined as the
-    copy-number weighted sum of their exponentials.
-
-    Parameters
-    ----------
-    ai_list : List[Optional[int]]
-        Assembly index of each object.
-    n_i : List[float]
-        Copy number (weight) of each object.
-
-    Returns
-    -------
-    float
-        The overall assembly index for the combined system.
-    """
-    ai_list = [regularise_assembly_index(ai) for ai in ai_list]
-    n_t = sum(n_i)  # Total weight of all objects
-    return sum(np.exp(ai) * ((n - 1) / n_t) for ai, n in zip(ai_list, n_i))
 
 
 def load_assembly_output(file_path: str) -> int:
@@ -840,6 +820,18 @@ def calculate_assembly(graphs: List[Union[nx.Graph, Chem.Mol]],
     ------
     ValueError
         If the input graphs are not of the same type or if the list lengths do not match.
+
+    See Also
+    --------
+    calculate_assembly_from_indices : The same equation, when the assembly
+        indices are already known.
+    count_copies : Collapse repeated objects into the unique objects and
+        copy numbers this function expects.
+
+    Notes
+    -----
+    The equation sums over *unique* objects. Repeated entries are not
+    collapsed, so pass each object once with its copy number.
     """
 
     settings = settings or {}
@@ -849,7 +841,7 @@ def calculate_assembly(graphs: List[Union[nx.Graph, Chem.Mol]],
     else:
         ai_list = [calculate_assembly_index(graph, **settings)[0] for graph in graphs]
 
-    return _weighted_exp_sum(ai_list, n_i)
+    return calculate_assembly_from_indices(ai_list, n_i)
 
 
 def calculate_string_assembly(strings: List[str],
@@ -882,12 +874,318 @@ def calculate_string_assembly(strings: List[str],
     ------
     ValueError
         If the input strings are not of the same type or if the list lengths do not match.
+
+    See Also
+    --------
+    calculate_assembly_from_indices : The same equation, when the assembly
+        indices are already known.
+    count_copies : Collapse repeated objects into the unique objects and
+        copy numbers this function expects.
+
+    Notes
+    -----
+    The equation sums over *unique* objects. Repeated entries are not
+    collapsed, so pass each object once with its copy number.
     """
     settings = settings or {}
 
     ai_list = [calculate_string_assembly_index(s, **settings)[0] for s in strings]
 
-    return _weighted_exp_sum(ai_list, n_i)
+    return calculate_assembly_from_indices(ai_list, n_i)
+
+
+def calculate_assembly_from_indices(ai_list: Sequence[Optional[int]],
+                                    n_i: Sequence[float]) -> float:
+    """
+    Combine known assembly indices and copy numbers into an assembly value.
+
+    The indices are regularised to be non-negative and then combined through
+    the assembly equation, the copy-number weighted sum of their
+    exponentials ``exp(a_i) * (n_i - 1) / N_T``, where ``N_T`` is the total
+    copy number ``sum(n_i)``.
+
+    Use this when the indices are already in hand: composed from several
+    parts, measured rather than computed, or loaded from an earlier run.
+    :func:`calculate_assembly` and :func:`calculate_string_assembly` compute
+    the indices themselves and are the right entry points otherwise.
+
+    Parameters
+    ----------
+    ai_list : Sequence[Optional[int]]
+        Assembly index of each unique object. ``None`` and negative values
+        mark a failed calculation and are regularised to zero, so a timed-out
+        object still contributes ``(n_i - 1) / N_T``. Any sized sequence is
+        accepted, including a NumPy array or a DataFrame column.
+    n_i : Sequence[float]
+        Copy number of each object, in the same order as `ai_list`.
+
+    Returns
+    -------
+    float
+        The assembly of the ensemble.
+
+    Raises
+    ------
+    ValueError
+        If the two sequences have different lengths, if either is empty, or
+        if the copy numbers sum to zero.
+
+    See Also
+    --------
+    count_copies : Collapse repeated objects into the counted input this
+        function expects.
+    exploration_ratio : The companion ensemble measure, over the joint
+        assembly space rather than over copy numbers.
+
+    Notes
+    -----
+    The equation assumes one entry per *unique* object, and nothing here
+    enforces that. Passing the same object twice counts it as two species.
+
+    An object seen once contributes nothing, because its ``n_i - 1`` factor
+    is zero. That is the point of the equation: a single complex object is
+    weak evidence of anything, while many copies of one are not.
+
+    Examples
+    --------
+    >>> import assemblytheorytools as att
+    >>> att.calculate_assembly_from_indices([1, 9], [100.0, 100.0])
+    4012.372093654902
+
+    Ethanol has an assembly index of 1 and caffeine 9. Drop caffeine to a
+    single copy and it stops contributing, so assembly collapses:
+
+    >>> att.calculate_assembly_from_indices([1, 9], [100.0, 1.0])
+    2.664454465519262
+    """
+    if len(ai_list) != len(n_i):
+        raise ValueError(
+            f"ai_list and n_i must be the same length, "
+            f"got {len(ai_list)} and {len(n_i)}"
+        )
+    if len(ai_list) == 0:
+        raise ValueError("ai_list and n_i must not be empty")
+
+    n_t = sum(n_i)  # Total copy number of all objects
+    if n_t == 0:
+        raise ValueError("The copy numbers must not sum to zero")
+
+    ai_list = [regularise_assembly_index(ai) for ai in ai_list]
+    return float(sum(np.exp(ai) * ((n - 1) / n_t)
+                     for ai, n in zip(ai_list, n_i)))
+
+
+def count_copies(objects: Iterable[Any],
+                 key: Optional[Callable[[Any], Hashable]] = None
+                 ) -> Tuple[List[Any], List[int]]:
+    """
+    Collapse repeated objects into unique objects and their copy numbers.
+
+    The assembly equation is a sum over *unique* objects weighted by how
+    often each was observed, but the calculators take a flat list. This turns
+    one into the other: the two returned lists are aligned and can be passed
+    straight to :func:`calculate_assembly`,
+    :func:`calculate_string_assembly` or
+    :func:`calculate_assembly_from_indices`.
+
+    Parameters
+    ----------
+    objects : Iterable[Any]
+        The observed objects, with repeats. Order is preserved.
+    key : Optional[Callable[[Any], Hashable]], optional
+        Maps an object to the hashable identity that decides whether two
+        objects are the same. Defaults to the object itself, which suits
+        strings and other hashables. Pass ``Chem.MolToInchi`` for RDKit
+        molecules, whose objects compare by identity rather than structure.
+
+    Returns
+    -------
+    Tuple[List[Any], List[int]]
+        The first object seen for each distinct identity, in first-seen
+        order, and the number of times each was seen.
+
+    See Also
+    --------
+    assemblytheorytools.reassembler.get_unique_mols : Deduplicates RDKit
+        molecules by InChI without returning the counts.
+
+    Examples
+    --------
+    >>> import assemblytheorytools as att
+    >>> att.count_copies(["abab", "cdcd", "abab", "abab"])
+    (['abab', 'cdcd'], [3, 1])
+
+    The result feeds the assembly equation directly. Here both strings have
+    an assembly index of 1, and only the repeated one contributes:
+
+    >>> strings, n_i = att.count_copies(["ab", "ab", "cd"])
+    >>> att.calculate_assembly_from_indices([1, 1], n_i)
+    0.9060939428196817
+    """
+    unique: List[Any] = []
+    counts: List[int] = []
+    seen: Dict[Hashable, int] = {}
+
+    for obj in objects:
+        identity = obj if key is None else key(obj)
+        if identity in seen:
+            counts[seen[identity]] += 1
+        else:
+            seen[identity] = len(unique)
+            unique.append(obj)
+            counts.append(1)
+
+    return unique, counts
+
+
+def joint_assembly_space(pathways: Sequence[nx.DiGraph],
+                         node_key: Optional[str] = None) -> nx.DiGraph:
+    """
+    Compose individual assembly pathways into a joint assembly space.
+
+    The exact joint assembly space of a large ensemble is out of reach, so it
+    is approximated by the union of the individual minimum pathways, sharing
+    every intermediate that appears in more than one of them. This is the
+    approximation described under :term:`joint assembly space`.
+
+    Parameters
+    ----------
+    pathways : Sequence[nx.DiGraph]
+        One minimum pathway per object, as returned third by
+        :func:`calculate_assembly_index` or
+        :func:`calculate_string_assembly_index`.
+    node_key : Optional[str], optional
+        Node attribute holding the object each node stands for. When given,
+        nodes are relabelled by it before composing, so that nodes carrying
+        the same object merge. Needed for pathways whose node identifiers are
+        positional rather than the object itself, such as the ``step_N`` and
+        ``virtual_object_N`` identifiers the molecular calculator produces;
+        pass ``node_key="vo"`` for those. Leave it as ``None`` when the node
+        identifiers already are the objects.
+
+    Returns
+    -------
+    nx.DiGraph
+        The union of the pathways. Its nodes are the observed objects
+        together with the contingent intermediates needed to build them.
+
+    Raises
+    ------
+    ValueError
+        If `pathways` is empty.
+    KeyError
+        If `node_key` is given and some node lacks that attribute.
+
+    See Also
+    --------
+    exploration_ratio : How much of this space the observed objects occupy.
+    calculate_assembly_index_pairwise_joint : Builds the same union from
+        every pair of a set of graphs rather than from precomputed pathways.
+
+    Examples
+    --------
+    >>> import assemblytheorytools as att
+    >>> paths = [att.calculate_string_assembly_index(s, mode="cfg")[2]
+    ...          for s in ("gavhp", "gavhh")]
+    >>> jas = att.joint_assembly_space(paths)
+    >>> sorted(jas.nodes)[:5]
+    ['a', 'g', 'ga', 'gav', 'gavh']
+    """
+    if len(pathways) == 0:
+        raise ValueError("pathways must not be empty")
+
+    if node_key is not None:
+        pathways = [
+            nx.relabel_nodes(
+                path,
+                {n: path.nodes[n][node_key] for n in path.nodes},
+                copy=True,
+            )
+            for path in pathways
+        ]
+
+    return nx.compose_all(pathways)
+
+
+def exploration_ratio(pathways: Sequence[nx.DiGraph],
+                      observed: Optional[Iterable[Hashable]] = None,
+                      node_key: Optional[str] = None) -> float:
+    """
+    Measure how fully an ensemble samples its joint assembly space.
+
+    The joint assembly space holds the observed objects together with the
+    contingent ones, which were never observed but are needed to build the
+    observed ones along a minimum path. The exploration ratio is the number
+    of observed objects divided by the total.
+
+    A ratio near one means the system realised almost everything its own
+    construction implies, which is undirected exploration. A markedly lower
+    ratio means it pushed deep along a few routes and left most of the
+    reachable space unrealised, which is the signature of directed
+    exploration and hence of :term:`selectivity`.
+
+    Parameters
+    ----------
+    pathways : Sequence[nx.DiGraph]
+        One minimum pathway per observed object.
+    observed : Optional[Iterable[Hashable]], optional
+        The observed objects, as they are identified in the pathways. When
+        omitted, the target of each pathway is used: its nodes with no
+        outgoing edge, taken per pathway rather than from the union, since a
+        target of one pathway is often an intermediate of another.
+    node_key : Optional[str], optional
+        Passed to :func:`joint_assembly_space` to relabel pathway nodes by a
+        node attribute before composing.
+
+    Returns
+    -------
+    float
+        The ratio, greater than zero and at most one.
+
+    Raises
+    ------
+    ValueError
+        If `pathways` is empty.
+
+    See Also
+    --------
+    joint_assembly_space : The union this ratio is measured against.
+    calculate_assembly_from_indices : The companion ensemble measure, which
+        weights the same objects by copy number.
+
+    Notes
+    -----
+    The ratio is a property of the ensemble, not of any one object, and it
+    depends on the ensemble being generated recursively. Objects drawn
+    independently share few intermediates, so their union is mostly
+    contingent and the ratio is low for reasons that have nothing to do with
+    selection.
+
+    Examples
+    --------
+    >>> import assemblytheorytools as att
+    >>> path = att.calculate_string_assembly_index("gavhp", mode="cfg")[2]
+    >>> att.exploration_ratio([path])
+    0.1111111111111111
+
+    One observed object among nine nodes: building it required eight
+    intermediates that were never themselves observed.
+    """
+    if len(pathways) == 0:
+        raise ValueError("pathways must not be empty")
+
+    if observed is None:
+        if node_key is None:
+            observed = {n for path in pathways
+                        for n in path.nodes if path.out_degree(n) == 0}
+        else:
+            observed = {path.nodes[n][node_key] for path in pathways
+                        for n in path.nodes if path.out_degree(n) == 0}
+
+    space = joint_assembly_space(pathways, node_key=node_key)
+    nodes = set(space.nodes)
+
+    return len(nodes & set(observed)) / len(nodes)
 
 
 def calculate_string_assembly_index(input_data: Union[str, List[str]],
@@ -2196,6 +2494,31 @@ def _rust_error(error: OSError) -> ValueError:
     return ValueError(f"The Rust backend could not read this molecule: {error}")
 
 
+# The backend counts joining operations in an unsigned 32-bit integer and
+# underflows to its maximum when there are none to count: a bare atom has no
+# bonds to join, and a one-bond molecule is already at its full depth. Both of
+# those answers are 0, and no molecule small enough for a V2000 mol block can
+# have a genuine index or depth anywhere near this value.
+_RUST_UNDERFLOW = 2 ** 32 - 1
+
+
+def _rust_count(value: int) -> int:
+    """
+    Correct the backend's underflow sentinel to the zero it stands for.
+
+    Parameters
+    ----------
+    value : int
+        An assembly index or depth as reported by the Rust backend.
+
+    Returns
+    -------
+    int
+        The value, or 0 where the backend underflowed.
+    """
+    return 0 if value == _RUST_UNDERFLOW else value
+
+
 def calculate_assembly_index_rust(mol: Union[nx.Graph, Chem.Mol]) -> int:
     """
     Calculate the assembly index of a molecule using the Rust-based assembly theory library.
@@ -2230,6 +2553,9 @@ def calculate_assembly_index_rust(mol: Union[nx.Graph, Chem.Mol]) -> int:
       pathways.
     - Hydrogens are always stripped, so only compare the result against
       ``calculate_assembly_index(..., strip_hydrogen=True)``.
+    - A molecule with no bonds, such as a bare atom or a metal ion, has an
+      index of 0. The backend underflows to 4294967295 in that case, which is
+      corrected here.
 
     Examples
     --------
@@ -2239,9 +2565,11 @@ def calculate_assembly_index_rust(mol: Union[nx.Graph, Chem.Mol]) -> int:
     9
     >>> att.calculate_assembly_index_rust(att.smi_to_nx("CCO"))
     1
+    >>> att.calculate_assembly_index_rust(att.smi_to_mol("[Fe+2]"))
+    0
     """
     try:
-        return at_rust.index(_mol_to_molblock(mol))
+        return _rust_count(at_rust.index(_mol_to_molblock(mol)))
     except OSError as e:
         raise _rust_error(e) from e
 
@@ -2281,15 +2609,20 @@ def calculate_assembly_depth_rust(mol: Union[nx.Graph, Chem.Mol]) -> int:
       instantly and naphthalene takes around four minutes, while both of their
       indices come back in well under a second.
     - Hydrogens are stripped, as they are for every Rust-backed calculation.
+    - A molecule needing no joining operations, such as one with a single bond,
+      has a depth of 0. The backend underflows to 4294967295 in that case,
+      which is corrected here.
 
     Examples
     --------
     >>> import assemblytheorytools as att
     >>> att.calculate_assembly_depth_rust(att.smi_to_nx("c1ccccc1"))
     3
+    >>> att.calculate_assembly_depth_rust(att.smi_to_nx("CC"))
+    0
     """
     try:
-        return at_rust.depth(_mol_to_molblock(mol))
+        return _rust_count(at_rust.depth(_mol_to_molblock(mol)))
     except OSError as e:
         raise _rust_error(e) from e
 
@@ -2363,8 +2696,8 @@ def calculate_assembly_index_rust_search(mol: Union[nx.Graph, Chem.Mol],
         `Chem.Mol` object.
     timeout : float, optional
         Seconds after which to stop searching and return the best index found
-        so far. Note that the Rust backend takes milliseconds; the conversion
-        is done here so that this argument matches
+        so far. Note that the Rust backend takes whole milliseconds; the
+        conversion is done here, rounding up, so that this argument matches
         :func:`calculate_assembly_index`. Default is None, meaning no limit.
     canonize : str, optional
         Canonisation mode: 'nauty', 'faulon', 'tree-nauty' or 'tree-faulon'.
@@ -2374,13 +2707,15 @@ def calculate_assembly_index_rust_search(mol: Union[nx.Graph, Chem.Mol],
         'depth-one'. Use 'none' to make `states_searched` deterministic.
     memoize : str, optional
         Memoisation mode: 'none' or 'canon-index'. Default is 'canon-index'.
+        The backend's error message also lists 'frags-index', but rejects it.
     kernel : str, optional
         Kernelisation mode: 'none', 'once', 'depth-one' or 'always'. Default
         is 'none'.
     bounds : Sequence[str], optional
         Branch-and-bound strategies to apply, drawn from 'log', 'int',
         'vec-simple', 'vec-small-frags' and 'matchable-edges'. Pass an empty
-        sequence for an exhaustive search. Default is
+        sequence for an exhaustive search, and a one-element sequence rather
+        than a bare string for a single strategy. Default is
         ``("int", "matchable-edges")``.
     max_pathways : int, optional
         How many minimum assembly pathways to reconstruct: a positive integer
@@ -2401,21 +2736,25 @@ def calculate_assembly_index_rust_search(mol: Union[nx.Graph, Chem.Mol],
     ------
     ValueError
         If the molecule is not a NetworkX graph or an RDKit molecule, if it is
-        too large for a V2000 mol block, if the Rust backend cannot read it, or
-        if any of the mode strings is not recognised.
+        too large for a V2000 mol block, if the Rust backend cannot read it, if
+        `timeout` is negative, if `bounds` is a bare string, if any of the mode
+        strings is not recognised, or if reconstructed pathways cannot be read
+        back against the molecule that was searched.
     NotImplementedError
         If `max_pathways` is given but the installed ``assembly-theory`` release
         does not support pathway reconstruction.
 
     Notes
     -----
-    - Pathway reconstruction was added upstream after release 0.6.1. Support is
-      detected at call time, so this function works on older releases as long
-      as `max_pathways` is left as None.
+    - Pathway reconstruction arrived in ``assembly-theory`` 0.7.0. Support is
+      detected at call time rather than by version, so this function still
+      works on 0.6.1 as long as `max_pathways` is left as None.
     - Each pathway is parsed by
       :func:`~assemblytheorytools.construction.parse_pathway_dot` against the
       molecule that was searched, so its bond indices always line up.
     - Hydrogens are stripped, as they are for every Rust-backed calculation.
+    - `index` is corrected for the backend's underflow the same way
+      :func:`calculate_assembly_index_rust` corrects it.
 
     Examples
     --------
@@ -2433,9 +2772,23 @@ def calculate_assembly_index_rust_search(mol: Union[nx.Graph, Chem.Mol],
     ...     att.smi_to_nx("c1ccccc1"), max_pathways=1)
     >>> fig, ax = att.plot_pathway(result.pathways[0])  # doctest: +SKIP
     """
+    if vo_type not in _VO_TYPES:
+        raise ValueError(_VO_TYPE_ERROR)
+
+    # A bare string is a Sequence[str], so it would otherwise be split into
+    # characters and rejected one letter at a time
+    if isinstance(bounds, str):
+        raise ValueError(f"bounds must be a sequence of strategy names, not a single "
+                         f"string; pass [{bounds!r}] to apply only that one.")
+
+    if timeout is not None and timeout < 0:
+        raise ValueError(f"timeout must not be negative, got {timeout}.")
+
     mol_block = _mol_to_molblock(mol)
 
-    options = {"timeout": None if timeout is None else int(timeout * 1000),
+    # The backend takes whole milliseconds and reads 0 as 'give up immediately',
+    # so round up rather than truncating a sub-millisecond timeout into that
+    options = {"timeout": None if timeout is None else ceil(timeout * 1000),
                "canonize_str": canonize,
                "parallel_str": parallel,
                "memoize_str": memoize,
@@ -2448,8 +2801,7 @@ def calculate_assembly_index_rust_search(mol: Union[nx.Graph, Chem.Mol],
         if not _rust_supports_pathways():
             raise NotImplementedError(
                 f"The installed assembly-theory release ({_rust_version()}) cannot reconstruct "
-                "assembly pathways. Leave max_pathways as None, or upgrade once pathway support "
-                "is released; see https://github.com/DaymudeLab/assembly-theory/issues/155.")
+                "assembly pathways. Leave max_pathways as None, or upgrade to 0.7.0 or newer.")
         options["max_pathways"] = max_pathways
 
     try:
@@ -2459,10 +2811,20 @@ def calculate_assembly_index_rust_search(mol: Union[nx.Graph, Chem.Mol],
 
     # Older releases return a 3-tuple, without the list of pathway DOT strings
     dot_pathways = result[3] if len(result) > 3 else []
-    parsed_mol = Chem.MolFromMolBlock(mol_block)
-    pathways = [parse_pathway_dot(dot, mol=parsed_mol, vo_type=vo_type) for dot in dot_pathways]
 
-    return RustSearchResult(result[0], result[1], result[2], pathways)
+    pathways = []
+    if dot_pathways:
+        # Bond indices only mean anything against the molecule the backend read,
+        # so the pathways are parsed against that same mol block
+        parsed_mol = Chem.MolFromMolBlock(mol_block)
+        if parsed_mol is None:
+            raise ValueError("The reconstructed pathways cannot be read back: RDKit could not "
+                             "re-parse the mol block that was searched, so the pathway bond "
+                             "indices cannot be resolved to fragments.")
+        pathways = [parse_pathway_dot(dot, mol=parsed_mol, vo_type=vo_type)
+                    for dot in dot_pathways]
+
+    return RustSearchResult(_rust_count(result[0]), result[1], result[2], pathways)
 
 
 def calculate_integer_chain(n: int) -> int:

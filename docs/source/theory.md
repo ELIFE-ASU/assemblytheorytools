@@ -220,6 +220,26 @@ That transition from undirected to directed exploration is
 complexity: fewer of the reachable objects actually realised, and the ones that
 are, more assembled.
 
+The {term}`exploration ratio` makes that measurable. Take the minimum pathway
+of every observed object and compose them into one graph: the union
+approximation of the {term}`joint assembly space`. Its nodes are the observed
+objects plus the *contingent* ones — intermediates a minimum path needs but
+which were never themselves seen. The ratio of observed nodes to all nodes says
+how fully the ensemble realised its own construction:
+
+```python
+paths = [att.calculate_string_assembly_index(s, mode="cfg")[2]
+         for s in sequences]
+
+att.exploration_ratio(paths)
+```
+
+A ratio near one means almost everything the system could build from what it
+had, it did build. A markedly lower one means it drove deep along a few routes
+and left the rest of the space empty. Unlike assembly, the ratio needs no copy
+numbers, which is why it speaks to selectivity rather than selection — and why
+it can be computed from a list of identified products alone.
+
 {term}`Selection` is what selectivity produces when the timescales cooperate.
 If $\tau_d \ll \tau_p$, new objects appear faster than resources can copy any of
 them, and the result is a combinatorial explosion of low-copy-number junk — the

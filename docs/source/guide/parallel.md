@@ -54,6 +54,13 @@ A function defined interactively or nested inside another function raises a
 pickling error when the pool starts.
 :::
 
+The rule is about where the function is *defined*, not how the session is
+started: a function importable from an installed module — such as
+{func}`~assemblytheorytools.tools_graph.smi_to_nx` — works from a Jupyter
+notebook or an interactive session too, which is why the protocol notebooks can
+call `mp_calc`. Only a function defined *in* the session itself (a closure, a
+`lambda`, or a cell-level `def`) cannot be pickled to the workers.
+
 Variants:
 
 * {func}`~assemblytheorytools.tools_mp.mp_calc_chunked` — batches items before
@@ -85,7 +92,7 @@ ok = [(g, a) for g, a in zip(graphs, ai) if a >= 0]
 A negative index marks a calculation that did not produce an exact answer;
 zero is valid for an object with one elementary bond. Without `exact=True`, a
 positive result after a timeout may be an upper bound rather than the exact
-index. [Protocol 2](../examples/protocol_2.md) deliberately excludes both
+index. {doc}`Protocol 2 <../examples/protocol_2>` deliberately excludes both
 failures and the trivial zero-index case from its plotted subset.
 
 ## Working on an HPC cluster

@@ -3,6 +3,8 @@
 This page explains the vocabulary used throughout the API. It is deliberately
 short on theory: {doc}`theory` covers the background, {doc}`glossary` gives the
 formal definitions, and the papers listed under {doc}`citing` are the reference.
+{doc}`route_map` tabulates every quantity ATT computes alongside its inputs,
+outputs and typical use.
 
 ## The assembly index
 

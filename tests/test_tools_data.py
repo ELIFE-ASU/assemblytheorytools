@@ -1,4 +1,7 @@
 import io
+import json
+import shutil
+import tarfile
 import numpy as np
 import pandas as pd
 import pytest
@@ -293,3 +296,109 @@ def test_process_chemotion_ir_archive(tmp_path):
     fig.savefig(output)
 
     assert output.stat().st_size > 0
+
+
+@pytest.fixture
+def chemotion_archive(tmp_path, data_dir):
+    """Build a miniature Chemotion IR archive around one real JCAMP-DX spectrum.
+
+    Mirrors the published layout: a tar holding ``meta_data.json`` and a nested
+    ``IR_data.tar.xz``. The metadata's non-``.peak.jdx`` identifier has to match the
+    spectrum's filename, which is what the two halves are merged on.
+    """
+    staging = tmp_path / "staging"
+    staging.mkdir()
+    shutil.copy(data_dir / "ir_jcamp", staging / "SPEC1.jdx")
+
+    inner = staging / "IR_data.tar.xz"
+    with tarfile.open(inner, "w:xz") as tar:
+        tar.add(staging / "SPEC1.jdx", arcname="SPEC1.jdx")
+
+    meta = staging / "meta_data.json"
+    meta.write_text(json.dumps([{
+        "cano_smiles": "CCO",
+        "datasets": [{"attacments": [
+            {"filename": "SPEC1.peak.jdx", "identifier": "a/b/SPEC1.peak.jdx"},
+            {"filename": "SPEC1.jdx", "identifier": "a/b/SPEC1.jdx"},
+        ]}],
+    }]))
+
+    archive = tmp_path / "10.22000-OGoEQGlsZGElrgst.tar"
+    with tarfile.open(archive, "w") as tar:
+        tar.add(meta, arcname="meta_data.json")
+        tar.add(inner, arcname="IR_data.tar.xz")
+
+    shutil.rmtree(staging)
+    return archive
+
+
+def _cache_path(archive):
+    return archive.parent / "chemotion_ir_data" / "chemotion_ir_data.pkl.gz"
+
+
+def test_process_chemotion_ir_data_builds_frame(chemotion_archive, serial_data_mp):
+    frame = att.process_chemotion_ir_data(chemotion_archive)
+
+    assert list(frame.columns) == ["smiles", "name", "spectrum"]
+    assert frame["smiles"].tolist() == ["CCO"]
+    spectrum = frame["spectrum"].iloc[0]
+    assert isinstance(spectrum, np.ndarray)
+    assert spectrum.ndim == 2 and spectrum.shape[1] == 2
+
+
+def test_process_chemotion_ir_data_does_not_cache_by_default(
+        chemotion_archive, serial_data_mp, tmp_path, monkeypatch):
+    cwd = tmp_path / "cwd"
+    cwd.mkdir()
+    monkeypatch.chdir(cwd)
+
+    att.process_chemotion_ir_data(chemotion_archive)
+
+    assert not _cache_path(chemotion_archive).exists()
+    assert list(cwd.iterdir()) == []
+
+
+def test_process_chemotion_ir_data_cache_round_trips_spectra(chemotion_archive, serial_data_mp):
+    """A saved cache must reload spectra as arrays, not as their string repr."""
+    first = att.process_chemotion_ir_data(chemotion_archive, save=True)
+    assert _cache_path(chemotion_archive).is_file()
+
+    second = att.process_chemotion_ir_data(chemotion_archive)
+
+    spectrum = second["spectrum"].iloc[0]
+    assert isinstance(spectrum, np.ndarray)
+    np.testing.assert_allclose(spectrum, first["spectrum"].iloc[0])
+    # The protocol's next step indexes the intensity column; strings would break it.
+    assert np.all(np.isfinite(spectrum.T[1]))
+
+
+def test_process_chemotion_ir_data_cache_follows_the_archive(
+        chemotion_archive, serial_data_mp, tmp_path, monkeypatch):
+    """The cache is keyed to the archive, not to the caller's working directory."""
+    cwd = tmp_path / "cwd"
+    cwd.mkdir()
+    monkeypatch.chdir(cwd)
+    att.process_chemotion_ir_data(chemotion_archive, save=True)
+
+    # Saving writes beside the archive, leaving the working directory untouched ...
+    assert list(cwd.iterdir()) == []
+    assert _cache_path(chemotion_archive).is_file()
+
+    # ... so the cache is still found from a different working directory.
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    frame = att.process_chemotion_ir_data(chemotion_archive)
+
+    assert isinstance(frame["spectrum"].iloc[0], np.ndarray)
+    assert list(elsewhere.iterdir()) == []
+
+
+def test_process_chemotion_ir_data_ignores_unreadable_cache(chemotion_archive, serial_data_mp):
+    """A corrupt cache is reprocessed instead of raising."""
+    att.process_chemotion_ir_data(chemotion_archive, save=True)
+    _cache_path(chemotion_archive).write_bytes(b"not a pickle")
+
+    frame = att.process_chemotion_ir_data(chemotion_archive)
+
+    assert isinstance(frame["spectrum"].iloc[0], np.ndarray)

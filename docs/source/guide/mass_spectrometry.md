@@ -83,8 +83,8 @@ the data has been extracted once.
 {func}`~assemblytheorytools.tools_plotting.plot_ms2_spectrum` plots a processed
 MS2 spectrum with its fragmentation tree overlaid.
 
-[Protocol 4](../examples/protocol_4.md) runs this pipeline end to end on a real
-stepped-MS3 sample.
+{doc}`Protocol 4 <../examples/protocol_4>` runs this pipeline end to end on a
+real stepped-MS3 sample.
 
 ## Infrared spectra
 
@@ -110,7 +110,11 @@ Savitzky-Golay smooth first, because peak finding on raw spectra picks up noise;
 indices themselves are needed.
 
 {func}`~assemblytheorytools.tools_data.process_chemotion_ir_data` loads and
-cleans a whole Chemotion IR dataset into a DataFrame, and
+cleans a whole Chemotion IR dataset into a DataFrame. The archive it expects is
+the Chemotion IR collection
+([doi:10.22000/OGoEQGlsZGElrgst](https://doi.org/10.22000/OGoEQGlsZGElrgst)),
+external CC BY-SA 4.0 data that ATT does not bundle — see {doc}`../citing` for
+the citation to use.
 {func}`~assemblytheorytools.tools_data.estimate_ai_from_ir_peaks` fits the model
 that maps peak counts onto assembly index:
 
@@ -127,7 +131,7 @@ forms, and {func}`~assemblytheorytools.tools_data.get_r`,
 model is the published choice — prefer it unless a higher order is clearly
 justified, since peak count is a coarse feature and a quintic will fit noise.
 
-[Protocol 3](../examples/protocol_3.md) is the complete worked correlation.
+{doc}`Protocol 3 <../examples/protocol_3>` is the complete worked correlation.
 
 ## See also
 

@@ -1652,15 +1652,17 @@ def process_chemotion_ir_data(target_file: str, save: bool = False) -> pd.DataFr
     Process Chemotion IR data from a tar file and return it as a pandas DataFrame.
 
     This function extracts metadata and IR spectra from a Chemotion tar file, processes
-    the data, and merges the metadata with the corresponding IR spectra. The resulting
-    DataFrame is saved to a compressed CSV file for future use.
+    the data, and merges the metadata with the corresponding IR spectra. The result can
+    optionally be cached to disk for future use. The archive is the external Chemotion IR
+    collection [Jung2024]_, which is not distributed with ATT.
 
     Parameters
     ----------
     target_file : str
         Path to the Chemotion tar file containing the IR data and metadata.
     save : bool, optional
-        Whether to save the processed DataFrame to a compressed CSV file. Default is False.
+        Whether to cache the processed DataFrame beside the extracted data. Default is
+        False.
 
     Returns
     -------
@@ -1669,19 +1671,41 @@ def process_chemotion_ir_data(target_file: str, save: bool = False) -> pd.DataFr
 
     Notes
     -----
-    - If the processed data file (`chemotion_ir_data.csv.gz`) already exists, the function
-      skips processing and loads the data directly from the file.
     - The function extracts the tar file to a directory named `chemotion_ir_data` in the
-      same location as the `target_file`.
+      same location as the `target_file`, and assumes one archive per directory.
+    - With `save=True` the result is cached as `chemotion_ir_data.pkl.gz` inside that
+      extraction directory, and later calls for the same archive reload it instead of
+      reprocessing. The cache is pickled rather than written as CSV because the
+      `spectrum` column holds `(N, 2)` arrays, which CSV would flatten to strings.
+    - A cache that cannot be read back, for instance one pickled by a different pandas
+      version, is ignored and the archive is reprocessed.
+    - Caches written by earlier versions of ATT (`chemotion_ir_data.csv.gz`, saved to the
+      working directory) are not read; delete them.
     - Rows with any missing values are dropped from the final DataFrame.
+
+    References
+    ----------
+    .. [Jung2024] Jung, N., Tremouilhac, P., Punjabi, D., & Huang, P.-C. (2024).
+       Chemotion Repository - Data collection: FT-IR spectroscopy data (Chemotion IR)
+       [Data set]. Karlsruhe Institute of Technology. Released under CC BY-SA 4.0;
+       cite it in work derived from these spectra.
+       https://doi.org/10.22000/OGoEQGlsZGElrgst
     """
     extract_dir = os.path.join(os.path.dirname(target_file), "chemotion_ir_data")
-    out_file = "chemotion_ir_data.csv.gz"
+    # Cache beside the extracted data so it is keyed to the archive rather than to
+    # whichever directory the caller happens to be running from.
+    out_file = os.path.join(extract_dir, "chemotion_ir_data.pkl.gz")
 
     # Check if the processed data file already exists
     if os.path.exists(out_file):
-        print(f"{out_file} already exists. Skipping processing.", flush=True)
-        return pd.read_csv(out_file)
+        try:
+            cached = pd.read_pickle(out_file)
+        except Exception as err:
+            # A stale or partly written cache must not be fatal; reprocess instead.
+            print(f"Ignoring unreadable cache {out_file}: {err}", flush=True)
+        else:
+            print(f"{out_file} already exists. Skipping processing.", flush=True)
+            return cached
 
     # Extract the tar file if the extraction directory does not exist
     if not os.path.exists(extract_dir):
@@ -1698,8 +1722,8 @@ def process_chemotion_ir_data(target_file: str, save: bool = False) -> pd.DataFr
     # Drop rows with any NaN values
     merged_data = merged_data.dropna()
     if save:
-        # Save the merged data to a compressed CSV file
-        merged_data.to_csv(out_file, index=False)
+        # Pickle, not CSV: the 'spectrum' column holds arrays that CSV cannot round-trip.
+        merged_data.to_pickle(out_file)
     return merged_data
 
 
@@ -2113,6 +2137,16 @@ def _peaks_to_ai(n_peaks: Union[int, float],
     -------
     int
         The calculated assembly index (AI) as an integer.
+
+    Notes
+    -----
+    - The model output is truncated towards zero, not rounded: a fitted value of
+      7.9 is reported as 7.
+    - Nothing constrains the result to be physical. A model with a negative
+      intercept returns a negative assembly index at small peak counts, and no
+      upper bound is applied either. Clamp the output if the caller needs one.
+    - Peak count is the only input, so every spectrum with the same count maps to
+      the same index whatever the molecule is.
     """
     return int(model(n_peaks, *params))
 
@@ -2142,6 +2176,16 @@ def _func_min_helper(x: np.ndarray, *args: Any) -> float:
     -------
     float
         The RMSD between the observed and predicted assembly indices.
+
+    Notes
+    -----
+    - Predictions go through `_peaks_to_ai`, so they are truncated to integers
+      before the RMSD is taken. The objective is therefore piecewise constant in
+      the parameters: small changes usually leave it untouched, and it steps
+      discontinuously when a prediction crosses an integer boundary.
+    - A downhill simplex on such a surface can settle on a flat region and stop,
+      so the value reached is a local, starting-point-dependent one rather than a
+      global minimum.
     """
     n_peaks, obs, model_fit = args
     pred = np.array([_peaks_to_ai(n, model_fit, x) for n in n_peaks], dtype=int)
@@ -2159,10 +2203,17 @@ def estimate_ai_from_ir_peaks(peaks_data: np.ndarray,
     deviation (RMSD) between observed assembly indices and predicted assembly indices.
     The optimized parameters and the predicted assembly indices are returned.
 
+    The result is an empirical correlation calibrated on the data passed in, not a
+    calculation of the assembly index. `ai_obs` has to come from an exact route such
+    as `calculate_assembly_index` for the fit to mean anything, and the fitted
+    parameters only apply to spectra processed the same way as the calibration set.
+    See the Notes for what the correlation can and cannot support.
+
     Parameters
     ----------
     peaks_data : array-like
-        The input data representing the number of peaks in the spectrum.
+        The number of peaks in each spectrum, as returned by
+        `find_n_peak_indices_in_range`.
     ai_obs : array-like
         The observed assembly indices corresponding to the input data.
     model : callable
@@ -2180,8 +2231,36 @@ def estimate_ai_from_ir_peaks(peaks_data: np.ndarray,
 
     Notes
     -----
-    The optimization is performed using the Nelder-Mead method, with the
-    tolerance set to 1e-6.
+    - The optimization is performed using the Nelder-Mead method, with the
+      tolerance set to 1e-6.
+    - The estimate is a population-level trend, not a measurement. One scalar
+      feature cannot separate isomers, or any two molecules whose spectra carry
+      the same number of peaks, so the per-molecule residual is wide even when the
+      correlation is good. Report `get_r`, `get_r2` and `get_rmsd` alongside any
+      estimate and treat the RMSD as the error bar: no per-point uncertainty is
+      returned.
+    - The fit is valid only over the peak counts and assembly indices it was
+      calibrated on. Extrapolating beyond that range is unsupported, and with the
+      higher-order models (`cubic_func` and above) it diverges quickly.
+    - The feature depends on the whole preprocessing chain: peak counts shift with
+      the smoothing window, with the `prominence` and `distance` settings of
+      `find_peak_indices_in_range`, with the wavenumber range, and with the
+      intensity scale of the source files, which ATT does not normalise.
+      Parameters fitted under one set of choices do not transfer to another.
+    - Nelder-Mead is a local, unbounded search over a piecewise-constant objective
+      (see `_func_min_helper`), so `params_0` materially changes the answer and a
+      poor start can leave the fit at its initial values. Try several starting
+      points and keep the lowest RMSD.
+    - Prefer the lowest-order model that fits. Peak count is a coarse feature, so a
+      quintic fits noise in the calibration set and generalises worse than a line;
+      a linear model is the choice published by Jirasek et al. [Jirasek2024a]_.
+
+    References
+    ----------
+    .. [Jirasek2024a] Jirasek, M. *et al.* (2024). Investigating and quantifying
+       molecular complexity using assembly theory and spectroscopy. ACS Central
+       Science, 10(5), 1054-1064.
+       https://doi.org/10.1021/acscentsci.4c00120
     """
     res = minimize(_func_min_helper,
                    np.array(params_0),

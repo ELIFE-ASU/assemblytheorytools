@@ -25,8 +25,10 @@ cd assemblytheorytools
 pip install -e ".[dev,docs]"
 ```
 
-The `dev` extra adds `pytest` and `pytest-cov`; the `docs` extra adds Sphinx and
-the theme used to build this site. Omit either extra when it is not needed.
+The `dev` extra adds `pytest` and `pytest-cov`; the `docs` extra adds Sphinx,
+MyST-NB and the theme used to build this site; the `notebooks` extra adds
+JupyterLab for running the protocol notebooks. Omit any extra when it is not
+needed.
 
 ## Conda environment
 

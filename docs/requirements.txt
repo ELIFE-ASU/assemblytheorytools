@@ -11,3 +11,4 @@
 sphinx>=8.0
 sphinx-rtd-theme>=3.0
 myst-parser>=4.0
+myst-nb>=1.4

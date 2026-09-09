@@ -8,8 +8,9 @@ name: Documentation
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -21,9 +22,12 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-python@v6
         with:
