@@ -3,30 +3,25 @@ Handling of crystal structures and periodic cells.
 
 This module reads CIF files into ASE ``Atoms`` objects, identifies bonded
 clusters within a periodic cell, tiles cells and shells to build finite
-neighbourhoods, converts cells to NetworkX graphs, and guesses bond orders for
-the resulting connectivity.
+neighbourhoods, converts cells to NetworkX graphs, and guesses bond orders
+for the resulting connectivity.
 """
 
-import ase
+import warnings
+from typing import Dict, List, Optional, Tuple
+
 import networkx as nx
 import numpy as np
-import warnings
 from ase import Atoms
 from ase.io import cif
-from ase.neighborlist import NeighborList, neighbor_list, natural_cutoffs
+from ase.neighborlist import NeighborList, natural_cutoffs, neighbor_list
 from rdkit import Chem
 from scipy import sparse
-from typing import List, Dict, Tuple, Optional, Iterable
 
 
 def read_cif_file(cif_file: str) -> Atoms:
     """
-    Read in a CIF file and return the atom object.
-
-    Alternative libraries to consider:
-    - https://github.com/MaterSim/PyXtal
-    - https://github.com/GKieslich/crystIT
-    - https://github.com/torbjornbjorkman/cif2cell/tree/master
+    Read the primitive cell from a CIF file into an ASE atoms object.
 
     Parameters
     ----------
@@ -38,7 +33,6 @@ def read_cif_file(cif_file: str) -> Atoms:
     ase.Atoms
         The atoms object.
     """
-    # Read in the CIF file
     return cif.read_cif(cif_file, primitive_cell=True, subtrans_included=False)
 
 
@@ -57,36 +51,25 @@ def atoms_to_mol_file(atoms: Atoms, file_name: str = "mol.mol") -> None:
     -------
     None
         This function does not return a value.
+
+    Notes
+    -----
+    Bond detection clears the input atoms' cell and periodic boundaries.
     """
-    # Get the bonding configuration
-    bond_pairs: List[List[int]] = get_bonding_config(atoms)
-
-    # Get the number of atoms
-    n_atoms: int = len(atoms)
-    # Get the number of bonds
-    n_bonds: int = len(bond_pairs)
-    # Write the header
-    out_str: str = "\nLouie's generator\n\n"
-    out_str += str(n_atoms).rjust(3) + str(n_bonds).rjust(3) + "  0  0  0  0  0  0  0  0999 V2000" + "\n"
-
-    # Get the positions and elements
-    pos = atoms.get_positions()
-    ele = atoms.get_chemical_symbols()
-
-    end_part: str = " 0  0  0  0  0  0  0  0  0  0  0  0\n"
-    # Write the atoms block
-    for i in range(n_atoms):
-        x, y, z = pos[i]
-        out_str += f"{x:.4f}".rjust(10) + f"{y:.4f}".rjust(10) + f"{z:.4f}".rjust(10) + " " + ele[i].ljust(3) + end_part
-
-    # Write the bonds block
-    for bond in bond_pairs:
-        out_str += str(bond[0] + 1).rjust(3) + str(bond[1] + 1).rjust(3) + "  1  0  0  0  0\n"
-    out_str += "M  END\n"
-
-    # Write the molecule to a file
-    with open(file_name, "w") as f:
-        f.write(out_str)
+    bond_pairs = get_bonding_config(atoms)
+    lines = [
+        "\nLouie's generator\n\n",
+        f"{len(atoms):>3}{len(bond_pairs):>3}  0  0  0  0  0  0  0  0999 V2000\n",
+    ]
+    for (x, y, z), symbol in zip(atoms.get_positions(), atoms.get_chemical_symbols()):
+        lines.append(
+            f"{x:10.4f}{y:10.4f}{z:10.4f} {symbol:<3}"
+            " 0  0  0  0  0  0  0  0  0  0  0  0\n"
+        )
+    lines.extend(f"{i + 1:>3}{j + 1:>3}  1  0  0  0  0\n" for i, j in bond_pairs)
+    lines.append("M  END\n")
+    with open(file_name, "w") as mol_file:
+        mol_file.writelines(lines)
 
 
 def get_bonding_config(atoms: Atoms) -> List[List[int]]:
@@ -101,151 +84,149 @@ def get_bonding_config(atoms: Atoms) -> List[List[int]]:
     Returns
     -------
     List[List[int]]
-        A list of bond pairs, where each pair is represented as a list of two atom indices.
+        Bond pairs, each represented as a list of two atom indices.
+
+    Notes
+    -----
+    Clears the input atoms' cell and periodic boundaries before finding
+    bonds using ASE's default neighbor-list settings.
     """
     atoms.set_pbc([False, False, False])
     atoms.cell = [0, 0, 0]
-    neighbor_list = NeighborList(natural_cutoffs(atoms))
-    neighbor_list.update(atoms)
-    bond_pairs: List[List[int]] = []
+    neighbors = NeighborList(natural_cutoffs(atoms))
+    neighbors.update(atoms)
+
+    bond_pairs = []
     for i in range(len(atoms)):
-        indices, _ = neighbor_list.get_neighbors(i)
-        for idx in indices[indices != i]:
-            bond_pairs.append([i, idx])
+        indices, _ = neighbors.get_neighbors(i)
+        bond_pairs.extend([i, j] for j in indices[indices != i])
     return bond_pairs
 
 
 def find_clusters(atoms: Atoms, cutoff_smear: float = 1.5) -> Optional[List[int]]:
     """
-    Identify disconnected atom clusters in an atomic structure using a neighbor-based graph.
+    Find atoms outside the largest bonded cluster in an atomic structure.
 
-    This function builds a connectivity graph of atoms based on natural covalent radii (optionally smeared),
-    and identifies whether the atomic system is fully connected. If multiple disconnected clusters exist,
-    it returns the indices of atoms not belonging to the largest cluster.
+    Connectivity uses natural covalent radii scaled by ``cutoff_smear``.
 
     Parameters
     ----------
     atoms : ase.Atoms
-        An ASE `Atoms` object representing the molecular or periodic structure.
+        The molecular or periodic structure.
     cutoff_smear : float, optional
-        A multiplicative factor applied to the natural cutoff radii to loosen bonding criteria. Default is 1.5.
+        Multiplier for natural cutoff radii. Default is 1.5.
 
     Returns
     -------
     list or None
-        If only one cluster exists (fully connected), returns `None`.
-        If multiple clusters are found, returns a list of atom indices that do not
-        belong to the largest connected cluster.
+        Indices outside the largest cluster, or ``None`` if all atoms are
+        connected. Ties retain the first component in atom order.
 
     Notes
     -----
-    Uses ASE's `NeighborList` for graph construction.
-    Uses SciPy's `connected_components` for clustering.
+    Uses ASE's ``NeighborList`` and SciPy's ``connected_components``.
+    Prints the cluster count and removal indices for disconnected inputs.
     """
-    # Get the natural cutoffs
-    cutoffs: List[float] = natural_cutoffs(atoms)
-    # Apply the smear to the cutoffs
-    cutoffs = [cutoff_smear * cutoff for cutoff in cutoffs]
-    # Get the neighbour list
-    neighbor_list: NeighborList = NeighborList(cutoffs, self_interaction=False, bothways=True)
-    neighbor_list.update(atoms)
-    # Get the connectivity matrix
-    n_components: int
-    component_list: np.ndarray
-    n_components, component_list = sparse.csgraph.connected_components(neighbor_list.get_connectivity_matrix())
+    neighbors = NeighborList(
+        natural_cutoffs(atoms, mult=cutoff_smear),
+        self_interaction=False,
+        bothways=True,
+    )
+    neighbors.update(atoms)
+    n_components, labels = sparse.csgraph.connected_components(
+        neighbors.get_connectivity_matrix()
+    )
     if n_components == 1:
         return None
-    else:
-        # Select the atoms in the largest component
-        largest_component = np.argmax(np.bincount(component_list))
-        atoms_in_component: List[int] = [i for i, c in enumerate(component_list) if c == largest_component]
-        atoms_to_remove: List[int] = [i for i in range(len(atoms)) if i not in atoms_in_component]
-        print("Number of clusters:", n_components)
-        print("Atoms to remove:", atoms_to_remove)
-        return atoms_to_remove
+
+    largest_component = np.argmax(np.bincount(labels))
+    atoms_to_remove = np.flatnonzero(labels != largest_component).tolist()
+    print("Number of clusters:", n_components)
+    print("Atoms to remove:", atoms_to_remove)
+    return atoms_to_remove
 
 
-def tile_cell(atoms: Atoms,
-              reps: tuple[int, int, int] = (3, 3, 3),
-              multi: float = 1.2,
-              eps: float = 1e-9
-              ) -> Atoms:
+def _cell_neighborhood(
+    atoms: Atoms, reps: tuple[int, int, int], multi: float, eps: float
+) -> tuple[Atoms, np.ndarray, np.ndarray, np.ndarray]:
+    """Build a supercell, central-region mask, and directed bond pairs."""
+    supercell = atoms.repeat(reps)
+    scaled_positions = supercell.get_scaled_positions(wrap=False)
+    repetitions = np.asarray(reps, dtype=float)
+    low = (repetitions - 1) / (2 * repetitions)
+    high = (repetitions + 1) / (2 * repetitions)
+    central = np.all(
+        (scaled_positions >= low - eps) & (scaled_positions < high + eps), axis=1
+    )
+    sources, targets = neighbor_list(
+        "ij", supercell, natural_cutoffs(supercell, mult=multi)
+    )
+    return supercell, central, sources, targets
+
+
+def _wrapped_subset(atoms: Atoms, mask: np.ndarray) -> Atoms:
+    """Select atoms in their original order, retaining the cell and PBC."""
+    subset = atoms[mask]
+    subset.wrap()
+    return subset
+
+
+def tile_cell(
+    atoms: Atoms,
+    reps: tuple[int, int, int] = (3, 3, 3),
+    multi: float = 1.2,
+    eps: float = 1e-9,
+) -> Atoms:
     """
     Create a tiled supercell with central region and bonded atoms.
 
-    This function creates a supercell by repeating the unit cell, identifies
-    atoms in the central region, and includes atoms bonded to the central region.
+    Repeat the unit cell and retain the central region and its bonded
+    neighbors.
 
     Parameters
     ----------
     atoms : ase.Atoms
         The input atomic structure.
     reps : tuple[int, int, int], optional
-        Number of repetitions in each direction (x, y, z). Default is (3, 3, 3).
+        Repetitions along (x, y, z). Default is (3, 3, 3).
     multi : float, optional
-        Multiplier for natural cutoff distances in bonding determination. Default is 1.2.
+        Multiplier for natural cutoff distances. Default is 1.2.
     eps : float, optional
-        Small epsilon value for numerical tolerance in region definition. Default is 1e-9.
+        Numerical tolerance for the central region bounds. Default is 1e-9.
 
     Returns
     -------
     ase.Atoms
-        Pruned supercell containing central atoms and their bonded neighbors.
+        Supercell subset with central atoms and their bonded neighbors.
     """
-    # Create a supercell and get scaled positions
-    sup = atoms.repeat(reps)
-    scaled_positions = sup.get_scaled_positions(wrap=False)
-    reps = np.array(reps, dtype=float)
-
-    # Define central region bounds
-    low, high = (reps - 1) / (2 * reps), (reps + 1) / (2 * reps)
-    low[reps == 1], high[reps == 1] = 0.0, 1.0
-
-    # Identify atoms in the central region
-    in_central = np.all((scaled_positions >= (low - eps)) & (scaled_positions < (high + eps)), axis=1)
-    central_idx = np.where(in_central)[0]
-
-    # Find bonded atoms
-    cutoffs = natural_cutoffs(sup, mult=multi)
-    i, j = neighbor_list('ij', sup, cutoffs)
-    bonded_to_central = set(j[np.isin(i, central_idx)])
-
-    # Keep central atoms and bonded atoms
-    keep_indices = np.array(sorted(set(central_idx) | bonded_to_central), dtype=int)
-    mask = np.zeros(len(sup), dtype=bool)
-    mask[keep_indices] = True
-
-    # Prune atoms and retain supercell properties
-    pruned = sup[mask]
-    pruned.set_cell(sup.cell)
-    pruned.set_pbc(sup.pbc)
-    pruned.wrap()
-
-    return pruned
+    supercell, central, sources, targets = _cell_neighborhood(atoms, reps, multi, eps)
+    keep = central.copy()
+    keep[targets[central[sources]]] = True
+    return _wrapped_subset(supercell, keep)
 
 
 def tile_cell_shells(
-        atoms: Atoms,
-        reps: tuple[int, int, int] = (3, 3, 3),
-        multi: float = 1.2,
-        eps: float = 1e-9
+    atoms: Atoms,
+    reps: tuple[int, int, int] = (3, 3, 3),
+    multi: float = 1.2,
+    eps: float = 1e-9,
 ) -> tuple[Atoms, Atoms, Atoms]:
     """
-    Create a tiled supercell and separate atoms into central and shell regions.
+    Tile a cell and separate atoms into central and shell regions.
 
-    This function creates a supercell and identifies atoms in the central region,
-    first coordination shell, and second coordination shell based on bonding connectivity.
+    Identify the central region and two disjoint coordination shells based
+    on bonding connectivity.
 
     Parameters
     ----------
     atoms : ase.Atoms
         The input atomic structure.
     reps : tuple[int, int, int], optional
-        Number of repetitions in each direction (x, y, z). Default is (3, 3, 3).
+        Repetitions along (x, y, z). Default is (3, 3, 3).
     multi : float, optional
-        Multiplier for natural cutoff distances in bonding determination. Default is 1.2.
+        Multiplier for natural cutoff distances. Default is 1.2.
     eps : float, optional
-        Small epsilon value for numerical tolerance in region definition. Default is 1e-9.
+        Numerical tolerance for the central region bounds. Default is 1e-9.
 
     Returns
     -------
@@ -256,161 +237,78 @@ def tile_cell_shells(
     second_shell_atoms : ase.Atoms
         Atoms in the second coordination shell around the central region.
     """
-    # Build supercell
-    sup = atoms.repeat(reps)
-    scaled_positions = sup.get_scaled_positions(wrap=False)
-    reps_arr = np.array(reps, dtype=float)
+    supercell, central, sources, targets = _cell_neighborhood(atoms, reps, multi, eps)
 
-    # Central region bounds in scaled coordinates
-    low = (reps_arr - 1) / (2 * reps_arr)
-    high = (reps_arr + 1) / (2 * reps_arr)
-    low[reps_arr == 1.0] = 0.0
-    high[reps_arr == 1.0] = 1.0
+    def neighbors_of(region: np.ndarray) -> np.ndarray:
+        """Select atoms bonded to the region in either edge direction."""
+        neighbors = np.zeros(len(supercell), dtype=bool)
+        neighbors[targets[region[sources]]] = True
+        neighbors[sources[region[targets]]] = True
+        return neighbors
 
-    in_central = np.all(
-        (scaled_positions >= (low - eps)) & (scaled_positions < (high + eps)),
-        axis=1
-    )
-    central_idx = np.where(in_central)[0]
-    central_set = set(map(int, central_idx))
-
-    # Neighbor list
-    cutoffs = natural_cutoffs(sup, mult=multi)
-    i, j = neighbor_list('ij', sup, cutoffs)
-
-    # Neighbor helper that returns a set (symmetric neighbors)
-    def neighbors_of_set(index_set: set[int]) -> set[int]:
-        """
-        Find every atom bonded to any atom in a set.
-
-        Parameters
-        ----------
-        index_set : set of int
-            Atom indices whose neighbours are wanted.
-
-        Returns
-        -------
-        set of int
-            Indices of all atoms sharing a bond with a member of
-            ``index_set``. The input indices may themselves appear in the
-            result and are removed by the caller.
-        """
-        if not index_set:
-            return set()
-        idx_arr = np.fromiter(index_set, dtype=int)
-        mask_i = np.isin(i, idx_arr)
-        mask_j = np.isin(j, idx_arr)
-        nbrs = np.concatenate([j[mask_i], i[mask_j]])
-        return set(map(int, np.unique(nbrs)))
-
-    # Shells as sets
-    first_shell_set = neighbors_of_set(central_set) - central_set
-    second_candidates = neighbors_of_set(first_shell_set)
-    second_shell_set = second_candidates - central_set - first_shell_set
-
-    # To arrays
-    central_idx = np.array(sorted(central_set), dtype=int)
-    first_shell_idx = np.array(sorted(first_shell_set), dtype=int)
-    second_shell_idx = np.array(sorted(second_shell_set), dtype=int)
-
-    # Helper to subset while preserving cell/PBC
-    def subset_atoms(indices: np.ndarray) -> Atoms:
-        """
-        Extract a subset of the supercell as a new ``Atoms`` object.
-
-        Parameters
-        ----------
-        indices : np.ndarray
-            Indices of the atoms to keep.
-
-        Returns
-        -------
-        ase.Atoms
-            The selected atoms, carrying the cell and periodic boundary
-            conditions of the supercell and wrapped back into it.
-        """
-        mask = np.zeros(len(sup), dtype=bool)
-        mask[indices] = True
-        sub = sup[mask]
-        sub.set_cell(sup.cell)
-        sub.set_pbc(sup.pbc)
-        sub.wrap()
-        return sub
-
+    first_shell = neighbors_of(central) & ~central
+    second_shell = neighbors_of(first_shell) & ~(central | first_shell)
     return (
-        subset_atoms(central_idx),
-        subset_atoms(first_shell_idx),
-        subset_atoms(second_shell_idx),
+        _wrapped_subset(supercell, central),
+        _wrapped_subset(supercell, first_shell),
+        _wrapped_subset(supercell, second_shell),
     )
 
 
-def cif_to_nx(file: str,
-              reps: tuple[int, int, int] = (3, 3, 3),
-              cutoff_mult: float = 1.2,
-              eps: float = 1e-9) -> nx.Graph:
+def cif_to_nx(
+    file: str,
+    reps: tuple[int, int, int] = (3, 3, 3),
+    cutoff_mult: float = 1.2,
+    eps: float = 1e-9,
+) -> nx.Graph:
     """
     Convert a CIF file to a NetworkX graph representation.
 
-    This function reads a CIF file, expands the unit cell, and creates a graph
-    where nodes represent atoms and edges represent bonds.
+    Read a CIF file, expand the unit cell, and create a graph where nodes
+    represent atoms and edges represent bonds.
 
     Parameters
     ----------
     file : str
         Path to the CIF file.
     reps : tuple[int, int, int], optional
-        Number of repetitions in each direction for supercell expansion. Default is (3, 3, 3).
+        Number of repetitions in each direction. Default is (3, 3, 3).
     cutoff_mult : float, optional
-        Multiplier for natural cutoff distances in bonding determination. Default is 1.2.
+        Multiplier for natural cutoff distances. Default is 1.2.
     eps : float, optional
         Small epsilon value for numerical tolerance. Default is 1e-9.
 
     Returns
     -------
     nx.Graph
-        NetworkX graph with nodes representing atoms (with 'color' attribute for element symbol)
-        and edges representing bonds (with 'color' attribute for bond order).
+        Graph with element symbols in node ``color`` attributes and bond
+        orders (all 1) in edge ``color`` attributes.
+
+    Warns
+    -----
+    UserWarning
+        Always, because the CIF conversion is experimental.
     """
-    # Raise a warning that the code is experimental
     warnings.warn("The cif_to_nx function is experimental.", UserWarning)
-    # Load the original cell
     atoms = read_cif_file(file)
-    # Expand the cell
-    expanded = tile_cell(atoms,
-                         reps=reps,
-                         multi=cutoff_mult,
-                         eps=eps)
-    # Make a graph
+    expanded = tile_cell(atoms, reps=reps, multi=cutoff_mult, eps=eps)
+
     graph = nx.Graph()
-    # Add nodes
-    for i, atom in enumerate(expanded):
-        graph.add_node(i, color=atom.symbol)
-    # Add edges based on bonding within the expanded cell
-    bonding = get_bonding_config(expanded)
-    for bond in bonding:
-        graph.add_edge(bond[0], bond[1], color=1)
-
-    # Prune to original cluster and its bonded atoms and their neighbors
-
-    # Replace nearest neighbours +1 with H atoms
-
-    #
-
+    graph.add_nodes_from((i, {"color": atom.symbol}) for i, atom in enumerate(expanded))
+    graph.add_edges_from(get_bonding_config(expanded), color=1)
     return graph
 
 
 def guess_bond_orders(
-        G: nx.Graph,
-        formal_charge_attr: Optional[str] = "formal_charge",
-        max_bond_order: int = 4,
+    G: nx.Graph,
+    formal_charge_attr: Optional[str] = "formal_charge",
+    max_bond_order: int = 4,
 ) -> Tuple[nx.Graph, bool, Dict]:
     """
-    Assign bond orders to edges in a molecular graph using constraint
-    satisfaction.
+    Assign bond orders to a molecular graph by backtracking over valences.
 
-    This function uses backtracking search with constraint propagation to
-    assign bond orders that satisfy atomic valence requirements based on
-    periodic table data.
+    Target valences come from periodic table data, with an upward bias for
+    positively charged atoms.
 
     Parameters
     ----------
@@ -421,17 +319,20 @@ def guess_bond_orders(
         Attribute name for formal charge on nodes. Default is
         "formal_charge".
     max_bond_order : int, optional
-        Maximum allowed bond order. Default is 4.
+        Upper bound on bond order. Default is 4; the search considers only
+        single, double, and triple bonds.
 
     Returns
     -------
     G_with_orders : nx.Graph
-        Graph with bond orders assigned to edge 'color' attributes.
+        Copy of the input graph with bond orders in edge ``color``
+        attributes. Unassigned edges retain their original attributes.
     success : bool
         True if all valence constraints were satisfied, False otherwise.
     info : Dict
-        Diagnostic information including target valences, remaining
-        valences, and search statistics.
+        Target valences, remaining valences, and search statistics.
+        Failed searches report residuals after backtracking, even when
+        the returned graph retains a partial assignment.
 
     Raises
     ------
@@ -445,275 +346,117 @@ def guess_bond_orders(
         Always, because the bond order search is experimental.
     """
 
-    # Raise a warning that the code is experimental
     warnings.warn("The guess_bond_orders function is experimental.", UserWarning)
+    periodic_table = Chem.GetPeriodicTable()
+    graph = G.copy()
 
-    pt = Chem.GetPeriodicTable()
-    H = G.copy()
-    # Normalize node data and prepare per-atom target valences
-    atomic_num: Dict = {}
-    target_valence: Dict = {}
-    charge: Dict = {}
-
-    # Helper to pick a plausible target valence given degree constraints
-    def choose_target_valence(Z: int, needed_min: int, q: int) -> int:
-        """
-        Pick a plausible target valence for an atom.
-
-        Parameters
-        ----------
-        Z : int
-            Atomic number of the atom.
-        needed_min : int
-            Minimum valence required to satisfy the atom's bonded degree.
-        q : int
-            Formal charge on the atom.
-
-        Returns
-        -------
-        int
-            The smallest valence from the element's valence list that meets
-            ``needed_min``, biased upward by one for positively charged atoms.
-
-        Notes
-        -----
-        The charge adjustment is a rough heuristic: a positive charge typically
-        raises the valence capacity by about one, as in ``[NH4]+``, while a
-        negative charge can reduce the number of sigma bonds required, as in
-        ``[O-]``.
-        """
-        # RDKit's valence list already accounts (approximately) for common valence states.
-        vlist: Iterable[int] = pt.GetValenceList(Z)
-        vlist = sorted(set(int(v) for v in vlist if v > 0))
-        # Heuristic: adjust with charge for main group atoms (very rough but helpful)
-        # Positive charge typically increases valence capacity by ~1 (e.g., [NH4]+),
-        # negative can decrease required sigma-bonds (e.g., [O-]).
-        # We'll bias, but still ensure >= needed_min.
-        bias = 1 if q > 0 else 0
-        candidates = [v for v in vlist if v + bias >= needed_min]
+    def choose_target_valence(atomic_number: int, needed_min: int, charge: int) -> int:
+        """Choose the smallest positive valence that fits the degree."""
+        valences = periodic_table.GetValenceList(atomic_number)
+        bias = 1 if charge > 0 else 0
+        candidates = [
+            int(v) + bias for v in valences if v > 0 and v + bias >= needed_min
+        ]
         if candidates:
-            # prefer the smallest that fits (more common)
-            return min(candidates) + bias
-        # If nothing fits, fall back to default/max
-        dv = pt.GetDefaultValence(Z)
-        if dv >= needed_min:
-            return dv + bias
-        mx = max(pt.GetValenceList(Z))
-        return max(needed_min, int(mx))
+            return min(candidates)
+        default = periodic_table.GetDefaultValence(atomic_number)
+        if default >= needed_min:
+            return default + bias
+        return max(needed_min, int(max(valences)))
 
-    # Build per-atom records
-    for n, data in H.nodes(data=True):
-        elem = data.get("color", None)
-        Z = pt.GetAtomicNumber(elem)
-        if Z == 0:
-            raise ValueError(f"Node {n} has unknown element symbol: {elem}")
-        q = int(data.get(formal_charge_attr, 0)) if (formal_charge_attr and formal_charge_attr in data) else 0
+    target_valence = {}
+    for node, data in graph.nodes(data=True):
+        element = data.get("color")
+        atomic_number = periodic_table.GetAtomicNumber(element)
+        if atomic_number == 0:
+            raise ValueError(f"Node {node} has unknown element symbol: {element}")
+        charge = int(data.get(formal_charge_attr, 0)) if formal_charge_attr else 0
+        target_valence[node] = choose_target_valence(
+            atomic_number, int(graph.degree[node]), charge
+        )
 
-        # Ensure degree is an int when passed to choose_target_valence
-        tv = choose_target_valence(Z, int(H.degree[n]), q)
-        atomic_num[n] = Z
-        charge[n] = q
-        target_valence[n] = tv
-
-    # Track residual valence and edge domains
-    residual: Dict = {n: target_valence[n] for n in H.nodes()}
-    assigned: Dict = {}  # edge -> order
+    residual = target_valence.copy()
+    assigned = {}
     tried_edges = 0
     backtracks = 0
+    best_partial = {}
+    best_score = -1
 
-    # Initialize each edge's domain: 1..max_bond_order, limited by each endpoint's residual
-    def edge_domain(u: int, v: int) -> List[int]:
-        """
-        List the bond orders still assignable to an edge.
-
-        Parameters
-        ----------
-        u : node
-            First endpoint of the edge.
-        v : node
-            Second endpoint of the edge.
-
-        Returns
-        -------
-        list of int
-            The bond orders that fit within the residual valence of both
-            endpoints and within ``max_bond_order``.
-        """
-        r = min(residual[u], residual[v], max_bond_order)
-        return [o for o in (1, 2, 3) if o <= r]
-
-    # Feasibility check after tentative assignment: can each node still be satisfied?
-    def feasible_after(u: int, v: int, order: int) -> bool:
-        """
-        Test whether assigning a bond order leaves the problem satisfiable.
-
-        Parameters
-        ----------
-        u : node
-            First endpoint of the edge being assigned.
-        v : node
-            Second endpoint of the edge being assigned.
-        order : int
-            Bond order tentatively assigned to the edge.
-
-        Returns
-        -------
-        bool
-            True if both endpoints keep a non-negative residual valence and
-            their remaining unassigned edges can still absorb it, False
-            otherwise.
-        """
-        # Tentatively reduce residuals
-        ru = residual[u] - order
-        rv = residual[v] - order
-        if ru < 0 or rv < 0:
-            return False
-
-        # For each endpoint, the remaining edges must be able to absorb remaining residual
-        for a, ra in ((u, ru), (v, rv)):
-            # Unassigned incident edges:
-            rem_edges = [e for e in H.edges(a) if e not in assigned and e != (u, v) and e != (v, u)]
-            m = len(rem_edges)
-            if m == 0:
-                # must have no remaining residual
-                if ra != 0:
-                    return False
-                continue
-            # Each remaining edge contributes at least 1 and at most max_bond_order,
-            # but capped by the other node's residual as well.
-            # Lower bound of total we can still add:
-            min_sum = 0
-            max_sum = 0
-            for e in rem_edges:
-                x, y = e
-                other = y if x == a else x
-                max_here = min(max_bond_order, ra if m == 1 else ra, residual[other])  # upper bound
-                max_here = max(0, max_here)
-                max_sum += max_here
-                min_sum += 1  # at least a single bond per remaining edge
-
-            # ra must lie between min_sum and max_sum (inclusive) to keep hope alive
-            if ra < min_sum or ra > max_sum:
+    def feasible_after(u, v, order: int) -> bool:
+        """Check if other incident edges can absorb each residual."""
+        for node in (u, v):
+            remaining = residual[node] - order
+            if remaining < 0:
+                return False
+            # Keep incident-edge orientation to preserve the search traversal.
+            other_nodes = [
+                y if x == node else x
+                for x, y in graph.edges(node)
+                if (x, y) not in assigned and (x, y) not in ((u, v), (v, u))
+            ]
+            capacity = sum(
+                max(0, min(max_bond_order, remaining, residual[other]))
+                for other in other_nodes
+            )
+            if not len(other_nodes) <= remaining <= capacity:
                 return False
         return True
 
-    # Select next edge (MRV: smallest domain)
-    def select_edge() -> Tuple[Optional[Tuple[int, int]], Optional[List[int]]]:
-        """
-        Choose the next edge to assign, by minimum remaining values.
-
-        Returns
-        -------
-        edge : tuple or None
-            The unassigned edge with the smallest domain, or ``None`` when
-            every edge has been assigned.
-        domain : list of int
-            The bond orders available for that edge. An empty list signals a
-            dead end that the search must backtrack from.
-        """
-        best = None
-        best_domain = None
-        for (u, v) in H.edges():
+    def select_edge():
+        """Choose the smallest domain, breaking ties by edge order."""
+        best_edge, best_domain = None, None
+        for u, v in graph.edges():
             if (u, v) in assigned or (v, u) in assigned:
                 continue
-            dom = edge_domain(u, v)
-            if not dom:
+            limit = min(residual[u], residual[v], max_bond_order)
+            domain = [order for order in (1, 2, 3) if order <= limit]
+            if not domain:
                 return (u, v), []
-            if best is None or len(dom) < len(best_domain):
-                best = (u, v)
-                best_domain = dom
-        # best and best_domain are only ever assigned together, so both are
-        # None exactly when every edge has already been assigned.
-        return best, best_domain
-
-    # Backtracking search
-    best_partial = {}
-    best_score = -1  # number of atoms fully satisfied
-
-    def score_solution() -> int:
-        """
-        Score a partial assignment by how many atoms are fully satisfied.
-
-        Returns
-        -------
-        int
-            The number of atoms whose residual valence has reached zero.
-        """
-        return sum(1 for n in H.nodes() if residual[n] == 0)
+            if best_domain is None or len(domain) < len(best_domain):
+                best_edge, best_domain = (u, v), domain
+        return best_edge, best_domain
 
     def search() -> bool:
-        """
-        Search recursively for a complete bond order assignment.
-
-        Edges are selected by smallest remaining domain and each candidate
-        order is tested for feasibility before recursing, backtracking when a
-        branch cannot be completed. The best partial assignment seen is kept so
-        that a usable result is available even when no complete solution
-        exists.
-
-        Returns
-        -------
-        bool
-            True if a complete assignment satisfying every atom was found,
-            False otherwise.
-        """
+        """Try feasible orders and retain the best terminal assignment."""
         nonlocal tried_edges, backtracks, best_partial, best_score
-        edge, dom = select_edge()
-        if edge is None:
-            # all edges assigned: feasible if all residuals are zero
-            done = all(residual[n] == 0 for n in H.nodes())
-            if not done:
-                sc = score_solution()
-                if sc > best_score:
-                    best_score = sc
-                    best_partial = assigned.copy()
-            return done
-        if not dom:
-            # dead end early
-            sc = score_solution()
-            if sc > best_score:
-                best_score = sc
-                best_partial = assigned.copy()
+        edge, domain = select_edge()
+        if edge is None or not domain:
+            score = sum(value == 0 for value in residual.values())
+            if edge is None and score == len(residual):
+                return True
+            if score > best_score:
+                best_score, best_partial = score, assigned.copy()
             return False
 
         u, v = edge
-        # Heuristic: try higher orders first if both have large residuals
-        dom_sorted = sorted(dom, reverse=residual[u] > 2 and residual[v] > 2)
-        for order in dom_sorted:
+        # Prefer higher orders when both endpoints have substantial valence left.
+        for order in sorted(domain, reverse=residual[u] > 2 and residual[v] > 2):
             if not feasible_after(u, v, order):
                 continue
-            # assign
             tried_edges += 1
-            assigned[(u, v)] = order
+            assigned[edge] = order
             residual[u] -= order
             residual[v] -= order
-
             if search():
                 return True
-
-            # undo
             residual[u] += order
             residual[v] += order
-            assigned.pop((u, v), None)
+            del assigned[edge]
 
         backtracks += 1
         return False
 
     success = search()
-
-    # Commit assignments (best available if not perfect)
     final_assignments = assigned if success else best_partial
     for (u, v), order in final_assignments.items():
-        H.edges[u, v]["color"] = int(order)
+        graph.edges[u, v]["color"] = int(order)
 
-    # Prepare diagnostics
     info = {
         "target_valence": target_valence,
-        "remaining_valence_per_atom": {n: residual[n] for n in H.nodes()},
+        "remaining_valence_per_atom": residual.copy(),
         "tried_edges": tried_edges,
         "backtracks": backtracks,
         "success_edges_assigned": len(final_assignments),
-        "total_edges": H.number_of_edges(),
+        "total_edges": graph.number_of_edges(),
     }
-
-    return H, success, info
+    return graph, success, info
