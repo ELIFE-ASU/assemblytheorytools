@@ -1,5 +1,6 @@
 """Atomic conversions, calculator configuration, and simulation wrappers."""
 
+import warnings
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -75,6 +76,23 @@ def test_mol_to_atoms_without_conformer_generates_planar_coordinates():
     assert atoms.get_distance(1, 2) == pytest.approx(1.5, abs=1e-4)
     np.testing.assert_array_equal(atoms.positions[:, 2], np.zeros(3))
     assert mol.GetNumConformers() == 0
+
+
+def test_atoms_to_mol_warns_for_periodic_input_and_continues():
+    water = molecule("H2O")
+    water.cell = [10, 10, 10]
+    water.pbc = True
+
+    with pytest.warns(UserWarning, match="periodic boundary conditions") as record:
+        mol = att.atoms_to_mol(water)
+    assert mol.GetNumAtoms() == 3
+    assert all("cell_to_nx" in str(warning.message) for warning in record)
+    with pytest.warns(UserWarning, match="periodic boundary conditions"):
+        assert att.atoms_to_nx(water).number_of_nodes() == 3
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        assert att.atoms_to_mol(molecule("H2O")).GetNumAtoms() == 3
 
 
 def test_atoms_to_mol_keeps_coordinates_and_uses_supplied_charge():

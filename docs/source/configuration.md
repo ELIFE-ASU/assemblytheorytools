@@ -294,6 +294,7 @@ directly or disabling canonicalisation.
 
 Invalid graphs raise `ValueError` before the calculator is invoked.
 
-{func}`~assemblytheorytools.tools_graph.smi_to_nx` and
-{func}`~assemblytheorytools.tools_cell.cif_to_nx` produce conforming graphs. See
+{func}`~assemblytheorytools.tools_graph.smi_to_nx`,
+{func}`~assemblytheorytools.tools_cell.cif_to_nx` and
+{func}`~assemblytheorytools.tools_cell.cell_to_nx` produce conforming graphs. See
 {doc}`guide/graphs` for building one by hand.

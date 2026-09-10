@@ -13,6 +13,7 @@ Crystal structures, periodic cells and CIF files.
    find_clusters
    tile_cell
    tile_cell_shells
+   cell_to_nx
    cif_to_nx
    guess_bond_orders
 

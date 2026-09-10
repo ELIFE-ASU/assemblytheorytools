@@ -84,7 +84,7 @@ value returned by the calculator.
 | Molecules | {func}`~assemblytheorytools.tools_graph.smi_to_nx`, RDKit `Mol` | {doc}`guide/molecules` |
 | Strings, directed and undirected | {func}`~assemblytheorytools.assembly.calculate_string_assembly_index` | {doc}`guide/strings` |
 | Arbitrary labelled graphs | NetworkX `Graph` with `color` attributes | {doc}`guide/graphs` |
-| Crystal structures | {func}`~assemblytheorytools.tools_cell.cif_to_nx` | {doc}`guide/graphs` |
+| Crystal structures and periodic cells | {func}`~assemblytheorytools.tools_cell.cif_to_nx`, {func}`~assemblytheorytools.tools_cell.cell_to_nx` | {doc}`guide/graphs` |
 
 ## Calculator backends
 

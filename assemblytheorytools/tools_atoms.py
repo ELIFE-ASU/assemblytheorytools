@@ -10,6 +10,7 @@ optimisation, and CCSD and free-energy evaluation for virtual objects.
 import os
 import re
 import tempfile
+import warnings
 from io import StringIO
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -142,7 +143,23 @@ def atoms_to_mol(
     ------
     ValueError
         If bonds cannot be inferred from the atomic coordinates.
+
+    Warns
+    -----
+    UserWarning
+        If ``atoms`` has any periodic direction. The cell and periodic
+        boundaries are ignored, so bonds through a cell boundary are lost;
+        use :func:`~assemblytheorytools.tools_cell.cell_to_nx` for periodic
+        structures.
     """
+    if atoms.pbc.any():
+        warnings.warn(
+            "atoms_to_mol ignores the cell and periodic boundary conditions, so "
+            "bonds through the cell boundary are lost; use tools_cell.cell_to_nx "
+            "or cif_to_nx for periodic structures.",
+            UserWarning,
+            stacklevel=2,
+        )
     mol = Chem.RWMol()
     for atomic_number in atoms.get_atomic_numbers():
         mol.AddAtom(Chem.Atom(int(atomic_number)))
@@ -184,6 +201,11 @@ def atoms_to_smiles(
     -------
     str
         The SMILES string representation of the molecule.
+
+    Warns
+    -----
+    UserWarning
+        If ``atoms`` is periodic; see :func:`atoms_to_mol`.
     """
     mol = atoms_to_mol(
         atoms, sanitize=sanitize, add_hydrogens=add_hydrogens, charge=charge
@@ -213,6 +235,12 @@ def atoms_to_nx(
     -------
     nx.Graph
         A NetworkX graph representation of the molecule.
+
+    Warns
+    -----
+    UserWarning
+        If ``atoms`` is periodic; see :func:`atoms_to_mol` and use
+        :func:`~assemblytheorytools.tools_cell.cell_to_nx` instead.
     """
     mol = atoms_to_mol(
         atoms, sanitize=sanitize, add_hydrogens=add_hydrogen, charge=charge

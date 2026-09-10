@@ -135,9 +135,11 @@ from .tools_atoms import (smiles_to_atoms,
                           get_virtual_objects_energy)
 from .tools_cell import (read_cif_file,
                          atoms_to_mol_file,
+                         get_bonding_config,
                          find_clusters,
                          tile_cell,
                          tile_cell_shells,
+                         cell_to_nx,
                          cif_to_nx,
                          guess_bond_orders)
 from .tools_data import (sample_boostrapping,
