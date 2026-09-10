@@ -9,24 +9,28 @@ loading and peak finding, polynomial fitting, and goodness-of-fit metrics.
 """
 
 import json
-import networkx as nx
-import numpy as np
 import os
-import pandas as pd
-import pubchempy as pcp
 import random
 import re
 import shutil
 import tarfile
 import time
 from pathlib import Path
-from rdkit.Chem import AllChem as Chem
-from rdkit.Chem.EnumerateStereoisomers import EnumerateStereoisomers, StereoEnumerationOptions
-from scipy.optimize import minimize
-from scipy.signal import savgol_filter, find_peaks
-from scipy.stats import gaussian_kde
 from typing import Any, Callable, List, Optional, Tuple, Union
 from urllib.request import Request, urlopen
+
+import networkx as nx
+import numpy as np
+import pandas as pd
+import pubchempy as pcp
+from rdkit.Chem import AllChem as Chem
+from rdkit.Chem.EnumerateStereoisomers import (
+    EnumerateStereoisomers,
+    StereoEnumerationOptions,
+)
+from scipy.optimize import minimize
+from scipy.signal import find_peaks, savgol_filter
+from scipy.stats import gaussian_kde
 
 from .complexity_scores import count_bonds, count_non_h_bonds, molecular_weight
 from .tools_file import file_list_all
@@ -51,8 +55,7 @@ def random_argmin(arr: np.ndarray) -> int:
     int
         Index of one of the minimum values, chosen randomly if there are multiple.
     """
-    min_value = np.min(arr)
-    min_indices = np.where(arr == min_value)[0]
+    min_indices = np.where(arr == np.min(arr))[0]
     return int(np.random.choice(min_indices))
 
 
@@ -98,10 +101,8 @@ def sample_boostrapping(data: np.ndarray, n_sample: int) -> Tuple[np.ndarray, np
     sample_indices : numpy.ndarray
         The indices of the sampled values in the original dataset.
     """
-    sample_indices: np.ndarray = np.random.choice(len(data), size=n_sample, replace=True)
-    # Extract the selected values
-    sample: np.ndarray = data[sample_indices]
-    return sample, sample_indices
+    sample_indices = np.random.choice(len(data), size=n_sample, replace=True)
+    return data[sample_indices], sample_indices
 
 
 def sample_kde_resampling(data: np.ndarray, n_sample: int) -> Tuple[np.ndarray, np.ndarray]:
@@ -129,23 +130,19 @@ def sample_kde_resampling(data: np.ndarray, n_sample: int) -> Tuple[np.ndarray, 
     ValueError
         If data is not 1D or 2D.
     """
-    if data.ndim == 1:
-        # 1D data: Use KDE-based resampling
-        kde = gaussian_kde(data)
-        sample: np.ndarray = kde.resample(n_sample).flatten()
-        sample_indices = np.array([get_close_random_index(data, point) for point in sample], dtype=int)
-    elif data.ndim == 2:
-        # 2D data: Use KDE-based resampling
-        kde = gaussian_kde(data.T)
-        sample: np.ndarray = kde.resample(n_sample).T
-        sample_indices = np.array([get_close_random_index(data, point) for point in sample], dtype=int)
-    else:
+    if data.ndim not in (1, 2):
         raise ValueError("Data must be either 1D or 2D.")
 
+    sample = gaussian_kde(data.T).resample(n_sample).T
+    if data.ndim == 1:
+        sample = sample.flatten()
+    sample_indices = np.array([get_close_random_index(data, point) for point in sample], dtype=int)
     return sample, sample_indices
 
 
-def sample_importance_sampling(data: np.ndarray, n_sample: int, n_bins: int = 50) -> Tuple[np.ndarray, np.ndarray]:
+def sample_importance_sampling(
+    data: np.ndarray, n_sample: int, n_bins: int = 50
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     Perform importance sampling on the given dataset.
 
@@ -171,45 +168,42 @@ def sample_importance_sampling(data: np.ndarray, n_sample: int, n_bins: int = 50
         If data is not 1D or 2D.
     """
     if data.ndim == 1:
-        # 1D data: Use importance sampling
-        hist_values: np.ndarray
-        bin_edges: np.ndarray
-        hist_values, bin_edges = np.histogram(data, bins=n_bins, density=True)
-        bin_centers: np.ndarray = (bin_edges[:-1] + bin_edges[1:]) / 2
-        probabilities: np.ndarray = hist_values / hist_values.sum()
-        selected_bin_indices: np.ndarray = np.random.choice(len(probabilities), size=n_sample, p=probabilities)
-        sample_indices = np.array([get_close_random_index(data, bin_centers[idx]) for idx in selected_bin_indices],
-                                  dtype=int)
-        sample: np.ndarray = data[sample_indices]
+        hist, bin_edges = np.histogram(data, bins=n_bins, density=True)
+        bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
     elif data.ndim == 2:
-        # 2D data: Use importance sampling
-        hist: np.ndarray
-        x_edges: np.ndarray
-        y_edges: np.ndarray
         hist, x_edges, y_edges = np.histogram2d(data[:, 0], data[:, 1], bins=n_bins, density=True)
-        x_centers: np.ndarray = (x_edges[:-1] + x_edges[1:]) / 2
-        y_centers: np.ndarray = (y_edges[:-1] + y_edges[1:]) / 2
+        x_centers = (x_edges[:-1] + x_edges[1:]) / 2
+        y_centers = (y_edges[:-1] + y_edges[1:]) / 2
         xx, yy = np.meshgrid(x_centers, y_centers)
-        probabilities: np.ndarray = hist.flatten()
-        probabilities /= probabilities.sum()
-        selected_indices: np.ndarray = np.random.choice(len(probabilities), size=n_sample, p=probabilities)
-        sample_indices = np.array([
-            np.argmin(np.linalg.norm(data - np.array([xx.flatten()[idx], yy.flatten()[idx]]), axis=1))
-            for idx in selected_indices
-        ], dtype=int)
-        sample: np.ndarray = data[sample_indices]
+        bin_centers = np.column_stack((xx.ravel(), yy.ravel()))
     else:
         raise ValueError("Data must be either 1D or 2D.")
 
-    return sample, sample_indices
+    probabilities = hist.flatten()
+    probabilities /= probabilities.sum()
+    selected_bins = np.random.choice(len(probabilities), size=n_sample, p=probabilities)
+    if data.ndim == 1:
+        indices = [get_close_random_index(data, bin_centers[i]) for i in selected_bins]
+    else:
+        indices = [np.argmin(np.linalg.norm(data - bin_centers[i], axis=1)) for i in selected_bins]
+    sample_indices = np.array(indices, dtype=int)
+    return data[sample_indices], sample_indices
 
 
-def filter_by_bonds(df: pd.DataFrame,
-                    *,
-                    min_bonds: int = 0,
-                    max_bonds: int = 100,
-                    c_smiles: str = 'smiles',
-                    c_bonds: str = 'n_bonds') -> pd.DataFrame:
+def _filter_by_molecular_property(df, property_func, minimum, maximum, c_smiles, c_property):
+    """Populate a molecular property on the source frame and filter inclusively."""
+    df[c_property] = mp_calc(property_func, mp_calc(smi_to_mol, df[c_smiles]))
+    return df[df[c_property].between(minimum, maximum)].reset_index(drop=True)
+
+
+def filter_by_bonds(
+    df: pd.DataFrame,
+    *,
+    min_bonds: int = 0,
+    max_bonds: int = 100,
+    c_smiles: str = "smiles",
+    c_bonds: str = "n_bonds",
+) -> pd.DataFrame:
     """
     Filter a DataFrame of molecules based on the number of bonds.
 
@@ -235,16 +229,17 @@ def filter_by_bonds(df: pd.DataFrame,
         A filtered DataFrame containing only rows with the number of bonds
         within the specified range.
     """
-    df[c_bonds] = mp_calc(count_bonds, mp_calc(smi_to_mol, df[c_smiles]))
-    return df[(df[c_bonds] >= min_bonds) & (df[c_bonds] <= max_bonds)].reset_index(drop=True)
+    return _filter_by_molecular_property(df, count_bonds, min_bonds, max_bonds, c_smiles, c_bonds)
 
 
-def filter_by_nh_bonds(df: pd.DataFrame,
-                       *,
-                       min_bonds: int = 0,
-                       max_bonds: int = 100,
-                       c_smiles: str = 'smiles',
-                       c_bonds: str = 'n_bonds') -> pd.DataFrame:
+def filter_by_nh_bonds(
+    df: pd.DataFrame,
+    *,
+    min_bonds: int = 0,
+    max_bonds: int = 100,
+    c_smiles: str = "smiles",
+    c_bonds: str = "n_bonds",
+) -> pd.DataFrame:
     """
     Filter a DataFrame of molecules based on the number of non-hydrogen bonds.
 
@@ -270,16 +265,19 @@ def filter_by_nh_bonds(df: pd.DataFrame,
         A filtered DataFrame containing only rows with the number of non-hydrogen bonds
         within the specified range.
     """
-    df[c_bonds] = mp_calc(count_non_h_bonds, mp_calc(smi_to_mol, df[c_smiles]))
-    return df[(df[c_bonds] >= min_bonds) & (df[c_bonds] <= max_bonds)].reset_index(drop=True)
+    return _filter_by_molecular_property(
+        df, count_non_h_bonds, min_bonds, max_bonds, c_smiles, c_bonds
+    )
 
 
-def filter_by_mw(df: pd.DataFrame,
-                 *,
-                 min_mw: float = 0.0,
-                 max_mw: float = 1000.0,
-                 c_smiles: str = 'smiles',
-                 c_mw: str = 'mw') -> pd.DataFrame:
+def filter_by_mw(
+    df: pd.DataFrame,
+    *,
+    min_mw: float = 0.0,
+    max_mw: float = 1000.0,
+    c_smiles: str = "smiles",
+    c_mw: str = "mw",
+) -> pd.DataFrame:
     """
     Filter a DataFrame of molecules based on their molecular weight.
 
@@ -305,8 +303,7 @@ def filter_by_mw(df: pd.DataFrame,
         A filtered DataFrame containing only rows with molecular weights
         within the specified range.
     """
-    df[c_mw] = mp_calc(molecular_weight, mp_calc(smi_to_mol, df[c_smiles]))
-    return df[(df[c_mw] >= min_mw) & (df[c_mw] <= max_mw)].reset_index(drop=True)
+    return _filter_by_molecular_property(df, molecular_weight, min_mw, max_mw, c_smiles, c_mw)
 
 
 def pubchem_name_to_smi(name: str) -> str:
@@ -467,27 +464,31 @@ def pubchem_id_to_nx(cid: int, add_hydrogens: bool = True, sanitize: bool = True
     return smi_to_nx(smiles, add_hydrogens=add_hydrogens, sanitize=sanitize)
 
 
-_ELEMENT_SYMBOLS = {
-    "H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne", "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar", "K", "Ca",
-    "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn", "Ga", "Ge", "As", "Se", "Br", "Kr", "Rb", "Sr", "Y",
-    "Zr", "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd", "In", "Sn", "Sb", "Te", "I", "Xe", "Cs", "Ba", "La", "Ce",
-    "Pr", "Nd", "Pm", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb", "Lu", "Hf", "Ta", "W", "Re", "Os", "Ir",
-    "Pt", "Au", "Hg", "Tl", "Pb", "Bi", "Po", "At", "Rn", "Fr", "Ra", "Ac", "Th", "Pa", "U", "Np", "Pu", "Am", "Cm",
-    "Bk", "Cf", "Es", "Fm", "Md", "No", "Lr", "Rf", "Db", "Sg", "Bh", "Hs", "Mt", "Ds", "Rg", "Cn", "Nh", "Fl", "Mc",
-    "Lv", "Ts", "Og"
-}
-
-# Common chemistry "prefix words" you usually want lowercase
 _LOWER_PREFIXES = {
-    "n", "sec", "tert", "t", "iso", "neo",
-    "cis", "trans", "meso", "rac",
-    "d", "l", "dl",
-    "alpha", "beta", "gamma", "delta",
-    "n-", "o-", "s-", "p-", "m-",  # N-/O-/S-/P-/M- locants
+    "n",
+    "sec",
+    "tert",
+    "t",
+    "iso",
+    "neo",
+    "cis",
+    "trans",
+    "meso",
+    "rac",
+    "d",
+    "l",
+    "dl",
+    "alpha",
+    "beta",
+    "gamma",
+    "delta",
 }
 
-_ROMAN_RE = re.compile(r"^(?=[MDCLXVI])M{0,4}(CM|CD|D?C{0,3})"
-                       r"(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$", re.I)
+_ROMAN_RE = re.compile(
+    r"^(?=[MDCLXVI])M{0,4}(CM|CD|D?C{0,3})"
+    r"(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$",
+    re.I,
+)
 
 
 def _standardize_common_name(name: Optional[str]) -> Optional[str]:
@@ -495,8 +496,8 @@ def _standardize_common_name(name: Optional[str]) -> Optional[str]:
     Normalise a common chemical name to a consistent form.
 
     Whitespace is collapsed, spacing around commas, semicolons, parentheses and
-    hyphens is regularised, and each token is recased, preserving short
-    all-caps acronyms and surrounding punctuation.
+    hyphens is regularised. Tokens are title-cased, except for lowercase
+    chemical prefixes, uppercase locants and Roman numerals.
 
     Parameters
     ----------
@@ -510,102 +511,43 @@ def _standardize_common_name(name: Optional[str]) -> Optional[str]:
     """
     if name is None:
         return None
-    s = str(name).strip().lower()
-    if not s:
+    name = str(name).strip().lower()
+    if not name:
         return None
 
-    # Normalize whitespace
-    s = re.sub(r"\s+", " ", s)
+    for pattern, replacement in (
+        (r"\s+", " "),
+        (r"\s*,\s*", ", "),
+        (r"\s*;\s*", "; "),
+        (r"\(\s+", "("),
+        (r"\s+\)", ")"),
+        (r"\s*-\s*", "-"),
+    ):
+        name = re.sub(pattern, replacement, name)
 
-    # Normalize spacing around commas/semicolons/parentheses
-    s = re.sub(r"\s*,\s*", ", ", s)
-    s = re.sub(r"\s*;\s*", "; ", s)
-    s = re.sub(r"\(\s+", "(", s)
-    s = re.sub(r"\s+\)", ")", s)
-    s = re.sub(r"\s*-\s*", "-", s)  # tighten hyphens
+    def fix_part(part: str) -> str:
+        if part in {"n", "o", "s", "p", "m"}:
+            return part.upper()
+        return part if part in _LOWER_PREFIXES else part.capitalize()
 
-    tokens = s.split(" ")
-
-    def _fix_token(tok: str) -> str:
-        """
-        Recase a single token of a common name.
-
-        Parameters
-        ----------
-        tok : str
-            The token to recase, which may carry leading or trailing
-            punctuation.
-
-        Returns
-        -------
-        str
-            The recased token. Short all-caps acronyms of two to six characters
-            are left unchanged, and surrounding punctuation is preserved.
-        """
-        if not tok:
-            return tok
-
-        # Preserve leading/trailing punctuation but case the core.
-        m = re.match(r"^([\"'(\[]?)(.*?)([\"')\].,:;!?]?)$", tok)
-        lead, core, tail = m.groups() if m else ("", tok, "")
-
-        # If core is already all-caps short acronym, keep it.
-        if core.isupper() and 2 <= len(core) <= 6:
-            return lead + core + tail
-
-        # Roman numerals (often in parentheses): uppercase them
+    def fix_token(token: str) -> str:
+        # Recase the core while preserving surrounding punctuation.
+        match = re.match(r"^([\"'(\[]?)(.*?)([\"')\].,:;!?]?)$", token)
+        lead, core, tail = match.groups() if match else ("", token, "")
         if _ROMAN_RE.match(core):
-            return lead + core.upper() + tail
+            core = core.upper()
+        else:
+            core = "-".join(fix_part(part) for part in core.split("-"))
+        return lead + core + tail
 
-        # Handle hyphenated cores piecewise (e.g. "N-acetyl-L-cysteine")
-        parts = core.split("-")
-        fixed_parts = []
-        for p in parts:
-            if not p:
-                fixed_parts.append(p)
-                continue
-
-            pl = p.lower()
-
-            # Locants/prefixes like N, O, S at start: keep uppercase single-letter locant
-            # Example: "n" as prefix is usually lowercase "n-"; but "N-" locant is uppercase "N"
-            if pl in {"n", "o", "s", "p", "m"} and len(p) == 1:
-                fixed_parts.append(p.upper())
-                continue
-
-            # Keep known lower prefixes as lowercase (sec, tert, cis, trans, etc.)
-            if pl in _LOWER_PREFIXES:
-                fixed_parts.append(pl)
-                continue
-
-            # Element symbols: normalize to correct case (Na, Cl, Fe)
-            if pl.capitalize() in _ELEMENT_SYMBOLS and len(p) <= 2:
-                fixed_parts.append(pl.capitalize())
-                continue
-
-            # If it's something like "HCl" or "NaCl" (mixed), leave as-is
-            if re.search(r"[A-Z].*[a-z]", p) or re.search(r"[a-z].*[A-Z]", p):
-                fixed_parts.append(p)
-                continue
-
-            # Default: Title-case the part
-            fixed_parts.append(pl.capitalize())
-
-        core_fixed = "-".join(fixed_parts)
-        return lead + core_fixed + tail
-
-    standardized = " ".join(_fix_token(t) for t in tokens)
-
-    # Final small cleanup: don't end up with double spaces after our punctuation rules
-    standardized = re.sub(r"\s+", " ", standardized).strip()
-
-    return standardized
+    standardized = " ".join(fix_token(token) for token in name.split(" "))
+    return re.sub(r"\s+", " ", standardized).strip()
 
 
 def pubchem_smi_to_name_complex(
-        smiles: str,
-        prefer: Tuple[str, ...] = ("synonym", "iupac_name", "title"),
-        timeout: int = 20,
+    smiles: str,
+    prefer: Tuple[str, ...] = ("synonym", "iupac_name", "title"),
+    timeout: int = 20,
 ) -> Optional[str]:
     """
     Retrieve the name of a compound from PubChem using its SMILES string.
@@ -635,95 +577,55 @@ def pubchem_smi_to_name_complex(
     - If the SMILES string is invalid or no matching compound is found, the function returns None.
     - The function includes a scoring mechanism to select the most appropriate synonym
       if multiple options are available.
-
-    Raises
-    ------
-    Exception
-        If there is an error during the PubChem query, the function handles it and returns None.
     """
     smiles = (smiles or "").strip()
     if not smiles:
         return None
     try:
-        comps = pcp.get_compounds(smiles, namespace="smiles", timeout=timeout)
+        compounds = pcp.get_compounds(smiles, namespace="smiles", timeout=timeout)
     except Exception:
         return None
 
-    if not comps:
+    if not compounds:
         return None
 
-    c = comps[0]
+    compound = compounds[0]
 
-    # Helper to decide if something looks like a "nice" synonym
-    def _synonym_score(name: str) -> int:
-        """
-        Calculate a score for a synonym to determine its suitability.
-
-        Parameters
-        ----------
-        name : str
-            The synonym to evaluate.
-
-        Returns
-        -------
-        int
-            A score indicating the quality of the synonym. Higher scores are better.
-        """
-        n = name.strip()
-        if not n:
+    def synonym_score(name: str) -> int:
+        """Prefer short, readable names over systematic strings and formulae."""
+        name = name.strip()
+        if not name:
             return -10
 
-        # Penalize very long names or names that look like systematic strings
-        score = 0
-        if len(n) <= 15:
-            score += 5
-        elif len(n) <= 30:
-            score += 1
-        else:
-            score -= 5
-
-        # Prefer names with letters and spaces; penalize lots of punctuation/digits
-        if re.search(r"[A-Za-z]", n):
+        score = 5 if len(name) <= 15 else 1 if len(name) <= 30 else -5
+        if re.search(r"[A-Za-z]", name):
             score += 2
-        if re.search(r"\d", n):
+        if re.search(r"\d", name):
             score -= 1
-        if re.search(r"[{}[\]=#@]", n):  # SMILES-ish / formula-ish characters
+        if re.search(r"[{}[\]=#@]", name):
             score -= 4
-        if "," in n or ";" in n:
+        if "," in name or ";" in name:
             score -= 2
-
-        # Penalize names that look like full IUPAC (lots of hyphens/parentheses)
-        if n.count("-") >= 3 or n.count("(") >= 2:
+        if name.count("-") >= 3 or name.count("(") >= 2:
             score -= 2
-
         return score
 
-    # Try preferred fields
     for field in prefer:
-        if field == "iupac_name":
-            v = getattr(c, "iupac_name", None)
-            if v:
-                return _standardize_common_name(v.strip())
-
-        elif field == "title":
-            v = getattr(c, "title", None)
-            if v:
-                return _standardize_common_name(v.strip())
-
+        if field in ("iupac_name", "title"):
+            value = getattr(compound, field, None)
+            if value:
+                return _standardize_common_name(value.strip())
         elif field == "synonym":
-            syns = getattr(c, "synonyms", None) or []
-            if syns:
-                # pick the best-looking synonym
-                best = max(syns, key=_synonym_score)
-                if _synonym_score(best) > 0:
+            synonyms = getattr(compound, "synonyms", None) or []
+            if synonyms:
+                best = max(synonyms, key=synonym_score)
+                if synonym_score(best) > 0:
                     return _standardize_common_name(best.strip())
 
     return None
 
 
-def pubchem_smi_to_name(smiles: str,
-                        prefer: str = "synonym",
-                        timeout: int = 20) -> Optional[str]:
+def pubchem_smi_to_name(smiles: str, prefer: str = "synonym", timeout: int = 20) -> Optional[str]:
     """
     Retrieve the name of a compound from PubChem using its SMILES string.
 
@@ -763,14 +665,12 @@ def pubchem_smi_to_name(smiles: str,
         raise ValueError(f"Unknown prefer option: {prefer}")
 
     try:
-        c = pcp.get_compounds(smiles, namespace="smiles", timeout=timeout)[0]
+        compound = pcp.get_compounds(smiles, namespace="smiles", timeout=timeout)[0]
 
         if prefer == "iupac_name":
-            return _standardize_common_name(getattr(c, "iupac_name", "").strip() or None)
-        elif prefer == "synonym":
-            syns = getattr(c, "synonyms", [])
-            return _standardize_common_name(syns[0]) if syns else None
-
+            return _standardize_common_name(getattr(compound, "iupac_name", "").strip() or None)
+        synonyms = getattr(compound, "synonyms", [])
+        return _standardize_common_name(synonyms[0]) if synonyms else None
     except Exception as e:
         print(f'Error retrieving name for SMILES "{smiles}": {e}')
         return None
@@ -796,20 +696,42 @@ def _is_valid_sampled_smiles(smi: str, max_bonds: int) -> bool:
     if not smi or "." in smi:
         return False
     mol = smi_to_mol(smi, sanitize=True, add_hydrogens=True)
-    if mol is None:
-        return False
-    return mol.GetNumBonds() <= max_bonds
+    return mol is not None and mol.GetNumBonds() <= max_bonds
+
+
+def _sample_pubchem_batch(cids, n, max_bonds):
+    """Collect up to n valid compounds, ignoring failed lookups and molecules."""
+    try:
+        compounds = pcp.get_compounds(cids, "cid")
+    except Exception:
+        compounds = []
+
+    ids, smiles = [], []
+    for compound in compounds:
+        if len(smiles) >= n:
+            break
+        cid = getattr(compound, "cid", None)
+        smi = getattr(compound, "smiles", None)
+        if cid is None or smi is None:
+            continue
+        try:
+            if _is_valid_sampled_smiles(smi, max_bonds):
+                ids.append(int(cid))
+                smiles.append(smi)
+        except Exception:
+            continue
+    return ids, smiles
 
 
 def sample_random_pubchem(
-        n: int,
-        *,
-        seed: Optional[int] = None,
-        max_cid: int = 123_431_215,
-        delay_s: float = 0.01,
-        max_attempts: int = 500_000,
-        max_bonds: int = 100,
-        batch_size: Optional[int] = None,
+    n: int,
+    *,
+    seed: Optional[int] = None,
+    max_cid: int = 123_431_215,
+    delay_s: float = 0.01,
+    max_attempts: int = 500_000,
+    max_bonds: int = 100,
+    batch_size: Optional[int] = None,
 ) -> Tuple[List[int], List[str]]:
     """
     Sample random valid molecules from PubChem by randomly selecting compound IDs.
@@ -859,17 +781,14 @@ def sample_random_pubchem(
         raise ValueError("batch_size must be > 0")
 
     rng = random.Random(seed)
-
-    smi_list: List[str] = []
-    ids: List[int] = []
-    seen: set[int] = set()
-
+    smi_list, ids = [], []
+    seen = set()
     attempts = 0
 
     while len(smi_list) < n:
         remaining = n - len(smi_list)
-        target_gen = min(batch_size, max(remaining * 5, remaining))
-        cids_batch: List[int] = []
+        target_gen = min(batch_size, remaining * 5)
+        cids_batch = []
         while len(cids_batch) < target_gen:
             attempts += 1
             if attempts > max_attempts:
@@ -883,26 +802,9 @@ def sample_random_pubchem(
             seen.add(cid)
             cids_batch.append(cid)
 
-        try:
-            compounds = pcp.get_compounds(cids_batch, "cid")
-        except Exception:
-            compounds = []
-
-        for c in compounds:
-            if len(smi_list) >= n:
-                break
-
-            cid = getattr(c, "cid", None)
-            smi = getattr(c, "smiles", None)
-            if cid is None or smi is None:
-                continue
-
-            try:
-                if _is_valid_sampled_smiles(smi, max_bonds):
-                    ids.append(int(cid))
-                    smi_list.append(smi)
-            except Exception:
-                continue
+        batch_ids, batch_smiles = _sample_pubchem_batch(cids_batch, remaining, max_bonds)
+        ids.extend(batch_ids)
+        smi_list.extend(batch_smiles)
 
         if delay_s:
             time.sleep(delay_s)
@@ -911,14 +813,14 @@ def sample_random_pubchem(
 
 
 def sample_first_pubchem(
-        n: int,
-        *,
-        start_cid: int = 1,
-        max_cid: int = 123_431_215,
-        delay_s: float = 0.01,
-        max_attempts: int = 500_000,
-        max_bonds: int = 100,
-        batch_size: Optional[int] = None,
+    n: int,
+    *,
+    start_cid: int = 1,
+    max_cid: int = 123_431_215,
+    delay_s: float = 0.01,
+    max_attempts: int = 500_000,
+    max_bonds: int = 100,
+    batch_size: Optional[int] = None,
 ) -> Tuple[List[int], List[str]]:
     """
     Sample the first n valid molecules from PubChem starting from a given CID.
@@ -970,9 +872,7 @@ def sample_first_pubchem(
     if start_cid < 1 or start_cid > max_cid:
         raise ValueError("start_cid must be in [1, max_cid]")
 
-    smi_list: List[str] = []
-    ids: List[int] = []
-
+    smi_list, ids = [], []
     attempts = 0
     next_cid = start_cid
 
@@ -986,36 +886,14 @@ def sample_first_pubchem(
                 f"Reached max_cid={max_cid} after {attempts} attempts; collected {len(smi_list)} valid molecules."
             )
 
-        remaining = n - len(smi_list)
-        # Query enough sequential CIDs to have a decent chance of finding `remaining` valid ones.
         target = min(batch_size, max_cid - next_cid + 1)
-        # Optional: you can be more aggressive like in the random sampler:
-        # target = min(batch_size, max(remaining * 5, remaining), max_cid - next_cid + 1)
-
         cids_batch = list(range(next_cid, next_cid + target))
         next_cid += target
         attempts += len(cids_batch)
 
-        try:
-            compounds = pcp.get_compounds(cids_batch, "cid")
-        except Exception:
-            compounds = []
-
-        for c in compounds:
-            if len(smi_list) >= n:
-                break
-
-            cid = getattr(c, "cid", None)
-            smi = getattr(c, "smiles", None)
-            if cid is None or smi is None:
-                continue
-
-            try:
-                if _is_valid_sampled_smiles(smi, max_bonds):
-                    ids.append(int(cid))
-                    smi_list.append(smi)
-            except Exception:
-                continue
+        batch_ids, batch_smiles = _sample_pubchem_batch(cids_batch, n - len(smi_list), max_bonds)
+        ids.extend(batch_ids)
+        smi_list.extend(batch_smiles)
 
         if delay_s:
             time.sleep(delay_s)
@@ -1024,11 +902,11 @@ def sample_first_pubchem(
 
 
 def download_pubchem_cid_smiles_gz(
-        target_dir: str | os.PathLike = ".",
-        url: str | None = None,
-        filename: str = "CID-SMILES.gz",
-        chunk_size: int = 1024 * 1024,
-        overwrite: bool = False,
+    target_dir: str | os.PathLike = ".",
+    url: str | None = None,
+    filename: str = "CID-SMILES.gz",
+    chunk_size: int = 1024 * 1024,
+    overwrite: bool = False,
 ) -> Path:
     """
     Download the PubChem CID-SMILES mapping file.
@@ -1069,23 +947,33 @@ def download_pubchem_cid_smiles_gz(
 
     req = Request(url, headers={"User-Agent": "python-download/1.0"})
 
-    with urlopen(req) as resp, open(out_path, "wb") as f:
-        while True:
-            chunk = resp.read(chunk_size)
-            if not chunk:
-                break
-            f.write(chunk)
+    with urlopen(req) as response, out_path.open("wb") as output:
+        while chunk := response.read(chunk_size):
+            output.write(chunk)
 
     return out_path
 
 
+def _read_pubchem_cid_smiles(gz_path, sep):
+    """Read the shared two-column schema of a PubChem CID-SMILES archive."""
+    return pd.read_csv(
+        gz_path,
+        compression="gzip",
+        sep=sep,
+        header=None,
+        names=["cid", "smiles"],
+        dtype={"cid": "int64", "smiles": "string"},
+        on_bad_lines="skip",
+    )
+
+
 def sample_pubchem_cid_smiles_gz(
-        n: int,
-        *,
-        gz_path: str = 'CID-SMILES.gz',
-        seed: int = 0,
-        sep: str = "\t",
-        max_bonds: int = 100,
+    n: int,
+    *,
+    gz_path: str = "CID-SMILES.gz",
+    seed: int = 0,
+    sep: str = "\t",
+    max_bonds: int = 100,
 ) -> Tuple[List[int], List[str]]:
     """
     Sample random CID-SMILES pairs from a downloaded PubChem gzip file.
@@ -1112,39 +1000,23 @@ def sample_pubchem_cid_smiles_gz(
 
     Notes
     -----
-    If n exceeds the number of valid rows in the file, all available valid rows are returned.
+    Up to three times n rows are sampled before molecule validation, so fewer
+    than n valid pairs may be returned.
     Bad lines in the file are skipped during parsing.
     Molecules containing disconnected fragments (indicated by "." in SMILES) are excluded.
     """
-    df = pd.read_csv(
-        gz_path,
-        compression="gzip",
-        sep=sep,
-        header=None,
-        names=["cid", "smiles"],
-        dtype={"cid": "int64", "smiles": "string"},
-        on_bad_lines="skip",
-    )
+    df = _read_pubchem_cid_smiles(gz_path, sep)
+    df = df[~df["smiles"].str.contains(r"\.", na=True, regex=True)]
+    sampled = df.sample(n=min(n * 3, len(df)), random_state=seed).reset_index(drop=True)
+    cids, smiles_list = [], []
 
-    # Filter out SMILES with disconnected fragments
-    df = df[~df['smiles'].str.contains(r'\.', na=True, regex=True)]
-
-    # Sample more than needed to account for invalid molecules
-    sample_size = min(n * 3, len(df))
-    sampled = df.sample(n=sample_size, random_state=seed).reset_index(drop=True)
-
-    cids: List[int] = []
-    smiles_list: List[str] = []
-
-    for _, row in sampled.iterrows():
+    for cid, smi in sampled.itertuples(index=False, name=None):
         if len(cids) >= n:
             break
-        smi = row['smiles']
         try:
-            mol = smi_to_mol(smi)
-            mol = standardize_mol(mol)
+            mol = standardize_mol(smi_to_mol(smi))
             if mol is not None and mol.GetNumBonds() <= max_bonds:
-                cids.append(int(row['cid']))
+                cids.append(int(cid))
                 smiles_list.append(smi)
         except Exception:
             continue
@@ -1197,7 +1069,7 @@ def _valid_smi(smi: str) -> bool:
     bool
         True if the SMILES string is valid, otherwise False.
     """
-    return bool(smi) and all(x not in smi for x in [".", "*", "->", "$"])
+    return bool(smi) and not any(token in smi for token in (".", "*", "->", "$"))
 
 
 def _valid_mol_mw(smi: str) -> float:
@@ -1228,14 +1100,14 @@ def _valid_mol_mw(smi: str) -> float:
 
 
 def sample_pubchem_cid_smiles_gz_mw(
-        n: int,
-        *,
-        gz_path: str = 'CID-SMILES.gz',
-        out_file: str = 'sampled_cid_smiles_mw.csv.gz',
-        seed: int = 0,
-        sep: str = "\t",
-        max_mw: float = 600.0,
-        max_bonds: int = 100,
+    n: int,
+    *,
+    gz_path: str = "CID-SMILES.gz",
+    out_file: str = "sampled_cid_smiles_mw.csv.gz",
+    seed: int = 0,
+    sep: str = "\t",
+    max_mw: float = 600.0,
+    max_bonds: int = 100,
 ) -> pd.DataFrame:
     """
     Sample random CID-SMILES pairs from a PubChem gzip file and filter them by molecular weight and bond count.
@@ -1269,41 +1141,30 @@ def sample_pubchem_cid_smiles_gz_mw(
     -----
     - If the output file already exists, the function loads and returns its contents.
     - Invalid SMILES strings and molecules exceeding the specified molecular weight or bond count are excluded.
-    - The function samples more rows than required to account for filtering, ensuring the desired number of valid samples.
+    - Up to three times n rows are sampled before filtering. If fewer than n
+      survive, pandas raises ValueError when selecting the final sample.
     """
     if os.path.exists(out_file):
         print(f"Loading existing sampled file: {out_file}", flush=True)
         return pd.read_csv(out_file, compression="gzip")
-    else:
-        print(f"Creating sampled file: {out_file}", flush=True)
-        df = pd.read_csv(
-            gz_path,
-            compression="gzip",
-            sep=sep,
-            header=None,
-            names=["cid", "smiles"],
-            dtype={"cid": "int64", "smiles": "string"},
-            on_bad_lines="skip",
-        )
-        print(f"Total number of molecules in PubChem: {len(df)}", flush=True)
-        df = df.sample(n=min(n * 3, len(df)), random_state=seed).reset_index(drop=True)
-        # Remove rows with invalid SMILES
-        print("Filtering invalid SMILES...", flush=True)
-        df = df[mp_calc(_valid_smi, df['smiles'])]
-        # Calculate molecular weights
-        print('Filtering mols', flush=True)
-        df['molecular_weight'] = mp_calc(_valid_mol_mw, df['smiles'])
-        # Filter out the SMILES with mw > max_mw
-        df = df[(df['molecular_weight'] <= max_mw) & (df['molecular_weight'] > 0.0)]
-        # Calculate number of bonds
-        df['n_bonds'] = mp_calc(count_non_h_bonds, mp_calc(smi_to_mol, df['smiles']))
-        # Filter out the SMILES with too many bonds
-        df = df[df['n_bonds'] <= max_bonds]
-        # Sample n rows
-        sampled = df.sample(n=n, random_state=seed).reset_index(drop=True)
-        print(f"Total number of molecules in PubChem: {len(sampled)}", flush=True)
-        sampled.to_csv(out_file, index=False, compression='gzip')
-        return sampled
+
+    print(f"Creating sampled file: {out_file}", flush=True)
+    df = _read_pubchem_cid_smiles(gz_path, sep)
+    print(f"Total number of molecules in PubChem: {len(df)}", flush=True)
+    df = df.sample(n=min(n * 3, len(df)), random_state=seed).reset_index(drop=True)
+
+    print("Filtering invalid SMILES...", flush=True)
+    df = df[mp_calc(_valid_smi, df["smiles"])]
+    print("Filtering mols", flush=True)
+    df["molecular_weight"] = mp_calc(_valid_mol_mw, df["smiles"])
+    df = df[(df["molecular_weight"] <= max_mw) & (df["molecular_weight"] > 0.0)]
+    df["n_bonds"] = mp_calc(count_non_h_bonds, mp_calc(smi_to_mol, df["smiles"]))
+    df = df[df["n_bonds"] <= max_bonds]
+
+    sampled = df.sample(n=n, random_state=seed).reset_index(drop=True)
+    print(f"Total number of molecules in PubChem: {len(sampled)}", flush=True)
+    sampled.to_csv(out_file, index=False, compression="gzip")
+    return sampled
 
 
 def load_ir_jcamp_data(path: str) -> np.ndarray:
@@ -1332,182 +1193,115 @@ def load_ir_jcamp_data(path: str) -> np.ndarray:
     Notes
     -----
     - The function supports two data modes: "xy_pairs" and "xpp_ylist".
-    - Frequencies and intensities are scaled by XFACTOR and YFACTOR, respectively.
+    - Frequencies are scaled by XFACTOR; intensities are returned as
+      ``1 - YFACTOR * value``.
     - If the number of points (NPOINTS) is specified, the output is truncated to that length.
     """
-    xfactor = 1.0  # Scaling factor for frequencies
-    yfactor = 1.0  # Scaling factor for intensities
-    firstx: Optional[float] = None  # First frequency value
-    lastx: Optional[float] = None  # Last frequency value
-    deltax: Optional[float] = None  # Frequency step size
-    npoints: Optional[int] = None  # Number of data points
-    in_data = False  # Flag to indicate if data parsing is active
-    data_mode: Optional[str] = None  # Mode of data representation
-    frequencies = []  # List to store frequency values
-    intensities = []  # List to store intensity values
+    xfactor = yfactor = 1.0
+    firstx = lastx = deltax = None
+    npoints = None
+    data_mode = None
+    frequencies = []
+    intensities = []
 
-    # Regular expressions for parsing metadata and numerical values
     keyval_re = re.compile(r"^##\s*([^=]+)\s*=\s*(.*)\s*$")
     float_re = re.compile(r"[-+]?\d*\.?\d+(?:[Ee][-+]?\d+)?")
     int_re = re.compile(r"[-+]?\d+")
-
-    def _extract_numbers(line: str) -> List[float]:
-        """
-        Extract numerical values from a line of text.
-
-        Parameters
-        ----------
-        line : str
-            The input line of text.
-
-        Returns
-        -------
-        List[float]
-            A list of extracted floating-point numbers.
-        """
-        line = line.replace(",", " ").replace(";", " ")
-        return [float(x) for x in float_re.findall(line)]
-
-    def _parse_float(s: str) -> Optional[float]:
-        """
-        Parse a floating-point number from a string.
-
-        Parameters
-        ----------
-        s : str
-            The input string.
-
-        Returns
-        -------
-        Optional[float]
-            The parsed floating-point number, or None if parsing fails.
-        """
-        m = float_re.search(s)
-        return float(m.group(0)) if m else None
-
-    def _parse_int(s: str) -> Optional[int]:
-        """
-        Parse an integer from a string.
-
-        Parameters
-        ----------
-        s : str
-            The input string.
-
-        Returns
-        -------
-        Optional[int]
-            The parsed integer, or None if parsing fails.
-        """
-        m = int_re.search(s)
-        return int(m.group(0)) if m else None
-
-    # Keys indicating the start of data blocks
     data_keys = {"XYDATA", "XYPOINTS", "DATA TABLE", "DATATABLE"}
 
-    # Open the JCAMP-DX file and parse its contents
+    def parse_float(value: str) -> Optional[float]:
+        """Read the first number, allowing units and comments after metadata."""
+        match = float_re.search(value)
+        return float(match.group(0)) if match else None
+
     with open(path, "r", encoding="utf-8", errors="replace") as f:
         for raw in f:
             line = raw.strip()
-            if not line:
+            if not line or line.startswith("$$"):
                 continue
-
-            # Skip comment lines
-            if line.startswith("$$"):
-                continue
-
-            # End of the file
             if line.upper().startswith("##END"):
                 break
 
-            # Metadata lines
             if line.startswith("##"):
-                m = keyval_re.match(line)
-                if not m:
+                match = keyval_re.match(line)
+                if not match:
                     continue
 
-                key = m.group(1).strip().upper()
-                val = m.group(2).strip()
+                key = match.group(1).strip().upper()
+                value = match.group(2).strip()
 
-                # Check if the line starts a data block
                 if key in data_keys:
-                    in_data = True
-                    uval = val.upper()
-                    data_mode = "xpp_ylist" if "X++" in uval else "xy_pairs"
+                    data_mode = "xpp_ylist" if "X++" in value.upper() else "xy_pairs"
                     continue
 
-                # End of a data block
-                if in_data:
-                    in_data = False
-                    data_mode = None
-
-                # Parse metadata values
+                # Any other metadata record ends the current data block.
+                data_mode = None
                 if key == "XFACTOR":
-                    v = _parse_float(val)
-                    if v is not None:
-                        xfactor = v
+                    factor = parse_float(value)
+                    if factor is not None:
+                        xfactor = factor
                 elif key == "YFACTOR":
-                    v = _parse_float(val)
-                    if v is not None:
-                        yfactor = v
+                    factor = parse_float(value)
+                    if factor is not None:
+                        yfactor = factor
                 elif key == "FIRSTX":
-                    firstx = _parse_float(val)
+                    firstx = parse_float(value)
                 elif key == "LASTX":
-                    lastx = _parse_float(val)
+                    lastx = parse_float(value)
                 elif key == "DELTAX":
-                    deltax = _parse_float(val)
+                    deltax = parse_float(value)
                 elif key in ("NPOINTS", "POINTS"):
-                    npoints = _parse_int(val)
+                    match = int_re.search(value)
+                    npoints = int(match.group(0)) if match else None
                 continue
 
-            # Skip lines outside data blocks
-            if not in_data or data_mode is None:
+            if data_mode is None:
                 continue
 
-            # Extract numerical data
-            nums = _extract_numbers(line)
-            if not nums:
+            numbers = [float(value) for value in float_re.findall(line)]
+            if not numbers:
                 continue
 
-            # Parse data based on the mode
             if data_mode == "xy_pairs":
-                # Data is in (x, y) pairs
-                if len(nums) % 2 == 1:
-                    nums = nums[:-1]
-                for i in range(0, len(nums), 2):
-                    frequencies.append(nums[i] * xfactor)
-                    intensities.append(nums[i + 1] * yfactor)
-
-            elif data_mode == "xpp_ylist":
-                # Data is in x++(y..y) format
-                x0 = nums[0]
-                yvals = nums[1:]
-                if not yvals:
+                # An unpaired trailing value is ignored.
+                pairs = zip(numbers[::2], numbers[1::2])
+            else:
+                x0, *y_values = numbers
+                if not y_values:
                     continue
 
                 dx = deltax
-                if dx is None and firstx is not None and lastx is not None and npoints and npoints > 1:
+                if (
+                    dx is None
+                    and firstx is not None
+                    and lastx is not None
+                    and npoints
+                    and npoints > 1
+                ):
                     dx = (lastx - firstx) / (npoints - 1)
 
                 if dx is None:
                     raise ValueError("X++(Y..Y) data encountered but DELTAX is missing.")
 
-                for j, y in enumerate(yvals):
-                    frequencies.append((x0 + j * dx) * xfactor)
-                    intensities.append(y * yfactor)
+                pairs = ((x0 + index * dx, y) for index, y in enumerate(y_values))
 
-    # Raise an error if no data was found
+            for x, y in pairs:
+                frequencies.append(x * xfactor)
+                intensities.append(y * yfactor)
+
     if not frequencies:
         raise ValueError("No XY data block found (expected ##XYDATA= or ##XYPOINTS=).")
 
-    # Truncate data to the specified number of points
     if npoints is not None and len(frequencies) > npoints:
         frequencies = frequencies[:npoints]
         intensities = intensities[:npoints]
 
-    # Return Nx2 array: [frequency, intensity]
-    return np.column_stack((np.asarray(frequencies, dtype=float),
-                            1.0 - np.asarray(intensities, dtype=float)))
+    return np.column_stack(
+        (
+            np.asarray(frequencies, dtype=float),
+            1.0 - np.asarray(intensities, dtype=float),
+        )
+    )
 
 
 def _process_meta_data_name(entry: List[dict]) -> Optional[str]:
@@ -1530,16 +1324,15 @@ def _process_meta_data_name(entry: List[dict]) -> Optional[str]:
     Optional[str]
         The extracted name identifier if found, otherwise None.
 
-    Raises
-    ------
-    IndexError, KeyError, TypeError
-        If the structure of the input data does not match the expected format.
+    Notes
+    -----
+    Missing or malformed entries that raise IndexError, KeyError or TypeError
+    return None.
     """
     try:
-        entries = entry[0]['attacments']
-        for e in entries:
-            if not e['filename'].endswith('.peak.jdx'):
-                return e['identifier'].split('/')[-1]
+        for attachment in entry[0]["attacments"]:
+            if not attachment["filename"].endswith(".peak.jdx"):
+                return attachment["identifier"].split("/")[-1]
     except (IndexError, KeyError, TypeError):
         pass
     return None
@@ -1570,27 +1363,19 @@ def _process_chemotion_meta_section(extract_dir: str) -> pd.DataFrame:
     FileNotFoundError
         If the metadata file ('meta_data.json') is not found in the extraction directory.
     """
-    # Locate the metadata file
     meta_file = next((f for f in file_list_all(extract_dir) if f.endswith("meta_data.json")), None)
     if not meta_file:
         raise FileNotFoundError("No meta_data.json file found in extracted data.")
 
-    # Read the metadata file
     with open(meta_file, "r") as f:
         meta_data = json.load(f)
 
-    # Convert to pandas DataFrame and select relevant columns
-    df = pd.DataFrame(meta_data)[['cano_smiles', 'datasets']]
-    df = df.rename(columns={'cano_smiles': 'smiles'})
-
-    # Drop entries with invalid SMILES strings
-    df = df[mp_calc(_valid_smi, df['smiles'])]
-
-    # Process 'datasets' to extract 'name' and clean up the DataFrame
-    df['name'] = mp_calc(_process_meta_data_name, df['datasets'])
-    df = df.dropna(subset=['name']).drop(columns=['datasets'])
-
-    return df
+    df = pd.DataFrame(meta_data)[["cano_smiles", "datasets"]].rename(
+        columns={"cano_smiles": "smiles"}
+    )
+    df = df[mp_calc(_valid_smi, df["smiles"])]
+    df["name"] = mp_calc(_process_meta_data_name, df["datasets"])
+    return df.dropna(subset=["name"]).drop(columns=["datasets"])
 
 
 def _process_chemotion_ir_section(extract_dir: str, meta_data: pd.DataFrame) -> pd.DataFrame:
@@ -1622,28 +1407,19 @@ def _process_chemotion_ir_section(extract_dir: str, meta_data: pd.DataFrame) -> 
     FileNotFoundError
         If the IR data archive ('IR_data.tar.xz') is not found in the extraction directory.
     """
-    # Locate the IR data archive
     ir_file = next((f for f in file_list_all(extract_dir) if f.endswith("IR_data.tar.xz")), None)
     if not ir_file:
         raise FileNotFoundError("No IR_data.tar.xz file found in extracted data.")
 
-    # Extract the IR data if not already extracted
     ir_extract_dir = os.path.join(os.path.dirname(ir_file), "IR_data")
     if not os.path.exists(ir_extract_dir):
         with tarfile.open(ir_file, "r:xz") as tar:
             tar.extractall(path=ir_extract_dir)
 
-    # Filter IR files based on metadata names
-    target_names = meta_data['name'].tolist()
-    ir_files = [
-        f for f in file_list_all(ir_extract_dir)
-        if any(name in f for name in target_names)
-    ]
-    filenames = [os.path.basename(f) for f in ir_files]
-
-    # Create a DataFrame with filenames and their corresponding spectra
-    ir_data = pd.DataFrame({'name': filenames})
-    ir_data['spectrum'] = mp_calc(load_ir_jcamp_data, ir_files)
+    target_names = meta_data["name"].tolist()
+    ir_files = [f for f in file_list_all(ir_extract_dir) if any(name in f for name in target_names)]
+    ir_data = pd.DataFrame({"name": [os.path.basename(f) for f in ir_files]})
+    ir_data["spectrum"] = mp_calc(load_ir_jcamp_data, ir_files)
     return ir_data
 
 
@@ -1692,11 +1468,8 @@ def process_chemotion_ir_data(target_file: str, save: bool = False) -> pd.DataFr
        https://doi.org/10.22000/OGoEQGlsZGElrgst
     """
     extract_dir = os.path.join(os.path.dirname(target_file), "chemotion_ir_data")
-    # Cache beside the extracted data so it is keyed to the archive rather than to
-    # whichever directory the caller happens to be running from.
     out_file = os.path.join(extract_dir, "chemotion_ir_data.pkl.gz")
 
-    # Check if the processed data file already exists
     if os.path.exists(out_file):
         try:
             cached = pd.read_pickle(out_file)
@@ -1707,20 +1480,14 @@ def process_chemotion_ir_data(target_file: str, save: bool = False) -> pd.DataFr
             print(f"{out_file} already exists. Skipping processing.", flush=True)
             return cached
 
-    # Extract the tar file if the extraction directory does not exist
     if not os.path.exists(extract_dir):
         with tarfile.open(target_file, "r") as tar:
             tar.extractall(path=extract_dir)
         print(f"Extracted data to {extract_dir}", flush=True)
 
-    # Process metadata and IR data sections
     meta_data = _process_chemotion_meta_section(extract_dir)
     ir_data = _process_chemotion_ir_section(extract_dir, meta_data)
-
-    # Merge metadata and IR data on the 'name' column
-    merged_data = pd.merge(meta_data, ir_data, on='name')
-    # Drop rows with any NaN values
-    merged_data = merged_data.dropna()
+    merged_data = pd.merge(meta_data, ir_data, on="name").dropna()
     if save:
         # Pickle, not CSV: the 'spectrum' column holds arrays that CSV cannot round-trip.
         merged_data.to_pickle(out_file)
@@ -1728,12 +1495,12 @@ def process_chemotion_ir_data(target_file: str, save: bool = False) -> pd.DataFr
 
 
 def find_peak_indices_in_range(
-        xy: np.ndarray,
-        *,
-        min_x: float = 400.0,
-        max_x: float = 1500.0,
-        prominence: Optional[float] = 0.02,
-        distance: Optional[int] = 10,
+    xy: np.ndarray,
+    *,
+    min_x: float = 400.0,
+    max_x: float = 1500.0,
+    prominence: Optional[float] = 0.02,
+    distance: Optional[int] = 10,
 ) -> np.ndarray:
     """
     Identify the indices of peaks within a specified x-range in a 2D array.
@@ -1775,18 +1542,18 @@ def find_peak_indices_in_range(
     if xy.ndim != 2 or xy.shape[1] != 2:
         raise ValueError("xy must be a 2D array of shape (N, 2): [freq, intensity].")
 
-    peaks = find_peaks(xy.T[1], prominence=prominence, distance=distance)[0]
-    # Filter peaks to be within the specified x-range using boolean indexing
-    return peaks[(xy[peaks, 0] >= min_x) & (xy[peaks, 0] <= max_x)]
+    peaks = find_peaks(xy[:, 1], prominence=prominence, distance=distance)[0]
+    peak_x = xy[peaks, 0]
+    return peaks[(peak_x >= min_x) & (peak_x <= max_x)]
 
 
 def find_n_peak_indices_in_range(
-        xy: np.ndarray,
-        *,
-        min_x: float = 400.0,
-        max_x: float = 1500.0,
-        prominence: Optional[float] = 0.02,
-        distance: Optional[int] = 10,
+    xy: np.ndarray,
+    *,
+    min_x: float = 400.0,
+    max_x: float = 1500.0,
+    prominence: Optional[float] = 0.02,
+    distance: Optional[int] = 10,
 ) -> int:
     """
     Count the number of peaks within a specified x-range in a 2D array.
@@ -1833,9 +1600,7 @@ def find_n_peak_indices_in_range(
     return len(peak_indices)
 
 
-def apply_sg_filter(spectrum: np.ndarray,
-                    window_length: int = 9,
-                    polyorder: int = 3) -> np.ndarray:
+def apply_sg_filter(spectrum: np.ndarray, window_length: int = 9, polyorder: int = 3) -> np.ndarray:
     """
     Apply a Savitzky-Golay filter to smooth the intensity values of a spectrum.
 
@@ -1861,12 +1626,15 @@ def apply_sg_filter(spectrum: np.ndarray,
         the original x-values and the second column contains the smoothed intensity values.
     """
     intensity = savgol_filter(spectrum.T[1], window_length=window_length, polyorder=polyorder)
-    return np.column_stack((np.asarray(spectrum.T[0], dtype=float), np.asarray(intensity, dtype=float)))
+    return np.column_stack(
+        (
+            np.asarray(spectrum.T[0], dtype=float),
+            np.asarray(intensity, dtype=float),
+        )
+    )
 
 
-def linear_func(x: Union[float, np.ndarray],
-                m: float,
-                b: float) -> Union[float, np.ndarray]:
+def linear_func(x: Union[float, np.ndarray], m: float, b: float) -> Union[float, np.ndarray]:
     """
     Linear function to model a straight line.
 
@@ -1887,10 +1655,9 @@ def linear_func(x: Union[float, np.ndarray],
     return m * x + b
 
 
-def quadratic_func(x: Union[float, np.ndarray],
-                   a: float,
-                   b: float,
-                   c: float) -> Union[float, np.ndarray]:
+def quadratic_func(
+    x: Union[float, np.ndarray], a: float, b: float, c: float
+) -> Union[float, np.ndarray]:
     """
     Quadratic function to model a parabola.
 
@@ -1910,14 +1677,12 @@ def quadratic_func(x: Union[float, np.ndarray],
     float or array-like
         The dependent variable calculated as a * x^2 + b * x + c.
     """
-    return a * x ** 2 + b * x + c
+    return a * x**2 + b * x + c
 
 
-def cubic_func(x: Union[float, np.ndarray],
-               a: float,
-               b: float,
-               c: float,
-               d: float) -> Union[float, np.ndarray]:
+def cubic_func(
+    x: Union[float, np.ndarray], a: float, b: float, c: float, d: float
+) -> Union[float, np.ndarray]:
     """
     Cubic function to model a polynomial of degree 3.
 
@@ -1939,15 +1704,12 @@ def cubic_func(x: Union[float, np.ndarray],
     float or array-like
         The dependent variable calculated as a * x^3 + b * x^2 + c * x + d.
     """
-    return a * x ** 3 + b * x ** 2 + c * x + d
+    return a * x**3 + b * x**2 + c * x + d
 
 
-def quartic_func(x: Union[float, np.ndarray],
-                 a: float,
-                 b: float,
-                 c: float,
-                 d: float,
-                 e: float) -> Union[float, np.ndarray]:
+def quartic_func(
+    x: Union[float, np.ndarray], a: float, b: float, c: float, d: float, e: float
+) -> Union[float, np.ndarray]:
     """
     Quartic function to model a polynomial of degree 4.
 
@@ -1971,15 +1733,12 @@ def quartic_func(x: Union[float, np.ndarray],
     float or array-like
         The dependent variable calculated as a * x^4 + b * x^3 + c * x^2 + d * x + e.
     """
-    return a * x ** 4 + b * x ** 3 + c * x ** 2 + d * x + e
+    return a * x**4 + b * x**3 + c * x**2 + d * x + e
 
 
-def quintic_func(x: Union[float, np.ndarray],
-                 a: float,
-                 b: float,
-                 c: float,
-                 d: float,
-                 e: float) -> Union[float, np.ndarray]:
+def quintic_func(
+    x: Union[float, np.ndarray], a: float, b: float, c: float, d: float, e: float
+) -> Union[float, np.ndarray]:
     """
     Quintic function to model a polynomial of degree 5.
 
@@ -2003,7 +1762,7 @@ def quintic_func(x: Union[float, np.ndarray],
     float or array-like
         The dependent variable calculated as a * x^5 + b * x^4 + c * x^3 + d * x^2 + e * x.
     """
-    return a * x ** 5 + b * x ** 4 + c * x ** 3 + d * x ** 2 + e * x
+    return a * x**5 + b * x**4 + c * x**3 + d * x**2 + e * x
 
 
 def get_r(y_true: np.ndarray, y_pred: np.ndarray) -> float:
@@ -2036,12 +1795,12 @@ def get_r(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     """
     y_true = np.asarray(y_true, dtype=float).ravel()
     y_pred = np.asarray(y_pred, dtype=float).ravel()
-    yt = y_true - np.mean(y_true)
-    yp = y_pred - np.mean(y_pred)
-    denom = np.sqrt(np.sum(yt ** 2) * np.sum(yp ** 2))
-    if np.isclose(denom, 0.0):
+    true_deviations = y_true - np.mean(y_true)
+    pred_deviations = y_pred - np.mean(y_pred)
+    denominator = np.sqrt(np.sum(true_deviations**2) * np.sum(pred_deviations**2))
+    if np.isclose(denominator, 0.0):
         return np.nan
-    return float(np.sum(yt * yp) / denom)
+    return float(np.sum(true_deviations * pred_deviations) / denominator)
 
 
 def get_r2(y_true: np.ndarray, y_pred: np.ndarray) -> float:
@@ -2077,10 +1836,9 @@ def get_r2(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     y_pred = np.asarray(y_pred, dtype=float).ravel()
     ss_res = np.sum((y_true - y_pred) ** 2)
     ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)
-    # Handle the degenerate case
     if np.isclose(ss_tot, 0.0):
         return 1.0 if np.isclose(ss_res, 0.0) else 0.0
-    return 1.0 - (ss_res / ss_tot)
+    return 1.0 - ss_res / ss_tot
 
 
 def get_rmsd(y_true: np.ndarray, y_pred: np.ndarray) -> float:
@@ -2114,9 +1872,11 @@ def get_rmsd(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     return float(np.sqrt(np.mean((y_true - y_pred) ** 2)))
 
 
-def _peaks_to_ai(n_peaks: Union[int, float],
-                 model: Callable[..., float],
-                 params: Union[List[float], Tuple[float, ...], np.ndarray]) -> int:
+def _peaks_to_ai(
+    n_peaks: Union[int, float],
+    model: Callable[..., float],
+    params: Union[List[float], Tuple[float, ...], np.ndarray],
+) -> int:
     """
     Convert the number of peaks to an assembly index (AI) using a given model.
 
@@ -2188,14 +1948,13 @@ def _func_min_helper(x: np.ndarray, *args: Any) -> float:
       global minimum.
     """
     n_peaks, obs, model_fit = args
-    pred = np.array([_peaks_to_ai(n, model_fit, x) for n in n_peaks], dtype=int)
-    return get_rmsd(obs, pred)
+    predictions = np.array([_peaks_to_ai(n, model_fit, x) for n in n_peaks], dtype=int)
+    return get_rmsd(obs, predictions)
 
 
-def estimate_ai_from_ir_peaks(peaks_data: np.ndarray,
-                              ai_obs: np.ndarray,
-                              model: Callable[..., float],
-                              params_0: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+def estimate_ai_from_ir_peaks(
+    peaks_data: np.ndarray, ai_obs: np.ndarray, model: Callable[..., float], params_0: np.ndarray
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     Estimate assembly indices (AI) from IR peaks using a given model.
 
@@ -2262,23 +2021,23 @@ def estimate_ai_from_ir_peaks(peaks_data: np.ndarray,
        Science, 10(5), 1054-1064.
        https://doi.org/10.1021/acscentsci.4c00120
     """
-    res = minimize(_func_min_helper,
-                   np.array(params_0),
-                   args=(peaks_data,
-                         ai_obs,
-                         model),
-                   method='Nelder-Mead',
-                   tol=1e-6)
-    data_pred = [_peaks_to_ai(x_i, model, res.x) for x_i in peaks_data]
-    return res.x, np.array(data_pred, dtype=int)
+    result = minimize(
+        _func_min_helper,
+        np.array(params_0),
+        args=(peaks_data, ai_obs, model),
+        method="Nelder-Mead",
+        tol=1e-6,
+    )
+    predictions = np.array([_peaks_to_ai(n, model, result.x) for n in peaks_data], dtype=int)
+    return result.x, predictions
 
 
 def get_github_file(
-        filename: str,
-        repo_url: str,
-        dest_dir: str | Path = Path.cwd(),
-        overwrite: bool = False,
-        timeout: int = 30,
+    filename: str,
+    repo_url: str,
+    dest_dir: str | Path = Path.cwd(),
+    overwrite: bool = False,
+    timeout: int = 30,
 ) -> Path:
     """
     Download a file from a GitHub repository and save it to a specified directory.
@@ -2329,21 +2088,22 @@ def get_github_file(
 
     tmp_path = out_path.with_suffix(out_path.suffix + ".part")
 
-    # Some servers like having a User-Agent set
-    req = Request(url, headers={"User-Agent": "python-download/1.0"})
+    request = Request(url, headers={"User-Agent": "python-download/1.0"})
 
     print(f"Downloading {url} -> {out_path}", flush=True)
-    with urlopen(req, timeout=timeout) as r, open(tmp_path, "wb") as f:
-        shutil.copyfileobj(r, f)
+    with urlopen(request, timeout=timeout) as response, tmp_path.open("wb") as output:
+        shutil.copyfileobj(response, output)
 
     tmp_path.replace(out_path)
     return out_path
 
 
-def sample_cbrdb(n_samples: int = 10_000,
-                 max_mw: float = 350.0,
-                 max_bonds: float = 40,
-                 c_select: List[str] | None = None) -> pd.DataFrame:
+def sample_cbrdb(
+    n_samples: int = 10_000,
+    max_mw: float = 350.0,
+    max_bonds: float = 40,
+    c_select: List[str] | None = None,
+) -> pd.DataFrame:
     """
     Sample a subset of compounds from the CBRdb dataset.
 
@@ -2378,43 +2138,32 @@ def sample_cbrdb(n_samples: int = 10_000,
     """
     repo_url = "https://raw.githubusercontent.com/ELIFE-ASU/CBRdb/refs/heads/main"
     target_file = "CBRdb_C.csv.zip"
-    # Set default columns to select if not provided
     if c_select is None:
-        c_select = ['compound_id', 'nickname', 'smiles', 'molecular_weight', 'n_heavy_atoms']
-    # Download the dataset file
+        c_select = ["compound_id", "nickname", "smiles", "molecular_weight", "n_heavy_atoms"]
+
     path = get_github_file(target_file, repo_url)
-    # Load the dataset into a DataFrame
     df = pd.read_csv(path, low_memory=False)
-    # Remove the downloaded file after loading
     os.remove(path)
-    # Select the specified columns
-    df = df[c_select]
-    # Drop rows with missing SMILES strings
-    df = df.dropna(subset=['smiles'])
-    # Filter out invalid SMILES strings
-    df = df[mp_calc(_valid_smi, df['smiles'])]
-    # Filter out invalid molecules
-    df = df[mp_calc(_valid_mol, df['smiles'])]
-    # Filter by maximum molecular weight
-    df = df[df['molecular_weight'] <= max_mw]
-    # Calculate the number of bonds for each molecule
-    df['n_bonds'] = mp_calc(count_non_h_bonds, mp_calc(smi_to_mol, df['smiles']))
-    # Filter out molecules with too many bonds
-    df = df[df['n_bonds'] <= max_bonds]
-    # Randomly sample the requested number of entries
+
+    df = df[c_select].dropna(subset=["smiles"])
+    df = df[mp_calc(_valid_smi, df["smiles"])]
+    df = df[mp_calc(_valid_mol, df["smiles"])]
+    df = df[df["molecular_weight"] <= max_mw]
+    df["n_bonds"] = mp_calc(count_non_h_bonds, mp_calc(smi_to_mol, df["smiles"]))
+    df = df[df["n_bonds"] <= max_bonds]
+
     if n_samples < len(df):
         df = df.sample(n=n_samples, random_state=42)
-    # Return the sampled DataFrame
     return df.reset_index(drop=True)
 
 
 def enumerate_stereoisomers_shortest(
-        mol: Chem.Mol,
-        *,
-        max_isomers: int = 30,
-        only_unassigned: bool = False,
-        try_embedding: bool = False,
-        prefer: str = "synonym",
+    mol: Chem.Mol,
+    *,
+    max_isomers: int = 30,
+    only_unassigned: bool = False,
+    try_embedding: bool = False,
+    prefer: str = "synonym",
 ) -> str:
     """
     Enumerate stereoisomers and return the one with the shortest name.
@@ -2460,26 +2209,17 @@ def enumerate_stereoisomers_shortest(
     base = Chem.Mol(mol)
     Chem.AssignStereochemistry(base, cleanIt=True, force=True)
 
-    # Set options for stereo enumeration
-    opts = StereoEnumerationOptions(
+    options = StereoEnumerationOptions(
         unique=True,
         onlyUnassigned=only_unassigned,
         tryEmbedding=try_embedding,
         maxIsomers=max_isomers,
     )
 
-    # Enumerate stereoisomers
-    isomers = list(EnumerateStereoisomers(base, options=opts))
-    if not isomers:
-        return Chem.MolToSmiles(mol, isomericSmiles=True, canonical=True)
-
-    # Generate SMILES and names for isomers
-    smis = [Chem.MolToSmiles(iso, isomericSmiles=True, canonical=True) for iso in isomers]
-    names = [pubchem_smi_to_name(smi, prefer=prefer) for smi in smis]
-
-    # remove any names that are None
-    filtered = [(smi, name) for smi, name in zip(smis, names) if name is not None]
-    if not filtered:
-        return Chem.MolToSmiles(mol, isomericSmiles=True, canonical=True)
-    smis, names = zip(*filtered)
-    return smis[names.index(min(names, key=len))]
+    isomers = list(EnumerateStereoisomers(base, options=options))
+    smiles = [Chem.MolToSmiles(iso, isomericSmiles=True, canonical=True) for iso in isomers]
+    names = [pubchem_smi_to_name(smi, prefer=prefer) for smi in smiles]
+    named_isomers = [(smi, name) for smi, name in zip(smiles, names) if name is not None]
+    if named_isomers:
+        return min(named_isomers, key=lambda item: len(item[1]))[0]
+    return Chem.MolToSmiles(mol, isomericSmiles=True, canonical=True)
