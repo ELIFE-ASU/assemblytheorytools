@@ -15,7 +15,9 @@ from assemblytheorytools import tools_test
         ([[], {"a": 1}], [{"a": 1}, []], True),
     ],
 )
-def test_check_elements_keeps_membership_semantics(input_list, reference_list, expected):
+def test_check_elements_keeps_membership_semantics(
+    input_list, reference_list, expected
+):
     assert tools_test.check_elements(input_list, reference_list) is expected
 
 

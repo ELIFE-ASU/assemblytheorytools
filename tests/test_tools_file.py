@@ -69,9 +69,8 @@ def test_write_to_shared_file_holds_lock_through_buffered_writes(tmp_path, monke
         def write(self, data):
             # A separate descriptor must be unable to lock the file while
             # buffered bytes are being written to the underlying stream.
-            with open(shared_file, "a") as contender:
-                with pytest.raises(BlockingIOError):
-                    fcntl.flock(contender, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            with open(shared_file, "a") as contender, pytest.raises(BlockingIOError):
+                fcntl.flock(contender, fcntl.LOCK_EX | fcntl.LOCK_NB)
             return super().write(data)
 
     stream = io.TextIOWrapper(LockCheckedFile(shared_file, "a"))
@@ -97,14 +96,15 @@ def test_remove_files_removes_nested_files_but_preserves_directories(tmp_path):
     assert list(nested.iterdir()) == []
 
 
-def test_wipe_dir_removes_a_nested_directory_tree(tmp_path):
+@pytest.mark.parametrize("remove_directory", [att.safe_folder_remove, att.wipe_dir])
+def test_directory_removal_deletes_a_nested_tree(tmp_path, remove_directory):
     target = tmp_path / "target"
     nested = target / "nested" / "deeper"
     nested.mkdir(parents=True)
     (target / "top.txt").write_text("top")
     (nested / "child.txt").write_text("child")
 
-    att.wipe_dir(target)
+    remove_directory(target)
 
     assert not target.exists()
 
@@ -119,35 +119,29 @@ def test_list_subdirs_filters_by_prefix(tmp_path):
     assert att.list_subdirs(tmp_path, target="other") == ["other"]
 
 
-def test_prep_json_repairs_missing_and_unquoted_edge_colours(tmp_path):
+@pytest.mark.parametrize(
+    ("colours", "expected"),
+    [
+        pytest.param(
+            'red, , "blue", 3', ["red", "ERROR", "blue", "3"], id="mixed-types"
+        ),
+        pytest.param("", ["ERROR"], id="empty-list"),
+        pytest.param('"blue", ', ["blue", "ERROR"], id="trailing-entry"),
+        pytest.param("\nred,\n, blue\n", ["red", "ERROR", "blue"], id="multiline"),
+    ],
+)
+def test_prep_json_repairs_edge_colours_without_changing_other_fields(
+    tmp_path, colours, expected
+):
     path = tmp_path / "pathway.json"
-    path.write_text(
-        '{"EdgeColours": [red, , "blue", 3], "unchanged": [1, 2]}'
-    )
+    path.write_text('{"EdgeColours": [' + colours + '], "unchanged": [1, 2]}')
 
     prep_json(path)
 
     assert json.loads(path.read_text()) == {
-        "EdgeColours": ["red", "ERROR", "blue", "3"],
+        "EdgeColours": expected,
         "unchanged": [1, 2],
     }
-
-
-@pytest.mark.parametrize(
-    ("colours", "expected"),
-    [
-        ("", ["ERROR"]),
-        ('"blue", ', ["blue", "ERROR"]),
-        ("\nred,\n, blue\n", ["red", "ERROR", "blue"]),
-    ],
-)
-def test_prep_json_preserves_empty_entry_repair_rules(tmp_path, colours, expected):
-    path = tmp_path / "pathway.json"
-    path.write_text('{"EdgeColours": [' + colours + "]}")
-
-    prep_json(path)
-
-    assert json.loads(path.read_text()) == {"EdgeColours": expected}
 
 
 def test_prep_json_leaves_invalid_json_unchanged(tmp_path):
@@ -177,14 +171,9 @@ def test_remove_file_pattern_removes_only_matching_files(tmp_path):
     assert matching_directory.is_dir()
 
 
-def test_safe_folder_remove_handles_nested_and_missing_directories(tmp_path):
-    target = tmp_path / "target"
-    nested = target / "nested"
-    nested.mkdir(parents=True)
-    (target / "top.txt").write_text("top")
-    (nested / "child.txt").write_text("child")
+def test_safe_folder_remove_ignores_missing_directories(tmp_path):
+    target = tmp_path / "missing"
 
-    att.safe_folder_remove(target)
     att.safe_folder_remove(target)
 
     assert not target.exists()

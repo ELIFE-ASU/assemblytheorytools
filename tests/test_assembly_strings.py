@@ -1,198 +1,108 @@
-import numpy as np
-import pytest
+"""Directed, undirected and joint string assembly across backends."""
+
 import random
 import string
+from itertools import islice, product
+from pathlib import Path
+
+import networkx as nx
+import numpy as np
+import pytest
 
 import assemblytheorytools as att
+from assemblytheorytools import assembly
 
 
-def test_undirected_str_ass():
-    """
-    Test the string assembly index calculation of an undirected string.
-
-    This function performs the following steps:
-    1. Defines an input string.
-    2. Calculates the assembly index of the input string.
-    3. Compares the calculated assembly index to the expected value.
-
-    Asserts:
-        - The calculated assembly index is equal to the expected value.
-    """
-    s_inpt = "abracadabra"
-    ai_ref = 7
-    ai, _, _ = att.calculate_string_assembly_index(s_inpt, directed=False, mode='mol')
-    ai2, _, _ = att.calculate_string_assembly_index(s_inpt, directed=False, mode='str')
-    assert ai == ai_ref
-    assert ai2 == ai_ref
+@pytest.mark.parametrize("mode", ["mol", "str"])
+@pytest.mark.parametrize("directed", [False, True])
+def test_abracadabra_index(mode, directed):
+    assert (
+        att.calculate_string_assembly_index(
+            "abracadabra", mode=mode, directed=directed
+        )[0]
+        == 7
+    )
 
 
-def test_directed_str_ass():
-    """
-    Test the string assembly index calculation of a directed string.
-
-    This function performs the following steps:
-    1. Defines an input string.
-    2. Calculates the assembly index of the input string.
-    3. Compares the calculated assembly index to the expected value.
-
-    Asserts:
-        - The calculated assembly index is equal to the expected value.
-    """
-    s_inpt = "abracadabra"
-    ai_ref = 7
-    ai, _, _ = att.calculate_string_assembly_index(s_inpt, directed=True, mode='mol')
-    ai2, _, _ = att.calculate_string_assembly_index(s_inpt, directed=True, mode='str')
-    assert ai == ai_ref
-    assert ai2 == ai_ref
+@pytest.mark.parametrize(
+    "strings, minimum, maximum",
+    [("abracadabra", 7, 7), (["aaaa", "bbbb", "aa"], 4, 7)],
+    ids=["single", "joint"],
+)
+def test_cfg_bounds_for_known_strings(strings, minimum, maximum):
+    # CFG is a heuristic upper bound: it may miss sharing between strings.
+    upper_bound = att.calculate_string_assembly_index(strings, mode="cfg")[0]
+    assert minimum <= upper_bound <= maximum
 
 
-def test_cfg_str_ass():
-    """
-    Test the CFG upperbound to string assembly index for a directed string.
-
-    This function performs the following steps:
-    1. Defines an input string.
-    2. Calculates the assembly index upper bound for the input string.
-    3. Compares the upper bound to the exact value.
-
-    Asserts:
-        - The calculated upper bound is <= the exact value.
-    """
-    s_inpt = "abracadabra"
-    ai_ref = 7
-    ai, _, _ = att.calculate_string_assembly_index(s_inpt, directed=True, mode="cfg")
-    assert ai <= ai_ref
+@pytest.mark.parametrize(
+    "settings",
+    [{"directed": True}, {"directed": False}, {"mode": "cfg"}],
+    ids=["directed", "undirected", "cfg"],
+)
+def test_single_character_pool_needs_no_joining(settings):
+    assert att.calculate_string_assembly_index(["a"] * 95, **settings) == (
+        0,
+        None,
+        None,
+    )
 
 
-def test_delimiter_chars():
-    """
-    Test that the joint assembly calculations are working as intended.
-    """
-    s_in = ["a"] * 95
-    a1, v1, p1 = att.calculate_string_assembly_index(s_in, directed=True)
-    a2, v2, p2 = att.calculate_string_assembly_index(s_in, directed=False)
-    a3, v3, p3 = att.calculate_string_assembly_index(s_in, mode='cfg')
-    assert a1 == 0
-    assert a2 == 0
-    assert a3 == 0
+@pytest.mark.parametrize("mode", ["mol", "str"])
+def test_joint_strings_share_intermediates(mode):
+    assert (
+        att.calculate_string_assembly_index(["aaaa", "bbbb", "aa"], mode=mode)[0] == 4
+    )
 
 
-# @pytest.mark.skip 
-def test_directed_joint_str_ass():
-    """
-    Test the calculation of the assembly index for a set of strings.
+@pytest.mark.parametrize(
+    "log, expected",
+    [
+        ("min AI found so far: 9\nmin AI found so far: 7\n", 7),
+        ("", -1),
+        ("No paths found\n", -1),
+    ],
+    ids=["latest-bound", "empty-log", "no-bound"],
+)
+def test_string_timeout_returns_a_bound_only_when_one_was_logged(
+    tmp_path, monkeypatch, log, expected
+):
+    calculation_dir = tmp_path / "calculation"
 
-    This function performs the following steps:
-    1. Define a list of strings
-    2. Calculate their assembly index
-    3. Assert ai = 4
+    def timed_out(executable, input_file, log_file, timeout, debug):
+        Path(log_file).write_text(log)
+        return True
 
-    Asserts:
-        - The calculated assembly index is equal to 4.
-    """
-    s_inpt = ["aaaa", "bbbb", "aa"]
-    ai_ref = 4
-    ai, _, _ = att.calculate_string_assembly_index(s_inpt, directed=True, mode='mol')
-    ai2, _, _ = att.calculate_string_assembly_index(s_inpt, directed=True, mode='str')
-    assert ai == ai_ref
-    assert ai2 == ai_ref
+    monkeypatch.setattr(assembly.tempfile, "mkdtemp", lambda: str(calculation_dir))
+    monkeypatch.setattr(assembly, "_run_string_assembler", timed_out)
 
+    result = att.calculate_string_assembly_index("abab", dir_code="assembler")
 
-def test_joint_cfg_str_ass():
-    """
-    Test the calculation of the assembly index for a set of strings in CFG mode.
-
-    This function performs the following steps:
-    1. Defines a list of input strings.
-    2. Calculates the assembly index for the input strings in directed CFG mode.
-    3. Prints the virtual objects generated during the calculation.
-    4. Asserts that the calculated assembly index is equal to the expected value.
-
-    Asserts:
-        - The calculated assembly index is equal to 4.
-    """
-    strs = ["aaaa", "bbbb", "aa"]
-    ai_ref = 4
-    ai, v_obj, path = att.calculate_string_assembly_index(strs, directed=True, mode="cfg", debug=False)
-    assert ai >= ai_ref
+    assert result == (expected, None, None)
+    assert not calculation_dir.exists()
 
 
-@pytest.mark.slow
-def test_string_early_exit():
-    """
-    Test the early exit functionality for string assembly calculation.
-
-    This function verifies that the assembly index calculation can be
-    interrupted by a timeout and still return an upper bound. It compares
-    a fast calculation with a short timeout to a slower one with a longer
-
-    timeout, asserting that the former provides a valid upper bound.
-
-    Steps:
-    1. Defines a complex string to ensure the calculation takes time.
-    2. Calculates the assembly index with a short timeout (2 seconds).
-    3. Calculates the assembly index with a longer timeout (20 seconds).
-    4. Asserts that the result from the shorter timeout is greater than
-       or equal to the result from the longer timeout, demonstrating that
-       it is a valid upper bound.
-    """
-    # I am trying to figure out how to get the early exit to work
-    # Right now I either get exact or -1. I want to get the early exit upper bound.
-    # s = ''.join(random.choices('abcd', k=50))
-    s = "abacdbdacbcdadbccbadacdbadcbadcbadcbadcbbadcbdacbdcbdacbdcbdabcdabcdbcdabcdabcdabcdabcdbcdabcadbabc"
-    l1, _, _ = att.calculate_string_assembly_index(s, directed=True, mode='str', timeout=2)
-    print(f"Fast Upper Bound = {l1}", flush=True)
-    l2, _, _ = att.calculate_string_assembly_index(s, directed=True, mode='str', timeout=20)
-    print(f"Slow Upper Bound = {l2}", flush=True)
-    assert l1 >= l2
-
-
-def test_string_large_pool():
-    """
-    Test the calculation of the assembly index for a large pool of random strings.
-
-    This function performs the following steps:
-    1. Generates a pool of 95 random strings, each 3 characters long.
-    2. Calculates the assembly index for the generated pool in directed CFG mode.
-    3. Asserts that the calculated assembly index is greater than or equal to 0.
-
-    Asserts:
-        - The calculated assembly index is >= 0.
-    """
-    # Use a deterministic set of unique three-letter strings. Random input made
-    # failures irreproducible and occasionally introduced duplicate entries,
-    # changing the shape of the joint-assembly problem under test.
+def test_cfg_handles_more_strings_than_delimiter_characters():
     pool = [
-        string.ascii_lowercase[(index // (26 * 26)) % 26]
-        + string.ascii_lowercase[(index // 26) % 26]
-        + string.ascii_lowercase[index % 26]
-        for index in range(95)
+        "".join(chars)
+        for chars in islice(product(string.ascii_lowercase, repeat=3), 95)
     ]
-    ai = att.calculate_string_assembly_index(pool, directed=True, mode="cfg")[0]
+
+    ai = att.calculate_string_assembly_index(pool, mode="cfg")[0]
+
     assert isinstance(ai, int)
     assert ai >= 0
 
 
-def test_small_strs():
-    """
-    Test the calculation of the assembly index for small strings.
-    """
-    a1, _, _ = att.calculate_string_assembly_index("abba", directed=True, debug=False)
-    a2, _, _ = att.calculate_string_assembly_index("abba", directed=False, debug=False)
-    assert a1 == 3
-    assert a2 == 2
+@pytest.mark.parametrize("directed, expected", [(True, 3), (False, 2)])
+def test_reversing_fragments_reduces_abba_index(directed, expected):
+    assert att.calculate_string_assembly_index("abba", directed=directed)[0] == expected
 
 
 def test_string_graph_conversion():
-    """
-    Test the consistency of the string to graph encoding and decoding functions.
-    """
 
     rng = random.Random(0)
-    strings = [
-        "".join(rng.choices(string.ascii_lowercase, k=20))
-        for _ in range(50)
-    ]
+    strings = ["".join(rng.choices(string.ascii_lowercase, k=20)) for _ in range(50)]
 
     for s in strings:
         assert s == att.molstr_to_str(att.get_dir_str_molecule(s))
@@ -200,49 +110,175 @@ def test_string_graph_conversion():
         assert s == att.molstr_to_str(graph, edge_color_dict=edge_color_dict)
 
 
-def test_bug_08222025(tmp_path, monkeypatch):
-    """
-    Tests the workaround for AssemblyCPP edgecolor output bug.
-    """
+def test_undirected_pathway_repairs_cpp_edge_colors(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     ai, vo, path = att.calculate_string_assembly_index(
-        'yydpetgtwy', mode='mol', directed=False, debug=True
+        "yydpetgtwy", mode="mol", directed=False, debug=True
     )
-    assert path
+    assert ai >= 0
+    assert vo
+    assert nx.is_directed_acyclic_graph(path)
+    assert path.number_of_edges() > 0
     debug_dirs = att.list_subdirs(tmp_path, target="ai_calc")
     assert len(debug_dirs) == 1
     att.safe_folder_remove(tmp_path / debug_dirs[0])
     assert att.list_subdirs(tmp_path, target="ai_calc") == []
 
 
-def test_bigA():
-    """
-    Tests calculate_string_assembly
-    """
+def test_string_ensemble_assembly():
     input_strings = ["abab", "cdcdcdcd", "c"]
     input_ns = [10, 100, 40]
     nt = sum(input_ns)
-    answer = np.exp(2) * ((10 - 1) / nt) + np.exp(3) * ((100 - 1) / nt) + np.exp(0) * ((40 - 1) / nt)
+    answer = (
+        np.exp(2) * ((10 - 1) / nt)
+        + np.exp(3) * ((100 - 1) / nt)
+        + np.exp(0) * ((40 - 1) / nt)
+    )
     assert answer == att.calculate_string_assembly(strings=input_strings, n_i=input_ns)
 
 
 def test_directed_str_data():
-    """
-    Test that data is properly returned after assembly index calculation of a directed string.
-
-    This function performs the following steps:
-    1. Defines an input string.
-    2. Calculates the assembly index of the input string.
-    3. Validates the output data.
-
-    Asserts:
-        - The calculated assembly index is equal to the expected value.
-        - The virtual objects and path are consistent.
-    """
     s_inpt = "abracadabra"
     ai_ref = 7
-    ai, vo, path = att.calculate_string_assembly_index(s_inpt, directed=True, mode='str')
+    ai, vo, path = att.calculate_string_assembly_index(
+        s_inpt, directed=True, mode="str"
+    )
     assert ai == ai_ref
     assert len(vo) == 12  # 12 = 7 steps + 5 units
     assert len(path.nodes()) == len(vo)
     assert len(path.edges()) == ai_ref * 2
+
+
+@pytest.mark.parametrize("debug", [False, True])
+@pytest.mark.parametrize("timeouts", [0, 1, 2])
+@pytest.mark.parametrize("mode", ["str", "mol"])
+def test_string_backend_timeout_and_file_lifecycle(
+    tmp_path, monkeypatch, debug, timeouts, mode
+):
+    """String runs retain debug files and recover bounds after interrupt or kill."""
+    calculation_dir = tmp_path / "calculation"
+    events = []
+    output = b"min AI found so far: 9\nmin AI found so far: 7\ninvalid: \xff\n"
+
+    class Process:
+        attempts = 0
+
+        def communicate(self, timeout=None):
+            self.attempts += 1
+            if self.attempts <= timeouts:
+                raise assembly.subprocess.TimeoutExpired("assembler", timeout)
+            return output, None
+
+        def send_signal(self, signal):
+            events.append(signal)
+
+        def wait(self):
+            pass
+
+        def kill(self):
+            events.append("kill")
+
+    def start_process(command, *, stdout, stderr, cwd):
+        assert command == [
+            "assembler",
+            str(calculation_dir / "string_in"),
+            "-runStrings=1",
+        ]
+        assert cwd == str(calculation_dir)
+        assert Path(command[1]).read_text() == "abab0baba"
+        Path(command[1] + "Out").write_text("assembly index: 5\n")
+        return Process()
+
+    monkeypatch.setattr(assembly.tempfile, "mkdtemp", lambda: str(calculation_dir))
+    monkeypatch.setattr(assembly.subprocess, "Popen", start_process)
+
+    result = assembly.calculate_string_assembly_index(
+        ["abab", "baba"],
+        dir_code="assembler",
+        timeout=1,
+        debug=debug,
+        mode=mode,
+        return_log_file=True,
+    )
+
+    assert result[:3] == (5 if timeouts else 3, None, None)
+    assert isinstance(result[0], int)
+    assert result[3] == str(calculation_dir / "assembly_output.log")
+    assert calculation_dir.exists() is debug
+    if debug:
+        assert Path(result[3]).read_text() == output.decode(errors="replace")
+    assert events == (
+        []
+        if not timeouts
+        else [assembly.signal.SIGINT] + (["kill"] if timeouts == 2 else [])
+    )
+
+
+@pytest.mark.parametrize("mode", ["mol", "str", "cfg"])
+def test_undirected_strings_use_molecular_backend(monkeypatch, capsys, mode):
+    graph = nx.Graph()
+    pathway = nx.DiGraph()
+    calls = []
+
+    def calculate(input_graph, **settings):
+        calls.append((input_graph, settings))
+        return 5, [], pathway, "molecular.log"
+
+    monkeypatch.setattr(
+        assembly, "get_undir_str_molecule", lambda string, debug: (graph, {})
+    )
+    monkeypatch.setattr(assembly, "calculate_assembly_index", calculate)
+
+    result = assembly.calculate_string_assembly_index(
+        "abab", mode=mode, directed=False, return_log_file=True
+    )
+
+    assert result == (5, [], pathway, "molecular.log")
+    assert calls == [
+        (
+            graph,
+            {
+                "dir_code": None,
+                "timeout": 100.0,
+                "debug": False,
+                "joint_corr": False,
+                "strip_hydrogen": False,
+                "return_log_file": True,
+            },
+        )
+    ]
+    assert ("Switching to 'mol'" in capsys.readouterr().out) is (mode != "mol")
+
+
+@pytest.mark.parametrize("return_log_file", [False, True])
+def test_cfg_backend_preserves_three_field_result(monkeypatch, return_log_file):
+    """CFG has no log field even when the external-backend option is requested."""
+    virtual_objects = ["ab", "abab"]
+    pathway = nx.DiGraph([("ab", "abab")])
+    calls = []
+
+    def repair(input_data, *, f_print):
+        calls.append((input_data, f_print))
+        return 2, virtual_objects, pathway
+
+    monkeypatch.setattr(assembly.assemblycfg, "repair_with_pathways", repair)
+
+    result = assembly.calculate_string_assembly_index(
+        ["a", "abab"], mode="cfg", return_log_file=return_log_file
+    )
+
+    assert result == (2, virtual_objects, pathway)
+    assert calls == [(["abab"], False)]
+
+
+@pytest.mark.parametrize("input_data", ["a", [], ["", "a"]])
+def test_trivial_strings_return_without_resolving_backend(input_data, monkeypatch):
+    def unexpected_backend(*args, **kwargs):
+        pytest.fail("Trivial strings should not resolve an external executable")
+
+    monkeypatch.setattr(assembly, "add_assembly_to_path", unexpected_backend)
+
+    assert assembly.calculate_string_assembly_index(input_data) == (0, None, None)
+    assert assembly.calculate_string_assembly_index(
+        input_data, return_log_file=True
+    ) == (0, None, None, None)

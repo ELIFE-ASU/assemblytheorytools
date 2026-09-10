@@ -1,1593 +1,496 @@
-import matplotlib.pyplot as plt
+"""Molecular assembly indices, bounds and reconstructed pathways."""
+
+import json
+
 import networkx as nx
-import os
 import pytest
-import shutil
 from rdkit import Chem
 
 import assemblytheorytools as att
-from assemblytheorytools import assembly as assembly_module
+from assemblytheorytools import assembly
 
 
 def test_readme_example():
-    """
-    Test function to generate the README example.
-
-    This function performs the following steps:
-    1. Defines a SMILES string for caffeine.
-    2. Converts the SMILES string to a NetworkX graph.
-    3. Calculates the assembly index, virtual object, and pathway for the graph.
-    4. Converts the virtual object graphs to SMILES strings.
-    5. Prints the assembly index and virtual object.
-    6. Plots the assembly pathway.
-    7. Displays the plot.
-    """
-    print(flush=True)
-    smi = 'CN1C=NC2=C1C(=O)N(C(=O)N2C)C'
+    smi = "CN1C=NC2=C1C(=O)N(C(=O)N2C)C"
     graph = att.smi_to_nx(smi)
     ai, virt_obj, pathway = att.calculate_assembly_index(graph, strip_hydrogen=True)
 
-    # Convert the virtual object graphs to a SMILES string
     virt_obj = [att.nx_to_smi(graph, add_hydrogens=False) for graph in virt_obj]
 
-    print(f"Assembly index: {ai}", flush=True)
-    print(f"virt_obj: {virt_obj}", flush=True)
-    # Assembly index: 9
-    # ['C=NC', 'C=NC=CC', 'CC1=CN=CN1C', 'C=N', 'CN', 'C=CN=C', 'CNC', 'C=O', 'CC', 'CC1=C(N(C)C=O)N=CN1C', 'CN(C)C=O', 'C=C', 'CN1C(=O)C2=C(N=CN2C)N(C)C1=O', 'CN(C)C']
-    fig, ax = att.plot_pathway(pathway, plot_type='graph')
-    # plt.savefig('readme_example.png', dpi=600)
-    plt.show()
+    fig, ax = att.plot_pathway(pathway, plot_type="graph")
 
     assert ai == 9
     assert pathway.number_of_nodes() > 0
     assert pathway.number_of_edges() > 0
-    assert any(Chem.MolToSmiles(Chem.MolFromSmiles(vo)) == Chem.MolToSmiles(Chem.MolFromSmiles(smi))
-               for vo in virt_obj)
+    assert any(
+        Chem.MolToSmiles(Chem.MolFromSmiles(vo))
+        == Chem.MolToSmiles(Chem.MolFromSmiles(smi))
+        for vo in virt_obj
+    )
     assert fig.axes == [ax]
 
 
-def test_ai_graph():
-    """
-    Test the calculation of the assembly index for a molecular graph.
-
-    This function performs the following steps:
-    1. Converts a SMILES string to a molecule object.
-    2. Converts the molecule object to a NetworkX graph.
-    3. Calculates the assembly index of the graph.
-    4. Retrieves the input graph from the output dictionary.
-    5. Converts the input graph back to a SMILES string.
-    6. Compares the calculated assembly index to the expected value.
-    7. Checks if the original graph and the input graph are isomorphic.
-    8. Verifies that the original SMILES string matches the converted SMILES string.
-
-    Asserts:
-        - The calculated assembly index is equal to 2.
-        - The original graph and the input graph are isomorphic.
-        - The original SMILES string matches the converted SMILES string.
-    """
-    print(flush=True)
-    smi_in = "[H]C#C[H]"
-    # Convert the SMILES string to a molecule object
-    mol = att.smi_to_mol(smi_in)
-    # Convert the molecule object to a NetworkX graph
-    graph = att.mol_to_nx(mol)
-    # Calculate the assembly index of the graph
-    ai, virt_obj, pathway = att.calculate_assembly_index(graph)
-    # Convert the graph to a SMILES string
-    virt_obj = [att.nx_to_smi(graph, add_hydrogens=False) for graph in virt_obj]
-    print(virt_obj, flush=True)
-
-    ref_out = ['[H]C#C', '[H]C', 'C#C', '[H]C#C[H]']
+@pytest.mark.parametrize("representation", ["mol", "graph"])
+def test_acetylene_index_and_fragments(representation):
+    mol = att.smi_to_mol("[H]C#C[H]")
+    input_data = att.mol_to_nx(mol) if representation == "graph" else mol
+    ai, fragments, _ = att.calculate_assembly_index(input_data)
+    if representation == "graph":
+        fragments = [att.nx_to_smi(graph, add_hydrogens=False) for graph in fragments]
 
     assert ai == 2
-    assert att.check_elements(virt_obj, ref_out)
+    assert set(fragments) == {"[H]C", "C#C", "[H]C#C", "[H]C#C[H]"}
 
 
-def test_ai_mol():
-    """
-    Test the calculation of the assembly index for a molecule.
+@pytest.mark.parametrize(
+    "smiles", ["c1ccccc1", "[BH-]1-[NH+]=[BH-]-[NH+]=[BH-]-[NH+]=1"]
+)
+def test_molecular_representations_have_equal_indices(tmp_path, smiles):
+    mol = att.smi_to_mol(smiles)
+    mol_file = tmp_path / "molecule.mol"
+    att.write_v2k_mol_file(mol, str(mol_file))
+    inputs = [att.mol_to_nx(mol), Chem.MolFromMolFile(str(mol_file)), mol]
 
-    This function performs the following steps:
-    1. Converts a SMILES string to a molecule object.
-    2. Calculates the assembly index of the molecule.
-    3. Compares the calculated assembly index to the expected value.
-    4. Verifies that the InChI of the molecule matches the InChI from the output dictionary.
+    indices = [att.calculate_assembly_index(value)[0] for value in inputs]
 
-    Asserts:
-        - The calculated assembly index is equal to 2.
-        - The InChI of the molecule matches the InChI from the output dictionary.
-    """
-    print(flush=True)
-    smi_in = "[H]C#C[H]"
-    # Convert the SMILES string to a molecule object
-    mol = att.smi_to_mol(smi_in)
-    # Calculate the assembly index of the molecule
-    ai, virt_obj, _ = att.calculate_assembly_index(mol)
-    # Convert the graph to a mol and then to a SMILES string
-    print(virt_obj, flush=True)
-
-    ref_out = ['[H]C', 'C#C', '[H]C#C', '[H]C#C[H]']
-
-    assert ai == 2
-    assert att.check_elements(virt_obj, ref_out)
-
-
-def test_ai_compare_graph_mol_file_mol():
-    """
-    Test the consistency of the assembly index calculation across different representations of molecules.
-
-    This function performs the following steps:
-    1. Converts SMILES strings to molecule objects.
-    2. Converts the molecule objects to NetworkX graphs.
-    3. Writes the molecule objects to mol files.
-    4. Calculates the assembly index for the graph, mol file, and molecule object.
-    5. Asserts that the assembly index is the same for all representations.
-    6. Removes the temporary mol file.
-
-    Asserts:
-        - The assembly index calculated from the graph, mol file, and molecule object are equal.
-    """
-    print(flush=True)
-    smis = ["c1ccccc1", "[BH-]1-[NH+]=[BH-]-[NH+]=[BH-]-[NH+]=1"]
-    mol_file = "tmp.mol"
-    for smi_in in smis:
-        # Convert the SMILES string to a molecule object
-        mol = att.smi_to_mol(smi_in)
-        # Convert the molecule object to a NetworkX graph
-        graph = att.mol_to_nx(mol)
-        # Write the molecule object to a mol file
-        att.write_v2k_mol_file(mol, mol_file)
-
-        # Calculate the assembly index for the graph
-        ai_graph, _, _ = att.calculate_assembly_index(graph)
-        # Calculate the assembly index for the mol file
-        ai_mol_file, _, _ = att.calculate_assembly_index(Chem.MolFromMolFile(mol_file))
-        # Calculate the assembly index for the molecule object
-        ai_mol, _, _ = att.calculate_assembly_index(mol)
-
-        # Assert that the assembly index is the same for all representations
-        assert ai_graph == ai_mol_file == ai_mol
-    # Remove the temporary mol file
-    os.remove(mol_file)
-
-
-def test_calculate_assembly_index_flag_for_logs():
-    """
-    Test the `calculate_assembly_index` function with different input types
-    and configuration options.
-
-    This function performs the following steps:
-    1. Converts a SMILES string to a molecule object.
-    2. Calculates the assembly index for the molecule without returning a log file.
-    3. Writes the molecule object to a mol file and calculates the assembly index from the file.
-    4. Compares the assembly index calculated from the molecule and the mol file.
-    5. Calculates the assembly index for the molecule with the flag to return a log file.
-    6. Verifies that the log file is generated.
-    7. Cleans up temporary files created during the test.
-
-    Asserts:
-        - The assembly index is an integer and greater than 0.
-        - The assembly index is consistent across representations (molecule and mol file).
-        - The log file is generated when the `return_log_file` flag is set.
-    """
-    print(flush=True)
-
-    # Test case 1: SMILES to RDKit molecule
-    smi = "C1=CC=CC=C1"  # Benzene
-    mol = att.smi_to_mol(smi)
-
-    # test input of mol from smiles, no return log file
-    ai, virt_obj, path = att.calculate_assembly_index(mol)
-    assert isinstance(ai, int), "Assembly index should be an integer"
-    assert ai > 0, "AI should be a positive number"
-
-    # test input of mol object to mol file, no return log file
-    mol_file = "test_benzene.mol"
-    att.write_v2k_mol_file(mol, mol_file)
-    ai_mol_file, _, _ = att.calculate_assembly_index(Chem.MolFromMolFile(mol_file))
-    assert ai == ai_mol_file, "Assembly index should be consistent across representations"
-
-    # Clean up test file
-    os.remove(mol_file)
-
-    # test mol object and flag for returning log file
-    ai_log, _, _, log_file = att.calculate_assembly_index(mol, return_log_file=True)
-    assert os.path.exists(log_file), "Log file should be generated when return_log_file=True"
-
-    # Clean up log file
-    os.remove(log_file)
+    assert indices[0] >= 0
+    assert indices == [indices[0]] * len(inputs)
 
 
 def test_big_chungus(data_dir):
-    """
-    Test the calculation of the assembly index for a large molecule.
-
-    This function performs the following steps:
-    1. Loads a molecule from a mol file.
-    2. Converts the molecule to a NetworkX graph.
-    3. Calculates the assembly index for the graph, mol file, and molecule object.
-    4. Asserts that the assembly index is the same for all representations.
-
-    Asserts:
-        - The assembly index calculated from the graph, mol file, and molecule object are equal to 8.
-    """
-    print(flush=True)
     mol_file = str(data_dir / "mol_files" / "big_chungus.mol")
-    # Get the mol object
     mol = att.molfile_to_mol(mol_file)
-    # Convert the system into graphs
     graph = att.mol_to_nx(mol)
-    # Graph
     ai_graph, _, _ = att.calculate_assembly_index(graph, strip_hydrogen=True)
-    # Mol file
-    ai_mol_file, _, _ = att.calculate_assembly_index(Chem.MolFromMolFile(mol_file), strip_hydrogen=True)
-    # Mol
+    ai_mol_file, _, _ = att.calculate_assembly_index(
+        Chem.MolFromMolFile(mol_file), strip_hydrogen=True
+    )
     ai_mol, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
-    print(ai_graph, ai_mol_file, ai_mol, flush=True)
-    assert ai_graph <= 8
-    assert ai_mol_file <= 8
-    assert ai_mol <= 8
+    assert 0 <= ai_graph <= 8
+    assert 0 <= ai_mol_file <= 8
+    assert 0 <= ai_mol <= 8
 
 
 @pytest.mark.slow
 def test_taxol_file(data_dir):
-    """
-    Test the calculation of the assembly index for the molecule in the taxol mol file.
-
-    This function performs the following steps:
-    1. Loads the taxol molecule from a mol file.
-    2. Calculates the assembly index for the molecule.
-    3. Asserts that the calculated assembly index is equal to 23.
-
-    Asserts:
-        - The calculated assembly index is equal to 23.
-    """
-    print(flush=True)
     mol_file = str(data_dir / "mol_files" / "taxol.mol")
-    ai, _, _ = att.calculate_assembly_index(Chem.MolFromMolFile(mol_file), timeout=15.0, strip_hydrogen=True)
-    print(ai, flush=True)
+    ai, _, _ = att.calculate_assembly_index(
+        Chem.MolFromMolFile(mol_file), timeout=15.0, strip_hydrogen=True
+    )
     # actual value is 23, but for timeout this is ok
-    assert ai <= 24
-
-
-@pytest.mark.slow
-def test_exact_flag(data_dir):
-    """
-    Test the `calculate_assembly_index` function with the `exact` flag enabled.
-
-    This function performs the following steps:
-    1. Defines the file path for the Taxol molecule `.mol` file.
-    2. Calculates the assembly index using the `calculate_assembly_index` function with the `exact` flag set to True.
-    3. Asserts that the calculated assembly index is equal to -1.
-
-    Args:
-        None
-
-    Asserts:
-        - The calculated assembly index is equal to -1.
-    """
-    print(flush=True)
-    mol_file = str(data_dir / "mol_files" / "taxol.mol")
-    mol = Chem.MolFromMolFile(mol_file)
-    ai = att.calculate_assembly_index(mol,
-                                      timeout=10.0,
-                                      strip_hydrogen=True,
-                                      exact=True)[0]
-    assert ai == -1
+    assert 23 <= ai <= 24
 
 
 def test_joint_ass():
-    """
-    Test the calculation of the assembly index for a combined molecule.
-
-    This function performs the following steps:
-    1. Converts SMILES strings to molecule objects.
-    2. Combines the molecule objects into a single molecule.
-    3. Calculates the assembly index of the combined molecule with hydrogen stripping.
-    4. Asserts that the calculated assembly index is equal to 4.
-
-    Asserts:
-        - The calculated assembly index is equal to 4.
-
-    Notes
-    -----
-    ref_out uses plain SMILES notation ('CN', 'CC', ...) rather than the
-    all-bracket notation ('[C][N]', '[C][C]', ...) this test originally
-    checked against. Both denote the same fragment connectivity -- confirmed
-    by parsing each old/new pair and comparing InChI -- but the bracket form
-    (no implicit hydrogens on any atom) no longer matches what
-    calculate_assembly_index's virtual objects serialize to; nx_to_smi's
-    add_hydrogens=False only skips adding explicit H atoms, it doesn't
-    suppress RDKit's implicit valence-filling hydrogens in the SMILES output.
-    """
-    print(flush=True)
     molecules = ["NCC(O)=O", "CC(N)C(O)=O"]
-    # Convert all the SMILES strings to molecule objects
     mols = [att.smi_to_mol(smile) for smile in molecules]
-    # Combine the molecule objects into a single molecule
     mol = att.combine_mols(mols)
 
-    # Calculate the assembly index
     ai, virt_obj, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
-    print(virt_obj, flush=True)
-    ref_out = ['CN', 'CCN', 'CC(N)C(=O)O', 'CO', 'C=O', 'CC', 'NCCO', 'NCC(=O)O']
+    ref_out = ["CN", "CCN", "CC(N)C(=O)O", "CO", "C=O", "CC", "NCCO", "NCC(=O)O"]
 
     assert ai == 4
-    assert att.check_elements(virt_obj, ref_out)
+    assert set(virt_obj) == set(ref_out)
 
 
-def test_joint_ass_mol():
-    """
-    Test the calculation of the assembly index for a combined molecule.
+@pytest.mark.parametrize("representation", ["mol", "graph"])
+def test_joint_index_with_explicit_hydrogens(representation):
+    smiles = ["[H]C#C[H]", "CC", "C", "O", "N", "[NH4+]", "[SH-]", "[H][H]"]
+    mols = [att.smi_to_mol(value) for value in smiles]
+    combined = (
+        nx.disjoint_union_all(att.mol_to_nx(mol) for mol in mols)
+        if representation == "graph"
+        else att.combine_mols(mols)
+    )
 
-    This function performs the following steps:
-    1. Defines a string of SMILES representations for multiple molecules.
-    2. Splits the string into individual SMILES strings.
-    3. Converts the SMILES strings to molecule objects.
-    4. Combines the molecule objects into a single molecule.
-    5. Calculates the assembly index of the combined molecule.
-    6. Asserts that the calculated assembly index is equal to 11.
-
-    Asserts:
-        - The calculated assembly index is equal to 11.
-    """
-    print(flush=True)
-    molecules = "[H]C#C[H].[H][C]([H])([H])[C]([H])([H])[H].[H]C([H])([H])([H]).[H]O([H]).[H]N([H])([H]).[H][N+]([H])([H])([H]).[S-]([H]).[H][H]"
-    molecules = molecules.split(".")
-    # Convert all the SMILES strings to molecule objects
-    mols = [att.smi_to_mol(smile) for smile in molecules]
-    # Combine the molecule objects into a single molecule
-    mol = att.combine_mols(mols)
-
-    # Calculate the assembly index
-    ai, _, _ = att.calculate_assembly_index(mol)
-    # Assert that the calculated assembly index is equal to 11
-    assert ai == 11
-
-
-def test_joint_ass_graph():
-    """
-    Test the calculation of the assembly index for a combined molecular graph.
-
-    This function performs the following steps:
-    1. Defines a string of SMILES representations for multiple molecules.
-    2. Splits the string into individual SMILES strings.
-    3. Converts the SMILES strings to molecule objects.
-    4. Converts the molecule objects to NetworkX graphs.
-    5. Joins the individual graphs into a single graph.
-    6. Calculates the assembly index of the combined graph.
-    7. Compares the calculated assembly index to the expected value.
-
-    Asserts:
-        - The calculated assembly index is equal to 11.
-    """
-    print(flush=True)
-    molecules = "[H]C#C[H].[H][C]([H])([H])[C]([H])([H])[H].[H]C([H])([H])([H]).[H]O([H]).[H]N([H])([H]).[H][N+]([H])([H])([H]).[S-]([H]).[H][H]"
-    molecules = molecules.split(".")
-    # Convert all the SMILES strings to molecule objects
-    mols = [att.smi_to_mol(smile) for smile in molecules]
-    # Convert the molecule objects into graphs
-    graphs = [att.mol_to_nx(mol) for mol in mols]
-    # Join the graphs
-    graphs_joint = nx.disjoint_union_all(graphs)
-    # Calculate the assembly index
-    ai, _, _ = att.calculate_assembly_index(graphs_joint)
-    # Compare to the hand calculated value
-    assert ai == 11
+    assert att.calculate_assembly_index(combined)[0] == 11
 
 
 def test_jai_self():
-    """
-    Test that the joint assembly index (JAI) of two identical molecules
-    is equal to the assembly index (AI) of a single instance.
-
-    This validates that JAI does not artificially increase when the
+    """This validates that JAI does not artificially increase when the
     same molecule is duplicated, ensuring internal deduplication and
-    fragment reuse work as expected.
-
-    Assertion:
-    - The JAI of two identical molecules must equal the AI of one.
-    """
-    print(flush=True)
-    molecules = ["O=P(O)(O)OC[C@@H](O)[C@@H](O)c1c[nH]c2ccccc12", "O=P(O)(O)OC[C@@H](O)[C@@H](O)c1c[nH]c2ccccc12"]
-    # Convert all the SMILES strings to molecule objects
+    fragment reuse work as expected."""
+    molecules = [
+        "O=P(O)(O)OC[C@@H](O)[C@@H](O)c1c[nH]c2ccccc12",
+        "O=P(O)(O)OC[C@@H](O)[C@@H](O)c1c[nH]c2ccccc12",
+    ]
     mols = [att.smi_to_mol(smile) for smile in molecules]
-    # Combine the molecule objects into a single molecule
     mol = att.combine_mols(mols)
 
-    # Calculate the assembly index
     jai, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
     ai, _, _ = att.calculate_assembly_index(mols[0], strip_hydrogen=True)
     assert jai == ai
 
 
-def test_jai_asymmetric():
-    """
-    Test that assembly index computation is order-independent
-    for asymmetric molecule inputs.
+def test_joint_index_is_independent_of_input_order():
+    mols = [
+        att.smi_to_mol(smiles)
+        for smiles in ["N[C@@H](CCO)C(=O)O", "O=C(O)CC(C(=O)O)C(O)C(=O)O"]
+    ]
+    forward = att.calculate_assembly_index(att.combine_mols(mols), strip_hydrogen=True)[
+        0
+    ]
+    reverse = att.calculate_assembly_index(
+        att.combine_mols(mols[::-1]), strip_hydrogen=True
+    )[0]
 
-    This function verifies that combining two molecules in different
-    orders results in the same assembly index, confirming that the
-    calculation is not sensitive to the input list sequence.
-
-    Molecules:
-    - L-serine: "N[C@@H](CCO)C(=O)O"
-    - Citric acid: "O=C(O)CC(C(=O)O)C(O)C(=O)O"
-
-    Assertion:
-    - The calculated assembly indices (ai_1 and ai_2) should be equal.
-    """
-    print(flush=True)
-    molecules = ["N[C@@H](CCO)C(=O)O", "O=C(O)CC(C(=O)O)C(O)C(=O)O"]
-    # Convert all the SMILES strings to molecule objects
-    mols = [att.smi_to_mol(smile) for smile in molecules]
-    # Combine the molecule objects into a single molecule
-    mol = att.combine_mols(mols)
-
-    # Calculate the assembly index
-    ai_1, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
-
-    molecules = ["O=C(O)CC(C(=O)O)C(O)C(=O)O", "N[C@@H](CCO)C(=O)O"]
-    # Convert all the SMILES strings to molecule objects
-    mols = [att.smi_to_mol(smile) for smile in molecules]
-    # Combine the molecule objects into a single molecule
-    mol = att.combine_mols(mols)
-
-    # Calculate the assembly index
-    ai_2, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
-
-    assert ai_1 == ai_2
+    assert forward == reverse >= 0
 
 
 def test_semi_metric():
-    """
-    Test the calculation of the assembly semi-metric between two molecular graphs.
-
-    This function performs the following steps:
-    1. Defines a list of SMILES strings for two molecules.
-    2. Converts the SMILES strings to molecule objects.
-    3. Converts the molecule objects to NetworkX graphs.
-    4. Calculates the assembly semi-metric between the two graphs.
-    5. Asserts that the calculated distance is equal to 1.
-
-    Asserts:
-        - The calculated distance is equal to 1.
-    """
-    print(flush=True)
     molecules = ["NCC(O)=O", "CC(N)C(O)=O"]
-    # Convert all the smile to mol
     mols = [att.smi_to_mol(smile) for smile in molecules]
-    # Convert the system into graphs
     graphs = [att.mol_to_nx(mol) for mol in mols]
-    settings = {'strip_hydrogen': True,
-                'timeout': 100.0, }
+    settings = {
+        "strip_hydrogen": True,
+        "timeout": 100.0,
+    }
     distance = att.calculate_assembly_index_semi_metric(graphs[0], graphs[1], settings)
     assert distance == 1
 
 
 def test_construction_pathway_smi():
-    """
-    Test the construction of a pathway graph and virtual object list for a molecule.
-
-    This function performs the following steps:
-    1. Defines a SMILES string representing a molecule (Acetaldehyde).
-    2. Converts the SMILES string to a molecule object.
-    3. Calculates the assembly index, pathway graph, and virtual object list for the molecule.
-    4. Compares the virtual object list to a reference list.
-    5. Asserts the correctness of the assembly index, pathway graph nodes, edges, and virtual object list.
-
-    Asserts:
-        - The calculated assembly index is equal to 5.
-        - The virtual object list matches the reference list.
-        - The pathway graph has 8 nodes.
-        - The pathway graph has 9 edges.
-    """
-    print(flush=True)
 
     smi = "CC=O"  # Acetaldehyde
-    mol = att.smi_to_mol(smi)  # Convert the SMILES string to a molecule object
-    ai, virt_obj, pathway = att.calculate_assembly_index(mol)  # Calculate the assembly index and pathway
-    print(virt_obj, flush=True)
-    # Define the reference virtual object list. Plain SMILES notation, not the
-    # all-bracket '[H][C][H]'-style this test originally checked against --
-    # both denote identical fragment connectivity (verified by comparing each
-    # old/new pair as graphs via att.is_graph_isomorphic, ignoring implicit
-    # hydrogens), see test_joint_ass's Notes for why the two forms diverge.
-    vo_list_ref = ['[H]C[H]',
-                   '[H]C',
-                   'C=O',
-                   'CC',
-                   '[H]C([H])([H])C',
-                   '[H]CC([H])([H])[H]',
-                   '[H]C([H])[H]',
-                   '[H]C(=O)C([H])([H])[H]']
+    mol = att.smi_to_mol(smi)
+    ai, virt_obj, pathway = att.calculate_assembly_index(mol)
+    vo_list_ref = [
+        "[H]C[H]",
+        "[H]C",
+        "C=O",
+        "CC",
+        "[H]C([H])([H])C",
+        "[H]CC([H])([H])[H]",
+        "[H]C([H])[H]",
+        "[H]C(=O)C([H])([H])[H]",
+    ]
 
-    # Assert the correctness of the assembly index, pathway graph, and virtual object list
     assert ai == 5
     assert len(virt_obj) == len(set(vo_list_ref))
     assert pathway.number_of_nodes() == 8
     assert pathway.number_of_edges() == 9
 
-    assert att.check_elements(virt_obj, vo_list_ref)
+    assert set(virt_obj) == set(vo_list_ref)
 
 
 def test_construction_pathway_joint():
-    """
-    Test the construction of a pathway graph and virtual object list for a joint molecule.
-
-    This function performs the following steps:
-    1. Defines a SMILES string representing a joint molecule.
-    2. Converts the SMILES string to a molecule object.
-    3. Calculates the assembly index, pathway graph, and virtual object list for the molecule.
-    4. Compares the virtual object list to a reference list.
-    5. Plots the pathway graph and saves it as temporary files.
-    6. Removes the temporary files.
-    7. Asserts the correctness of the assembly index, pathway graph nodes, edges, and virtual object list.
-
-    Asserts:
-        - The calculated assembly index is equal to 8.
-        - The pathway graph has 13 nodes.
-        - The pathway graph has 16 edges.
-        - The virtual object list matches the reference list.
-    """
-    print(flush=True)
-    smi = "CC=O.OCC"  # Define the SMILES string for the joint molecule
+    smi = "CC=O.OCC"
     with pytest.warns(UserWarning, match="Disconnected molecules"):
-        mol = att.smi_to_mol(smi)  # Convert the SMILES string to a molecule object
-    ai, virt_obj, pathway = att.calculate_assembly_index(mol)  # Calculate the assembly index and pathway
-    print(virt_obj, flush=True)
-    # Define the reference virtual object list. Plain SMILES notation -- see
-    # test_construction_pathway_smi / test_joint_ass's Notes.
-    vo_list_ref = ['[H]O',
-                   '[H]OC([H])([H])C([H])([H])[H]',
-                   'CO',
-                   '[H]C(=O)C([H])([H])[H]',
-                   '[H]C',
-                   '[H]CO[H]',
-                   '[H]CC',
-                   '[H]C([H])C',
-                   '[H]CC([H])([H])[H]',
-                   'CC',
-                   'C=O',
-                   '[H]C([H])([H])C',
-                   '[H]CO']
+        mol = att.smi_to_mol(smi)
+    ai, virt_obj, pathway = att.calculate_assembly_index(mol)
+    vo_list_ref = [
+        "[H]O",
+        "[H]OC([H])([H])C([H])([H])[H]",
+        "CO",
+        "[H]C(=O)C([H])([H])[H]",
+        "[H]C",
+        "[H]CO[H]",
+        "[H]CC",
+        "[H]C([H])C",
+        "[H]CC([H])([H])[H]",
+        "CC",
+        "C=O",
+        "[H]C([H])([H])C",
+        "[H]CO",
+    ]
 
-    # Assert the correctness of the assembly index, pathway graph, and virtual object list
     assert ai == 8
     assert pathway.number_of_nodes() == 13
     assert pathway.number_of_edges() == 16
-    assert att.check_elements(virt_obj, vo_list_ref)
+    assert set(virt_obj) == set(vo_list_ref)
 
 
-def test_calculate_assembly_index_parallel():
-    """
-    Test the parallel calculation of assembly indices for a list of molecular graphs.
+@pytest.fixture
+def molecular_ensemble():
+    smiles = [
+        "[H]OC(=O)C([H])([H])N([H])[H]",
+        "[H]OC(=O)C([H])(N([H])[H])C([H])([H])[H]",
+        "[H]OC(=O)C([H])([H])N([H])[H]",
+        "[H]C([H])([H])C([H])([H])[H]",
+        "[H]OC(=O)C([H])([H])N([H])[H]",
+    ]
+    return [att.smi_to_nx(smi) for smi in smiles]
 
-    This function performs the following steps:
-    1. Defines a list of SMILES strings representing molecules.
-    2. Converts the SMILES strings to NetworkX graphs.
-    3. Defines settings for the assembly index calculation.
-    4. Calculates the assembly indices for the graphs in parallel.
-    5. Prints the calculated assembly indices.
-    6. Asserts that the calculated assembly indices match the expected reference values.
 
-    Asserts:
-        - The calculated assembly indices match the reference list [3, 4, 3, 0, 3].
-    """
-    print(flush=True)
-    # Define a list of SMILES strings
-    smiles = ['[H]OC(=O)C([H])([H])N([H])[H]',
-              '[H]OC(=O)C([H])(N([H])[H])C([H])([H])[H]',
-              '[H]OC(=O)C([H])([H])N([H])[H]',
-              '[H]C([H])([H])C([H])([H])[H]',
-              '[H]OC(=O)C([H])([H])N([H])[H]']
-    # Convert the SMILES strings to NetworkX graphs
-    graphs = [att.smi_to_nx(smi) for smi in smiles]
-    # Define settings for the assembly index calculation
-    settings = {'strip_hydrogen': True}
-    # Calculate assembly indices in parallel
+def test_calculate_assembly_index_parallel(molecular_ensemble):
+    graphs = molecular_ensemble
+    settings = {"strip_hydrogen": True}
     ai = att.calculate_assembly_index_parallel(graphs, settings)[0]
-    # Print the calculated assembly indices
-    print(ai, flush=True)
-    # Define the reference list of expected assembly indices
     ref_list = [3, 4, 3, 0, 3]
-    # Assert that the calculated assembly indices match the expected values
-    assert att.check_elements(ai, ref_list)
+    assert ai == ref_list
 
 
-def test_calculate_sum_assembly():
-    """
-    Test the calculation of the sum of assembly indices for molecular graphs.
+@pytest.mark.parametrize("parallel", [False, True], ids=["serial", "parallel"])
+def test_sum_of_assembly_indices(parallel):
+    graphs = [att.smi_to_nx(smiles) for smiles in ["c1ccccc1", "c1ccccc1O"]]
 
-    This function performs the following steps:
-    1. Converts two SMILES strings to NetworkX graphs.
-    2. Defines settings for the assembly index calculation.
-    3. Calculates the sum of assembly indices in parallel mode.
-    4. Asserts that the calculated sum matches the expected value.
-    5. Calculates the sum of assembly indices in sequential mode.
-    6. Asserts that the calculated sum matches the expected value.
-
-    Asserts:
-        - The sum of assembly indices is equal to 7 in both parallel and sequential modes.
-    """
-    print(flush=True)
-    # Convert SMILES strings to NetworkX graphs
-    graphs = [att.smi_to_nx("C1=CC=CC=C1"), att.smi_to_nx("C1=CC=CC=C1O")]
-    # Define settings for the assembly index calculation
-    settings = {'strip_hydrogen': True}
-    # Calculate the sum of assembly indices in parallel mode
-    ai_sum = att.calculate_sum_assembly_index(graphs, settings, parallel=True)
-    assert ai_sum == 7
-    # Calculate the sum of assembly indices in sequential mode
-    ai_sum = att.calculate_sum_assembly_index(graphs, settings, parallel=False)
-    assert ai_sum == 7
+    assert (
+        att.calculate_sum_assembly_index(
+            graphs, {"strip_hydrogen": True}, parallel=parallel
+        )
+        == 7
+    )
 
 
+@pytest.mark.parametrize("parallel", [False, True], ids=["serial", "parallel"])
+@pytest.mark.parametrize("failed_index", [None, -1], ids=["missing", "timed-out"])
+def test_sum_propagates_failed_indices(monkeypatch, parallel, failed_index):
+    graphs = [nx.path_graph(3), nx.path_graph(4)]
+
+    def calculate(graph, **settings):
+        return (failed_index if graph is graphs[1] else 2), None, None
+
+    monkeypatch.setattr(assembly, "calculate_assembly_index", calculate)
+    monkeypatch.setattr(
+        assembly, "mp_calc", lambda function, values: list(map(function, values))
+    )
+
+    assert att.calculate_sum_assembly_index(graphs, parallel=parallel) == -1
+
+
+@pytest.mark.parametrize("parallel", [False, True], ids=["serial", "parallel"])
+@pytest.mark.parametrize("enforce_exact", [False, True], ids=["bounded", "exact"])
 @pytest.mark.parametrize(
-    "smiles_list, settings, parallel, enforce_exact_mode, expected",
+    "smiles, expected",
     [
-        # Testing known similarity of 0.75
-        (["C1=CC=CC=C1", "C1=CC=CC=C1O"], {'strip_hydrogen': True}, True, True, 0.75),
-        (["C1=CC=CC=C1", "C1=CC=CC=C1O"], {'strip_hydrogen': True}, False, True, 0.75),
-        # testing timeout returning -1, with parallel=True and parallel=False.
-        # Taxol is used to force timeout. The latter 2 tests ensure that
-        # "exact":False is being overriden. Warning: Will fail if the binary
-        #  is ever fast enough to complete JA(taxol, taxol) in < 1 second.
-        ([att.test_mols["taxol"].smiles,
-          att.test_mols["taxol"].smiles],
-         {'strip_hydrogen': True, "timeout": 1}, True, True, -1.0),
-        ([att.test_mols["taxol"].smiles,
-          att.test_mols["taxol"].smiles],
-         {'strip_hydrogen': True, "timeout": 1}, False, True, -1.0),
-        ([att.test_mols["taxol"].smiles,
-          att.test_mols["taxol"].smiles],
-         {'strip_hydrogen': True, "timeout": 1, "exact": False}, True, True, -1.0),
-        ([att.test_mols["taxol"].smiles,
-          att.test_mols["taxol"].smiles],
-         {'strip_hydrogen': True, "timeout": 1, "exact": False}, False, True, -1.0),
-        # Testing identical molecules have similarity 1 with parallel=True and parallel=False
-        ([att.test_mols["glycine"].smiles,
-          att.test_mols["glycine"].smiles],
-         {'strip_hydrogen': True}, True, True, 1.0),
-        ([att.test_mols["glycine"].smiles,
-          att.test_mols["glycine"].smiles],
-         {'strip_hydrogen': True}, False, True, 1.0),
-        ([att.test_mols["n-icosane"].smiles,
-          att.test_mols["n-icosane"].smiles],
-         {'strip_hydrogen': True}, True, True, 1.0),
-        ([att.test_mols["n-icosane"].smiles,
-          att.test_mols["n-icosane"].smiles],
-         {'strip_hydrogen': True}, False, True, 1.0),
-        # Some test with enforce_exact_mode False. These test molecules that do not timeout, as the value for
-        # timed out molecules in the "exact":False case is unpredictable
-        (["C1=CC=CC=C1", "C1=CC=CC=C1O"], {'strip_hydrogen': True, "exact": False}, True, False, 0.75),
-        ([att.test_mols["glycine"].smiles,
-          att.test_mols["glycine"].smiles], {'strip_hydrogen': True, "exact": False}, True, False, 1.0),
-        ([att.test_mols["glycine"].smiles,
-          att.test_mols["glycine"].smiles], {'strip_hydrogen': True, "exact": False}, False, False, 1.0),
+        (["c1ccccc1", "c1ccccc1O"], 0.75),
+        ([att.test_mols["glycine"].smiles] * 2, 1.0),
+        ([att.test_mols["n-icosane"].smiles] * 2, 1.0),
     ],
+    ids=["shared-ring", "identical-amino-acids", "identical-chains"],
 )
-def test_calculate_assembly_similarity(smiles_list,
-                                       settings,
-                                       parallel,
-                                       enforce_exact_mode,
-                                       expected, ):
-    """
-    Test the calculation of assembly similarity between two molecular 
-    graphs.
+def test_assembly_similarity(smiles, expected, parallel, enforce_exact):
+    graphs = [att.smi_to_nx(value) for value in smiles]
+    settings = {"strip_hydrogen": True, "exact": False}
 
-    This function performs the following steps for each of the test cases:
-    1. Converts two SMILES strings to NetworkX graphs.
-    2. Calculates the assembly similarity between the two graphs using
-       the `calculate_assembly_similarity` function.
-    3. Asserts that the calculated similarity matches the expected value.
+    similarity = att.calculate_assembly_index_similarity(
+        graphs, settings=settings, parallel=parallel, enforce_exact_mode=enforce_exact
+    )
 
-    Asserts:
-        - The calculated similarity is equal to the expected value
-          for each test case
-    """
+    assert similarity == pytest.approx(expected)
+    assert settings == {"strip_hydrogen": True, "exact": False}
 
-    graphs = [att.smi_to_nx(smi) for smi in smiles_list]
-    similarity = att.calculate_assembly_index_similarity(graphs, settings=settings, parallel=parallel,
-                                                         enforce_exact_mode=enforce_exact_mode)
-    if expected == -1.0:
-        assert similarity == -1.0
-    else:
-        assert similarity == pytest.approx(expected)
+
+@pytest.mark.parametrize("parallel", [False, True])
+@pytest.mark.parametrize("enforce_exact", [False, True])
+@pytest.mark.parametrize("failure_stage", ["individual", "joint"])
+def test_similarity_preserves_failure_sentinel_and_settings(
+    monkeypatch, parallel, enforce_exact, failure_stage
+):
+    calls = []
+    graphs = [att.smi_to_nx("CC"), att.smi_to_nx("CCO")]
+    settings = {"strip_hydrogen": True, "exact": False}
+
+    def sum_indices(inputs, forwarded, *, parallel):
+        assert inputs is graphs
+        calls.append(("individual", forwarded, parallel))
+        return -1 if failure_stage == "individual" else 1
+
+    def joint_index(graph, **forwarded):
+        calls.append(("joint", forwarded, None))
+        return -1, None, None
+
+    monkeypatch.setattr(assembly, "calculate_sum_assembly_index", sum_indices)
+    monkeypatch.setattr(assembly, "calculate_assembly_index", joint_index)
+
+    assert (
+        att.calculate_assembly_index_similarity(
+            graphs, settings, parallel=parallel, enforce_exact_mode=enforce_exact
+        )
+        == -1.0
+    )
+    expected_settings = {"strip_hydrogen": True, "exact": enforce_exact}
+    expected_calls = [("individual", expected_settings, parallel)]
+    if failure_stage == "joint":
+        expected_calls.append(("joint", expected_settings, None))
+    assert calls == expected_calls
+    assert settings == {"strip_hydrogen": True, "exact": False}
 
 
 def test_node_canonicalization():
-    """
-    Test the assembly index calculation for a specific molecular graph that produced inaccurate results
-    without node canonicalization.
-
-    This function creates a molecular graph with specific nodes and edges, calculates its assembly index,
-    and asserts that the result matches the expected value.
-
-    Steps:
-    1. Define a molecular graph using NetworkX.
-    2. Add nodes with specific attributes (e.g., color representing atom types).
-    3. Add edges with specific attributes (e.g., color representing bond types).
-    4. Calculate the assembly index using the `calculate_assembly_index` function.
-    5. Assert that the calculated assembly index is equal to the expected value.
-
-    Asserts:
-        - The calculated assembly index is equal to 8.
-    """
-    # Create a new graph
     graph = nx.Graph()
 
-    # Add nodes with attributes (color represents atom type)
-    graph.add_node(0, color='C')
-    graph.add_node(1, color='C')
-    graph.add_node(2, color='C')
-    graph.add_node(6, color='C')
-    graph.add_node(10, color='C')
-    graph.add_node(11, color='C')
-    graph.add_node(12, color='C')
-    graph.add_node(15, color='C')
-    graph.add_node(18, color='C')
-    graph.add_node(3, color='O')
-    graph.add_node(4, color='O')
-    graph.add_node(5, color='O')
-    graph.add_node(7, color='O')
-    graph.add_node(8, color='O')
-    graph.add_node(13, color='O')
-    graph.add_node(14, color='O')
-    graph.add_node(16, color='O')
-    graph.add_node(19, color='O')
+    # Keep the sparse labels and their insertion order: this graph used to
+    # produce the wrong index when the backend skipped canonicalization.
+    graph.add_nodes_from([0, 1, 2, 6, 10, 11, 12, 15, 18], color="C")
+    graph.add_nodes_from([3, 4, 5, 7, 8, 13, 14, 16, 19], color="O")
+    bonds = [
+        (18, 19, 2),
+        (8, 18, 1),
+        (6, 8, 1),
+        (6, 7, 2),
+        (0, 18, 1),
+        (0, 6, 1),
+        (0, 1, 1),
+        (0, 10, 1),
+        (1, 5, 1),
+        (1, 2, 1),
+        (2, 3, 2),
+        (2, 4, 1),
+        (4, 15, 1),
+        (10, 15, 1),
+        (15, 16, 2),
+        (10, 11, 2),
+        (11, 12, 1),
+        (12, 13, 2),
+        (12, 14, 1),
+    ]
+    graph.add_edges_from(
+        (left, right, {"color": order}) for left, right, order in bonds
+    )
 
-    # Add edges with attributes (color represents bond type)
-    graph.add_edge(18, 19, color=2)
-    graph.add_edge(8, 18, color=1)
-    graph.add_edge(6, 8, color=1)
-    graph.add_edge(6, 7, color=2)
-    graph.add_edge(0, 18, color=1)
-    graph.add_edge(0, 6, color=1)
-    graph.add_edge(0, 1, color=1)
-    graph.add_edge(0, 10, color=1)
-    graph.add_edge(1, 5, color=1)
-    graph.add_edge(1, 2, color=1)
-    graph.add_edge(2, 3, color=2)
-    graph.add_edge(2, 4, color=1)
-    graph.add_edge(4, 15, color=1)
-    graph.add_edge(10, 15, color=1)
-    graph.add_edge(15, 16, color=2)
-    graph.add_edge(10, 11, color=2)
-    graph.add_edge(11, 12, color=1)
-    graph.add_edge(12, 13, color=2)
-    graph.add_edge(12, 14, color=1)
-
-    # Calculate the assembly index
     a, _, _ = att.calculate_assembly_index(graph)
 
-    # Assert that the calculated assembly index matches the expected value
     assert a == 8
 
 
-def test_calculate_assembly_upper_bound():
-    """
-    Test the calculation of the assembly upper bound for a molecule.
+@pytest.mark.parametrize(
+    "bound",
+    [
+        att.calculate_assembly_index_upper_bound,
+        att.calculate_assembly_index_lower_bound,
+    ],
+    ids=["upper", "lower"],
+)
+@pytest.mark.parametrize("representation", ["mol", "graph"])
+@pytest.mark.parametrize("strip_hydrogen, expected", [(True, 0), (False, 2)])
+def test_acetylene_bounds(bound, representation, strip_hydrogen, expected):
+    mol = att.smi_to_mol("[H]C#C[H]")
+    input_data = att.mol_to_nx(mol) if representation == "graph" else mol
 
-    This function performs the following steps:
-    1. Defines a SMILES string representing a molecule.
-    2. Converts the SMILES string to a molecule object.
-    3. Calculates the assembly upper bound with hydrogen stripping enabled.
-    4. Asserts that the calculated upper bound is equal to 0.
-    5. Calculates the assembly upper bound without hydrogen stripping.
-    6. Asserts that the calculated upper bound is equal to 2.
-    7. Converts the molecule object to a NetworkX graph.
-    8. Calculates the assembly upper bound for the graph without hydrogen stripping.
-    9. Asserts that the calculated upper bound is equal to 2.
-
-    Asserts:
-        - The assembly upper bound with hydrogen stripping is equal to 0.
-        - The assembly upper bound without hydrogen stripping is equal to 2.
-        - The assembly upper bound for the graph without hydrogen stripping is equal to 2.
-    """
-    print(flush=True)
-    smi_in = "[H]C#C[H]"  # Define the SMILES string for the molecule
-    # Convert the SMILES string to a molecule object
-    mol = att.smi_to_mol(smi_in)
-    # Test strip hydrogen flag
-    ai_upper_bound = att.calculate_assembly_index_upper_bound(mol, strip_hydrogen=True)
-    assert ai_upper_bound == 0  # Assert the upper bound with hydrogen stripping
-    # Test without stripping hydrogen
-    ai_upper_bound = att.calculate_assembly_index_upper_bound(mol, strip_hydrogen=False)
-    assert ai_upper_bound == 2  # Assert the upper bound without hydrogen stripping
-    # Convert the molecule object to a NetworkX graph
-    ai_upper_bound_graph = att.calculate_assembly_index_upper_bound(att.mol_to_nx(mol), strip_hydrogen=False)
-    assert ai_upper_bound_graph == 2  # Assert the upper bound for the graph without hydrogen stripping
-
-
-def test_calculate_assembly_lower_bound():
-    """
-    Test the calculation of the assembly lower bound for a molecule.
-
-    This function performs the following steps:
-    1. Defines a SMILES string representing a molecule.
-    2. Converts the SMILES string to a molecule object.
-    3. Calculates the assembly lower bound with hydrogen stripping enabled.
-    4. Asserts that the calculated lower bound is equal to 0.
-    5. Calculates the assembly lower bound without hydrogen stripping.
-    6. Asserts that the calculated lower bound is equal to 1.
-    7. Converts the molecule object to a NetworkX graph.
-    8. Calculates the assembly lower bound for the graph without hydrogen stripping.
-    9. Asserts that the calculated lower bound is equal to 1.
-
-    Asserts:
-        - The assembly lower bound with hydrogen stripping is equal to 0.
-        - The assembly lower bound without hydrogen stripping is equal to 2.
-        - The assembly lower bound for the graph without hydrogen stripping is equal to 2.
-    """
-    print(flush=True)
-    smi_in = "[H]C#C[H]"  # Define the SMILES string for the molecule
-    # Convert the SMILES string to a molecule object
-    mol = att.smi_to_mol(smi_in)
-    # Test strip hydrogen flag
-    ai_lower_bound = att.calculate_assembly_index_lower_bound(mol, strip_hydrogen=True)
-    assert ai_lower_bound == 0  # Assert the lower bound with hydrogen stripping
-    # Test without stripping hydrogen
-    ai_lower_bound = att.calculate_assembly_index_lower_bound(mol, strip_hydrogen=False)
-    assert ai_lower_bound == 2  # Assert the lower bound without hydrogen stripping
-    # Convert the molecule object to a NetworkX graph
-    ai_lower_bound_graph = att.calculate_assembly_index_lower_bound(att.mol_to_nx(mol), strip_hydrogen=False)
-    assert ai_lower_bound_graph == 2  # Assert the lower bound for the graph without hydrogen stripping
+    assert bound(input_data, strip_hydrogen=strip_hydrogen) == expected
 
 
 def test_calculate_jo():
-    """
-    Test the calculation of the joining operation index (JO) for a molecular graph.
-
-    This function performs the following steps:
-    1. Defines a SMILES string representing a molecule (Benzene).
-    2. Converts the SMILES string to a NetworkX graph.
-    3. Calculates the joining operation index (JO) for the graph using the `calculate_jo` function.
-    4. Asserts that the calculated JO matches the expected value.
-
-    Asserts:
-        - The calculated JO is equal to 6.
-    """
-    print(flush=True)
     smi = "C1=CC=CC=C1"  # Benzene
     graph = att.smi_to_nx(smi)
     jo = att.calculate_assembly_index_jo(graph)[0]
     assert jo == 6, f"Expected JO to be 6, but got {jo}"
 
 
-def test_calculate_rust_ai():
-    """
-    Test the calculation of the assembly index using the Rust-based implementation.
-
-    This function performs the following steps:
-    1. Defines a SMILES string representing Benzene.
-    2. Converts the SMILES string to a molecule object.
-    3. Calculates the assembly index using the Rust-based implementation.
-    4. Calculates the assembly index using the Python-based implementation.
-    5. Compares the results from the Rust and Python implementations to ensure consistency.
-
-    Asserts:
-        - The assembly index calculated by the Rust implementation matches the Python implementation.
-    """
-    print(flush=True)
-    smi = "C1=CC=CC=C1"  # Benzene
-    mol = att.smi_to_mol(smi)
-    ai_r = att.calculate_assembly_index_rust(mol)
-    print(ai_r, flush=True)
-    ai_v5, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
-    print(ai_v5, flush=True)
-    assert ai_v5 == ai_r, f"Expected AI to be {ai_v5}, but got {ai_r}"
-
-
-def test_calculate_rust_ai_graph_types():
-    """
-    Test that the Rust backend accepts every NetworkX graph type.
-
-    This function performs the following steps:
-    1. Builds an ethanol molecular graph.
-    2. Wraps it as a DiGraph and a MultiGraph.
-    3. Calculates the assembly index for each.
-
-    Asserts:
-        - All three graph types give the same assembly index.
-    """
-    print(flush=True)
-    graph = att.smi_to_nx("CCO")
-    results = [att.calculate_assembly_index_rust(g)
-               for g in (graph, nx.DiGraph(graph), nx.MultiGraph(graph))]
-    print("Assembly indices:", results, flush=True)
-    assert results == [1, 1, 1], f"Expected all indices to be 1, but got {results}"
-
-
-def test_calculate_rust_ai_errors():
-    """
-    Test that the Rust backend wrappers reject unusable input.
-
-    This function performs the following steps:
-    1. Passes a string where a molecule is expected.
-    2. Passes a molecule too large for a V2000 mol block.
-
-    Asserts:
-        - Both raise ValueError rather than leaking an RDKit or OSError.
-    """
-    print(flush=True)
-    with pytest.raises(ValueError):
-        att.calculate_assembly_index_rust("CCO")
-
-    too_big = att.smi_to_mol("C" * 1200, add_hydrogens=False)
-    print("Atoms:", too_big.GetNumAtoms(), flush=True)
-    with pytest.raises(ValueError):
-        att.calculate_assembly_index_rust(too_big)
-
-
-def test_calculate_assembly_depth_rust():
-    """
-    Test the calculation of assembly depth using the Rust-based implementation.
-
-    This function performs the following steps:
-    1. Converts a benzene SMILES string to a molecular graph.
-    2. Calculates its assembly depth.
-    3. Repeats for ethanol.
-
-    Asserts:
-        - Benzene has an assembly depth of 3.
-        - Ethanol has an assembly depth of 1.
-    """
-    print(flush=True)
-    depth = att.calculate_assembly_depth_rust(att.smi_to_nx("c1ccccc1"))
-    print("Benzene depth:", depth, flush=True)
-    assert depth == 3, f"Expected depth to be 3, but got {depth}"
-
-    depth = att.calculate_assembly_depth_rust(att.smi_to_nx("CCO"))
-    print("Ethanol depth:", depth, flush=True)
-    assert depth == 1, f"Expected depth to be 1, but got {depth}"
-
-
-def test_get_molecule_info_rust(data_dir):
-    """
-    Test the molecule description reported by the Rust backend.
-
-    This function performs the following steps:
-    1. Loads anthracene from a mol file.
-    2. Asks the Rust backend to describe the graph it builds.
-    3. Counts the atoms and bonds in that description.
-
-    Asserts:
-        - The backend sees 14 atoms, 9 single bonds and 7 double bonds.
-        - Hydrogens are dropped, so an explicit-hydrogen molecule is unchanged.
-    """
-    print(flush=True)
-    mol = att.molfile_to_mol(str(data_dir / "mol_files" / "anthracene.mol"),
-                             add_hydrogens=False)
-    info = att.get_molecule_info_rust(mol)
-    counts = (info.count('label = "Atom'),
-              info.count('label = "Single"'),
-              info.count('label = "Double"'))
-    print("Atoms, single, double:", counts, flush=True)
-    assert counts == (14, 9, 7), f"Expected (14, 9, 7), but got {counts}"
-
-    with_hydrogens = att.get_molecule_info_rust(att.smi_to_mol("CCO", add_hydrogens=True))
-    print("Ethanol atoms:", with_hydrogens.count('label = "Atom'), flush=True)
-    assert with_hydrogens.count('label = "Atom') == 3
-
-
-def test_calculate_assembly_index_rust_search(data_dir):
-    """
-    Test the Rust-based assembly index search and its reported statistics.
-
-    This function performs the following steps:
-    1. Loads anthracene from a mol file.
-    2. Runs the search with a deterministic, unmemoised configuration.
-    3. Runs it again with a timeout too short to finish.
-
-    Asserts:
-        - The search reports the known index, match count and state count.
-        - The result unpacks as a 4-tuple and reports no pathways by default.
-        - A timed-out search reports None for the number of states searched.
-    """
-    print(flush=True)
-    mol = att.molfile_to_mol(str(data_dir / "mol_files" / "anthracene.mol"),
-                             add_hydrogens=False)
-
-    result = att.calculate_assembly_index_rust_search(
-        mol, parallel="none", memoize="none", kernel="none")
-    print("Search result:", result, flush=True)
-
-    assert (result.index, result.num_matches, result.states_searched) == (6, 466, 491)
-    assert result.pathways == []
-    index, num_matches, states, pathways = result
-    assert (index, num_matches, states, pathways) == (6, 466, 491, [])
-
-    timed_out = att.calculate_assembly_index_rust_search(
-        mol, timeout=0.001, parallel="none", memoize="none", kernel="none", bounds=[])
-    print("Timed out states:", timed_out.states_searched, flush=True)
-    assert timed_out.states_searched is None
-
-
-def test_rust_zero_answers():
-    """
-    Test that molecules with no joining operations report 0, not the sentinel.
-
-    The Rust backend counts joining operations in an unsigned 32-bit integer and
-    underflows to 4294967295 when there are none: a molecule with no bonds has
-    no index, and a molecule with one bond is already at full depth.
-
-    This function performs the following steps:
-    1. Calculates the index of molecules that have no bonds once hydrogens go.
-    2. Calculates the depth of a molecule needing no joining operations.
-    3. Runs the search on a bare atom.
-
-    Asserts:
-        - Every result is 0 rather than the underflow sentinel.
-    """
-    print(flush=True)
-    for smi in ("C", "O", "[Fe+2]", "[13CH4]"):
-        index = att.calculate_assembly_index_rust(att.smi_to_mol(smi))
-        print(f"{smi} index:", index, flush=True)
-        assert index == 0, f"Expected {smi} to have index 0, but got {index}"
-
-    depth = att.calculate_assembly_depth_rust(att.smi_to_nx("CC"))
-    print("Ethane depth:", depth, flush=True)
-    assert depth == 0, f"Expected ethane depth to be 0, but got {depth}"
-
-    result = att.calculate_assembly_index_rust_search(att.smi_to_mol("C"))
-    print("Methane search:", result, flush=True)
-    assert result.index == 0, f"Expected methane index 0, but got {result.index}"
-
-    empty = att.calculate_assembly_index_rust(nx.Graph())
-    print("Empty graph index:", empty, flush=True)
-    assert empty == 0, f"Expected empty graph index 0, but got {empty}"
-
-
-def test_calculate_assembly_index_rust_search_timeout():
-    """
-    Test how the search converts its timeout to the backend's milliseconds.
-
-    This function performs the following steps:
-    1. Runs a search with a sub-millisecond timeout.
-    2. Runs a search with a negative timeout.
-
-    Asserts:
-        - A sub-millisecond timeout rounds up rather than truncating to 0, so
-          the search still runs to completion instead of stopping immediately.
-        - A negative timeout raises ValueError rather than an OverflowError
-          from the backend.
-    """
-    print(flush=True)
-    result = att.calculate_assembly_index_rust_search(
-        att.smi_to_nx("CCO"), timeout=0.0001, parallel="none")
-    print("Sub-millisecond timeout:", result, flush=True)
-    assert result.states_searched is not None
-
-    with pytest.raises(ValueError, match="must not be negative"):
-        att.calculate_assembly_index_rust_search(att.smi_to_nx("CCO"), timeout=-1)
-
-
-def test_calculate_assembly_index_rust_search_argument_validation():
-    """
-    Test that the search rejects arguments the backend would misread.
-
-    This function performs the following steps:
-    1. Passes a single strategy name as a bare string rather than a sequence.
-    2. Passes an unrecognised vo_type with no pathways requested.
-    3. Passes 'frags-index', which the backend lists but does not accept.
-
-    Asserts:
-        - A bare string for `bounds` raises ValueError instead of being split
-          into characters.
-        - `vo_type` is validated even when no pathways are reconstructed.
-        - 'frags-index' is rejected, as documented, despite appearing in the
-          backend's own list of valid modes.
-    """
-    print(flush=True)
-    graph = att.smi_to_nx("CCO")
-
-    with pytest.raises(ValueError, match="not a single string"):
-        att.calculate_assembly_index_rust_search(graph, bounds="int")
-
-    with pytest.raises(ValueError, match="vo_type"):
-        att.calculate_assembly_index_rust_search(graph, vo_type="nope")
-
-    with pytest.raises(ValueError, match="Invalid memoization mode"):
-        att.calculate_assembly_index_rust_search(graph, memoize="frags-index")
-
-
-def test_calculate_assembly_index_rust_search_unreadable_pathways(monkeypatch):
-    """
-    Test that unreadable pathways raise rather than degrading silently.
-
-    When the searched mol block cannot be parsed back by RDKit, pathway bond
-    indices cannot be resolved to fragments, and the virtual objects would
-    otherwise fall back to bare bond-set labels without any warning.
-
-    This function performs the following steps:
-    1. Stands in a backend that returns a pathway DOT string.
-    2. Makes the mol block round trip fail.
-
-    Asserts:
-        - A ValueError is raised naming the mol block round trip.
-    """
-    print(flush=True)
-
-    class FakeRust:
-        @staticmethod
-        def index_search(mol_block, **kwargs):
-            return 1, 0, 1, ["digraph { 0 [ label = \"{0}\" ] }"]
-
-    monkeypatch.setattr(assembly_module, "at_rust", FakeRust)
-    monkeypatch.setattr(assembly_module, "_rust_supports_pathways", lambda: True)
-    monkeypatch.setattr(assembly_module.Chem, "MolFromMolBlock", lambda *a, **k: None)
-
-    with pytest.raises(ValueError, match="cannot be read back"):
-        att.calculate_assembly_index_rust_search(att.smi_to_nx("CCO"), max_pathways=1)
-
-
-def test_calculate_assembly_index_rust_search_options():
-    """
-    Test that the Rust search rejects unrecognised option strings.
-
-    This function performs the following steps:
-    1. Runs the search with an invalid value for each mode argument in turn.
-
-    Asserts:
-        - Every invalid mode raises a ValueError naming the offending option.
-    """
-    print(flush=True)
-    graph = att.smi_to_nx("CCO")
-    for kwargs in ({"canonize": "nope"}, {"parallel": "nope"}, {"memoize": "nope"},
-                   {"kernel": "nope"}, {"bounds": ["nope"]}):
-        print("Checking:", kwargs, flush=True)
-        with pytest.raises(ValueError):
-            att.calculate_assembly_index_rust_search(graph, **kwargs)
-
-
-def test_calculate_assembly_index_rust_search_pathways():
-    """
-    Test pathway reconstruction, or the error raised when it is unavailable.
-
-    This function performs the following steps:
-    1. Asks the Rust backend for one minimum assembly pathway for benzene.
-    2. Either checks the reconstructed pathway, or checks the error raised by
-       releases that cannot reconstruct pathways.
-
-    Asserts:
-        - On a release with pathway support, one pathway is returned as a graph
-          whose deepest node is the whole molecule.
-        - On a release without it, a NotImplementedError is raised.
-    """
-    print(flush=True)
-    graph = att.smi_to_nx("c1ccccc1")
-
-    if not assembly_module._rust_supports_pathways():
-        print("Installed release has no pathway support", flush=True)
-        with pytest.raises(NotImplementedError):
-            att.calculate_assembly_index_rust_search(graph, max_pathways=1)
-        return
-
-    result = att.calculate_assembly_index_rust_search(graph, parallel="none", max_pathways=1)
-    print("Pathways:", result.pathways, flush=True)
-
-    assert len(result.pathways) == 1
-    pathway = result.pathways[0]
-    assert isinstance(pathway, nx.MultiDiGraph)
-
-    target = [n for n in pathway.nodes if pathway.out_degree(n) == 0]
-    assert len(target) == 1
-    assert att.standardise_smiles(pathway.nodes[target[0]]["vo"],
-                                  add_hydrogens=False) == att.standardise_smiles(
-        "c1ccccc1", add_hydrogens=False)
-
-
-def test_calculate_assembly_index_rust_search_pathway_parsing(data_dir, monkeypatch):
-    """
-    Test that pathways reported by the Rust backend are parsed into graphs.
-
-    Pathway reconstruction needs an assembly-theory release newer than 0.6.1, so
-    this stands in a stub backend that returns the known anthracene pathway.
-
-    This function performs the following steps:
-    1. Loads anthracene and the DOT pathway computed from it.
-    2. Replaces the Rust backend with a stub returning that pathway.
-    3. Runs the search and inspects what came back.
-
-    Asserts:
-        - The DOT string is parsed into a graph with the expected shape.
-        - The bond indices still line up after the mol block round trip, so the
-          deepest virtual object is the whole molecule.
-        - max_pathways is forwarded to the backend.
-    """
-    print(flush=True)
-    mol = att.molfile_to_mol(str(data_dir / "mol_files" / "anthracene.mol"),
-                             add_hydrogens=False)
-    dot = (data_dir / "pathway" / "anthracene_pathway.dot").read_text()
-    forwarded = {}
-
-    class FakeRust:
-        @staticmethod
-        def index_search(mol_block, **kwargs):
-            forwarded.update(kwargs)
-            return 6, 466, 491, [dot]
-
-    monkeypatch.setattr(assembly_module, "at_rust", FakeRust)
-    monkeypatch.setattr(assembly_module, "_rust_supports_pathways", lambda: True)
-
-    result = att.calculate_assembly_index_rust_search(mol, max_pathways=1)
-    print("Forwarded options:", forwarded, flush=True)
-    assert forwarded["max_pathways"] == 1
-
-    assert len(result.pathways) == 1
-    pathway = result.pathways[0]
-    assert isinstance(pathway, nx.MultiDiGraph)
-    assert (pathway.number_of_nodes(), pathway.number_of_edges()) == (8, 12)
-
-    target = [n for n in pathway.nodes if pathway.out_degree(n) == 0]
-    print("Target virtual object:", pathway.nodes[target[0]]["vo"], flush=True)
-    assert len(target) == 1
-    assert att.standardise_smiles(pathway.nodes[target[0]]["vo"],
-                                  add_hydrogens=False) == att.standardise_smiles(
-        "c1ccc2cc3ccccc3cc2c1", add_hydrogens=False)
-
-
-def test_calculate_assembly():
-    """
-    Test the `calculate_assembly` function for a set of molecular graphs.
-
-    This function performs the following steps:
-    1. Defines a list of SMILES strings representing molecules.
-    2. Converts the SMILES strings to NetworkX graphs.
-    3. Defines a list of integers representing molecule indices.
-    4. Specifies settings for the assembly calculation.
-    5. Calculates the assembly value using the `calculate_assembly` function.
-    6. Compares the calculated assembly value to the expected reference value.
-
-    Asserts:
-        - The calculated assembly value matches the expected reference value.
-    """
-    print(flush=True)
-    # Define a list of SMILES strings
-    smiles = ['[H]OC(=O)C([H])([H])N([H])[H]',
-              '[H]OC(=O)C([H])(N([H])[H])C([H])([H])[H]',
-              '[H]OC(=O)C([H])([H])N([H])[H]',
-              '[H]C([H])([H])C([H])([H])[H]',
-              '[H]OC(=O)C([H])([H])N([H])[H]']
-    # Convert the SMILES strings to NetworkX graphs
-    graphs = [att.smi_to_nx(smi) for smi in smiles]
-    # Define a list of molecule indices
+def test_calculate_assembly(molecular_ensemble):
+    graphs = molecular_ensemble
     n_i = [1, 2, 3, 4, 5]
-    # Define settings for the assembly calculation
-    settings = {'strip_hydrogen': True}
-    # Calculate the assembly value
+    settings = {"strip_hydrogen": True}
     ass = att.calculate_assembly(graphs, n_i, settings)
-    print(ass, flush=True)
-    # Define the reference assembly value
     ref = 11.87409143815135
-    # Assert that the calculated assembly value matches the reference value
     assert ass == ref
 
 
-def test_joint_correction_does_not_affect_failed_assembly_index():
-    """
-    Testing a fix that prevented joint_correction running on ai <= 0
-    Previously, joint_correction was applied to ai = -1 (i.e. failed
-    in exact mode) reducing ai further for multi-component molecules
-    (e.g. -2, -3). This test is to ensure that future refactors do 
-    not remove this fix.
-
-    Note: this test will fail if the assembly binary is ever fast 
-    enough to process taxol in < 1 second. In that case, pick a 
-    bigger molecule.
-
-    """
-    # big molceule that will time out
-    taxol = att.smi_to_nx(
-        "CC1=C2[C@H](C(=O)[C@@]3([C@H](C[C@@H]4[C@]([C@H]3[C@@H]"
-        "([C@@](C2(C)C)(C[C@@H]1OC(=O)[C@@H]([C@H](C5=CC=CC=C5)NC"
-        "(=O)C6=CC=CC=C6)O)O)OC(=O)C7=CC=CC=C7)(CO4)OC(=O)C)O)C)OC(=O)C")
-    joined = att.join_graphs([taxol, taxol, taxol])
-
-    # exact mode and short timeout to enforce failure and return -1
-    ai = att.calculate_assembly_index(joined, timeout=1, exact=True)[0]
-
-    # prior to this fix, ai would be less than -1 due to joint_correction
-    assert ai == -1
-
-
-def test_hydrogen_stripping(data_dir):
-    """
-    Test the calculation of the assembly index for a molecule with and without hydrogen stripping.
-
-    This function performs the following steps:
-    1. Loads a molecule from a mol file.
-    2. Converts a SMILES string to a molecule object.
-    3. Asserts that the graph representations of the two molecules are isomorphic.
-    4. Converts the molecule object to a NetworkX graph.
-    5. Calculates the assembly index for the graph with hydrogen stripped.
-    6. Calculates the assembly index for the mol file.
-    7. Calculates the assembly index for the molecule object with hydrogen stripped.
-    8. Asserts that the assembly index is the same for all representations.
-    9. Calculates the assembly index for the graph, mol file, and molecule object with the strip_hydrogen flag set to True.
-    10. Asserts that the assembly index is the same for all representations with the strip_hydrogen flag.
-
-    Asserts:
-        - The graph representations of the two molecules are isomorphic.
-        - The assembly index calculated from the graph, mol file, and molecule object are equal to 4.
-        - The assembly index calculated from the graph, mol file, and molecule object with the strip_hydrogen flag are equal to 4.
-    """
-    print(flush=True)
+def test_hydrogen_stripping_matches_manual_removal(data_dir):
     mol_file = str(data_dir / "mol_files" / "alanine.mol")
-    # Get the mol object
-    mol_1 = att.molfile_to_mol(mol_file)
     mol = att.smi_to_mol("C[C@@H](C(=O)O)N")
-
-    assert att.is_graph_isomorphic(att.mol_to_nx(mol), att.mol_to_nx(mol_1))
-
-    # Convert the system into graphs
     graph = att.mol_to_nx(mol)
-    # Load the mol file, pass it Graph
-    ai_graph, _, _ = att.calculate_assembly_index(att.remove_hydrogen_from_graph(graph))
-    # Directly run the mol file
-    ai_mol_file, _, _ = att.calculate_assembly_index(Chem.MolFromMolFile(mol_file), strip_hydrogen=True)
-    # RDkit Mol
-    ai_mol, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
+    assert att.is_graph_isomorphic(graph, att.mol_to_nx(att.molfile_to_mol(mol_file)))
 
-    assert ai_graph == ai_mol_file == ai_mol == 4
-
-    # Test the manual case
-    # Graph
-    ai_graph, _, _ = att.calculate_assembly_index(graph, strip_hydrogen=True)
-    # Mol file
-    ai_mol_file, _, _ = att.calculate_assembly_index(Chem.MolFromMolFile(mol_file), strip_hydrogen=True)
-    # Mol
-    ai_mol, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
-
-    assert ai_graph == ai_mol_file == ai_mol == 4
+    assert att.calculate_assembly_index(att.remove_hydrogen_from_graph(graph))[0] == 4
+    for input_data in [graph, mol, Chem.MolFromMolFile(mol_file)]:
+        assert att.calculate_assembly_index(input_data, strip_hydrogen=True)[0] == 4
 
 
-def test_ass_mol_debug(tmp_path, monkeypatch):
-    """
-    Test the calculation of the assembly index for a molecule with debug information.
+def test_eight_membered_ring_has_index_three():
+    graph = nx.cycle_graph(8)
+    nx.set_node_attributes(graph, "C", "color")
+    nx.set_edge_attributes(graph, 1, "color")
 
-    This function performs the following steps:
-    1. Converts a SMILES string to a molecule object.
-    2. Calculates the assembly index of the molecule with debug information.
-    3. Retrieves the path of the created file.
-    4. Compares the calculated assembly index to the expected value.
-    5. Verifies that the InChI of the molecule matches the InChI from the output dictionary.
-    6. Asserts that only one directory was created.
-    7. Cleans up by removing the created directory.
-
-    Asserts:
-        - The calculated assembly index is equal to 2.
-        - The InChI of the molecule matches the InChI from the output dictionary.
-        - Only one directory was created.
-    """
-    print(flush=True)
-    monkeypatch.chdir(tmp_path)
-    # Convert all the smile to mol
-    mol = att.smi_to_mol("[H]C#C[H]")
-    # Calculate the assembly index
-    ai, virt_obj, _ = att.calculate_assembly_index(mol, debug=True)
-    # Get the path of the created file
-    dir_list = att.list_subdirs(tmp_path, target="ai_calc")
-    # Compare to the hand calculated value. Plain SMILES notation -- see
-    # test_joint_ass's Notes.
-    ref_out = ['C#C', '[H]C', '[H]C#C', '[H]C#C[H]']
-    assert ai == 2
-    assert att.check_elements(virt_obj, ref_out)
-    assert len(dir_list) == 1
-    debug_dir = tmp_path / dir_list[0]
-    assert {path.name for path in debug_dir.iterdir()} >= {
-        "graph_in",
-        "graph_inOut",
-        "graph_inPathway",
-    }
-    # Clean up
-    shutil.rmtree(debug_dir)
-    assert not debug_dir.exists()
+    assert att.calculate_assembly_index(graph)[0] == 3
 
 
-def test_hand_graph():
-    """
-    Test the calculation of the assembly index for a hand-constructed graph.
-
-    This function performs the following steps:
-    1. Creates a ring graph with 8 nodes.
-    2. Sets the labels of the nodes to "C" (carbon atom).
-    3. Sets the edge labels to "1" (single bond).
-    4. Prints the details of the input graph.
-    5. Calculates the assembly index of the graph.
-    6. Converts the pathway dictionary to a list.
-    7. Prints the details of the output graph.
-    8. Removes the first pathway from the list.
-    9. Prints the details of each pathway object.
-    10. Asserts that the calculated assembly index is equal to 3.
-
-    Asserts:
-        - The calculated assembly index is equal to 3.
-    """
-    print(flush=True)
-    print("This is a hand construction graph test", flush=True)
-    # Create a ring graph with 8 nodes
-    G = nx.cycle_graph(8)
-    # Set the labels of the nodes to be "C" - a carbon atom
-    nx.set_node_attributes(G, "C", "color")
-    # Set the edge labels to be "1" - a single bond
-    nx.set_edge_attributes(G, 1, "color")
-    print("input", flush=True)
-    att.print_graph_details(G)
-
-    ai, virt_obj, _ = att.calculate_assembly_index(G)
-    print("output", flush=True)
-    print(f"Ass index = {ai}", flush=True)
-    for i, p in enumerate(virt_obj):
-        print(f"Pathway object = {i}", flush=True)
-        att.print_graph_details(p)
-
-    assert ai == 3
+@pytest.mark.parametrize(
+    "value, expected", [(1, 0), (2, 1), (3, 2), (4, 2), (5, 3), (9998, 16), (9999, 16)]
+)
+def test_integer_chain(value, expected):
+    assert att.calculate_integer_chain(value) == expected
 
 
-def test_run_command():
-    """
-    Test that run_command executes a command and returns None.
-
-    run_command's docstring used to claim it returned the command's
-    captured standard output as bytes, but subprocess.run() was called
-    without capture_output=True, so it always returned None regardless --
-    the output was actually streaming straight to the console the whole
-    time. The fix made the function's signature and docstring match that
-    actual (and, for every current caller, desired) behavior.
-
-    Asserts:
-        - A valid command runs without raising and returns None.
-        - Passing None as the command raises ValueError.
-    """
-    result = att.run_command('echo hello')
-    assert result is None
-
-    with pytest.raises(ValueError):
-        att.run_command(None)
-
-
-def test_compile_assembly_cpp_orchestration(tmp_path, monkeypatch):
-    """Test build orchestration without cloning or compiling a live repository."""
-    precompiled = tmp_path / "assemblytheorytools" / "precompiled"
-    precompiled.mkdir(parents=True)
-    subprocess_calls = []
-    build_calls = []
-
-    def fake_subprocess_run(command, *, shell, check):
-        subprocess_calls.append((command, shell, check))
-        executable = tmp_path / "assemblycpp-v5" / "build" / "bin" / "assembly"
-        executable.parent.mkdir(parents=True)
-        executable.write_text("compiled executable")
-
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(assembly_module.platform, "system", lambda: "Linux")
-    monkeypatch.setattr(assembly_module.shutil, "which", lambda name: f"/usr/bin/{name}")
-    monkeypatch.setattr(assembly_module.subprocess, "run", fake_subprocess_run)
-    monkeypatch.setattr(assembly_module, "run_command", build_calls.append)
-
-    result = att.compile_assembly_cpp()
-
-    executable = precompiled / "assembly"
-    assert result is None
-    assert subprocess_calls == [
-        (
-            "git clone https://github.com/LouieSlocombe/assemblycpp-v5.git",
-            True,
-            True,
-        )
-    ]
-    assert build_calls == ["cmake -S . -B build", "cmake --build build"]
-    assert executable.read_text() == "compiled executable"
-    assert executable.stat().st_mode & 0o111
-    assert not (tmp_path / "assemblycpp-v5").exists()
-    assert os.getcwd() == str(tmp_path)
-
-
-def test_int_chain():
-    """
-    Test the calculation of the integer chain.
-
-    This function asserts the correctness of the `calculate_integer_chain`
-    function for various integer inputs.
-    """
-    assert att.calculate_integer_chain(1) == 0
-    assert att.calculate_integer_chain(2) == 1
-    assert att.calculate_integer_chain(3) == 2
-    assert att.calculate_integer_chain(4) == 2
-    assert att.calculate_integer_chain(5) == 3
-    assert att.calculate_integer_chain(9998) == 16
-    assert att.calculate_integer_chain(9999) == 16
-
-
-def test_calculate_assembly_index_pairwise_joint():
-    """
-    Test the pairwise joint assembly index calculation.
-
-    This function performs the following steps:
-    1. Defines a list of SMILES strings.
-    2. Converts the SMILES strings to NetworkX graphs.
-    3. Calculates the pairwise joint assembly index pathway.
-    4. Asserts that the pathway calculation was successful.
-    5. Plots the pathway.
-    6. Displays the plot.
-    7. Calculates the assembly index for the joined graph directly.
-    8. Plots the resulting pathway.
-    9. Displays the plot.
-    """
-    print(flush=True)
-    smis = ['CC(OC)C=C',
-            'CC(OC)C',
-            'CCC']
-    graphs = [att.smi_to_nx(smi) for smi in smis]
-    pathway = att.calculate_assembly_index_pairwise_joint(graphs, settings={'strip_hydrogen': True})
-    assert pathway is not None, "Pathway calculation failed, returned None"
-    att.plot_pathway(pathway,
-                     frame_on=True,
-                     plot_type='mol',
-                     fig_size=(14, 7),
-                     layout_style='crossmin_long')
-    plt.show()
-
-    # Directly calculate the assembly index for the joined graph to ensure it matches the pathway calculation
-    joined_graph = att.join_graphs(graphs)
-    pathway = att.calculate_assembly_index(joined_graph, strip_hydrogen=True)[-1]
-    att.plot_pathway(pathway,
-                     frame_on=True,
-                     plot_type='mol',
-                     fig_size=(14, 7),
-                     layout_style='crossmin_long')
-    plt.show()
-
-
-def test_pathway_joining():
-    """
-    Test the joining of assembly pathways.
-
-    This function performs the following steps:
-    1. Defines a list of SMILES strings.
-    2. Converts the SMILES strings to NetworkX graphs.
-    3. Calculates the assembly index pathways in parallel.
-    4. Plots the individual pathways for each molecule.
-    5. Composes all pathways into a single pathway and plots it.
-    6. Calculates the pairwise joint assembly index pathway and plots it.
-    """
-    print(flush=True)
-    smis = ['CC(OC)C=C',
-            'CC(OC)C',
-            'CCC']
-    graphs = [att.smi_to_nx(smi) for smi in smis]
-    pathways = att.calculate_assembly_index_parallel(graphs, settings={'strip_hydrogen': True})[-1]
+def test_pairwise_joint_pathway_contains_individual_assembly_spaces():
+    graphs = [att.smi_to_nx(smiles) for smiles in ["CC(OC)C=C", "CC(OC)C", "CCC"]]
+    settings = {"strip_hydrogen": True}
+    pathways = att.calculate_assembly_index_parallel(graphs, settings=settings)[-1]
+    pairwise = att.calculate_assembly_index_pairwise_joint(graphs, settings=settings)
+    direct = att.calculate_assembly_index(att.join_graphs(graphs), **settings)[-1]
+    composed = nx.compose_all(pathways)
 
     assert len(pathways) == len(graphs)
-    assert all(nx.is_directed_acyclic_graph(pathway) for pathway in pathways)
-
-    for i, pathway in enumerate(pathways):
-        print(f"Pathway for molecule {i}:", flush=True)
-        att.plot_pathway(pathway,
-                         frame_on=True,
-                         plot_type='mol',
-                         fig_size=(14, 7),
-                         layout_style='crossmin_long')
-        plt.show()
-
-    composed = nx.compose_all(pathways)
-    att.plot_pathway(composed,
-                     frame_on=True,
-                     plot_type='mol',
-                     fig_size=(14, 7),
-                     layout_style='crossmin_long')
-    plt.show()
-
-    pathway = att.calculate_assembly_index_pairwise_joint(graphs, settings={'strip_hydrogen': True})
-    att.plot_pathway(pathway,
-                     frame_on=True,
-                     plot_type='mol',
-                     fig_size=(14, 7),
-                     layout_style='crossmin_long')
-    plt.show()
-
+    assert all(
+        nx.is_directed_acyclic_graph(pathway)
+        for pathway in [*pathways, pairwise, direct]
+    )
     assert composed.number_of_nodes() > 0
-    assert pathway.number_of_nodes() >= composed.number_of_nodes()
-    assert nx.is_directed_acyclic_graph(pathway)
+    assert pairwise.number_of_nodes() >= composed.number_of_nodes()
+    # All routes must contain each observed molecule, although intermediates
+    # can differ between equally short assembly pathways.
+    for graph in graphs:
+        expected = att.nx_to_smi(
+            att.remove_hydrogen_from_graph(graph), add_hydrogens=False
+        )
+        for pathway in [pairwise, direct, composed]:
+            fragments = {
+                att.nx_to_smi(data["vo"], add_hydrogens=False)
+                for _, data in pathway.nodes(data=True)
+            }
+            assert expected in fragments
+
+
+@pytest.mark.parametrize(
+    "edges, fragments, expected",
+    [
+        ([(0, 1), (1, 2), (2, 3), (3, 0)], [[(0, 1), (1, 2)]], 3),
+        ([(0, 1), (1, 2), (2, 3), (3, 4)], [[(1, 2), (2, 3)]], 2),
+        ([(0, 1), (1, 2), (2, 3)], [[(0, 1), (1, 2), (2, 3)]], 0),
+    ],
+    ids=["shared-endpoints", "split-remnant", "empty-remnant"],
+)
+def test_joining_correction_tracks_overlap_and_components(
+    tmp_path, edges, fragments, expected
+):
+    pathway = tmp_path / "graphPathway"
+    pathway.write_text(
+        json.dumps(
+            {
+                "file_graph": [{"Edges": edges}],
+                "duplicates": [{"Right": fragment} for fragment in fragments],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert assembly._calculate_jo_from_pathway(str(pathway)) == expected
+
+
+@pytest.mark.parametrize("output", ["valid", "invalid", "missing"])
+def test_joining_calculation_cleans_output_and_preserves_settings(
+    tmp_path, monkeypatch, output
+):
+    folder = tmp_path / "ai_calc_example"
+    folder.mkdir()
+    if output != "missing":
+        text = json.dumps({"file_graph": [{"Edges": [[0, 1], [1, 2]]}]})
+        (folder / "graphPathway").write_text(
+            text if output == "valid" else "invalid JSON", encoding="utf-8"
+        )
+
+    graph = nx.path_graph(3)
+    virtual_objects, pathway = ["fragment"], nx.DiGraph()
+    forwarded_settings = []
+
+    def calculate(input_graph, **settings):
+        assert input_graph is graph
+        forwarded_settings.append(settings)
+        return 1, virtual_objects, pathway
+
+    monkeypatch.setattr(assembly, "calculate_assembly_index", calculate)
+    monkeypatch.setattr(assembly, "_get_most_recent_calc", lambda: str(folder))
+    settings = {"save_dir": False, "timeout": 0.5}
+
+    result = assembly.calculate_assembly_index_jo(graph, settings)
+
+    assert settings == {"save_dir": False, "timeout": 0.5}
+    assert forwarded_settings == [{"save_dir": True, "timeout": 0.5}]
+    assert not folder.exists()
+    if output == "valid":
+        assert result[0] == 1
+        assert result[1] is virtual_objects
+        assert result[2] is pathway
+    else:
+        assert result == (-1, None, None)

@@ -7,24 +7,22 @@ import assemblytheorytools as att
 from assemblytheorytools import tools_string
 
 
-def test_load_fasta_ignores_headers_and_joins_sequence_lines(tmp_path):
+@pytest.mark.parametrize(
+    ("contents", "expected"),
+    [
+        pytest.param(
+            ">first sequence\nAC GT\n\n>second sequence\nTTAA\n",
+            "AC GTTTAA",
+            id="sequences",
+        ),
+        pytest.param(">first\n>second\n", "", id="headers-only"),
+    ],
+)
+def test_load_fasta_joins_sequences_and_ignores_headers(tmp_path, contents, expected):
     fasta = tmp_path / "sequence.fasta"
-    fasta.write_text(
-        ">first sequence\n"
-        "AC GT\n"
-        "\n"
-        ">second sequence\n"
-        "TTAA\n"
-    )
+    fasta.write_text(contents)
 
-    assert att.load_fasta(fasta) == "AC GTTTAA"
-
-
-def test_load_fasta_returns_empty_string_for_headers_only(tmp_path):
-    fasta = tmp_path / "empty.fasta"
-    fasta.write_text(">first\n>second\n")
-
-    assert att.load_fasta(fasta) == ""
+    assert att.load_fasta(fasta) == expected
 
 
 def test_prep_joint_string_ai_uses_distinct_non_input_delimiters():
@@ -36,7 +34,7 @@ def test_prep_joint_string_ai_uses_distinct_non_input_delimiters():
     assert len(set(delimiters)) == len(delimiters)
     assert all(delimiter not in "".join(inputs) for delimiter in delimiters)
     assert combined == (
-            inputs[0] + delimiters[0] + inputs[1] + delimiters[1] + inputs[2]
+        inputs[0] + delimiters[0] + inputs[1] + delimiters[1] + inputs[2]
     )
 
 
@@ -44,14 +42,17 @@ def test_prep_joint_string_ai_single_input_needs_no_delimiter():
     assert att.prep_joint_string_ai(["abc"]) == ("abc", [])
 
 
-def test_prep_joint_string_ai_rejects_an_empty_input_list():
-    with pytest.raises(ValueError, match="cannot be empty"):
-        att.prep_joint_string_ai([])
-
-
-@pytest.mark.parametrize("inputs", [[""], ["abc", ""], ["", "abc"]])
-def test_prep_joint_string_ai_rejects_empty_strings(inputs):
-    with pytest.raises(ValueError, match="Empty string"):
+@pytest.mark.parametrize(
+    ("inputs", "message"),
+    [
+        ([], "cannot be empty"),
+        ([""], "Empty string"),
+        (["abc", ""], "Empty string"),
+        (["", "abc"], "Empty string"),
+    ],
+)
+def test_prep_joint_string_ai_rejects_empty_inputs(inputs, message):
+    with pytest.raises(ValueError, match=message):
         att.prep_joint_string_ai(inputs)
 
 
@@ -88,19 +89,15 @@ def test_get_undirected_string_molecule_preserves_symbol_pattern():
     graph, colour_map = att.get_undir_str_molecule("aba")
 
     assert colour_map == {"a": "1", "b": "2"}
-    assert graph.number_of_nodes() == 4
-    assert graph.number_of_edges() == 3
     assert list(graph) == [0, 1, 2, 3]
     assert list(graph.edges) == [(0, 1), (1, 2), (2, 3)]
     assert [graph.edges[i, i + 1]["color"] for i in range(3)] == [1, 2, 1]
-    assert set(graph.nodes[node]["color"] for node in graph) == {"null"}
+    assert {graph.nodes[node]["color"] for node in graph} == {"null"}
 
 
 def test_get_directed_string_molecule_encodes_symbols_as_nodes():
     graph = att.get_dir_str_molecule("ab")
 
-    assert graph.number_of_nodes() == 5
-    assert graph.number_of_edges() == 4
     assert list(graph) == [0, 1, 2, 3, 4]
     assert list(graph.edges) == [(0, 1), (1, 2), (2, 3), (3, 4)]
     assert [graph.nodes[node]["color"] for node in range(5)] == [
@@ -113,7 +110,9 @@ def test_get_directed_string_molecule_encodes_symbols_as_nodes():
     assert [graph.edges[i, i + 1]["color"] for i in range(4)] == [1, 2, 1, 2]
 
 
-@pytest.mark.parametrize("builder", [att.get_dir_str_molecule, att.get_undir_str_molecule])
+@pytest.mark.parametrize(
+    "builder", [att.get_dir_str_molecule, att.get_undir_str_molecule]
+)
 def test_string_graphs_reject_empty_strings(builder):
     with pytest.raises(IndexError, match="string index out of range"):
         builder("")

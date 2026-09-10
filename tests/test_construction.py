@@ -1,346 +1,540 @@
+"""Assembly pathway construction, layer traversal, and DOT interchange."""
+
+import copy
+import json
+
 import networkx as nx
+import numpy as np
 import pytest
 from rdkit import Chem
 
 import assemblytheorytools as att
+from assemblytheorytools import construction
 
 
-def test_assign_levels():
-    """
-    Test the `assign_levels` function with a directed graph.
-
-    This function performs the following steps:
-    1. Creates a directed graph.
-    2. Defines nodes with their expected levels and adds them to the graph.
-    3. Defines edges between the nodes and adds them to the graph.
-    4. Calls the `assign_levels` function to assign levels to the nodes.
-    5. Verifies that the assigned levels match the expected levels.
-
-    Asserts:
-        - Each node's assigned level matches its expected level.
-    """
-    print(flush=True)
-    # Create a directed graph
-    graph = nx.DiGraph()
-
-    # Define nodes with their levels and add them to the graph
-    nodes = {"CC": 0, "C=C": 0, "CO": 0, "CC=C": 1, "OCC=C": 2}
-    graph.add_nodes_from(nodes)
-
-    # Define edges and add them to the graph
-    edges = [("CC", "CC=C"), ("C=C", "CC=C"), ("CO", "OCC=C"), ("CC=C", "OCC=C")]
-    graph.add_edges_from(edges)
-
-    # Assign levels to nodes
-    att.assign_levels(graph)
-
-    # Verify node levels
-    for node, level in nodes.items():
-        assert graph.nodes[node]["level"] == level, \
-            f"Node {node} has incorrect level: {graph.nodes[node]['level']} instead of {level}"
-
-
-def test_assign_levels_linear_chain():
-    """
-    Test the `assign_levels` function with a linear chain graph.
-
-    This function performs the following steps:
-    1. Creates a directed graph representing a linear chain of nodes.
-    2. Defines nodes with their expected levels and adds them to the graph.
-    3. Defines edges between the nodes to form a linear chain.
-    4. Calls the `assign_levels` function to assign levels to the nodes.
-    5. Verifies that the assigned levels match the expected levels.
-
-    Asserts:
-        - Each node's assigned level matches its expected level.
-    """
-    print(flush=True)
-    # Create a directed graph
-    graph = nx.DiGraph()
-
-    # Define nodes and their levels
-    nodes = {"CC": 0, "CCC": 1, "CCCCC": 2, "CCCCCCCCC": 3}
-    graph.add_nodes_from(nodes)
-
-    # Define edges between nodes
-    edges = [("CC", "CCC"), ("CCC", "CCCCC"), ("CCCCC", "CCCCCCCCC")]
-    graph.add_edges_from(edges)
-
-    # Assign levels to nodes
-    att.assign_levels(graph)
-
-    # Verify node levels
-    for node, level in nodes.items():
-        assert graph.nodes[node][
-                   "level"] == level, f"Node {node} has incorrect level: {graph.nodes[node]['level']} instead of {level}"
-
-
-def test_assign_levels_empty_graph():
-    """
-    Test the `assign_levels` function with an empty graph.
-
-    This function performs the following steps:
-    1. Creates an empty directed graph.
-    2. Calls the `assign_levels` function on the empty graph.
-    3. Asserts that the graph remains empty after the function call.
-
-    Asserts:
-        - The graph has no nodes after calling `assign_levels`.
-    """
-    print(flush=True)
-    # Create an empty directed graph
-    graph = nx.DiGraph()
-    # Assign levels to the empty graph
-    att.assign_levels(graph)
-    # Verify that the graph has no nodes
-    assert len(graph.nodes) == 0, "Empty graph should have no nodes."
-
-
-def test_convert_digraph_vo_to_target():
-    """
-    Test the conversion of a digraph's virtual objects to target representations.
-
-    This function performs the following steps:
-    1. Defines the SMILES string for diethyl phthalate.
-    2. Converts the SMILES string to a NetworkX graph.
-    3. Calculates the assembly pathway for the graph.
-    4. Converts the virtual objects in the pathway to their target representations.
-    5. Extracts the SMILES strings of the converted virtual objects.
-    6. Asserts that the extracted SMILES strings match a reference list.
-
-    Asserts:
-        - The extracted SMILES strings match the reference list.
-
-    Notes
-    -----
-    The final (whole-molecule) reference SMILES is a non-canonical RDKit
-    serialization, not the assembly pathway's own choice of representation.
-    Its exact ring-traversal direction can shift between RDKit versions even
-    though the molecule is unchanged -- confirmed by canonicalizing both
-    forms: ``Chem.MolToSmiles`` and ``Chem.MolToInchi`` agree that
-    ``'CCOC(=O)C1=CC=CC=C1C(=O)OCC'`` (this reference) and
-    ``'CCOC(=O)C1=C(C(=O)OCC)C=CC=C1'`` (an older RDKit's output) are the
-    same molecule, diethyl phthalate.
-    """
-    # The conversion logic does not depend on PubChem. Keeping this structure
-    # local makes the regression deterministic and leaves service access to the
-    # explicitly marked integration tests in test_tools_data.py.
-    smi = 'CCOC(=O)C1=CC=CC=C1C(=O)OCC'
-    print(f"SMILES: {smi}", flush=True)
-    graph = att.smi_to_nx(smi, sanitize=True, add_hydrogens=True)
-
-    pathway = att.calculate_assembly_index(graph, strip_hydrogen=True)[2]
-    pathway = att.convert_digraph_vo_to_target(pathway)
-    smis = []
-    for node in pathway.nodes():
-        smis.append(pathway.nodes[node]['vo'])
-    print(smis, flush=True)
-    ref_smi = ['CC',
-               'CCO',
-               'CO',
-               'C=O',
-               'CC(=O)O',
-               'C=CC(=O)O',
-               'C=C',
-               'CC=CC(=O)O',
-               'CC=CC(=O)OCC',
-               'CC=C(C)C(=O)OCC',
-               'C=CC=C(C)C(=O)OCC',
-               'CCOC(=O)C1=CC=CC=C1C(=O)OCC']
-
-    assert att.check_elements(smis, ref_smi)
-
-
-def test_get_vos_on_layer():
-    """
-    Test the retrieval of virtual objects (VOs) from specific layers of an assembly pathway.
-
-    This function performs the following steps:
-    1. Defines a list of SMILES strings.
-    2. Converts the SMILES strings to NetworkX graphs and combines them.
-    3. Calculates the assembly pathway for the combined graph.
-    4. Retrieves VOs from layer 0 and asserts the count.
-    5. Retrieves VOs from a range of layers (0 and 1) and asserts the count.
-    6. Retrieves all VOs from the pathway and asserts the count.
-
-    Asserts:
-        - The number of VOs on layer 0 is 3.
-        - The number of VOs on layers 0 and 1 is 2.
-        - The total number of VOs on all layers is 4.
-    """
-    print(flush=True)
-    smis = ['CC(OC)C=C',
-            'CC(OC)C',
-            'CCC']
-    graphs = [att.smi_to_nx(smi) for smi in smis]
-    # combine the graphs into one graph
-    combined = att.join_graphs(graphs)
-    pathway = att.calculate_assembly_index(combined, strip_hydrogen=True)[-1]
-    vos_layer_0 = att.get_vos_on_layer(pathway, 0)
-    print("VOs on layer 0:", vos_layer_0, flush=True)
-    assert len(vos_layer_0) == 3
-
-    vos_layer_range = att.get_vos_on_layer(pathway, [0, 1])
-    print("VOs on layers 0 and 1:", vos_layer_range, flush=True)
-    assert len(vos_layer_range) == 2
-
-    vos_layer_all = att.get_vos_on_layer(pathway, 'all')
-    print("VOs on all layers:", vos_layer_all, flush=True)
-    assert len(vos_layer_all) == 4
-
-
-def test_parse_pathway_dot(data_dir):
-    """
-    Test parsing a Rust-backend assembly pathway from its DOT representation.
-
-    This function performs the following steps:
-    1. Loads the anthracene mol file and the DOT pathway computed from it.
-    2. Parses the pathway into a graph with `parse_pathway_dot`.
-    3. Inspects the node and edge attributes it produced.
-
-    Asserts:
-        - The pathway is a MultiDiGraph with 8 nodes and 12 edges.
-        - Nodes are integers carrying type, bonds, label and vo attributes.
-        - The virtual objects build up from single bonds to anthracene.
-        - Edges carry the bond indices their source fragment occupies.
-    """
-    print(flush=True)
-    mol = att.molfile_to_mol(str(data_dir / "mol_files" / "anthracene.mol"),
-                             add_hydrogens=False)
+@pytest.fixture
+def anthracene_pathway_data(data_dir):
+    molecule = att.molfile_to_mol(
+        str(data_dir / "mol_files" / "anthracene.mol"), add_hydrogens=False
+    )
     dot = (data_dir / "pathway" / "anthracene_pathway.dot").read_text()
+    return molecule, dot
 
-    pathway = att.parse_pathway_dot(dot, mol=mol)
-    print("Pathway:", pathway, flush=True)
+
+@pytest.mark.parametrize(
+    "levels, edges",
+    [
+        (
+            {"CC": 0, "C=C": 0, "CO": 0, "CC=C": 1, "OCC=C": 2},
+            [("CC", "CC=C"), ("C=C", "CC=C"), ("CO", "OCC=C"), ("CC=C", "OCC=C")],
+        ),
+        (
+            {"CC": 0, "CCC": 1, "CCCCC": 2, "CCCCCCCCC": 3},
+            [("CC", "CCC"), ("CCC", "CCCCC"), ("CCCCC", "CCCCCCCCC")],
+        ),
+        ({}, []),
+    ],
+    ids=["branch", "chain", "empty"],
+)
+def test_assign_levels_uses_deepest_predecessor(levels, edges):
+    graph = nx.DiGraph()
+    graph.add_nodes_from(levels)
+    graph.add_edges_from(edges)
+
+    assert construction.assign_levels(graph) is None
+    assert nx.get_node_attributes(graph, "level") == levels
+
+
+def test_convert_virtual_objects_to_smiles():
+    # Use a local structure so conversion does not depend on PubChem.
+    graph = att.smi_to_nx("CCOC(=O)C1=CC=CC=C1C(=O)OCC")
+    pathway = att.calculate_assembly_index(graph, strip_hydrogen=True)[2]
+
+    converted = construction.convert_digraph_vo_to_target(pathway)
+
+    expected = [
+        "CC",
+        "CCO",
+        "CO",
+        "C=O",
+        "CC(=O)O",
+        "C=CC(=O)O",
+        "C=C",
+        "CC=CC(=O)O",
+        "CC=CC(=O)OCC",
+        "CC=C(C)C(=O)OCC",
+        "C=CC=C(C)C(=O)OCC",
+        "CCOC(=O)C1=CC=CC=C1C(=O)OCC",
+    ]
+    # Equivalent ring traversals can differ between RDKit versions.
+    actual = [
+        Chem.MolToSmiles(Chem.MolFromSmiles(smiles))
+        for _, smiles in converted.nodes(data="vo")
+    ]
+    expected = [Chem.MolToSmiles(Chem.MolFromSmiles(smiles)) for smiles in expected]
+    assert sorted(actual) == sorted(expected)
+
+
+def test_get_virtual_objects_on_layer():
+    graphs = [att.smi_to_nx(smiles) for smiles in ["CC(OC)C=C", "CC(OC)C", "CCC"]]
+    pathway = att.calculate_assembly_index(
+        att.join_graphs(graphs), strip_hydrogen=True
+    )[-1]
+
+    expected_layers = [{"CC", "CO", "C=C"}, {"CCC", "COC"}, {"COC(C)C"}, {"C=CC(C)OC"}]
+    assert set(construction.get_vos_on_layer(pathway, 0)) == expected_layers[0]
+    assert [
+        set(layer) for layer in construction.get_vos_on_layer(pathway, [0, 1])
+    ] == expected_layers[:2]
+    assert [
+        set(layer) for layer in construction.get_vos_on_layer(pathway, "all")
+    ] == expected_layers
+
+
+def test_parse_pathway_dot_preserves_fragments_and_bond_bookkeeping(
+    anthracene_pathway_data,
+):
+    molecule, dot = anthracene_pathway_data
+
+    pathway = construction.parse_pathway_dot(dot, mol=molecule)
 
     assert isinstance(pathway, nx.MultiDiGraph)
-    assert pathway.number_of_nodes() == 8
+    assert set(pathway) == set(range(8))
     assert pathway.number_of_edges() == 12
-    assert all(isinstance(node, int) for node in pathway.nodes)
-    assert all(data["type"] == "virtual_object" for _, data in pathway.nodes(data=True))
-
-    # Fragments are kekulised, matching the graph the backend searches
-    vos = [pathway.nodes[node]["vo"] for node in sorted(pathway.nodes)]
-    print("Virtual objects:", vos, flush=True)
-    assert vos == ['CC', 'C=C', 'C=CC', 'CC=CC', 'C=CC=CC', 'CC=CC=CC=CC',
-                   'CC=CC1=CC=CC=C1', 'C1=CC=C2C=C3C=CC=CC3=CC2=C1']
-
-    # The root node covers every bond, the elementary parts exactly one
-    assert pathway.nodes[7]["bonds"] == frozenset(range(mol.GetNumBonds()))
-    assert pathway.nodes[7]["label"] == "{" + ", ".join(str(i) for i in range(16)) + "}"
+    assert nx.get_node_attributes(pathway, "type") == {
+        node: "virtual_object" for node in range(8)
+    }
+    # Fragments are kekulised, matching the graph searched by the backend.
+    assert [pathway.nodes[node]["vo"] for node in sorted(pathway)] == [
+        "CC",
+        "C=C",
+        "C=CC",
+        "CC=CC",
+        "C=CC=CC",
+        "CC=CC=CC=CC",
+        "CC=CC1=CC=CC=C1",
+        "C1=CC=C2C=C3C=CC=CC3=CC2=C1",
+    ]
+    assert pathway.nodes[7]["bonds"] == frozenset(range(molecule.GetNumBonds()))
+    assert pathway.nodes[7]["label"] == "{" + ", ".join(map(str, range(16))) + "}"
     assert pathway.nodes[0]["bonds"] == frozenset({14})
-
     assert pathway[0][2][0]["bonds"] == frozenset({14})
     assert pathway[2][3][0]["bonds"] == frozenset({14, 15})
 
 
-def test_parse_pathway_dot_vo_types(data_dir):
-    """
-    Test the virtual object representations offered by `parse_pathway_dot`.
+@pytest.mark.parametrize("vo_type", ["mol", "graph", "smiles", "inchi"])
+def test_parse_pathway_dot_virtual_object_representations(
+    anthracene_pathway_data, vo_type
+):
+    molecule, dot = anthracene_pathway_data
+    original = Chem.MolToMolBlock(molecule)
 
-    This function performs the following steps:
-    1. Loads the anthracene mol file and its DOT pathway.
-    2. Parses the pathway once per supported vo_type.
-    3. Parses it again without a molecule.
+    pathway = construction.parse_pathway_dot(dot, mol=molecule, vo_type=vo_type)
 
-    Asserts:
-        - 'mol', 'graph', 'smiles' and 'inchi' give the expected payload types.
-        - Omitting the molecule falls back to the bond-set label.
-        - The caller's molecule is not modified.
-    """
-    print(flush=True)
-    mol = att.molfile_to_mol(str(data_dir / "mol_files" / "anthracene.mol"),
-                             add_hydrogens=False)
-    dot = (data_dir / "pathway" / "anthracene_pathway.dot").read_text()
-    before = Chem.MolToSmiles(mol)
-
-    assert isinstance(att.parse_pathway_dot(dot, mol=mol, vo_type="mol").nodes[2]["vo"],
-                      Chem.Mol)
-    assert isinstance(att.parse_pathway_dot(dot, mol=mol, vo_type="graph").nodes[2]["vo"],
-                      nx.Graph)
-    assert att.parse_pathway_dot(dot, mol=mol, vo_type="smiles").nodes[2]["vo"] == "C=CC"
-    assert att.parse_pathway_dot(dot, mol=mol, vo_type="inchi").nodes[7]["vo"].startswith(
-        "InChI=1S/C14H10")
-
-    # Without a molecule the pathway still carries its structure
-    bare = att.parse_pathway_dot(dot)
-    print("Bare virtual object:", bare.nodes[2], flush=True)
-    assert bare.nodes[2]["vo"] == "{14, 15}"
-    assert bare.nodes[2]["bonds"] == frozenset({14, 15})
-
-    assert Chem.MolToSmiles(mol) == before, "parse_pathway_dot modified the caller's molecule"
+    fragment = pathway.nodes[2]["vo"]
+    if vo_type == "mol":
+        assert isinstance(fragment, Chem.Mol)
+        assert Chem.MolToSmiles(fragment) == "C=CC"
+    elif vo_type == "graph":
+        assert isinstance(fragment, nx.Graph)
+        assert (fragment.number_of_nodes(), fragment.number_of_edges()) == (3, 2)
+    elif vo_type == "smiles":
+        assert fragment == "C=CC"
+    else:
+        assert pathway.nodes[7]["vo"].startswith("InChI=1S/C14H10")
+    assert Chem.MolToMolBlock(molecule) == original
 
 
-def test_parse_pathway_dot_errors(data_dir):
-    """
-    Test that `parse_pathway_dot` rejects malformed input.
+def test_parse_pathway_dot_without_molecule_retains_bond_labels(
+    anthracene_pathway_data,
+):
+    _, dot = anthracene_pathway_data
 
-    This function performs the following steps:
-    1. Builds a series of invalid DOT strings and arguments.
-    2. Checks that each raises a ValueError.
-    3. Checks that strict=False lets bookkeeping violations through.
+    pathway = construction.parse_pathway_dot(dot)
 
-    Asserts:
-        - Non-DOT input, undirected graphs, malformed labels, missing labels,
-          non-integer node names, out-of-range bonds, unknown vo_types and
-          broken bond bookkeeping all raise ValueError.
-        - strict=False parses a graph whose bookkeeping does not add up.
-    """
-    print(flush=True)
-    mol = att.molfile_to_mol(str(data_dir / "mol_files" / "anthracene.mol"),
-                             add_hydrogens=False)
-    mismatched = 'digraph { 0 [ label = "{1}" ]\n1 [ label = "{2, 3}" ]\n' \
-                 '0 -> 1 [ label = "{2}" ] }'
-
-    cases = {
-        "not DOT at all": dict(dot="hello world"),
-        "undirected": dict(dot='graph { 0 [ label = "{1}" ] }'),
-        "malformed label": dict(dot='digraph { 0 [ label = "nope" ] }'),
-        "missing label": dict(dot="digraph { 0 }"),
-        "non-integer node": dict(dot='digraph { a [ label = "{1}" ] }'),
-        "bond out of range": dict(dot='digraph { 0 [ label = "{99}" ] }', mol=mol),
-        "unknown vo_type": dict(dot=mismatched, vo_type="banana"),
-        "inputs do not add up": dict(dot=mismatched),
-        "edge too large": dict(dot='digraph { 0 [ label = "{1}" ]\n'
-                                   '1 [ label = "{2, 3}" ]\n'
-                                   '0 -> 1 [ label = "{2, 3}" ] }'),
-    }
-    for name, kwargs in cases.items():
-        print("Checking:", name, flush=True)
-        with pytest.raises(ValueError):
-            att.parse_pathway_dot(**kwargs)
-
-    relaxed = att.parse_pathway_dot(mismatched, strict=False)
-    print("Relaxed pathway:", relaxed, flush=True)
-    assert relaxed.number_of_nodes() == 2
+    assert pathway.nodes[2]["vo"] == "{14, 15}"
+    assert pathway.nodes[2]["bonds"] == frozenset({14, 15})
 
 
-def test_parse_pathway_dot_assign_levels(data_dir):
-    """
-    Test that a parsed Rust pathway works with the rest of the pathway tools.
+@pytest.mark.parametrize(
+    "dot, message",
+    [
+        ("hello world", "Could not parse"),
+        ('graph { 0 [label="{1}"] }', "must be a DOT 'digraph'"),
+        ('digraph { 0 [label="nope"] }', "malformed bond set"),
+        ("digraph { 0 }", "has no 'label' attribute"),
+        ('digraph { a [label="{1}"] }', "node names must be integers"),
+        (
+            'digraph { 0 [label="{1}"]; 1 [label="{2, 3}"]; 0 -> 1 [label="{2}"] }',
+            "inputs supply",
+        ),
+        (
+            'digraph { 0 [label="{1}"]; 1 [label="{2, 3}"]; 0 -> 1 [label="{2, 3}"] }',
+            "source fragment has 1",
+        ),
+    ],
+    ids=[
+        "invalid-dot",
+        "undirected",
+        "malformed-label",
+        "missing-label",
+        "node-id",
+        "missing-bond",
+        "edge-size",
+    ],
+)
+def test_parse_pathway_dot_rejects_invalid_structure(dot, message):
+    with pytest.raises(ValueError, match=message):
+        construction.parse_pathway_dot(dot)
 
-    This function performs the following steps:
-    1. Parses the anthracene DOT pathway.
-    2. Re-inserts its nodes in topological order, as `assign_levels` requires.
-    3. Assigns levels and reads the layers back.
 
-    Asserts:
-        - Every node is assigned a level.
-        - The elementary parts sit at level 0 and the target at the deepest
-          level.
-    """
-    print(flush=True)
-    mol = att.molfile_to_mol(str(data_dir / "mol_files" / "anthracene.mol"),
-                             add_hydrogens=False)
-    dot = (data_dir / "pathway" / "anthracene_pathway.dot").read_text()
-    pathway = att.parse_pathway_dot(dot, mol=mol)
+def test_parse_pathway_dot_rejects_out_of_range_bonds(anthracene_pathway_data):
+    molecule, _ = anthracene_pathway_data
+    with pytest.raises(ValueError, match="bond"):
+        construction.parse_pathway_dot('digraph { 0 [label="{99}"] }', mol=molecule)
 
+
+def test_parse_pathway_dot_rejects_unknown_representation(anthracene_pathway_data):
+    _, dot = anthracene_pathway_data
+    with pytest.raises(ValueError, match="vo_type"):
+        construction.parse_pathway_dot(dot, vo_type="banana")
+
+
+def test_parse_pathway_dot_can_relax_bond_bookkeeping():
+    dot = 'digraph { 0 [label="{1}"]; 1 [label="{2, 3}"]; 0 -> 1 [label="{2}"] }'
+
+    pathway = construction.parse_pathway_dot(dot, strict=False)
+
+    assert set(pathway) == {0, 1}
+    assert list(pathway.edges()) == [(0, 1)]
+    assert pathway[0][1][0]["bonds"] == frozenset({2})
+
+
+def test_parsed_pathway_levels_follow_topological_order(anthracene_pathway_data):
+    molecule, dot = anthracene_pathway_data
+    pathway = construction.parse_pathway_dot(dot, mol=molecule)
     ordered = nx.MultiDiGraph()
-    ordered.add_nodes_from((n, pathway.nodes[n]) for n in nx.topological_sort(pathway))
+    ordered.add_nodes_from(
+        (node, pathway.nodes[node]) for node in nx.topological_sort(pathway)
+    )
     ordered.add_edges_from(pathway.edges(data=True))
 
-    att.assign_levels(ordered)
-    levels = {node: data["level"] for node, data in ordered.nodes(data=True)}
-    print("Levels:", levels, flush=True)
+    construction.assign_levels(ordered)
 
-    assert levels[0] == 0 and levels[1] == 0
-    assert levels[7] == max(levels.values())
+    assert nx.get_node_attributes(ordered, "level") == {
+        0: 0,
+        1: 0,
+        2: 1,
+        3: 2,
+        4: 3,
+        5: 4,
+        6: 5,
+        7: 6,
+    }
+
+
+def pathway_data(edges, vertex_colours, *, duplicates=(), remnant=None):
+    """Make calculator output without invoking either assembly backend."""
+    return {
+        "file_graph": [
+            {
+                "Vertices": list(range(len(vertex_colours))),
+                "Edges": edges,
+                "VertexColours": vertex_colours,
+                "EdgeColours": [1] * len(edges),
+            }
+        ],
+        "remnant": [{"Edges": edges if remnant is None else remnant}],
+        "removed_edges": [],
+        "duplicates": list(duplicates),
+    }
+
+
+def test_transform_array_uses_comparison_edges_and_mutates_only_matches():
+    target = [[10, 11], [12, 13], [14, 15]]
+    comparison = [[8, 4], [5, 8], [8, 6]]
+    untouched = target[2]
+
+    result = construction.transform_array(target, comparison, 2, 8, 9, [[2, 4], [5, 2]])
+
+    assert result is target
+    assert result == [[9, 4], [5, 9], [14, 15]]
+    assert result[2] is untouched
+    assert comparison == [[8, 4], [5, 8], [8, 6]]
+
+
+def test_edge_comparison_and_lookup_keep_their_distinct_orientation_rules():
+    edges = [[0, 1], [1, 2]]
+    reversed_edges = [[2, 1], [1, 0], [1, 0]]
+
+    assert construction.equal_list(edges, reversed_edges)
+    assert construction.check_edge_in_list(edges, [[[8, 9]], reversed_edges])
+    assert construction.index_set([reversed_edges, edges], edges) == 2
+    assert construction.index_set([reversed_edges], edges) is None
+    assert construction.repeated_sizes([(None, []), (None, edges), (None, edges)]) == [
+        0,
+        2,
+    ]
+
+
+def test_equivalence_copies_pieces_and_uses_first_mapping_once():
+    pieces = [[[2, 9], [4, 2]], [[9, 4]]]
+    original = copy.deepcopy(pieces)
+    mappings = [[9, 2], [7, 2], [5, 9]]
+
+    result = construction.equivalence(pieces, mappings)
+
+    assert result == [[[9, 5], [4, 9]], [[5, 4]]]
+    assert pieces == original
+    result[0][0][0] = 100
+    assert pieces == original
+    assert mappings == [[9, 2], [7, 2], [5, 9]]
+
+
+def test_equivalence_accepts_an_empty_mapping_table_and_returns_a_copy():
+    pieces = [[[0, 1]]]
+
+    result = construction.equivalence(pieces, np.empty((0, 2), dtype=int))
+
+    assert result == pieces
+    result[0][0][0] = 2
+    assert pieces == [[[0, 1]]]
+
+
+@pytest.mark.parametrize(
+    ("mappings", "expected_mappings"),
+    [
+        ([[1, 1], [2, 8], [3, 8]], [[1, 1], [2, 9], [3, 8]]),
+        ([[1, 1], [2, 8], [3, 8], [2, 9]], [[1, 1], [2, 9], [3, 8]]),
+    ],
+    ids=["new-equivalent-vertex", "existing-equivalent-vertex"],
+)
+def test_fix_repeated_equiv_updates_edges_and_both_duplicate_fragments(
+    mappings, expected_mappings
+):
+    edges = [[8, 4], [5, 8], [8, 6], [9, 7]]
+    repeated = [[[[8, 4], [8, 6]], [[5, 8], [9, 7]]]]
+    original_mappings = copy.deepcopy(mappings)
+
+    result_edges, result_repeated, result_mappings = construction.fix_repeated_equiv(
+        edges, repeated, mappings, [[2, 4], [5, 2], [3, 6], [2, 7]]
+    )
+
+    assert result_edges is edges
+    assert result_repeated is repeated
+    assert edges == [[9, 4], [5, 9], [8, 6], [9, 7]]
+    assert repeated == [[[[9, 4], [8, 6]], [[5, 9], [9, 7]]]]
+    assert result_mappings == expected_mappings
+    assert mappings == original_mappings
+
+
+def test_fix_repeated_equiv_deduplicates_and_orders_mappings_without_relabeling():
+    edges = [[7, 4]]
+    repeated = [[[[7, 4]], [[3, 4]]]]
+
+    result = construction.fix_repeated_equiv(
+        edges, repeated, [[3, 7], [1, 1], [3, 7]], [[3, 4]]
+    )
+
+    assert result == (edges, repeated, [[1, 1], [3, 7]])
+    assert edges == [[7, 4]]
+    assert repeated == [[[[7, 4]], [[3, 4]]]]
+
+
+def test_tables_use_row_order_for_atoms_and_keep_bond_colours():
+    tables = ([(9, "C"), (4, "N"), (2, "O")], [(0, 1, 1), (0, 2, 2)])
+
+    molecule = construction.tables_to_mol(tables)
+    graph = construction.tables_to_nx(tables)
+
+    assert [atom.GetSymbol() for atom in molecule.GetAtoms()] == ["C", "N", "O"]
+    assert [bond.GetBondTypeAsDouble() for bond in molecule.GetBonds()] == [1.0, 2.0]
+    expected = nx.Graph()
+    expected.add_nodes_from(
+        [(0, {"color": "C"}), (1, {"color": "N"}), (2, {"color": "O"})]
+    )
+    expected.add_edges_from([(0, 1, {"color": 1}), (0, 2, {"color": 2})])
+    assert nx.is_isomorphic(
+        graph,
+        expected,
+        node_match=nx.algorithms.isomorphism.categorical_node_match("color", None),
+        edge_match=nx.algorithms.isomorphism.categorical_edge_match("color", None),
+    )
+
+
+def test_construction_keeps_first_bond_representative_and_uses_input_colours():
+    data = pathway_data([[0, 1], [1, 2], [2, 3], [3, 4]], ["C", "O", "C", "C", "O"])
+    data["remnant"][0]["Edges"] = [[0, 1]]
+    data["removed_edges"] = [[1, 2]]
+    original = copy.deepcopy(data)
+    graph = nx.Graph()
+    graph.add_edges_from(
+        (u, v, {"color": colour})
+        for (u, v), colour in zip(data["file_graph"][0]["Edges"], [1, 1, 1, 2])
+    )
+
+    obj = construction.AssemblyConstruction(data, input_graph=graph)
+
+    assert obj.e_l == [1, 1, 1, 2]
+    assert obj.remnant_e == [[0, 1], [1, 2]]
+    assert obj.atoms == [[{"C", "O"}, 1], [{"C"}, 1], [{"C", "O"}, 2]]
+    assert obj.atoms_list == [[["C", "O"], 1], [["C", "C"], 1], [["C", "O"], 2]]
+    assert obj.atoms_list_index == [[0, 1], [2, 3], [3, 4]]
+    assert len(obj.full_atoms_list) == 4
+    assert obj._virtual_object_index([1, 2]) == 0
+    assert obj._virtual_object_index([3, 4]) == 2
+    assert data == original
+
+
+@pytest.mark.parametrize("vo_type", ["graph", "smiles", "inchi"])
+def test_assembly_digraph_preserves_step_order_payloads_and_input(vo_type):
+    edges = [[0, 1], [1, 2], [2, 3]]
+    data = pathway_data(edges, ["C", "C", "O", "C"])
+    original = copy.deepcopy(data)
+    obj = construction.AssemblyConstruction(data, vo_type=vo_type)
+
+    graph, unique = obj.get_assembly_digraph()
+
+    assert obj.steps == [edges[:2], edges]
+    assert obj.pieces_mod == [edges]
+    assert obj.digraph == [
+        ["virtual_object_0", "step_1"],
+        ["virtual_object_1", "step_1"],
+        ["step_1", "step_2"],
+        ["virtual_object_1", "step_2"],
+    ]
+    assert list(graph) == ["virtual_object_0", "step_1", "virtual_object_1", "step_2"]
+    assert set(graph.edges) == {tuple(edge) for edge in obj.digraph}
+    assert set(unique) == set(obj.molecules_vo + obj.molecules_steps)
+    assert obj.steps_indx_s == [
+        [[0, 1, 1], [1, 2, 1]],
+        [[0, 1, 1], [1, 2, 1], [2, 3, 1]],
+    ]
+    assert obj.vs_atoms == [["C", "C", "O"], ["C", "C", "O", "C"]]
+    for name, attributes in graph.nodes(data=True):
+        assert attributes["type"] == (
+            "step" if name.startswith("step_") else "virtual_object"
+        )
+        assert attributes["label"] == (name if vo_type == "graph" else attributes["vo"])
+        if vo_type == "graph":
+            assert isinstance(attributes["vo"], nx.Graph)
+        elif vo_type == "inchi":
+            assert attributes["vo"].startswith("InChI=")
+        else:
+            assert Chem.MolFromSmiles(attributes["vo"]) is not None
+    assert data == original
+
+
+def test_generate_vo_keeps_mol_bonds_and_smiles_steps():
+    obj = construction.AssemblyConstruction(
+        pathway_data([[0, 1], [1, 2]], ["C", "C", "O"]), vo_type="mol"
+    )
+    obj.generate_pathway()
+
+    assert obj.generate_vo() is None
+    assert all(isinstance(molecule, Chem.Mol) for molecule in obj.molecules_vo)
+    assert len(obj.molecules_steps) == 1
+    assert isinstance(obj.molecules_steps[0], str)
+    assert Chem.MolFromSmiles(obj.molecules_steps[0]) is not None
+
+
+@pytest.mark.parametrize(("copies", "reuse_copy"), [(1, False), (2, False), (2, True)])
+def test_repeated_fragments_reuse_the_original_step(copies, reuse_copy):
+    edges = [[i, i + 1] for i in range(2 + 2 * copies)]
+    duplicates = [
+        {"Right": edges[2 * i : 2 * i + 2], "Left": edges[:2]}
+        for i in range(1, copies + 1)
+    ]
+    if reuse_copy:
+        duplicates[1]["Left"] = duplicates[0]["Right"]
+    data = pathway_data(
+        edges, ["C"] * (len(edges) + 1), duplicates=duplicates, remnant=edges[:2]
+    )
+    original = copy.deepcopy(data)
+    obj = construction.AssemblyConstruction(data)
+
+    assert obj.generate_pathway() is None
+
+    assert len(obj.steps) == copies + 1
+    assert obj.steps[0] == edges[:2]
+    assert obj.steps[-1] == edges
+    assert obj.pieces_mod == [edges]
+    assert obj.digraph[:4] == [
+        ["virtual_object_0", "step_1"],
+        ["virtual_object_0", "step_1"],
+        ["step_1", "step_2"],
+        ["step_1", "step_2"],
+    ]
+    if copies == 2:
+        assert obj.digraph[4:] == [["step_2", "step_3"], ["step_1", "step_3"]]
+    assert data == original
+
+
+def test_consistent_join_mutates_supplied_lists_and_only_joins_one_pair():
+    obj = construction.AssemblyConstruction(
+        pathway_data([[0, 1], [1, 2], [2, 3]], ["C"] * 4)
+    )
+    pieces = [[[0, 1]], [[1, 2]], [[2, 3]]]
+    steps, digraph = [], []
+
+    result = obj.consistent_join(pieces, steps, [], 0, digraph, [])
+
+    assert result[0] is pieces and result[1] is steps and result[3] is digraph
+    assert result[2] == 1
+    assert pieces == [[[0, 1], [1, 2]], [[2, 3]]]
+    assert steps == [[[0, 1], [1, 2]]]
+    assert digraph == [["virtual_object_0", "step_1"], ["virtual_object_0", "step_1"]]
+
+
+@pytest.mark.parametrize("if_string", [False, True])
+def test_consistent_join_applies_string_edge_ordering(if_string):
+    edges = [[2, 3], [0, 2]]
+    obj = construction.AssemblyConstruction(
+        pathway_data(edges, ["C"] * 4), if_string=if_string
+    )
+
+    obj.generate_pathway()
+
+    expected = list(reversed(edges)) if if_string else edges
+    assert obj.steps == [expected]
+    assert obj.pieces_mod == [expected]
+
+
+@pytest.mark.parametrize("edges", [[], [[0, 1]], [[0, 1], [2, 3]]])
+def test_generate_pathway_stops_when_no_fragments_can_join(edges):
+    obj = construction.AssemblyConstruction(pathway_data(edges, ["C"] * 4))
+
+    obj.generate_pathway()
+
+    assert obj.steps == []
+    assert obj.digraph == []
+    assert obj.pieces_mod == [[edge] for edge in edges]
+
+
+def test_parse_pathway_file_keeps_log_and_debug_contract(tmp_path, capsys):
+    data = pathway_data([[0, 1], [1, 2]], ["C"] * 3)
+    path = tmp_path / "pathway.json"
+    path.write_text(json.dumps(data))
+
+    graph, vos, log = construction.parse_pathway_file(path, debug=True, log=True)
+
+    assert len(graph) == 2 and len(vos) == 2
+    assert log == (
+        "#####Graph#####\n"
+        "[0, 1, 2]\n"
+        "[[0, 1], [1, 2]]\n"
+        "['C', 'C', 'C']\n"
+        "[1, 1]\n"
+        "#####Atoms#####\n"
+        "atom0=[['C', 'C'], 1]\n"
+        "#####Steps#####\n"
+        "step1=[[0, 1], [1, 2]]\n"
+        "#####Digraph#####\n"
+        "['virtual_object_0', 'step_1']\n"
+        "['virtual_object_0', 'step_1']\n"
+    )
+    assert capsys.readouterr().out.splitlines() == [
+        f"Node: {name}, Type: {attributes['type']}, VO: {attributes['vo']}"
+        for name, attributes in graph.nodes(data=True)
+    ]
+    assert len(construction.parse_pathway_file(path)) == 2

@@ -1,3 +1,5 @@
+"""Sampling alternative assembly pathways and evaluating their fragments."""
+
 import numpy as np
 import pytest
 from rdkit import Chem
@@ -6,56 +8,32 @@ import assemblytheorytools as att
 from assemblytheorytools import find_other_paths
 
 
-def test_all_paths_simple():
-    """
-    Test the calculation of all shortest paths in a molecule.
+def test_shortest_path_sampling_returns_unique_valid_fragments():
+    molecule = att.smi_to_mol("C#CCC=C")
 
-    This function performs the following steps:
-    1. Converts a SMILES string to a molecule object.
-    2. Calculates all shortest paths in the molecule.
-    3. Asserts that the output is a list of strings and is not empty.
+    paths = att.all_shortest_paths(molecule, f_graph_care=False)
 
-    Asserts:
-        - The output is a list of strings.
-        - The list of paths is not empty.
-    """
-    print(flush=True)
-    # Convert the SMILES string to a molecule object
-    mol = att.smi_to_mol("C#CCC=C")
-    # Calculate all shortest paths in the molecule
-    paths = att.all_shortest_paths(mol, f_graph_care=False)
-
-    # check that the output is a list of strings
     assert isinstance(paths, list)
-    assert len(paths) > 0
+    assert paths
+    assert len(paths) == len(set(paths))
+    for smiles in paths:
+        assert isinstance(smiles, str)
+        fragment = Chem.MolFromSmiles(smiles)
+        assert fragment is not None
+        assert 0 < fragment.GetNumAtoms() <= molecule.GetNumAtoms()
+        assert fragment.GetNumBonds() <= molecule.GetNumBonds()
 
 
 @pytest.mark.integration
-def test_energy_of_all_paths(orca_path):
-    """
-    Test the calculation of the energy for all shortest paths in a molecule.
+def test_virtual_object_energy_is_finite_for_every_path(orca_path):
+    paths = att.all_shortest_paths(att.smi_to_mol("CC"), f_graph_care=False)
+    molecules = [att.smi_to_mol(smiles) for smiles in paths]
 
-    This function performs the following steps:
-    1. Converts a SMILES string to a molecule object.
-    2. Calculates all shortest paths in the molecule.
-    3. Converts each path to a molecule object.
-    4. Calculates the energy for each virtual object.
-    5. Asserts that the energy of each path is not None.
+    energies = att.get_virtual_objects_energy(molecules, orca_path=orca_path)
 
-    Asserts:
-        - The energy of each path is not None.
-    """
-    print(flush=True)
-    # Convert the SMILES string to a molecule object
-    mol = att.smi_to_mol("CC")
-    # Calculate all shortest paths in the molecule
-    paths = att.all_shortest_paths(mol, f_graph_care=False)
-    mols = [att.smi_to_mol(vo) for vo in paths]
-    energy = att.get_virtual_objects_energy(mols, orca_path=orca_path)
-    assert len(energy) == len(paths)
-    for i, vo in enumerate(paths):
-        print(f"VO: {vo}, Energy: {energy[i]}", flush=True)
-        assert np.isfinite(energy[i])
+    assert paths
+    assert len(energies) == len(paths)
+    assert np.isfinite(energies).all()
 
 
 def test_atom_order_is_a_canonical_permutation_without_mutating_molecule():
@@ -94,13 +72,19 @@ def test_scramble_copies_input_and_respects_numpy_seed(items):
     "smiles, batches, max_attempts, expected, expected_calls",
     [
         (
-            "CCC", [["CC", "CC"], ["CC"], ["CCC", "CC"], ["CCC"], [], ["C"]],
-            2, {"CC", "CCC"}, 5,
+            "CCC",
+            [["CC", "CC"], ["CC"], ["CCC", "CC"], ["CCC"], [], ["C"]],
+            2,
+            {"CC", "CCC"},
+            5,
         ),
         ("CCC", [[], [], ["CC"]], 2, set(), 2),
         (
-            "CC", [["C"], ["CC"], ["CCC"], ["CCCC"], ["CCCCC"]],
-            3, {"C", "CC", "CCC", "CCCC"}, 4,
+            "CC",
+            [["C"], ["CC"], ["CCC"], ["CCCC"], ["CCCCC"]],
+            3,
+            {"C", "CC", "CCC", "CCCC"},
+            4,
         ),
     ],
     ids=["deduplicate-and-reset-stale-count", "empty-results-stop", "bond-budget"],
@@ -184,7 +168,8 @@ def test_sampling_kekulizes_only_the_renumbered_copy(monkeypatch, f_graph_care):
     assert calls[0] is not mol
     expected = (
         {Chem.BondType.SINGLE, Chem.BondType.DOUBLE}
-        if f_graph_care else {Chem.BondType.AROMATIC}
+        if f_graph_care
+        else {Chem.BondType.AROMATIC}
     )
     assert {bond.GetBondType() for bond in calls[0].GetBonds()} == expected
     assert Chem.MolToMolBlock(mol, kekulize=False) == original

@@ -1,4 +1,5 @@
-import random
+"""Colored graph neighborhoods and valid assembly joining operations."""
+
 from copy import deepcopy
 from unittest.mock import Mock
 
@@ -8,394 +9,196 @@ import pytest
 import assemblytheorytools as att
 import assemblytheorytools.neighborhood_enumeration as neighborhood
 
-node_match = nx.algorithms.isomorphism.categorical_node_match('color', None)
-edge_match = nx.algorithms.isomorphism.categorical_edge_match('color', None)
+NODE_MATCH = nx.algorithms.isomorphism.categorical_node_match("color", None)
+EDGE_MATCH = nx.algorithms.isomorphism.categorical_edge_match("color", None)
 
 
-def test_enumerate_down():
-    """
-    Test the enumerate_down function
-    """
-    # Set random seed for reproducibility
-    random.seed(42)
-    # Create a simple test graph
-    graph = nx.Graph()
-    graph.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 0), (3, 6)])
+def _colored_graph(edges, colors="C", bond_order=1):
+    graph = nx.Graph(edges)
+    nx.set_node_attributes(graph, colors, "color")
+    nx.set_edge_attributes(graph, bond_order, "color")
+    return graph
 
-    # Get the partitions from the down_enum function
-    partitions = att.enumerate_down(graph)
-    assert len(partitions) == 21  # By hand, I think there are 21 partitions, before modding out by isomorphism
-    # Check that the partitions are valid
+
+def _isomorphic(first, second):
+    return nx.is_isomorphic(first, second, node_match=NODE_MATCH, edge_match=EDGE_MATCH)
+
+
+def _assert_same_graphs(actual, expected):
+    remaining = list(actual)
+    for graph in expected:
+        matches = [
+            index
+            for index, candidate in enumerate(remaining)
+            if _isomorphic(graph, candidate)
+        ]
+        assert matches, (
+            f"Missing graph with nodes {list(graph.nodes(data=True))} and edges {list(graph.edges(data=True))}"
+        )
+        remaining.pop(matches[0])
+    assert not remaining
+
+
+def _assert_join_operations_conserve_bonds(result):
+    inputs, neighbors = result["input_graphs"], result["N_graphs"]
+    for first, second, source in result["down_jos"]:
+        assert (
+            neighbors[first].number_of_edges() + neighbors[second].number_of_edges()
+            == inputs[source].number_of_edges()
+        )
+    for first, second, target in result["up_jos"]:
+        assert (
+            inputs[first].number_of_edges() + inputs[second].number_of_edges()
+            == neighbors[target].number_of_edges()
+        )
+
+
+@pytest.mark.parametrize(
+    "edges, expected_count",
+    [
+        ([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 0), (3, 6)], 21),
+        ([(0, 1), (1, 2), (2, 3), (3, 4), (2, 5), (5, 6)], 6),
+    ],
+    ids=["cycle-with-tail", "branched-tree"],
+)
+def test_down_enumeration_partitions_every_edge_once(edges, expected_count):
+    graph = nx.Graph(edges)
+
+    partitions = neighborhood.enumerate_down(graph)
+
+    assert len(partitions) == expected_count
+    expected_edges = {frozenset(edge) for edge in edges}
     for partition in partitions:
         assert len(partition) == 2
-        assert set(partition[0]).isdisjoint(partition[1])
-        assert set(partition[0]) | set(partition[1]) == set(graph.edges())
-
-
-def test_enumerate_down2():
-    """
-    Test the enumerate_down function
-    """
-    # Set random seed for reproducibility
-    random.seed(42)
-    # Create a simple test graph
-    graph = nx.Graph()
-    graph.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (2, 5), (5, 6)])
-
-    # Get the partitions from the down_enum function
-    partitions = att.enumerate_down(graph)
-    assert len(partitions) == 6  # By hand, I think there are 6 partitions, before modding out by isomorphism
-    # Check that the partitions are valid
-    for partition in partitions:
-        assert len(partition) == 2
-        assert len(partition[0]) + len(partition[1]) == len(graph.edges())
-
-
-def test_enumerate_up_small():
-    """
-    Test the enumerate_up function on a small case where the exact answer is known by hand
-    """
-    # Set random seed for reproducibility
-    random.seed(42)
-
-    l = 2
-    edges = [(k, k + 1) for k in range(l)]
-
-    # These are our test input graphs
-    g1 = nx.Graph()
-    g1.add_edges_from(edges)
-    g2 = nx.Graph()
-    g2.add_edges_from(edges)
-
-    # These are the expected output graphs
-    G1 = nx.Graph()
-    G1.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4)])
-    G2 = nx.Graph()
-    G2.add_edges_from([(0, 1), (1, 2), (2, 3), (2, 4)])
-    G3 = nx.Graph()
-    G3.add_edges_from([(0, 1), (1, 2), (2, 3), (2, 4)])
-    G4 = nx.Graph()
-    G4.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 0)])
-    G5 = nx.Graph()
-    G5.add_edges_from([(0, 1), (1, 2), (2, 3), (0, 2)])
-
-    # Add colors to the nodes and edges
-    for g in [g1, g2, G1, G2, G3, G4, G5]:
-        for i in g.nodes():
-            g.nodes[i]['color'] = 'C'
-        for e in g.edges():
-            g.edges[e]['color'] = 1
-
-    N_up_graphs = att.enumerate_up(g1, g2)
-    print(f"Number of enum_up graphs before iso-check: {len(N_up_graphs)}")
-    unique_graphs = [N_up_graphs[0]]
-    for g in N_up_graphs[1:]:
-        if not any(nx.is_isomorphic(g, unique_g) for unique_g in unique_graphs):
-            unique_graphs.append(g)
-    print(f"Number of unique graphs after iso-check: {len(unique_graphs)}")
-    assert len(unique_graphs) == 5
-    # Check that the output graphs are isomorphic to the expected graphs
-    for expected_graph in [G1, G2, G3, G4, G5]:
-        assert any(
-            nx.is_isomorphic(g, expected_graph, node_match=node_match, edge_match=edge_match) for g in unique_graphs)
-
-
-def test_enumerate_up_runs():
-    """
-    Test the enumerate_up function with small graphs just to see if it works
-    """
-    # Set random seed for reproducibility
-    random.seed(42)
-
-    g1 = nx.Graph()
-    g1.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)])
-
-    g2 = nx.Graph()
-    g2.add_edges_from([(0, 1), (1, 2), (2, 3)])
-
-    for g in [g1, g2]:
-        for i in g.nodes():
-            g.nodes[i]['color'] = 'C'
-        for e in g.edges():
-            g.edges[e]['color'] = 1
-
-    N_up_graphs = att.enumerate_up(g1, g2)
-
-    assert len(N_up_graphs) > 0
-
-
-def test_enumerate_up():
-    """
-    Test the enumerate_neighborhood function with scrambled node indices and make sure output is equivalent
-    """
-    # Set random seed for reproducibility
-    random.seed(42)
-
-    g1 = nx.Graph()
-    g1.add_edges_from([(0, 1), (1, 2), (2, 3)])
-
-    g2 = nx.Graph()
-    g2.add_edges_from([(0, 1), (1, 2), (2, 3)])
-
-    g1_scrambled = att.scramble_node_indices(g1.copy(), seed=42)
-    g2_scrambled = att.scramble_node_indices(g2.copy(), seed=45)
-
-    for g in [g1, g2, g1_scrambled, g2_scrambled]:
-        for i in g.nodes():
-            g.nodes[i]['color'] = 'C'
-        for e in g.edges():
-            g.edges[e]['color'] = 1
-
-    output = att.enumerate_neighborhood([g1, g2])
-
-    output_scrambled = att.enumerate_neighborhood([g1_scrambled, g2_scrambled])
-
-    print("Scrambled graphs:")
-    for i, g in enumerate(output_scrambled['input_graphs']):
-        print(f"Graph {i}: {g}")
-        print(f"Edges: {g.edges()}")
-        print(f"Node colors: {g.nodes(data=True)}\n")
-    # print(f"Number of graphs in neighborhood: {len(output['N_graphs'])}")
-    print(f"Number of graphs in neighborhood (scrambled): {len(output_scrambled['N_graphs'])}")
-    # print(f"Number of down jos: {len(output['down_jos'])}")
-    print(f"Number of down jos (scrambled): {len(output_scrambled['down_jos'])}")
-    # print(f"Number of up jos: {len(output['up_jos'])}")
-    print(f"Number of up jos (scrambled): {len(output_scrambled['up_jos'])}")
-    # print(f"Down jos: {output['down_jos']}")
-    print(f"Down jos (scrambled): {output_scrambled['down_jos']}")
-    # print(f"Up jos: {output['up_jos']}")
-    print(f"Up jos (scrambled): {output_scrambled['up_jos']}")
-    for i, g in enumerate(output_scrambled['N_graphs']):
-        print(f"\nGraph {i}: {g}")
-        print(f"Edges: {g.edges()}")
-        print(f"Node colors: {g.nodes(data=True)}")
-
-    for key in output.keys():
-        assert len(output[key]) == len(output_scrambled[
-                                           key]), f"Output lengths differ for key {key}: {len(output[key])} vs {len(output_scrambled[key])}"
-
-
-def test_multicolored_graph_full_pipeline():
-    """
-    Test the enumerate_neighborhood function with a multicolored graph
-    """
-    # Set random seed for reproducibility
-    random.seed(42)
-
-    g1 = nx.Graph()
-    g1.add_edges_from([(0, 1), (1, 2)])
-
-    for i in g1.nodes():
-        g1.nodes[i]['color'] = 'C'
-    for e in g1.edges():
-        g1.edges[e]['color'] = 1
-
-    g2 = g1.copy()
-
-    g1.nodes[0]['color'] = 'P'
-    g2.nodes[1]['color'] = 'P'
-
-    output = att.enumerate_neighborhood([g1, g2])
-
-    g1_scrambled = att.scramble_node_indices(g1.copy(), seed=42)
-    g2_scrambled = att.scramble_node_indices(g2.copy(), seed=42)
-
-    output_scrambled = att.enumerate_neighborhood([g1_scrambled, g2_scrambled])
-
-    print(f"Number of graphs in neighborhood: {len(output['N_graphs'])}")
-    # print(f"Number of graphs in neighborhood (scrambled): {len(output_scrambled['N_graphs'])}")
-    print(f"Number of down jos: {len(output['down_jos'])}")
-    # print(f"Number of down jos (scrambled): {len(output_scrambled['down_jos'])}")
-    print(f"Number of up jos: {len(output['up_jos'])}")
-    # print(f"Number of up jos (scrambled): {len(output_scrambled['up_jos'])}")
-    print(f"Down jos: {output['down_jos']}")
-    # print(f"Down jos (scrambled): {output_scrambled['down_jos']}")
-    print(f"Up jos: {output['up_jos']}")
-    # print(f"Up jos (scrambled): {output_scrambled['up_jos']}")
-    for i, g in enumerate(output['N_graphs']):
-        print(f"\nGraph {i}: {g}")
-        print(f"Edges: {g.edges()}")
-        print(f"Node colors: {g.nodes(data=True)}")
-
-    assert len(output['N_graphs']) == len(output_scrambled['N_graphs'])
-    assert len(output['down_jos']) == len(output_scrambled['down_jos'])
-    assert len(output['up_jos']) == len(output_scrambled['up_jos'])
-
-
-def test_rTCA():
-    """
-    Just make sure the rTCA example runs
-    """
-
-    # Set random seed for reproducibility
-    random.seed(1)
-
-    # rTCA smiles
-    smiles_dict = {"ACE": "CC(=O)[O-]",
-                   "PYR": "CC(=O)C(=O)[O-]",
-                   "FUM": r"C(=C/C(=O)[O-])\C(=O)[O-]",
-                   "MAL": "C(C(C(=O)O)O)C(=O)O",
-                   "OXA": "C(C(=O)C(=O)O)C(=O)O",
-                   "SUC": "C(CC(=O)[O-])C(=O)[O-]",
-                   "AKG": "C(CC(=O)O)C(=O)C(=O)O",
-                   "CAC": "C(/C(=C/C(=O)O)/C(=O)O)C(=O)O",
-                   "CIT": "C(C(=O)[O-])C(CC(=O)[O-])(C(=O)[O-])O",
-                   "ISC": "C(C(C(C(=O)O)O)C(=O)O)C(=O)O",
-                   "OXS": "C(C(C(=O)C(=O)O)C(=O)O)C(=O)O"
-                   }
-
-    rTCA_keys = list(smiles_dict.keys())
-    smiles_list = [smiles_dict[key] for key in rTCA_keys]
-
-    mols = [att.smi_to_mol(smile) for smile in smiles_list]
-
-    # Convert the RDKit molecules to NetworkX graphs and remove hydrogen atoms
-    graphs = [att.remove_hydrogen_from_graph(att.mol_to_nx(mol)) for mol in mols]
-    # Limit the number of graphs for testing
-    output = att.enumerate_neighborhood(graphs[:3])  # Limit to 3 graphs for test speed
-    assert len(output['N_graphs']) > 0
-
-
-def test_enum_up_C_2_O():
-    """
-    Test the enumerate_up function with a C=O bond.
-    """
-    g = nx.Graph()
-    g.add_edges_from([(0, 1), ])
-    g.nodes[0]['color'] = 'C'
-    g.nodes[1]['color'] = 'O'
-    g.edges[(0, 1)]['color'] = 2
-
-    up_graphs = att.enumerate_up(g, g)
-
-    print(f"Neighborhood+ size = {len(up_graphs)}")
-
-    g2 = nx.Graph()
-    g2.add_edges_from([(0, 1), (1, 2)])
-    g2.nodes[1]['color'] = 'C'
-    g2.nodes[0]['color'] = 'O'
-    g2.nodes[2]['color'] = 'O'
-    g2.edges[(0, 1)]['color'] = 2
-    g2.edges[(1, 2)]['color'] = 2
-
-    flag = False
-    for gN in up_graphs:
-        if nx.is_isomorphic(gN, g2, node_match=node_match, edge_match=edge_match):
-            flag = True
-            break
-
-    assert flag
-
-
-def test_C_2_O():
-    """
-    Test the neighborhood enumeration of a C=O bond.
-    """
-    g = nx.Graph()
-    g.add_edges_from([(0, 1), ])
-    g.nodes[0]['color'] = 'C'
-    g.nodes[1]['color'] = 'O'
-    g.edges[(0, 1)]['color'] = 2
-
-    output = att.enumerate_neighborhood([g])
-
-    print("Neighborhood size:")
-    print(len(output["N_graphs"]))
-
-    g2 = nx.Graph()
-    g2.add_edges_from([(0, 1), (1, 2)])
-    g2.nodes[1]['color'] = 'C'
-    g2.nodes[0]['color'] = 'O'
-    g2.nodes[2]['color'] = 'O'
-    g2.edges[(0, 1)]['color'] = 2
-    g2.edges[(1, 2)]['color'] = 2
-
-    flag = False
-    for gN in output["N_graphs"]:
-        if nx.is_isomorphic(gN, g2, node_match=node_match, edge_match=edge_match):
-            flag = True
-            break
-
-    assert flag
-
-
-def test_enum_up_S_2_O():
-    """
-    Test the enumerate_up function with a S=O bond and a custom valence table.
-    """
-    custom_valence_table = {"S": 4}
-
-    g = nx.Graph()
-    g.add_edges_from([(0, 1), ])
-    g.nodes[0]['color'] = 'S'
-    g.nodes[1]['color'] = 'O'
-    g.edges[(0, 1)]['color'] = 2
-
-    up_graphs = att.enumerate_up(g, g, debug=True, custom_valence_table=custom_valence_table)
-
-    print(f"Neighborhood+ size = {len(up_graphs)}")
-
-    g2 = nx.Graph()
-    g2.add_edges_from([(0, 1), (1, 2)])
-    g2.nodes[1]['color'] = 'S'
-    g2.nodes[0]['color'] = 'O'
-    g2.nodes[2]['color'] = 'O'
-    g2.edges[(0, 1)]['color'] = 2
-    g2.edges[(1, 2)]['color'] = 2
-
-    flag = False
-    for gN in up_graphs:
-        if nx.is_isomorphic(gN, g2, node_match=node_match, edge_match=edge_match):
-            flag = True
-            break
-
-    assert flag
-
-
-def test_S_2_O():
-    """
-    Test the neighborhood enumeration of a S=O bond with a custom valence table.
-    """
-    custom_valence_table = {"S": 4}
-
-    g = nx.Graph()
-    g.add_edges_from([(0, 1), ])
-    g.nodes[0]['color'] = 'S'
-    g.nodes[1]['color'] = 'O'
-    g.edges[(0, 1)]['color'] = 2
-
-    output = att.enumerate_neighborhood([g], custom_valence_table=custom_valence_table)
-
-    print("Neighborhood size:")
-    print(len(output["N_graphs"]))
-
-    g2 = nx.Graph()
-    g2.add_edges_from([(0, 1), (1, 2)])
-    g2.nodes[1]['color'] = 'S'
-    g2.nodes[0]['color'] = 'O'
-    g2.nodes[2]['color'] = 'O'
-    g2.edges[(0, 1)]['color'] = 2
-    g2.edges[(1, 2)]['color'] = 2
-
-    flag = False
-    for gN in output["N_graphs"]:
-        if nx.is_isomorphic(gN, g2, node_match=node_match, edge_match=edge_match):
-            flag = True
-            break
-
-    assert flag
-
-
-def test_input_valence():
-    """
-    Check that when given saturated input graphs, the neighborhood enumeration with obey_valence=True returns no new graphs.
-    """
-    input_smis = ["N#N", "C#O", "O=O", "[H][H]"]
-    input_gs = [att.smi_to_nx(smi, add_hydrogens=False, sanitize=False) for smi in input_smis]
-
-    out = att.enumerate_neighborhood(input_gs, obey_valence=True)
-    assert len(out['up_jos']) == 0
-    assert len(out['down_jos']) == 0  # This is expected since these are all single edge graphs
+        first, second = [{frozenset(edge) for edge in part} for part in partition]
+        assert first and second
+        assert first.isdisjoint(second)
+        assert first | second == expected_edges
+
+
+def test_joining_two_paths_produces_all_five_colored_topologies():
+    path = _colored_graph([(0, 1), (1, 2)])
+    expected = [
+        _colored_graph(nx.path_graph(5).edges),
+        _colored_graph([(0, 1), (1, 2), (2, 3), (2, 4)]),
+        _colored_graph(nx.star_graph(4).edges),
+        _colored_graph(nx.cycle_graph(4).edges),
+        _colored_graph([(0, 1), (1, 2), (2, 3), (0, 2)]),
+    ]
+
+    products = neighborhood.enumerate_up(path, path)
+
+    unique = []
+    for product in products:
+        if not any(_isomorphic(product, other) for other in unique):
+            unique.append(product)
+    _assert_same_graphs(unique, expected)
+
+
+def test_joining_unequal_paths_preserves_all_bonds():
+    first = _colored_graph(nx.path_graph(6).edges)
+    second = _colored_graph(nx.path_graph(4).edges)
+
+    products = neighborhood.enumerate_up(first, second)
+
+    assert products
+    assert all(product.number_of_edges() == 8 for product in products)
+    assert all(nx.is_connected(product) for product in products)
+
+
+@pytest.mark.parametrize(
+    "multicolored", [False, True], ids=["carbon", "carbon-and-phosphorus"]
+)
+def test_neighborhood_is_invariant_under_node_relabeling(multicolored):
+    size = 3 if multicolored else 4
+    graphs = [_colored_graph(nx.path_graph(size).edges) for _ in range(2)]
+    if multicolored:
+        graphs[0].nodes[0]["color"] = "P"
+        graphs[1].nodes[1]["color"] = "P"
+    scrambled = [
+        att.scramble_node_indices(graph, seed=seed)
+        for graph, seed in zip(graphs, [42, 45])
+    ]
+
+    original = neighborhood.enumerate_neighborhood(graphs)
+    relabeled = neighborhood.enumerate_neighborhood(scrambled)
+
+    assert original.keys() == relabeled.keys()
+    _assert_same_graphs(original["input_graphs"], relabeled["input_graphs"])
+    _assert_same_graphs(original["N_graphs"], relabeled["N_graphs"])
+    for key in ["down_jos", "up_jos"]:
+        assert len(original[key]) == len(relabeled[key])
+    _assert_join_operations_conserve_bonds(original)
+    _assert_join_operations_conserve_bonds(relabeled)
+
+
+def test_metabolic_molecule_neighborhood_conserves_bonds_in_each_join():
+    # Acetate, pyruvate and fumarate exercise the rTCA example's charged graphs.
+    smiles = ["CC(=O)[O-]", "CC(=O)C(=O)[O-]", r"C(=C/C(=O)[O-])\C(=O)[O-]"]
+    graphs = [att.smi_to_nx(smile, add_hydrogens=False) for smile in smiles]
+
+    result = neighborhood.enumerate_neighborhood(graphs)
+
+    assert result["N_graphs"]
+    assert result["down_jos"]
+    assert result["up_jos"]
+    _assert_join_operations_conserve_bonds(result)
+
+
+@pytest.mark.parametrize("element, valence", [("C", None), ("S", {"S": 4})])
+@pytest.mark.parametrize("full_neighborhood", [False, True], ids=["up", "neighborhood"])
+def test_double_bonds_join_at_the_central_atom(element, valence, full_neighborhood):
+    bond = _colored_graph([(0, 1)], {0: element, 1: "O"}, bond_order=2)
+    expected = _colored_graph(
+        [(0, 1), (1, 2)], {0: "O", 1: element, 2: "O"}, bond_order=2
+    )
+
+    if full_neighborhood:
+        products = neighborhood.enumerate_neighborhood(
+            [bond], custom_valence_table=valence
+        )["N_graphs"]
+    else:
+        products = neighborhood.enumerate_up(bond, bond, custom_valence_table=valence)
+
+    assert any(_isomorphic(product, expected) for product in products)
+
+
+def test_debug_output_explains_valence_and_mapping_counts_without_changing_products(
+    capsys,
+):
+    bond = _colored_graph([(0, 1)], {0: "S", 1: "O"}, bond_order=2)
+    options = {"custom_valence_table": {"S": 4}}
+    expected = neighborhood.enumerate_up(bond, bond, **options)
+    assert capsys.readouterr().out == ""
+
+    products = neighborhood.enumerate_up(bond, bond, debug=True, **options)
+
+    _assert_same_graphs(products, expected)
+    assert len(products) == 1
+    lines = set(capsys.readouterr().out.splitlines())
+    assert {
+        "Checking valence budgets...",
+        "Node 0 in graph 1 has color S and valence budget 4.0",
+        "Node 1 in graph 1 has color O and valence budget 2.0",
+        "Valence budgets for graph1: [2. 0.]",
+        "Valence budgets for graph2: [2. 0.]",
+        "Number of valid identifications = 0",
+        "Number of valid identifications = 1",
+        "Number of valid color-specific maps = 2",
+        "Number of valid maps = 1",
+    } <= lines
+
+
+def test_saturated_single_bonds_admit_no_joins_or_partitions():
+    graphs = [
+        att.smi_to_nx(smiles, add_hydrogens=False, sanitize=False)
+        for smiles in ["N#N", "C#O", "O=O", "[H][H]"]
+    ]
+
+    result = neighborhood.enumerate_neighborhood(graphs, obey_valence=True)
+
+    assert result["up_jos"] == set()
+    assert result["down_jos"] == set()
 
 
 @pytest.mark.parametrize("allow_dots", [True, False])
@@ -436,8 +239,12 @@ def test_map_outer_product_returns_and_updates_the_single_color_set():
 
 @pytest.mark.parametrize(
     "combinations, expected_type",
-    [({}, list), ({"C": set()}, set), ({"C": {frozenset()}}, set),
-     ({"C": set(), "O": set()}, list)],
+    [
+        ({}, list),
+        ({"C": set()}, set),
+        ({"C": {frozenset()}}, set),
+        ({"C": set(), "O": set()}, list),
+    ],
 )
 def test_map_outer_product_discards_empty_maps(combinations, expected_type):
     result = neighborhood.map_outer_product(combinations, nx.Graph(), nx.Graph())
@@ -470,21 +277,30 @@ def test_map_outer_product_rejects_cross_color_parallel_edges():
     assert isinstance(result, list)
     assert all(isinstance(mapping, set) for mapping in result)
     assert {frozenset(mapping) for mapping in result} == {
-        frozenset({(0, 0)}), frozenset({(1, 1)}),
+        frozenset({(0, 0)}),
+        frozenset({(1, 1)}),
     }
     assert combinations == original
 
 
 @pytest.mark.parametrize(
     "mapping, valid",
-    [(set(), True), ({(0, 2)}, True), ({(0, 2), (3, 3)}, True),
-     ({(0, 2), (1, 3)}, False), ({(0, 3), (1, 2)}, False)],
+    [
+        (set(), True),
+        ({(0, 2)}, True),
+        ({(0, 2), (3, 3)}, True),
+        ({(0, 2), (1, 3)}, False),
+        ({(0, 3), (1, 2)}, False),
+    ],
 )
 @pytest.mark.parametrize("container", [list, set])
 def test_multi_edge_check_handles_both_mapping_orientations(mapping, valid, container):
-    assert neighborhood.conditional_check_multi_edge_generation(
-        frozenset(mapping), container([(0, 1)]), container([(2, 3)])
-    ) is valid
+    assert (
+        neighborhood.conditional_check_multi_edge_generation(
+            frozenset(mapping), container([(0, 1)]), container([(2, 3)])
+        )
+        is valid
+    )
 
 
 def test_map_application_preserves_attributes_and_inputs_with_a_generator():
@@ -510,8 +326,10 @@ def test_map_application_preserves_attributes_and_inputs_with_a_generator():
         (0, 1): {"color": 1, "label": "left bond"},
         (0, 2): {"color": 2, "label": "right bond"},
     }
-    assert all(nx.utils.graphs_equal(graph, original)
-               for graph, original in zip((graph1, graph2), originals))
+    assert all(
+        nx.utils.graphs_equal(graph, original)
+        for graph, original in zip((graph1, graph2), originals)
+    )
 
 
 def test_map_application_rejects_lost_parallel_edges():
@@ -531,16 +349,22 @@ def test_get_valence_custom_zero_takes_precedence_and_missing_symbols_fall_back(
 
 
 @pytest.mark.parametrize("valence, expected_count", [(2, 0), (3, 0), (4, 4)])
-def test_enumerate_up_respects_bond_orders_and_rejects_same_color_parallel_edges(valence, expected_count):
+def test_enumerate_up_respects_bond_orders_and_rejects_same_color_parallel_edges(
+    valence, expected_count
+):
     graph = nx.Graph([(0, 1)])
     nx.set_node_attributes(graph, "C", "color")
     nx.set_edge_attributes(graph, 2, "color")
 
-    joined = neighborhood.enumerate_up(graph, graph, custom_valence_table={"C": valence})
+    joined = neighborhood.enumerate_up(
+        graph, graph, custom_valence_table={"C": valence}
+    )
 
     assert len(joined) == expected_count
-    assert all(result.number_of_nodes() == 3 and result.number_of_edges() == 2
-               for result in joined)
+    assert all(
+        result.number_of_nodes() == 3 and result.number_of_edges() == 2
+        for result in joined
+    )
 
 
 def test_enumerate_up_zero_valence_can_be_disabled():

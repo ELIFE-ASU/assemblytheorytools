@@ -16,31 +16,7 @@ from assemblytheorytools.tools_mzml import (
 def _make_spectrum(
     mz, intensity, ms_level="1", scan="1", retention_time="1.5", precision=64
 ):
-    """
-    Build a raw, un-processed _Spectrum with base64/zlib-encoded binary data.
-
-    Parameters
-    ----------
-    mz : list of float
-        m/z values for the spectrum's peaks.
-    intensity : list of float
-        Intensity values, one per m/z value.
-    ms_level : str, optional
-        MS level string, by default "1".
-    scan : str, optional
-        Scan number string, by default "1".
-    retention_time : str, optional
-        Retention time string, by default "1.5".
-    precision : int, optional
-        Binary floating-point precision, by default 64 bits.
-
-    Returns
-    -------
-    _Spectrum
-        A spectrum with encoded (but not yet decoded/serialized) mz and
-        intensity data, matching the state _MzmlParser leaves a spectrum in
-        immediately after parsing its XML but before `.process()` runs.
-    """
+    """Build the encoded spectrum state produced by the XML parser."""
     spec = _Spectrum(intensity_threshold=0)
     spec.array_length = len(mz)
     spec.d_type = f"{precision}-bit float"
@@ -58,31 +34,17 @@ def _make_spectrum(
 
 
 def test_build_output_processes_unserialized_spectra():
-    """
-    Regression test: build_output must process spectra that haven't been
-    serialized yet, not crash on them.
-
-    _MzmlParser.build_output has a fallback for spectra whose `.serialized`
-    is still empty (the normal parse flow always processes spectra before
-    build_output runs, so this branch is rarely exercised) that used to call
-    a nonexistent `spec.rma_process()` instead of `spec.process()`, which
-    would raise AttributeError if it were ever reached.
-
-    Asserts:
-        - build_output does not raise.
-        - The unserialized spectrum's mass_list ends up populated in the
-          output, proving `.process()` actually ran.
-    """
+    """The fallback must call process() before assembling the output."""
     spec = _make_spectrum(mz=[100.1234, 200.5678], intensity=[50000.0, 200.0])
-    assert not spec.serialized  # sanity check: this is the "not yet processed" case
+    assert spec.serialized == {}
 
     parser = _MzmlParser.__new__(_MzmlParser)
     parser.ms = {"1": [spec]}
 
     output = parser.build_output()
 
-    assert spec.serialized  # process() was called and populated it
-    assert output["ms1"]["spectrum_1"]["mass_list"]
+    assert output == {"ms1": {"spectrum_1": spec.serialized}}
+    assert spec.serialized["mass_list"] == [100.1234, 200.5678]
 
 
 @pytest.mark.parametrize("precision", [32, 64])
@@ -144,7 +106,14 @@ def test_relative_intensities_preserve_peak_order_and_base_peak():
         "base_peak": [200.0, 50.0],
     }
     assert list(spec.serialized) == [
-        "retention_time", "scan", "hcd", "mass_list", 100.0, 300.0, 200.0, "base_peak"
+        "retention_time",
+        "scan",
+        "hcd",
+        "mass_list",
+        100.0,
+        300.0,
+        200.0,
+        "base_peak",
     ]
 
 
@@ -185,7 +154,7 @@ def test_process_mzml_file_extracts_metadata_and_writes_json(tmp_path):
     spec = _make_spectrum([100.125, 200.25], [50, 1000.75])
     source = tmp_path / "sample.mzML"
     source.write_text(
-        f'''<mzML>
+        f"""<mzML>
 <run><spectrumList count="1">
 <spectrum index="0" defaultArrayLength="2">
 <cvParam accession="MS:1000511" value="2"/>
@@ -211,7 +180,7 @@ def test_process_mzml_file_extracts_metadata_and_writes_json(tmp_path):
 </spectrum>
 </spectrumList></run>
 </mzML>
-'''
+"""
     )
     output_dir = tmp_path / "results" / "spectra"
 
