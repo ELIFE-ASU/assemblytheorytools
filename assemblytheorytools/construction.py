@@ -11,24 +11,28 @@ assembly digraphs from a target structure.
 import copy
 import io
 import json
+import os
+import re
+from collections import Counter
+from contextlib import redirect_stderr, redirect_stdout
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 import networkx as nx
 import numpy as np
-import os
 import pydot
-import re
-from contextlib import redirect_stderr, redirect_stdout
 from rdkit import Chem
 from rdkit.Chem.rdchem import RWMol
-from typing import List, Dict, Tuple, Optional, Any, Union
 
-from .tools_graph import (bond_order_assout_to_int,
-                          bond_order_int_to_rdkit,
-                          canonicalize_node_labels,
-                          mol_to_nx,
-                          nx_to_smi,
-                          nx_to_inchi,
-                          nx_to_mol,
-                          set_graph_layer)
+from .tools_graph import (
+    bond_order_assout_to_int,
+    bond_order_int_to_rdkit,
+    canonicalize_node_labels,
+    mol_to_nx,
+    nx_to_inchi,
+    nx_to_mol,
+    nx_to_smi,
+    set_graph_layer,
+)
 from .tools_mol import smi_remove_implicit_hydrogen
 
 # The virtual object representations every vo_type argument is checked against
@@ -37,19 +41,20 @@ _VO_TYPES = ("graph", "mol", "smiles", "inchi")
 _VO_TYPE_ERROR = "Invalid vo_type. Choose from 'graph', 'mol', 'smiles', or 'inchi'."
 
 
-def transform_array(target_array: List[List[int]],
-                    comp_array: List[List[int]],
-                    source_val: int,
-                    target_val: int,
-                    new_val: int,
-                    pairs_list: List[List[int]]) -> List[List[int]]:
+def transform_array(
+    target_array: List[List[int]],
+    comp_array: List[List[int]],
+    source_val: int,
+    target_val: int,
+    new_val: int,
+    pairs_list: List[List[int]],
+) -> List[List[int]]:
     """
-    Transform the target array by replacing specific values.
+    Replace matching edge endpoints in the target array in place.
 
-    Replacements are driven by the comparison array and the pairs list.
-
-    This function iterates over the comparison array and updates the target array by replacing elements
-    that match the target value and source value with a new value, according to the pairs list.
+    An endpoint matching ``target_val`` in ``comp_array`` is replaced with
+    ``new_val`` when substituting ``source_val`` produces an edge in
+    ``pairs_list``. The other endpoint comes from the comparison edge.
 
     Parameters
     ----------
@@ -95,15 +100,12 @@ def repeated_sizes(repeated: List[Tuple[Any, Any]]) -> List[int]:
     list
         Sorted list of unique sizes of the second element in each tuple.
     """
-    return sorted(set(len(rep[1]) for rep in repeated))
+    return sorted({len(rep[1]) for rep in repeated})
 
 
 def equal_list(list_a: List[List[Any]], list_b: List[List[Any]]) -> bool:
     """
-    Compare two lists of lists and check if they contain the same elements.
-
-    This function converts each sublist in the input lists to a set of tuples and compares them.
-    It returns True if both lists contain the same sets of tuples, otherwise False.
+    Compare edge lists, ignoring edge direction, order and duplicates.
 
     Parameters
     ----------
@@ -124,10 +126,7 @@ def equal_list(list_a: List[List[Any]], list_b: List[List[Any]]) -> bool:
 
 def check_edge_in_list(edges: List[Any], list_in: List[List[Any]]) -> bool:
     """
-    Check whether a list of edges appears in a list of lists.
-
-    This function iterates over each list in the input list of lists and uses the `equal_list` function
-    to check if any of these lists contain the same elements as the given list of edges.
+    Check whether any candidate matches the edges according to ``equal_list``.
 
     Parameters
     ----------
@@ -145,13 +144,14 @@ def check_edge_in_list(edges: List[Any], list_in: List[List[Any]]) -> bool:
     return any(equal_list(candidate, edges) for candidate in list_in)
 
 
-def equivalence(remnant_pieces: List[List[Any]], equivalences: List[List[int]]) -> List[List[Any]]:
+def equivalence(
+    remnant_pieces: List[List[Any]], equivalences: List[List[int]]
+) -> List[List[Any]]:
     """
-    Apply equivalence transformations to the remnant pieces.
+    Apply vertex equivalences to a deep copy of the remnant pieces.
 
-    This function creates a deep copy of the remnant pieces and iterates through each edge in each piece.
-    If an edge's vertex matches any vertex in the equivalences list, it replaces the vertex with the corresponding
-    equivalent vertex.
+    Each pair maps its second vertex to its first. The first mapping for a
+    vertex takes precedence, and replacements are applied only once.
 
     Parameters
     ----------
@@ -166,30 +166,31 @@ def equivalence(remnant_pieces: List[List[Any]], equivalences: List[List[int]]) 
         A deep copy of the remnant pieces with applied equivalence transformations.
     """
     pieces_copy = copy.deepcopy(remnant_pieces)
-    equivalences_array = np.array(equivalences)
-    equivalences_list = equivalences_array[:, 1].tolist()
+    vertices = np.array(equivalences)[:, 1].tolist()
+    replacements = {}
+    for pair, vertex in zip(equivalences, vertices):
+        replacements.setdefault(vertex, pair[0])
 
     for piece in pieces_copy:
         for edge in piece:
-            if edge[0] in equivalences_list:
-                edge[0] = equivalences[equivalences_list.index(edge[0])][0]
-            if edge[1] in equivalences_list:
-                edge[1] = equivalences[equivalences_list.index(edge[1])][0]
+            for endpoint in (0, 1):
+                if edge[endpoint] in replacements:
+                    edge[endpoint] = replacements[edge[endpoint]]
 
     return pieces_copy
 
 
-def fix_repeated_equiv(edge_list: List[Any],
-                       repeated_equiv: List[Any],
-                       equivalences: List[List[int]],
-                       edge_pairs: List[List[int]]) -> Tuple[List[Any], List[Any], List[List[int]]]:
+def fix_repeated_equiv(
+    edge_list: List[Any],
+    repeated_equiv: List[Any],
+    equivalences: List[List[int]],
+    edge_pairs: List[List[int]],
+) -> Tuple[List[Any], List[Any], List[List[int]]]:
     """
-    Fix repeated equivalences in the edge list.
+    Resolve repeated vertex mappings, updating edge lists in place.
 
-    The edges are transformed according to the provided equivalences.
-
-    This function identifies and resolves repeated equivalences in the edge list. It updates the edge list and
-    repeated equivalences by applying transformations based on the equivalences and edge pairs.
+    Ambiguous targets receive a fresh vertex or reuse an existing equivalent
+    vertex. ``edge_pairs`` determines which edge endpoints are transformed.
 
     Parameters
     ----------
@@ -211,64 +212,83 @@ def fix_repeated_equiv(edge_list: List[Any],
     equivalences : list
         The updated equivalences.
     """
-    global new_val, target_val, source_val
     equivalences = np.unique(equivalences, axis=0).tolist()
+    if not equivalences:
+        return edge_list, repeated_equiv, equivalences
+
     equiv_np = np.array(equivalences)
-    sorted_eq = equiv_np[equiv_np[:, 0].argsort()] if len(equiv_np) != 0 else equiv_np
+    # Keep NumPy's tie ordering: it determines which equivalent vertex is split.
+    sorted_eq = equiv_np[equiv_np[:, 0].argsort()]
+    pairs = sorted_eq.tolist()
+    source_counts = Counter(pair[0] for pair in pairs)
+    target_counts = Counter(pair[1] for pair in pairs)
+    repeated_targets = [pair for pair in pairs if target_counts[pair[1]] > 1]
+    repeated_sources = [pair for pair in pairs if source_counts[pair[0]] > 1]
+    if not repeated_targets:
+        return edge_list, repeated_equiv, equivalences
 
-    repeated_eq_1 = [array.tolist() for i, array in enumerate(sorted_eq) if
-                     array[1] in np.concatenate((sorted_eq[:, 1][:i], sorted_eq[:, 1][i + 1:]), axis=0)]
-    repeated_eq_2 = [array.tolist() for i, array in enumerate(sorted_eq) if
-                     array[0] in np.concatenate((sorted_eq[:, 0][:i], sorted_eq[:, 0][i + 1:]), axis=0)]
+    repeated_indices = [i for i, pair in enumerate(pairs) if target_counts[pair[1]] > 1]
+    remaining = np.delete(sorted_eq, repeated_indices, axis=0)
+    repeated_mod = [equivalence(rep, remaining) for rep in repeated_equiv]
+    transformed_edges = equivalence([edge_list], remaining)[0]
 
-    inter = np.intersect1d(repeated_eq_1, repeated_eq_2).tolist()
-    idx = [sorted_eq.tolist().index(rem) for rem in repeated_eq_1]
-    remove = np.delete(sorted_eq, idx, axis=0)
+    def replace_vertex(source: int, target: int, replacement: int) -> None:
+        transform_array(
+            edge_list, transformed_edges, source, target, replacement, edge_pairs
+        )
+        for repeats, transformed_repeats in zip(repeated_equiv, repeated_mod):
+            for piece, transformed_piece in zip(repeats, transformed_repeats):
+                transform_array(
+                    piece, transformed_piece, source, target, replacement, edge_pairs
+                )
 
-    if repeated_eq_1:
-        repeated_mod = [equivalence(rep, remove) for rep in repeated_equiv]
-        trans_edges = equivalence([edge_list], remove)[0]
-        if not repeated_eq_2 or (repeated_eq_2[0][0] == repeated_eq_2[0][0] and not inter):
-            sort_repeated_eq_1 = np.array(repeated_eq_1)[np.array(repeated_eq_1)[:, 1].argsort()]
-            add = []
-            for i in range(len(sort_repeated_eq_1) // 2):
-                new_val = equiv_np[equiv_np[:, 1].argsort()][-1][1] + 1 + i
-                target_val, source_val = sort_repeated_eq_1[2 * i][1], sort_repeated_eq_1[2 * i][0]
-                add += [[source_val, new_val], sort_repeated_eq_1[2 * i + 1].tolist()]
-                edge_list = transform_array(edge_list, trans_edges, source_val, target_val, new_val, edge_pairs)
-                for k, rep in enumerate(repeated_mod):
-                    for j in range(len(rep)):
-                        repeated_equiv[k][j] = transform_array(repeated_equiv[k][j], repeated_mod[k][j], source_val,
-                                                               target_val, new_val, edge_pairs)
-            equivalences = remove.tolist() + add
-        else:
-            for item in repeated_eq_2:
-                if inter[0] == item[0] and inter[1] != item[1]:
-                    new_val, target_val, source_val = item[1], inter[1], item[0]
-            equivalences = remove.tolist() + np.delete(repeated_eq_1, repeated_eq_1.index(inter), axis=0).tolist()
-            edge_list = transform_array(edge_list, trans_edges, source_val, target_val, new_val, edge_pairs)
-            for k, rep in enumerate(repeated_mod):
-                for j in range(len(rep)):
-                    repeated_equiv[k][j] = transform_array(repeated_equiv[k][j], repeated_mod[k][j], source_val,
-                                                           target_val, new_val, edge_pairs)
+    shared_vertices = sorted(
+        {vertex for pair in repeated_targets for vertex in pair}
+        & {vertex for pair in repeated_sources for vertex in pair}
+    )
+    if not repeated_sources or not shared_vertices:
+        sorted_repeats = np.array(repeated_targets)
+        sorted_repeats = sorted_repeats[sorted_repeats[:, 1].argsort()]
+        largest_target = equiv_np[:, 1].max()
+        additional = []
+        for i in range(len(sorted_repeats) // 2):
+            source, target = sorted_repeats[2 * i]
+            replacement = largest_target + 1 + i
+            additional.extend(
+                [[source, replacement], sorted_repeats[2 * i + 1].tolist()]
+            )
+            replace_vertex(source, target, replacement)
+        equivalences = remaining.tolist() + additional
+    else:
+        source, replacement = next(
+            pair
+            for pair in reversed(repeated_sources)
+            if pair[0] == shared_vertices[0] and pair[1] != shared_vertices[1]
+        )
+        remove_index = repeated_targets.index(shared_vertices)
+        equivalences = (
+            remaining.tolist()
+            + repeated_targets[:remove_index]
+            + repeated_targets[remove_index + 1 :]
+        )
+        replace_vertex(source, shared_vertices[1], replacement)
 
-            sorted_eq = np.array(equivalences)[np.array(equivalences)[:, 0].argsort()]
-            repeated_eq_1 = [array.tolist() for i, array in enumerate(sorted_eq) if
-                             array[1] in np.concatenate((sorted_eq[:, 1][:i], sorted_eq[:, 1][i + 1:]), axis=0)]
-            if repeated_eq_1:
-                edge_list, repeated_equiv, equivalences = fix_repeated_equiv(edge_list, repeated_equiv, equivalences,
-                                                                             edge_pairs)
+        if any(
+            count > 1 for count in Counter(pair[1] for pair in equivalences).values()
+        ):
+            return fix_repeated_equiv(
+                edge_list, repeated_equiv, equivalences, edge_pairs
+            )
 
     return edge_list, repeated_equiv, equivalences
 
 
 def index_set(lists: List[List[Any]], list_in: List[Any]) -> Optional[int]:
     """
-    Find the index of the matching list within a list of lists.
+    Return the first matching list's 1-based index, or None.
 
-    This function converts the input list and each list within the list of lists to a set of tuples.
-    It then checks if any of these sets match the set of the input list and returns the index (1-based)
-    of the matching list.
+    Row order and duplicate rows are ignored; values within each row retain
+    their order.
 
     Parameters
     ----------
@@ -282,16 +302,16 @@ def index_set(lists: List[List[Any]], list_in: List[Any]) -> Optional[int]:
     int or None
         1-based index of the matching list, or None if no match is found.
     """
-    list_in_set = set(tuple(row) for row in list_in)
+    list_in_set = {tuple(row) for row in list_in}
     for i, i_list in enumerate(lists):
-        if set(tuple(row) for row in i_list) == list_in_set:
+        if {tuple(row) for row in i_list} == list_in_set:
             return i + 1
     return None
 
 
 def select_length(dict_array: Dict[str, Any]) -> Union[int, float]:
     """
-    Take a dictionary and return the entry for the 'len' key.
+    Return the dictionary's ``'len'`` entry for use as a sorting key.
 
     Parameters
     ----------
@@ -306,12 +326,11 @@ def select_length(dict_array: Dict[str, Any]) -> Union[int, float]:
     return dict_array["len"]
 
 
-def tables_to_mol(tables: Tuple[List[Tuple[int, str]], List[Tuple[int, int, int]]]) -> Chem.Mol:
+def tables_to_mol(
+    tables: Tuple[List[Tuple[int, str]], List[Tuple[int, int, int]]],
+) -> Chem.Mol:
     """
-    Convert atom and bond information into an RDKit molecule object.
-
-    This function takes a tuple containing atom and bond information, constructs an RDKit RWMol object,
-    adds atoms and bonds to it.
+    Build an RDKit molecule from atom and bond tables.
 
     Parameters
     ----------
@@ -326,25 +345,22 @@ def tables_to_mol(tables: Tuple[List[Tuple[int, str]], List[Tuple[int, int, int]
         An RDKit molecule object with the specified atoms and bonds.
     """
     atoms_info, bonds_info = tables
-    edit_mol = RWMol()
+    molecule = RWMol()
 
-    # Add atoms to the molecule
-    for v in atoms_info:
-        edit_mol.AddAtom(Chem.Atom(v[1]))
+    for atom in atoms_info:
+        molecule.AddAtom(Chem.Atom(atom[1]))
 
-    # Add bonds to the molecule
-    for e in bonds_info:
-        edit_mol.AddBond(e[0], e[1], bond_order_int_to_rdkit(e[2]))
+    for bond in bonds_info:
+        molecule.AddBond(bond[0], bond[1], bond_order_int_to_rdkit(bond[2]))
 
-    return edit_mol.GetMol()
+    return molecule.GetMol()
 
 
-def tables_to_nx(tables: Tuple[List[Tuple[int, str]], List[Tuple[int, int, int]]]) -> nx.Graph:
+def tables_to_nx(
+    tables: Tuple[List[Tuple[int, str]], List[Tuple[int, int, int]]],
+) -> nx.Graph:
     """
-    Convert atom and bond information into a NetworkX graph object.
-
-    This function takes a tuple containing atom and bond information, constructs a NetworkX graph object,
-    adds nodes and edges to it, and assigns attributes to them.
+    Build a canonical NetworkX graph from atom and bond tables.
 
     Parameters
     ----------
@@ -360,51 +376,29 @@ def tables_to_nx(tables: Tuple[List[Tuple[int, str]], List[Tuple[int, int, int]]
     """
     atoms_info, bonds_info = tables
     graph = nx.Graph()
-
-    # Add nodes with atom type attributes
-    for i, v in enumerate(atoms_info):
-        graph.add_node(i, color=v[1])
-
-    # Add edges with bond type attributes
-    for e in bonds_info:
-        graph.add_edge(e[0], e[1], color=int(e[2]))
-
+    graph.add_nodes_from((i, {"color": atom[1]}) for i, atom in enumerate(atoms_info))
+    graph.add_edges_from(
+        (bond[0], bond[1], {"color": int(bond[2])}) for bond in bonds_info
+    )
     return canonicalize_node_labels(graph)
 
 
-def _tables_to_vo(tables: Tuple[List[Tuple[int, str]], List[Tuple[int, int, int]]],
-                  vo_type: str) -> Any:
-    """
-    Render one (atoms, bonds) table pair as the requested virtual object type.
-
-    Parameters
-    ----------
-    tables : tuple
-        A tuple of ``(atoms_info, bonds_info)`` as accepted by
-        :func:`tables_to_nx` and :func:`tables_to_mol`.
-    vo_type : {'graph', 'mol', 'smiles', 'inchi'}
-        The representation to build.
-
-    Returns
-    -------
-    nx.Graph, Chem.Mol or str
-        A NetworkX graph, an RDKit molecule, or a SMILES/InChI string.
-
-    Raises
-    ------
-    ValueError
-        If *vo_type* is not one of 'graph', 'mol', 'smiles', or 'inchi'.
-    """
+def _tables_to_vo(
+    tables: Tuple[List[Tuple[int, str]], List[Tuple[int, int, int]]], vo_type: str
+) -> Any:
+    """Render atom and bond tables as a graph, molecule, SMILES or InChI."""
     if vo_type == "graph":
         return tables_to_nx(tables)
+    if vo_type not in _VO_TYPES:
+        raise ValueError(_VO_TYPE_ERROR)
+
+    molecule = tables_to_mol(tables)
     if vo_type == "mol":
-        return tables_to_mol(tables)
+        return molecule
     if vo_type == "smiles":
-        smiles = Chem.MolToSmiles(tables_to_mol(tables), allHsExplicit=True, isomericSmiles=True)
+        smiles = Chem.MolToSmiles(molecule, allHsExplicit=True, isomericSmiles=True)
         return smi_remove_implicit_hydrogen(smiles)
-    if vo_type == "inchi":
-        return Chem.MolToInchi(tables_to_mol(tables))
-    raise ValueError(_VO_TYPE_ERROR)
+    return Chem.MolToInchi(molecule)
 
 
 class AssemblyConstruction:
@@ -468,537 +462,411 @@ class AssemblyConstruction:
         :meth:`generate_vo`.
     """
 
-    def __init__(self,
-                 data: Dict[str, Any],
-                 if_string: bool = False,
-                 vo_type: str = "graph",
-                 input_graph: Optional[nx.Graph] = None) -> None:
-        """
-        Initialise the construction from calculator pathway data.
-
-        Unpacks the vertices, edges and colours of the target graph,
-        resolves the remnant edges, duplicates and equivalences, and builds
-        the atom records used throughout pathway construction.
+    def __init__(
+        self,
+        data: Dict[str, Any],
+        if_string: bool = False,
+        vo_type: str = "graph",
+        input_graph: Optional[nx.Graph] = None,
+    ) -> None:
+        """Initialise the target graph, repeated fragments and bond records.
 
         Parameters
         ----------
         data : dict
-            The pathway data from assemblycpp, containing graph information,
-            remnants, duplicates and other assembly metadata.
+            Pathway data from AssemblyCpp, including graph information,
+            remnants and duplicates.
         if_string : bool, optional
             Whether to sort combined pieces during construction. Default is
             False.
         vo_type : str, optional
-            Type of virtual object representation to use ("graph", "mol",
-            "smiles" or "inchi"). Default is ``"graph"``.
+            Virtual object representation: "graph", "mol", "smiles" or
+            "inchi". Default is "graph".
         input_graph : nx.Graph, optional
-            The original target graph, used to recover edge colours when
-            AssemblyCpp fails to print them beyond index 5. Default is None.
+            Original target graph, used to recover edge colours omitted by
+            AssemblyCpp beyond index 5. Default is None.
         """
-        self.v = data["file_graph"][0]['Vertices']
-        self.e = data["file_graph"][0]['Edges']
-        self.v_l = data["file_graph"][0]['VertexColours']
-        if input_graph is None:
-            self.e_l = data["file_graph"][0]['EdgeColours']
-        else:
-            # AssemblyCpp fails to print edge colors beyond index 5 to the pathway json, so read
-            # them from the original input graph instead.
-            # CAUTION: this assumes assemblycpp does not permute vertex labels.
-            self.e_l = [input_graph[u][v]['color'] for u, v in self.e]
+        graph_data = data["file_graph"][0]
+        self.v = graph_data["Vertices"]
+        self.e = graph_data["Edges"]
+        self.v_l = graph_data["VertexColours"]
+        # Recover omitted colours from the input, assuming AssemblyCpp has
+        # preserved its vertex labels.
+        self.e_l = (
+            graph_data["EdgeColours"]
+            if input_graph is None
+            else [input_graph[u][v]["color"] for u, v in self.e]
+        )
         self.remnant_e = data["remnant"][0]["Edges"] + data["removed_edges"]
-        self.duplicates = [[dup["Right"], dup['Left']] for dup in data["duplicates"]]
+        self.duplicates = [[dup["Right"], dup["Left"]] for dup in data["duplicates"]]
         self.equivalences = [[1, 1]]
-
         self.remnant_e, self.duplicates, self.equivalences = fix_repeated_equiv(
             self.remnant_e, self.duplicates, self.equivalences, self.e
         )
         self.if_string = if_string
         self.vo_type = vo_type
 
-        # Construct the atoms list
         self.atoms = []
         self.full_atoms_list = []
         self.atoms_list = []
         self.atoms_list_index = []
-
-        for i, bond in enumerate(self.e):
-            atom_list = [[self.v_l[bond[0]], self.v_l[bond[1]]], self.e_l[i]]
-            atom_list_index = [bond[0], bond[1]]
-            atom_set = [{self.v_l[bond[0]], self.v_l[bond[1]]}, self.e_l[i]]
-            if atom_set not in self.atoms:
-                self.atoms.append(atom_set)
-                self.atoms_list.append(atom_list)
-                self.atoms_list_index.append(atom_list_index)
-            self.full_atoms_list.append(atom_list)
+        for i, (u, v) in enumerate(self.e):
+            atom_types = [self.v_l[u], self.v_l[v]]
+            atom = [atom_types, self.e_l[i]]
+            bond_type = [set(atom_types), self.e_l[i]]
+            if bond_type not in self.atoms:
+                self.atoms.append(bond_type)
+                self.atoms_list.append(atom)
+                self.atoms_list_index.append([u, v])
+            self.full_atoms_list.append(atom)
 
     def _virtual_object_index(self, edge: List[int]) -> int:
-        """
-        Look up the virtual object index of a single edge.
+        """Return the index of the bond type represented by *edge*."""
+        atom_types = {self.v_l[edge[0]], self.v_l[edge[1]]}
+        bond_order = self.e_l[self.e.index(edge)]
+        return self.atoms.index([atom_types, bond_order])
 
-        Parameters
-        ----------
-        edge : list
-            A two-element edge ``[u, v]`` from the target graph.
-
-        Returns
-        -------
-        int
-            Index of the matching entry in ``self.atoms``.
-        """
-        return self.atoms.index([{self.v_l[edge[0]], self.v_l[edge[1]]}, self.e_l[self.e.index(edge)]])
-
-    def consistent_join(self,
-                        pieces_mod: List[List[Any]],
-                        steps_mod: List[List[Any]],
-                        repeated_mo1_cp: List[Any],
-                        step: int,
-                        digraph: List[List[str]],
-                        indexes: List[int]) -> Tuple[List[List[Any]], List[List[Any]], int, List[List[str]]]:
-        """
-        Attempt to merge overlapping pathway fragments into a consistent transformation step.
-
-        This method scans the current list of disjoint molecular fragments (`pieces_mod`)
-        and looks for overlapping components (shared atoms or edges). When such overlaps
-        are detected, the method merges the fragments, appends the result as a new step,
-        and updates the digraph to reflect the transformation lineage.
+    def consistent_join(
+        self,
+        pieces_mod: List[List[Any]],
+        steps_mod: List[List[Any]],
+        repeated_mo1_cp: List[Any],
+        step: int,
+        digraph: List[List[str]],
+        indexes: List[int],
+    ) -> Tuple[List[List[Any]], List[List[Any]], int, List[List[str]]]:
+        """Join the first pair of fragments sharing a vertex and record its sources.
 
         Parameters
         ----------
         pieces_mod : list
-            Current disjoint graph fragments to be scanned for merging.
+            Current graph fragments, updated in place when a pair is joined.
         steps_mod : list
-            List of previously constructed transformation steps.
+            Constructed steps, extended in place with the joined fragment.
         repeated_mo1_cp : list
-            Copy of repeated motifs used to resolve digraph parentage.
+            Repeated motif pairs used to resolve each fragment's source.
         step : int
-            Current index in the step construction sequence.
+            Current step count.
         digraph : list
-            Directed graph tracking transformation steps and dependencies.
+            Dependency edges, extended in place for the new step.
         indexes : list
             Step indices associated with repeated motifs.
 
         Returns
         -------
-        pieces_mod : list
-            Updated fragment list after possible merging.
-        steps_mod : list
-            Updated list of transformation steps.
-        step : int
-            Updated step count.
-        digraph : list
-            Updated digraph with new transformation links.
+        tuple
+            ``(pieces_mod, steps_mod, step, digraph)`` after the first join,
+            or unchanged if no fragments share a vertex.
         """
-        left_sort = [rep[0] for rep in repeated_mo1_cp]
-        right_sort = [rep[1] for rep in repeated_mo1_cp]
+        left_motifs = [repeat[0] for repeat in repeated_mo1_cp]
+        right_motifs = [repeat[1] for repeat in repeated_mo1_cp]
 
-        def add_digraph_entry(piece: List[Any], step: int) -> None:
-            """
-            Append a dependency edge to the digraph.
+        def source_name(piece: List[Any]) -> str:
+            """Resolve a fragment to a virtual object or an earlier step."""
+            if len(piece) <= 1:
+                return f"virtual_object_{self._virtual_object_index(piece[0])}"
+            if piece in left_motifs:
+                return f"step_{indexes[left_motifs.index(piece)]}"
+            if piece in right_motifs:
+                return f"step_{indexes[right_motifs.index(piece)]}"
+            if piece in steps_mod:
+                return f"step_{steps_mod.index(piece) + 1}"
+            return "step__error"
 
-            The edge records that the current step depends on a prior step
-            or virtual object (``piece``).
-
-            This helper function attempts to identify the origin of `piece`
-            by checking:
-                - If it's a known left-side repeated motif (`left_sort`)
-                - If it's a right-side repeated motif (`right_sort`)
-                - If it's already part of a previously constructed step (`steps_mod`)
-
-            If no match is found, an "_error" label is used as a fallback
-            source in the digraph.
-
-            Parameters
-            ----------
-            piece : list
-                A graph fragment or reaction step being traced as a source
-                node.
-            step : int
-                The current step index being constructed as the target node.
-
-            Returns
-            -------
-            None
-                Modifies the `digraph` list in-place by appending a [source,
-                target] entry.
-            """
-            if piece in left_sort:
-                source = f"step_{indexes[left_sort.index(piece)]}"
-            elif piece in right_sort:
-                source = f"step_{indexes[right_sort.index(piece)]}"
-            elif piece in steps_mod:
-                source = f"step_{steps_mod.index(piece) + 1}"
-            else:
-                source = "step__error"
-            digraph.append([source, f"step_{step}"])
-
-        def add_source(piece: List[Any], step: int) -> None:
-            """
-            Record *piece* as a parent of *step*, as either a step or a virtual object.
-
-            Fragments holding more than one edge are traced back through
-            ``add_digraph_entry``; single-edge fragments are virtual objects.
-
-            Parameters
-            ----------
-            piece : list
-                The fragment being recorded as a source.
-            step : int
-                The current step index being constructed as the target node.
-
-            Returns
-            -------
-            None
-                Modifies the `digraph` list in-place.
-            """
-            if len(piece) > 1:
-                add_digraph_entry(piece, step)
-            else:
-                digraph.append([f"virtual_object_{self._virtual_object_index(piece[0])}", f"step_{step}"])
-
-        for pic in pieces_mod:
-            for pic_i in pieces_mod:
-                if pic == pic_i:
+        for left in pieces_mod:
+            vertices = {vertex for edge in left for vertex in edge}
+            for right in pieces_mod:
+                if left == right or not any(
+                    vertex in vertices for edge in right for vertex in edge
+                ):
                     continue
 
-                if any(ed in np.reshape(pic, -1) for ed in np.reshape(pic_i, -1)):
-                    step += 1
-                    combined = np.sort(pic + pic_i, axis=0).tolist() if self.if_string else pic + pic_i
-                    steps_mod.append(combined)
+                step += 1
+                combined = (
+                    np.sort(left + right, axis=0).tolist()
+                    if self.if_string
+                    else left + right
+                )
+                steps_mod.append(combined)
+                for piece in (left, right):
+                    digraph.append([source_name(piece), f"step_{step}"])
 
-                    add_source(pic, step)
-                    add_source(pic_i, step)
-
-                    pieces_mod.remove(pic)
-                    pieces_mod.remove(pic_i)
-                    pieces_mod.insert(0, combined)
-                    return pieces_mod, steps_mod, step, digraph
+                pieces_mod.remove(left)
+                pieces_mod.remove(right)
+                pieces_mod.insert(0, combined)
+                return pieces_mod, steps_mod, step, digraph
 
         return pieces_mod, steps_mod, step, digraph
 
-    def repeated_construction(self,
-                              pieces_mod: List[List[Any]],
-                              steps_mod: List[List[Any]],
-                              sorted_repeated_mod1: List[Any],
-                              step: int,
-                              digraph: List[List[str]]) -> Tuple[
-        List[List[Any]], List[List[Any]], List[Any], int, List[List[str]], List[int]]:
-        """
-        Construct the initial pathway by integrating repeated molecular fragments.
-
-        This method iterates over repeated motifs (subgraphs) and attempts to either:
-            - Append them directly to the current set of pathway pieces if no conflicts exist,
-            - Or integrate them by merging overlapping pieces through consistent joining logic.
-
-        The method also tracks which fragments have been added and associates them with
-        their corresponding indices for downstream pathway construction.
+    def repeated_construction(
+        self,
+        pieces_mod: List[List[Any]],
+        steps_mod: List[List[Any]],
+        sorted_repeated_mod1: List[Any],
+        step: int,
+        digraph: List[List[str]],
+    ) -> Tuple[
+        List[List[Any]], List[List[Any]], List[Any], int, List[List[str]], List[int]
+    ]:
+        """Build repeated fragments in size order and record their step indices.
 
         Parameters
         ----------
         pieces_mod : list
-            Current list of disjoint pathway fragments (edge groups).
+            Current pathway fragments, updated in place.
         steps_mod : list
-            List of transformation steps constructed so far.
+            Constructed steps, extended in place as fragments are joined.
         sorted_repeated_mod1 : list
-            List of repeated motifs sorted by subgraph size.
+            Repeated motif pairs sorted by size, consumed in place.
         step : int
-            Current step index in the construction process.
+            Current step count.
         digraph : list
-            Current digraph representing the reaction assembly.
+            Dependency edges, extended in place as fragments are joined.
 
         Returns
         -------
-        pieces_mod : list
-            Updated list of pathway fragments after integration.
-        steps_mod : list
-            Updated list of pathway steps.
-        sorted_repeated_mod1_cp : list
-            Deep copy of the original motif list for reference.
-        step : int
-            Updated step counter.
-        digraph : list
-            Updated digraph structure.
-        indexes : list
-            Index mapping of added fragments to step references.
+        tuple
+            Updated fragments, steps, a deep copy of the original motif list,
+            step count, dependency edges and motif step indices.
         """
-        step_ind = [1] * len(sorted_repeated_mod1)
+        pending = [True] * len(sorted_repeated_mod1)
         indexes = [0] * len(sorted_repeated_mod1)
-        sorted_repeated_mod1_cp = copy.deepcopy(sorted_repeated_mod1)
-        left_sort = [rep[0] for rep in sorted_repeated_mod1_cp]
+        repeats = copy.deepcopy(sorted_repeated_mod1)
+        left_motifs = [repeat[0] for repeat in repeats]
 
         while sorted_repeated_mod1:
-            for j, repeat in enumerate(sorted_repeated_mod1_cp):
-                if not step_ind[j] or repeated_sizes(sorted_repeated_mod1)[0] != len(repeat[0]):
+            for j, (left, right) in enumerate(repeats):
+                if not pending[j] or min(
+                    len(repeat[1]) for repeat in sorted_repeated_mod1
+                ) != len(left):
                     continue
-                if check_edge_in_list(repeat[1], pieces_mod) or check_edge_in_list(repeat[1], steps_mod):
-                    pieces_mod.append(repeat[0])
-                    sorted_repeated_mod1.remove(repeat)
-                    step_ind[j] = 0
-                    indexes[j] = index_set(steps_mod, repeat[1]) or indexes[index_set(left_sort, repeat[1]) - 1]
+                if check_edge_in_list(right, pieces_mod) or check_edge_in_list(
+                    right, steps_mod
+                ):
+                    indexes[j] = (
+                        index_set(steps_mod, right)
+                        or indexes[index_set(left_motifs, right) - 1]
+                    )
                 else:
-                    indices = [i for i, piece in enumerate(pieces_mod) if any(rep in piece for rep in repeat[1])]
-
+                    indices = [
+                        i
+                        for i, piece in enumerate(pieces_mod)
+                        if any(edge in piece for edge in right)
+                    ]
                     if not indices:
                         continue
 
                     combined_pieces = [pieces_mod[i] for i in indices]
-                    for idx in sorted(indices, reverse=True):
-                        pieces_mod.pop(idx)
-
+                    for index in reversed(indices):
+                        pieces_mod.pop(index)
                     while len(combined_pieces) > 1:
-                        combined_pieces, steps_mod, step, digraph = self.consistent_join(
-                            combined_pieces, steps_mod, sorted_repeated_mod1_cp, step, digraph, indexes
+                        combined_pieces, steps_mod, step, digraph = (
+                            self.consistent_join(
+                                combined_pieces,
+                                steps_mod,
+                                repeats,
+                                step,
+                                digraph,
+                                indexes,
+                            )
                         )
-
                     pieces_mod.append(combined_pieces[0])
-                    pieces_mod.append(repeat[0])
-                    step_ind[j] = 0
-                    indexes[j] = index_set(steps_mod, repeat[1])
-                    sorted_repeated_mod1.remove(repeat)
+                    indexes[j] = index_set(steps_mod, right)
 
-        return pieces_mod, steps_mod, sorted_repeated_mod1_cp, step, digraph, indexes
+                pieces_mod.append(left)
+                sorted_repeated_mod1.remove(repeats[j])
+                pending[j] = False
+
+        return pieces_mod, steps_mod, repeats, step, digraph, indexes
 
     def generate_pathway(self) -> None:
-        """
-        Construct the reaction pathway by combining initial fragments and resolving overlaps.
+        """Construct the pathway from remnant edges and repeated fragments.
 
-        This method builds the overall pathway graph by:
-
-        - Initializing edges as disjoint fragments (``pieces``).
-        - Applying equivalence mappings to handle duplicate structures.
-        - Sorting and incorporating repeated motifs using a construction
-          algorithm.
-        - Iteratively merging consistent fragments until convergence.
-
-        Intermediate steps and the resulting pathway are stored as attributes
-        on the instance for downstream use, such as visualization, logging or
-        graph generation.
+        Equivalences are applied before repeated motifs are built in size
+        order. Remaining fragments are then joined until no pair overlaps.
 
         Returns
         -------
         None
-            The results are stored on the instance: ``self.steps`` holds the
-            sequence of transformation steps forming the pathway,
-            ``self.digraph`` the final digraph structure representing stepwise
-            assembly, and ``self.pieces_mod`` the remaining or modified
-            substructures after construction.
+            Stores the constructed steps in ``self.steps``, dependency edges
+            in ``self.digraph`` and remaining fragments in ``self.pieces_mod``.
         """
-        step = 0
-        digraph = []
-        steps = []
         pieces = [[edge] for edge in self.remnant_e]
+        duplicates = self.duplicates
+        if self.equivalences:
+            pieces = equivalence(pieces, self.equivalences)
+            duplicates = [
+                equivalence(repeat, self.equivalences) for repeat in duplicates
+            ]
+        duplicates = sorted(duplicates, key=lambda repeat: len(repeat[0]))
 
-        duplicates_mod = [equivalence(rep, self.equivalences) for rep in
-                          self.duplicates] if self.equivalences else self.duplicates
-        pieces_mod = equivalence(pieces, self.equivalences) if self.equivalences else pieces
-
-        sizes = sorted([{"index": i, "len": len(repeat[0])} for i, repeat in enumerate(duplicates_mod)],
-                       key=select_length)
-        sorted_repeated_mod1 = [duplicates_mod[size["index"]] for size in sizes]
-
-        pieces_mod, steps_mod, sorted_repeated_mod1_cp, step, digraph, indexes = self.repeated_construction(
-            pieces_mod, steps, sorted_repeated_mod1, step, digraph
+        pieces, steps, repeats, step, digraph, indexes = self.repeated_construction(
+            pieces, [], duplicates, 0, []
         )
-
         while True:
-            pieces_mod_cp = copy.deepcopy(pieces_mod)
-            pieces_mod, steps_mod, step, digraph = self.consistent_join(
-                pieces_mod, steps_mod, sorted_repeated_mod1_cp, step, digraph, indexes
+            piece_count = len(pieces)
+            pieces, steps, step, digraph = self.consistent_join(
+                pieces, steps, repeats, step, digraph, indexes
             )
-            if len(pieces_mod) == len(pieces_mod_cp):
+            if len(pieces) == piece_count:
                 break
 
-        self.steps = steps_mod
+        self.steps = steps
         self.digraph = digraph
-        self.pieces_mod = pieces_mod
+        self.pieces_mod = pieces
 
     def generate_vo(self) -> None:
-        """
-        Generate virtual objects (VOs) and transformation steps based on the specified VO type.
-
-        This method processes the list of atoms and steps from a pathway to
-        create their corresponding molecular representations in one of several
-        formats: NetworkX graph, RDKit molecule, SMILES, or InChI. The generated
-        data is stored as attributes on the class instance for further use in
-        graph construction or analysis.
+        """Render the pathway's bond types and steps as virtual objects.
 
         Returns
         -------
         None
-            All generated data is stored on the instance:
-            ``self.molecules_vo`` holds the individual molecule representations
-            per atom, ``self.molecules_steps`` the molecule representations per
-            transformation step, ``self.steps_indx_s`` the indexed and encoded
-            transformation step data, and ``self.vs_atoms`` the vertex (atom)
-            labels for each step.
+            Stores bond-type objects in ``self.molecules_vo``, step objects
+            in ``self.molecules_steps``, locally indexed step bonds in
+            ``self.steps_indx_s`` and their atom labels in ``self.vs_atoms``.
 
         Raises
         ------
         ValueError
-            If `self.vo_type` is not one of 'graph', 'mol', 'smiles', or 'inchi'.
+            If ``self.vo_type`` is not "graph", "mol", "smiles" or "inchi".
 
         Notes
         -----
-        Steps are rendered as SMILES when ``vo_type`` is ``"mol"``, whereas the
-        per-atom virtual objects are kept as RDKit molecules.
+        For ``vo_type="mol"``, bond-type objects are RDKit molecules but
+        steps are rendered as SMILES, preserving the existing representation.
         """
-        # Generate the virtual objects
         molecules_vo = [
-            _tables_to_vo(([(0, atom[0][0]), (1, atom[0][1])],
-                           [(0, 1, bond_order_assout_to_int(atom[1]))]), self.vo_type)
-            for atom in self.atoms_list
+            _tables_to_vo(
+                (
+                    list(enumerate(atom_types)),
+                    [(0, 1, bond_order_assout_to_int(order))],
+                ),
+                self.vo_type,
+            )
+            for atom_types, order in self.atoms_list
         ]
 
-        # Generate the steps
         steps_index_s = []
         vs_atoms = []
         for step in self.steps:
-            indices = list(set(np.reshape(step, -1)))
+            vertices = list(set(np.reshape(step, -1)))
+            local_index = {vertex: i for i, vertex in enumerate(vertices)}
             steps_index_s.append(
-                [[indices.index(edge[0]), indices.index(edge[1]), self.e_l[self.e.index(edge)]] for edge in step])
-            vs_atoms.append([self.v_l[at] for at in indices])
+                [
+                    [
+                        local_index[edge[0]],
+                        local_index[edge[1]],
+                        self.e_l[self.e.index(edge)],
+                    ]
+                    for edge in step
+                ]
+            )
+            vs_atoms.append([self.v_l[vertex] for vertex in vertices])
 
-        # Generate the molecules for each step. Note "mol" steps are rendered as
-        # SMILES, unlike the per-atom virtual objects above.
         step_vo_type = "smiles" if self.vo_type == "mol" else self.vo_type
         molecules_steps = [
-            _tables_to_vo(([(i, at) for at in vs_atoms[i]],
-                           [(edge[0], edge[1], bond_order_assout_to_int(edge[2])) for edge in step]), step_vo_type)
-            for i, step in enumerate(steps_index_s)
+            _tables_to_vo(
+                (
+                    list(enumerate(atoms)),
+                    [(u, v, bond_order_assout_to_int(order)) for u, v, order in bonds],
+                ),
+                step_vo_type,
+            )
+            for atoms, bonds in zip(vs_atoms, steps_index_s)
         ]
-
         self.molecules_vo = molecules_vo
         self.molecules_steps = molecules_steps
         self.steps_indx_s = steps_index_s
         self.vs_atoms = vs_atoms
 
     def _add_pathway_node(self, graph: nx.DiGraph, name: str) -> None:
-        """
-        Add a virtual object or step node to *graph* with its molecule payload.
-
-        Nodes whose index falls outside the generated molecule lists are skipped,
-        leaving them to be created attribute-free by ``add_edges_from``.
-
-        Parameters
-        ----------
-        graph : nx.DiGraph
-            The graph being built.
-        name : str
-            Node name, of the form ``virtual_object_<i>`` or ``step_<i>``.
-
-        Returns
-        -------
-        None
-        """
+        """Add a named node when its index has a generated molecule payload."""
+        suffix = name.rsplit("_", 1)[-1]
         if name.startswith("virtual_object_"):
-            vo_index = int(name.split("_")[-1])
-            if vo_index < len(self.molecules_vo):
-                graph.add_node(name, type="virtual_object", vo=self.molecules_vo[vo_index])
-        elif name.startswith("step_"):
-            if name.split("_")[-1].isdigit():
-                step_index = int(name.split("_")[-1]) - 1
-                if 0 <= step_index < len(self.molecules_steps):
-                    graph.add_node(name, type="step", vo=self.molecules_steps[step_index])
+            index = int(suffix)
+            if index < len(self.molecules_vo):
+                graph.add_node(name, type="virtual_object", vo=self.molecules_vo[index])
+        elif name.startswith("step_") and suffix.isdigit():
+            index = int(suffix) - 1
+            if 0 <= index < len(self.molecules_steps):
+                graph.add_node(name, type="step", vo=self.molecules_steps[index])
 
     def get_assembly_digraph(self) -> Tuple[nx.DiGraph, List[Any]]:
-        """
-        Create a directed graph representation of the assembly pathway.
+        """Construct the assembly digraph and its unique virtual objects.
 
-        Each node is connected according to self.digraph and contains attributes:
-        - type: 'virtual_object' or 'step'
-        - vo: The corresponding molecule representation from molecules_vo or molecules_steps
-        - label: String representation for visualization
+        Each node carries a ``type`` ("virtual_object" or "step"), a ``vo``
+        molecule payload and a ``label`` for plotting.
 
         Returns
         -------
         graph : nx.DiGraph
-            A directed graph representing the assembly pathway.
+            Directed assembly pathway.
         unique_molecules : list
-            List of unique virtual objects from the pathway.
+            Unique virtual objects from both bond types and steps.
 
         Raises
         ------
         ValueError
-            If `self.vo_type` is not one of 'graph', 'mol', 'smiles', or 'inchi'.
+            If ``self.vo_type`` is not "graph", "mol", "smiles" or "inchi".
         """
         self.generate_pathway()
         self.generate_vo()
 
         graph = nx.DiGraph()
-
-        # Add all nodes with their corresponding molecule information
         for source, target in self.digraph:
             self._add_pathway_node(graph, source)
             self._add_pathway_node(graph, target)
-
-        # Add all edges from digraph
         graph.add_edges_from(self.digraph)
 
-        # Add the label attribute to the nodes
         for name, data in graph.nodes(data=True):
             if self.vo_type == "graph":
-                graph.nodes[name]["label"] = name
+                data["label"] = name
             elif self.vo_type == "mol":
-                smiles = Chem.MolToSmiles(data["vo"], allHsExplicit=True, isomericSmiles=True)
-                graph.nodes[name]["label"] = smi_remove_implicit_hydrogen(smiles)
+                smiles = Chem.MolToSmiles(
+                    data["vo"], allHsExplicit=True, isomericSmiles=True
+                )
+                data["label"] = smi_remove_implicit_hydrogen(smiles)
             elif self.vo_type in ("smiles", "inchi"):
-                graph.nodes[name]["label"] = data["vo"]
+                data["label"] = data["vo"]
             else:
                 raise ValueError(_VO_TYPE_ERROR)
 
-        # Combine molecules_vo and molecules_steps into a single list and find the set of unique elements
-        unique_molecules = set(self.molecules_vo + self.molecules_steps)
-
-        return graph, list(unique_molecules)
+        return graph, list(set(self.molecules_vo + self.molecules_steps))
 
     def pathway_log_string(self) -> str:
-        """
-        Generate a formatted string summarizing the pathway construction.
-
-        This method builds a multi-section string that summarizes the graph
-        structure, atoms involved, transformation steps, and the digraph
-        representation associated with the pathway.
-
-        Sections included:
-            - Graph metadata (`self.v`, `self.e`, `self.v_l`, `self.e_l`)
-            - List of atoms (`self.atoms_list`)
-            - Step descriptions (`self.steps`)
-            - Digraph structure (`self.digraph`)
+        """Return graph metadata, bond types, steps and dependencies as a log.
 
         Returns
         -------
         str
-            A multi-line formatted string representing the internal state
-            of the pathway and its graph structure.
+            The pathway's internal state, grouped under Graph, Atoms, Steps
+            and Digraph headings and terminated by a newline.
         """
-        pathway_file = ["#####Graph#####\n",
-                        str(self.v) + "\n",
-                        str(self.e) + "\n",
-                        str(self.v_l) + "\n",
-                        str(self.e_l) + "\n",
-                        "#####Atoms#####\n"]
-        for index, a in enumerate(self.atoms_list):
-            pathway_file.append(f"atom{index}={a}\n")
-        pathway_file.append("#####Steps#####\n")
-        for index, ste in enumerate(self.steps):
-            pathway_file.append(f"step{index + 1}={ste}\n")
-        pathway_file.append("#####Digraph#####\n")
-        for i in self.digraph:
-            pathway_file.append(str(i) + "\n")
-        return "".join(pathway_file)
+        lines = [
+            "#####Graph#####",
+            str(self.v),
+            str(self.e),
+            str(self.v_l),
+            str(self.e_l),
+            "#####Atoms#####",
+        ]
+        lines.extend(f"atom{i}={atom}" for i, atom in enumerate(self.atoms_list))
+        lines.append("#####Steps#####")
+        lines.extend(f"step{i}={step}" for i, step in enumerate(self.steps, start=1))
+        lines.append("#####Digraph#####")
+        lines.extend(str(edge) for edge in self.digraph)
+        return "\n".join(lines) + "\n"
 
 
-def parse_pathway_file(file: str,
-                       vo_type: str = "smiles",
-                       debug: bool = False,
-                       log: bool = False,
-                       input_graph: Optional[nx.Graph] = None) -> Union[
-    Tuple[nx.DiGraph, List[Any]], Tuple[nx.DiGraph, List[Any], str]]:
+def parse_pathway_file(
+    file: str,
+    vo_type: str = "smiles",
+    debug: bool = False,
+    log: bool = False,
+    input_graph: Optional[nx.Graph] = None,
+) -> Union[Tuple[nx.DiGraph, List[Any]], Tuple[nx.DiGraph, List[Any], str]]:
     """
     Parse a pathway JSON file and construct an assembly graph.
-
-    This function loads a pathway JSON file, constructs the corresponding
-    assembly directed graph using the specified virtual object (VO) type,
-    and optionally prints debug information or returns a pathway log.
 
     Parameters
     ----------
@@ -1042,20 +910,20 @@ def parse_pathway_file(file: str,
     ``vo_type="graph"`` to get the virtual objects as graphs rather than
     SMILES.
     """
-    # Load the pathway file
     with open(file) as f:
         data = json.load(f)
 
-    # Make the construction object
-    construction_object = AssemblyConstruction(data, vo_type=vo_type, input_graph=input_graph)
-    graph, vo_list = construction_object.get_assembly_digraph()
+    construction = AssemblyConstruction(data, vo_type=vo_type, input_graph=input_graph)
+    graph, vo_list = construction.get_assembly_digraph()
 
     if debug:
-        # Loop over the nodes and print the type and smiles
-        for node in graph.nodes(data=True):
-            print(f"Node: {node[0]}, Type: {node[1]['type']}, VO: {node[1]['vo']}", flush=True)
+        for node, attributes in graph.nodes(data=True):
+            print(
+                f"Node: {node}, Type: {attributes['type']}, VO: {attributes['vo']}",
+                flush=True,
+            )
     if log:
-        return graph, vo_list, construction_object.pathway_log_string()
+        return graph, vo_list, construction.pathway_log_string()
     return graph, vo_list
 
 
@@ -1067,26 +935,7 @@ _DOT_PARSE_ERROR = "Could not parse the assembly pathway as DOT."
 
 
 def _read_single_digraph(dot: str) -> "pydot.Dot":
-    """
-    Parse *dot* and return the single directed graph it describes.
-
-    Parameters
-    ----------
-    dot : str
-        A DOT-formatted graph, as emitted by the Rust ``assembly_theory``
-        backend.
-
-    Returns
-    -------
-    pydot.Dot
-        The parsed graph.
-
-    Raises
-    ------
-    ValueError
-        If the string is not valid DOT, describes more than one graph, or
-        describes an undirected graph.
-    """
+    """Parse exactly one directed DOT graph, raising ValueError otherwise."""
     # pydot reports syntax errors by printing them rather than raising, so
     # capture that text and fold it into the exception message instead.
     report = io.StringIO()
@@ -1098,115 +947,54 @@ def _read_single_digraph(dot: str) -> "pydot.Dot":
         raise ValueError(f"{_DOT_PARSE_ERROR} {detail}" if detail else _DOT_PARSE_ERROR)
     if len(graphs) != 1:
         raise ValueError(f"Expected a single DOT graph, found {len(graphs)}.")
-    if graphs[0].get_type() != "digraph":
-        raise ValueError("An assembly pathway must be a DOT 'digraph', "
-                         f"found '{graphs[0].get_type()}'.")
-    return graphs[0]
+    graph = graphs[0]
+    if graph.get_type() != "digraph":
+        raise ValueError(
+            f"An assembly pathway must be a DOT 'digraph', found '{graph.get_type()}'."
+        )
+    return graph
 
 
 def _dot_node_id(name: str) -> int:
-    """
-    Convert a DOT node name to the integer node identifier ATT uses.
-
-    Parameters
-    ----------
-    name : str
-        The node name read from the DOT string, possibly quoted.
-
-    Returns
-    -------
-    int
-        The node identifier.
-
-    Raises
-    ------
-    ValueError
-        If the name is not an integer.
-    """
+    """Convert a possibly quoted DOT node name to an integer identifier."""
     text = str(name).strip().strip('"')
     try:
         return int(text)
     except ValueError as e:
-        raise ValueError("Assembly pathway node names must be integers, "
-                         f"found {name!r}.") from e
+        raise ValueError(
+            f"Assembly pathway node names must be integers, found {name!r}."
+        ) from e
 
 
 def _parse_bond_set(label: Optional[str], where: str) -> frozenset:
-    """
-    Parse a DOT bond-set label into a frozen set of bond indices.
-
-    Parameters
-    ----------
-    label : str or None
-        The ``label`` attribute of a DOT node or edge, e.g. ``'"{3, 4, 5}"'``.
-    where : str
-        A description of the node or edge, used in error messages.
-
-    Returns
-    -------
-    frozenset of int
-        The bond indices named by the label.
-
-    Raises
-    ------
-    ValueError
-        If the label is missing or is not a set of integers.
-    """
+    """Parse a DOT bond-set label, identifying invalid nodes or edges by *where*."""
     if label is None:
         raise ValueError(f"Assembly pathway {where} has no 'label' attribute.")
 
     # pydot keeps the surrounding quotes on attribute values
     match = _BOND_SET_PATTERN.match(str(label).strip().strip('"').strip())
     if match is None:
-        raise ValueError(f"Assembly pathway {where} has a malformed bond set "
-                         f"label {label!r}; expected something like '{{3, 4, 5}}'.")
+        raise ValueError(
+            f"Assembly pathway {where} has a malformed bond set "
+            f"label {label!r}; expected something like '{{3, 4, 5}}'."
+        )
 
     body = match.group(1)
     return frozenset() if body is None else frozenset(int(i) for i in body.split(","))
 
 
 def _format_bond_set(bonds: frozenset) -> str:
-    """
-    Render a set of bond indices the way the Rust backend labels it.
-
-    Parameters
-    ----------
-    bonds : frozenset of int
-        The bond indices.
-
-    Returns
-    -------
-    str
-        The indices in ascending order, e.g. ``"{3, 4, 5}"``.
-    """
-    return "{" + ", ".join(str(bond) for bond in sorted(bonds)) + "}"
+    """Render bond indices in ascending order, e.g. ``"{3, 4, 5}"``."""
+    return "{" + ", ".join(map(str, sorted(bonds))) + "}"
 
 
 def _bonds_to_vo(mol: Chem.Mol, bonds: frozenset, vo_type: str) -> Any:
     """
-    Build the virtual object for a pathway node from its bond indices.
+    Build a virtual object from bond indices in the searched molecule.
 
-    Parameters
-    ----------
-    mol : Chem.Mol
-        The target molecule, which must be the one that was searched so that
-        the bond indices line up.
-    bonds : frozenset of int
-        The bond indices making up the fragment.
-    vo_type : str
-        One of 'graph', 'mol', 'smiles' or 'inchi'.
-
-    Returns
-    -------
-    nx.Graph or Chem.Mol or str
-        The fragment in the requested representation.
-
-    Raises
-    ------
-    ValueError
-        If `vo_type` is not recognised.
+    Return a graph, molecule, SMILES or InChI, leaving the fragment
+    unsanitised because it may have open valences.
     """
-    # Fragments carry open valences, so leave them unsanitised
     fragment = Chem.PathToSubmol(mol, sorted(bonds))
     if vo_type == "mol":
         return fragment
@@ -1227,46 +1015,42 @@ def _validate_pathway_dag(graph: nx.MultiDiGraph) -> None:
     it, and every edge must carry as many bonds as its source fragment, since
     the edge names an isomorphic copy of that fragment inside the target.
 
-    Parameters
-    ----------
-    graph : nx.MultiDiGraph
-        A pathway produced by :func:`parse_pathway_dot`.
-
-    Returns
-    -------
-    None
-
-    Raises
-    ------
-    ValueError
-        If any node or edge breaks the bookkeeping.
+    Raise ValueError if any node or edge breaks these rules.
     """
     for node, bonds in graph.nodes(data="bonds"):
         covered = set()
-        for source, _, data in graph.in_edges(node, data=True):
+        for _, _, data in graph.in_edges(node, data=True):
             overlap = covered & data["bonds"]
             if overlap:
-                raise ValueError(f"Assembly pathway node {node} reuses bond(s) "
-                                 f"{sorted(overlap)} from more than one input.")
+                raise ValueError(
+                    f"Assembly pathway node {node} reuses bond(s) "
+                    f"{sorted(overlap)} from more than one input."
+                )
             covered |= data["bonds"]
 
         if graph.in_degree(node) and covered != set(bonds):
-            raise ValueError(f"Assembly pathway node {node} covers bonds "
-                             f"{sorted(bonds)} but its inputs supply "
-                             f"{sorted(covered)}.")
+            raise ValueError(
+                f"Assembly pathway node {node} covers bonds "
+                f"{sorted(bonds)} but its inputs supply "
+                f"{sorted(covered)}."
+            )
 
     for source, target, data in graph.edges(data=True):
         expected = len(graph.nodes[source]["bonds"])
         if len(data["bonds"]) != expected:
-            raise ValueError(f"Assembly pathway edge {source} -> {target} places "
-                             f"{len(data['bonds'])} bond(s), but its source "
-                             f"fragment has {expected}.")
+            raise ValueError(
+                f"Assembly pathway edge {source} -> {target} places "
+                f"{len(data['bonds'])} bond(s), but its source "
+                f"fragment has {expected}."
+            )
 
 
-def parse_pathway_dot(dot: str,
-                      mol: Optional[Chem.Mol] = None,
-                      vo_type: str = "smiles",
-                      strict: bool = True) -> nx.MultiDiGraph:
+def parse_pathway_dot(
+    dot: str,
+    mol: Optional[Chem.Mol] = None,
+    vo_type: str = "smiles",
+    strict: bool = True,
+) -> nx.MultiDiGraph:
     """
     Parse a DOT assembly pathway from the Rust backend into a graph.
 
@@ -1361,26 +1145,35 @@ def parse_pathway_dot(dot: str,
     for name, data in parsed.nodes(data=True):
         bonds = _parse_bond_set(data.get("label"), f"node {name!r}")
         if n_bonds is not None and any(bond >= n_bonds for bond in bonds):
-            raise ValueError(f"Assembly pathway node {name!r} names bond "
-                             f"{max(bonds)}, but the molecule has {n_bonds} bonds. "
-                             "The pathway must be parsed against the molecule it "
-                             "was computed from.")
+            raise ValueError(
+                f"Assembly pathway node {name!r} names bond "
+                f"{max(bonds)}, but the molecule has {n_bonds} bonds. "
+                "The pathway must be parsed against the molecule it "
+                "was computed from."
+            )
         label = _format_bond_set(bonds)
-        graph.add_node(_dot_node_id(name),
-                       type="virtual_object",
-                       bonds=bonds,
-                       label=label,
-                       vo=label if mol is None else _bonds_to_vo(mol, bonds, vo_type))
+        graph.add_node(
+            _dot_node_id(name),
+            type="virtual_object",
+            bonds=bonds,
+            label=label,
+            vo=label if mol is None else _bonds_to_vo(mol, bonds, vo_type),
+        )
 
     for source, target, data in parsed.edges(data=True):
         bonds = _parse_bond_set(data.get("label"), f"edge {source!r} -> {target!r}")
-        graph.add_edge(_dot_node_id(source), _dot_node_id(target),
-                       bonds=bonds, label=_format_bond_set(bonds))
+        graph.add_edge(
+            _dot_node_id(source),
+            _dot_node_id(target),
+            bonds=bonds,
+            label=_format_bond_set(bonds),
+        )
 
     if strict:
         _validate_pathway_dag(graph)
 
     return graph
+
 
 def get_level(G: nx.DiGraph, node: str) -> int | None:
     """
@@ -1404,18 +1197,15 @@ def get_level(G: nx.DiGraph, node: str) -> int | None:
     KeyError
         If a predecessor has not yet been assigned a level.
     """
-    preds = [edge[0] for edge in G.in_edges(node)]
-    if not preds:
-        return 0
-    return max(G.nodes[pred]["level"] for pred in preds) + 1
+    return (
+        max((G.nodes[source]["level"] for source, _ in G.in_edges(node)), default=-1)
+        + 1
+    )
 
 
 def assign_levels(G: nx.DiGraph, inplace: bool = True) -> None | nx.DiGraph:
     """
     Assign assembly depth to the nodes of a graph.
-
-    For consistency, assembly depth is referred to as "level" in this
-    context.
 
     Parameters
     ----------
@@ -1477,15 +1267,15 @@ def assign_levels(G: nx.DiGraph, inplace: bool = True) -> None | nx.DiGraph:
     if not inplace:
         G = G.copy()
 
-    for node in G.nodes:
-        G.nodes[node]["level"] = get_level(G, node)
+    for node, data in G.nodes(data=True):
+        data["level"] = get_level(G, node)
 
-    if not inplace:
-        return G
-    return None
+    return None if inplace else G
 
 
-def immediate_predecessors(data: Dict[str, Any], interval: Tuple[int, int]) -> List[str]:
+def immediate_predecessors(
+    data: Dict[str, Any], interval: Tuple[int, int]
+) -> List[str]:
     """
     Extract immediate predecessors in the pathway for a given interval.
 
@@ -1506,35 +1296,39 @@ def immediate_predecessors(data: Dict[str, Any], interval: Tuple[int, int]) -> L
     """
     output = []
     fragment = data["file_graph"][0]["Fragments"][0]
+    end = sum(interval)
 
     c_idx = interval[0]
-    while c_idx < sum(interval):
+    while c_idx < end:
         parent = ""
         for dup in data["duplicates"]:
-            if dup["Left"][1] >= interval[1]:  # The duplicate cannot fit in the interval
+            left = dup["Left"]
+            if left[1] >= interval[1]:  # The duplicate cannot fit in the interval
                 continue
-            if c_idx in range(dup["Left"][0], sum(dup["Left"])):  # If duplicate contains c_idx
-                # Take it only if it beats the current parent and sits inside the interval
-                if (dup["Left"][1] > len(parent)
-                        and dup["Left"][0] >= interval[0]
-                        and sum(dup["Left"]) <= sum(interval)):
-                    parent = fragment[dup["Left"][0]:sum(dup["Left"])]
-            elif c_idx in range(dup["Right"][0], sum(dup["Right"])):  # now check the right copy
-                if (dup["Right"][1] > len(parent)
-                        and dup["Right"][0] >= interval[0]
-                        and sum(dup["Right"]) <= sum(interval)):
-                    parent = fragment[dup["Right"][0]:sum(dup["Right"])]
-        if parent == "":
-            output.append(fragment[c_idx])
-            c_idx += 1
-        else:
-            output.append(parent)
-            c_idx += len(parent)
+            if c_idx in range(left[0], sum(left)):
+                candidate = left
+            else:
+                candidate = dup["Right"]
+                if c_idx not in range(candidate[0], sum(candidate)):
+                    continue
+
+            # Prefer the longest contained copy; the left copy takes precedence.
+            if (
+                candidate[1] > len(parent)
+                and candidate[0] >= interval[0]
+                and sum(candidate) <= end
+            ):
+                parent = fragment[candidate[0] : sum(candidate)]
+
+        output.append(parent or fragment[c_idx])
+        c_idx += len(parent) or 1
 
     return output
 
 
-def build_str(interval: Union[List[int], Tuple[int, int]], data: Dict[str, Any], path: nx.DiGraph) -> nx.DiGraph:
+def build_str(
+    interval: Union[List[int], Tuple[int, int]], data: Dict[str, Any], path: nx.DiGraph
+) -> nx.DiGraph:
     """
     Build the string from the pathway data and add it to the path.
 
@@ -1552,7 +1346,6 @@ def build_str(interval: Union[List[int], Tuple[int, int]], data: Dict[str, Any],
     nx.DiGraph
         Updated pathway with the string added.
     """
-
     ledger = immediate_predecessors(data, interval)
     c_idx = interval[0]
     for sub_str in ledger:
@@ -1563,23 +1356,21 @@ def build_str(interval: Union[List[int], Tuple[int, int]], data: Dict[str, Any],
 
     # Builds string from left to right. The membership checks below are only
     # relevant when the path is not minimum.
-    str_in_progress = ledger[0]
-    for idx in range(1, len(ledger)):
-        str_in_progress_new = str_in_progress + ledger[idx]
-        if str_in_progress_new not in path.nodes:
-            path.add_node(str_in_progress_new)
-        if (str_in_progress, str_in_progress_new) not in path.edges:
-            path.add_edge(str_in_progress, str_in_progress_new)
-        if (ledger[idx], str_in_progress_new) not in path.edges:
-            path.add_edge(ledger[idx], str_in_progress_new)
-        str_in_progress = str_in_progress_new
+    assembled = ledger[0]
+    for part in ledger[1:]:
+        combined = assembled + part
+        if combined not in path.nodes:
+            path.add_node(combined)
+        for source in (assembled, part):
+            if (source, combined) not in path.edges:
+                path.add_edge(source, combined)
+        assembled = combined
     return path
 
 
 def parse_string_pathway_file(file_path_pathway: str) -> Tuple[List[str], nx.DiGraph]:
     """
-    Parse a pathway file and return the pathway as a list of virtual
-    objects.
+    Parse a string pathway file into virtual objects and a directed graph.
 
     Parameters
     ----------
@@ -1601,26 +1392,22 @@ def parse_string_pathway_file(file_path_pathway: str) -> Tuple[List[str], nx.DiG
     if not os.path.isfile(file_path_pathway):
         raise FileNotFoundError(f"Pathway file not found: {file_path_pathway}")
 
-    # Load the pathway file
     with open(file_path_pathway) as f:
         data = json.load(f)
 
     file_string = data["file_graph"][0]["Fragments"][0]
-
     path = nx.DiGraph()
+    path.add_nodes_from(set(file_string))
 
-    # We will build the string from left to right, constructing duplicates as needed
-    for char in set(file_string):
-        path.add_node(char)  # Add units
-
-    path = build_str([0, len(file_string)], data, path)  # Build the string from the pathway data
-
+    path = build_str([0, len(file_string)], data, path)
     return list(path.nodes), path
 
 
-def molstr_to_str(molstr: nx.Graph, edge_color_dict: Optional[Dict[str, str]] = None) -> str:
+def molstr_to_str(
+    molstr: nx.Graph, edge_color_dict: Optional[Dict[str, str]] = None
+) -> str:
     """
-    Take a mol string and translates it into the corresponding string.
+    Decode a molecular graph representation of a string.
 
     Parameters
     ----------
@@ -1635,38 +1422,42 @@ def molstr_to_str(molstr: nx.Graph, edge_color_dict: Optional[Dict[str, str]] = 
     str
         The translated string.
     """
-
-    out_str = ""
     if edge_color_dict is None:  # Directed
-        odd = int(molstr.nodes(data=True)[0]['color'] == 'null')  # True if encoding was respected
-        # Loop over nodes in molstr with odd indices (even if the fragment broke the encoding scheme)
-        for n_idx, node in enumerate(molstr.nodes(data=True)):
-            if n_idx % 2 == odd:
-                out_str += node[1]['color']
-    else:  # Undirected
-        # Prep the edge_color_dict
-        edge_color_dict = {v: k for k, v in edge_color_dict.items()}
-        for digit, name in (("1", "single"), ("2", "double"), ("3", "triple"), ("4", "quadruple")):
-            if digit in edge_color_dict:
-                edge_color_dict[name] = edge_color_dict[digit]
-        edge_color_dict["0"] = "!"
+        odd = int(
+            molstr.nodes(data=True)[0]["color"] == "null"
+        )  # True if encoding was respected
+        # Select alternate nodes, even when a fragment breaks the encoding.
+        return "".join(
+            data["color"]
+            for index, (_, data) in enumerate(molstr.nodes(data=True))
+            if index % 2 == odd
+        )
 
-        for _, _, data in molstr.edges(data=True):
-            out_str += edge_color_dict[str(data.get('color'))]
+    colors = {value: key for key, value in edge_color_dict.items()}
+    for digit, name in (
+        ("1", "single"),
+        ("2", "double"),
+        ("3", "triple"),
+        ("4", "quadruple"),
+    ):
+        if digit in colors:
+            colors[name] = colors[digit]
+    colors["0"] = "!"
+    return "".join(
+        colors[str(data.get("color"))] for _, _, data in molstr.edges(data=True)
+    )
 
-    return out_str
 
-
-def convert_digraph_vo_to_target(graph: nx.DiGraph,
-                                 target: str = 'smi',
-                                 add_hydrogens: bool = False,
-                                 sanitize: bool = True,
-                                 ) -> nx.DiGraph:
+def convert_digraph_vo_to_target(
+    graph: nx.DiGraph,
+    target: str = "smi",
+    add_hydrogens: bool = False,
+    sanitize: bool = True,
+) -> nx.DiGraph:
     """
     Convert the virtual objects of a directed graph to a target format.
 
-    Rewrites the virtual object (VO) representation stored on each node of
-    the graph into the requested chemical format.
+    Update each node's ``'vo'`` attribute in place.
 
     Parameters
     ----------
@@ -1704,29 +1495,28 @@ def convert_digraph_vo_to_target(graph: nx.DiGraph,
       are used to perform the conversions.
     - The `add_hydrogens` and `sanitize` parameters are passed to the conversion functions.
     """
-    converters = {'smi': nx_to_smi, 'inchi': nx_to_inchi, 'mol': nx_to_mol}
+    converters = {"smi": nx_to_smi, "inchi": nx_to_inchi, "mol": nx_to_mol}
     if target not in converters:
         raise ValueError("Target must be 'smi', 'inchi', or 'mol'")
     convert = converters[target]
 
-    for node in graph.nodes():
-        graph.nodes[node]['vo'] = convert(graph.nodes[node]['vo'],
-                                          add_hydrogens=add_hydrogens,
-                                          sanitize=sanitize)
+    for _, data in graph.nodes(data=True):
+        data["vo"] = convert(data["vo"], add_hydrogens=add_hydrogens, sanitize=sanitize)
     return graph
 
 
-def get_vos_on_layer(digraph: nx.DiGraph,
-                     layer: Union[int, List[int], str],
-                     target: str = 'smi',
-                     add_hydrogens: bool = False,
-                     sanitize: bool = True) -> Union[List, List[List]]:
+def get_vos_on_layer(
+    digraph: nx.DiGraph,
+    layer: Union[int, List[int], str],
+    target: str = "smi",
+    add_hydrogens: bool = False,
+    sanitize: bool = True,
+) -> Union[List, List[List]]:
     """
     Retrieve virtual objects (VOs) from specific layers in a directed graph.
 
-    This function processes a directed graph to convert its virtual object (VO) representations
-    to a specified format, assigns a "layer" attribute to each node, and extracts the VOs
-    from the nodes that belong to the specified layer(s).
+    Convert virtual objects and assign layers on a copy of the graph, then
+    collect the requested layers in graph order.
 
     Parameters
     ----------
@@ -1755,44 +1545,28 @@ def get_vos_on_layer(digraph: nx.DiGraph,
     ValueError
         If the specified target format is not one of 'smi', 'inchi', or 'mol'.
     """
-    # Convert the virtual objects in the graph to the specified target format
-    digraph = convert_digraph_vo_to_target(digraph.copy(),
-                                           target=target,
-                                           add_hydrogens=add_hydrogens,
-                                           sanitize=sanitize)
-    # Assign layer attributes to the nodes in the graph
+    digraph = convert_digraph_vo_to_target(
+        digraph.copy(), target=target, add_hydrogens=add_hydrogens, sanitize=sanitize
+    )
     digraph = set_graph_layer(digraph)
 
     def vos_on(layer_id: int) -> List[Any]:
-        """
-        Collect the virtual object of every node sitting on a given layer.
+        """Collect virtual objects on one layer, preserving graph order."""
+        return [
+            data.get("vo")
+            for _, data in digraph.nodes(data=True)
+            if data.get("layer") == layer_id
+        ]
 
-        Parameters
-        ----------
-        layer_id : int
-            The layer to collect virtual objects from.
-
-        Returns
-        -------
-        list of Any
-            The ``'vo'`` attribute of each node on ``layer_id``, in graph
-            order.
-        """
-        return [data.get('vo') for _, data in digraph.nodes(data=True) if data.get("layer") == layer_id]
-
-    # If a single layer is specified, retrieve VOs from that layer
     if isinstance(layer, int):
         return vos_on(layer)
 
-    # Determine the layers to retrieve VOs from
-    layers_to_get = []
-    if layer == 'all':
-        # If 'all' is specified, retrieve VOs from all layers
+    if layer == "all":
         max_layer = max(data.get("layer", 0) for _, data in digraph.nodes(data=True))
-        layers_to_get = range(max_layer + 1)
+        layers = range(max_layer + 1)
     elif isinstance(layer, list):
-        # If a list of layers is specified, use it directly
-        layers_to_get = layer
+        layers = layer
+    else:
+        layers = []
 
-    # Retrieve VOs from the specified layers
-    return [vos_on(layer_id) for layer_id in layers_to_get]
+    return [vos_on(layer_id) for layer_id in layers]
