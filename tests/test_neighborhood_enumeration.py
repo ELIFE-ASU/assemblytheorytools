@@ -1,10 +1,15 @@
-# This will use pytest to verify that the code is functioning properly.
-import networkx as nx
 import random
+from copy import deepcopy
+from unittest.mock import Mock
+
+import networkx as nx
+import pytest
+
+import assemblytheorytools as att
+import assemblytheorytools.neighborhood_enumeration as neighborhood
 
 node_match = nx.algorithms.isomorphism.categorical_node_match('color', None)
 edge_match = nx.algorithms.isomorphism.categorical_edge_match('color', None)
-import assemblytheorytools as att
 
 
 def test_enumerate_down():
@@ -391,3 +396,179 @@ def test_input_valence():
     out = att.enumerate_neighborhood(input_gs, obey_valence=True)
     assert len(out['up_jos']) == 0
     assert len(out['down_jos']) == 0  # This is expected since these are all single edge graphs
+
+
+@pytest.mark.parametrize("allow_dots", [True, False])
+def test_enumerate_down_preserves_partition_order_and_edge_orientation(allow_dots):
+    graph = nx.Graph([(3, 2), (2, 1), (1, 0)])
+    graph.add_node(4)
+    original = deepcopy(graph)
+
+    assert neighborhood.enumerate_down(graph, allow_dots=allow_dots) == [
+        [[(2, 3)], [(2, 1), (1, 0)]],
+        [[(1, 2), (2, 3)], [(1, 0)]],
+    ]
+    assert nx.utils.graphs_equal(graph, original)
+
+
+@pytest.mark.parametrize("edges", [[], [(0, 1)]])
+def test_enumerate_down_requires_two_nonempty_parts(edges):
+    graph = nx.Graph(edges)
+    graph.add_node(2)
+    assert neighborhood.enumerate_down(graph) == []
+
+
+def test_enumerate_down_disconnected_union_requires_allow_dots():
+    graph = nx.Graph([(0, 1), (2, 3)])
+    assert neighborhood.enumerate_down(graph) == [[[(0, 1)], [(2, 3)]]]
+    assert neighborhood.enumerate_down(graph, allow_dots=False) == []
+
+
+def test_map_outer_product_returns_and_updates_the_single_color_set():
+    maps = {frozenset(), frozenset({(0, 0)})}
+    combinations = {"C": maps}
+
+    result = neighborhood.map_outer_product(combinations, nx.Graph(), nx.Graph())
+
+    assert result is maps
+    assert maps == {frozenset({(0, 0)})}
+
+
+@pytest.mark.parametrize(
+    "combinations, expected_type",
+    [({}, list), ({"C": set()}, set), ({"C": {frozenset()}}, set),
+     ({"C": set(), "O": set()}, list)],
+)
+def test_map_outer_product_discards_empty_maps(combinations, expected_type):
+    result = neighborhood.map_outer_product(combinations, nx.Graph(), nx.Graph())
+    assert isinstance(result, expected_type)
+    assert not result
+
+
+def test_map_outer_product_ignores_colors_without_valid_maps():
+    maps = {frozenset(), frozenset({(0, 0)})}
+    combinations = {"C": maps, "O": set()}
+    original = deepcopy(combinations)
+
+    result = neighborhood.map_outer_product(combinations, nx.Graph(), nx.Graph())
+
+    assert result == [{(0, 0)}]
+    assert combinations == original
+
+
+def test_map_outer_product_rejects_cross_color_parallel_edges():
+    graph = nx.Graph([(0, 1)])
+    nx.set_node_attributes(graph, {0: "C", 1: "O"}, "color")
+    combinations = {
+        "C": {frozenset(), frozenset({(0, 0)})},
+        "O": {frozenset(), frozenset({(1, 1)})},
+    }
+    original = deepcopy(combinations)
+
+    result = neighborhood.map_outer_product(combinations, graph, graph)
+
+    assert isinstance(result, list)
+    assert all(isinstance(mapping, set) for mapping in result)
+    assert {frozenset(mapping) for mapping in result} == {
+        frozenset({(0, 0)}), frozenset({(1, 1)}),
+    }
+    assert combinations == original
+
+
+@pytest.mark.parametrize(
+    "mapping, valid",
+    [(set(), True), ({(0, 2)}, True), ({(0, 2), (3, 3)}, True),
+     ({(0, 2), (1, 3)}, False), ({(0, 3), (1, 2)}, False)],
+)
+@pytest.mark.parametrize("container", [list, set])
+def test_multi_edge_check_handles_both_mapping_orientations(mapping, valid, container):
+    assert neighborhood.conditional_check_multi_edge_generation(
+        frozenset(mapping), container([(0, 1)]), container([(2, 3)])
+    ) is valid
+
+
+def test_map_application_preserves_attributes_and_inputs_with_a_generator():
+    graph1 = nx.Graph(source="first", first=True)
+    graph1.add_node(0, color="C", label="retained")
+    graph1.add_node(1, color="O", label="left", contraction={9: {}})
+    graph1.add_edge(0, 1, color=1, label="left bond")
+    graph2 = nx.Graph(source="second", second=True)
+    graph2.add_node(0, color="C", label="contracted")
+    graph2.add_node(1, color="N", label="right")
+    graph2.add_edge(0, 1, color=2, label="right bond")
+    originals = deepcopy((graph1, graph2))
+
+    joined = neighborhood.map_application(((0, 0) for _ in range(1)), graph1, graph2)
+
+    assert joined.graph == {"source": "second", "first": True, "second": True}
+    assert dict(joined.nodes(data=True)) == {
+        0: {"color": "C", "label": "retained"},
+        1: {"color": "O", "label": "left"},
+        2: {"color": "N", "label": "right"},
+    }
+    assert dict(joined.edges) == {
+        (0, 1): {"color": 1, "label": "left bond"},
+        (0, 2): {"color": 2, "label": "right bond"},
+    }
+    assert all(nx.utils.graphs_equal(graph, original)
+               for graph, original in zip((graph1, graph2), originals))
+
+
+def test_map_application_rejects_lost_parallel_edges():
+    graph = nx.Graph([(0, 1)])
+    with pytest.raises(ValueError, match="wrong number of edges"):
+        neighborhood.map_application([(0, 0), (1, 1)], graph, graph)
+
+
+def test_get_valence_custom_zero_takes_precedence_and_missing_symbols_fall_back():
+    table = Mock()
+    table.GetDefaultValence.return_value = 7
+
+    assert neighborhood.get_valence("C", table, {"C": 0}) == 0
+    table.GetDefaultValence.assert_not_called()
+    assert neighborhood.get_valence("O", table, {"C": 0}) == 7
+    table.GetDefaultValence.assert_called_once_with("O")
+
+
+@pytest.mark.parametrize("valence, expected_count", [(2, 0), (3, 0), (4, 4)])
+def test_enumerate_up_respects_bond_orders_and_rejects_same_color_parallel_edges(valence, expected_count):
+    graph = nx.Graph([(0, 1)])
+    nx.set_node_attributes(graph, "C", "color")
+    nx.set_edge_attributes(graph, 2, "color")
+
+    joined = neighborhood.enumerate_up(graph, graph, custom_valence_table={"C": valence})
+
+    assert len(joined) == expected_count
+    assert all(result.number_of_nodes() == 3 and result.number_of_edges() == 2
+               for result in joined)
+
+
+def test_enumerate_up_zero_valence_can_be_disabled():
+    graph = nx.Graph()
+    graph.add_node(0, color="C")
+
+    assert neighborhood.enumerate_up(graph, graph, custom_valence_table={"C": 0}) == []
+    joined = neighborhood.enumerate_up(
+        graph, graph, obey_valence=False, custom_valence_table={"C": 0}
+    )
+    assert len(joined) == 1
+    assert list(joined[0].nodes(data=True)) == [(0, {"color": "C"})]
+
+
+def test_enumerate_up_requires_node_colors_for_valence_checks():
+    graph = nx.empty_graph(1)
+    with pytest.raises(ValueError, match="color attribute"):
+        neighborhood.enumerate_up(graph, graph)
+
+
+def test_enumerate_up_requires_a_shared_color():
+    graph1, graph2 = nx.empty_graph(1), nx.empty_graph(1)
+    nx.set_node_attributes(graph1, "C", "color")
+    nx.set_node_attributes(graph2, "O", "color")
+
+    assert neighborhood.enumerate_up(graph1, graph2) == []
+
+
+def test_enumerate_neighborhood_reports_missing_colors_before_deduplication():
+    with pytest.raises(ValueError, match="color attribute"):
+        neighborhood.enumerate_neighborhood([nx.path_graph(3)])
