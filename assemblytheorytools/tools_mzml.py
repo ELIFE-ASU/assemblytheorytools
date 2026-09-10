@@ -36,110 +36,39 @@ _BANNED_PHRASES = ["<userParam"]
 
 
 def _colour_item(
-        msg: str, color: Optional[str] = "", bold: Optional[bool] = False
+    msg: str, color: Optional[str] = "", bold: Optional[bool] = False
 ) -> str:
-    """
-    Format a string with ANSI color codes and optional bold styling.
-
-    Parameters
-    ----------
-    msg : str
-        The message string to be formatted.
-    color : str, optional
-        The color name to use for formatting (e.g., "red", "green"). If not in the
-        _ANSI_COLORS dictionary or empty, no color is applied.
-    bold : bool, optional
-        If True, applies bold formatting to the message.
-
-    Returns
-    -------
-    str
-        The formatted string with ANSI color and/or bold codes applied.
-    """
-    color = _ANSI_COLORS[color] if color in _ANSI_COLORS else ""
-
-    return (
-        f'{color}{_ANSI_COLORS["bold"]}{msg}{_ANSI_COLORS["reset"]}'
-        if bold
-        else f'{color}{msg}{_ANSI_COLORS["reset"]}'
-    )
+    """Wrap a message in ANSI color and optional bold codes, then reset styling."""
+    color = _ANSI_COLORS.get(color, "")
+    weight = _ANSI_COLORS["bold"] if bold else ""
+    return f'{color}{weight}{msg}{_ANSI_COLORS["reset"]}'
 
 
 def _make_logger(
-        name: str, filename: Optional[str] = "", debug: Optional[bool] = False
+    name: str, filename: Optional[str] = "", debug: Optional[bool] = False
 ) -> logging.Logger:
-    """
-    Create and configure a logger with optional file and stream handlers.
-
-    This function sets up a logger with a custom ANSI color formatter for both
-    console and optional file output. The logger's level is set based on the
-    debug flag.
-
-    Parameters
-    ----------
-    name : str
-        The name of the logger.
-    filename : str, optional
-        If provided, log messages will also be written to this file.
-    debug : bool, optional
-        If True, sets the logger level to DEBUG; otherwise, INFO.
-
-    Returns
-    -------
-    logging.Logger
-        Configured logger instance.
-    """
-    # Get logger and set level
+    """Configure a non-propagating logger with a stream handler and optional file."""
     logger = logging.getLogger(name)
     level = logging.DEBUG if debug else logging.INFO
     logger.setLevel(level)
-
-    # Custom ANSI colour formatter
     formatter = _ProtoFormatter()
 
-    # Using file logging, add FileHandler
-    if filename:
-        fh = logging.FileHandler(filename=filename)
-        fh.setLevel(level)
-        fh.setFormatter(formatter)
-        logger.addHandler(fh)
-
-    # Setup stream handler
-    sh = logging.StreamHandler()
-    sh.setLevel(level)
-    sh.setFormatter(formatter)
-    logger.addHandler(sh)
+    handlers = [logging.FileHandler(filename=filename)] if filename else []
+    handlers.append(logging.StreamHandler())
+    for handler in handlers:
+        handler.setLevel(level)
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
 
     logger.propagate = False
-
     return logger
 
 
 class _ProtoFormatter(logging.Formatter):
-    """
-    Logging formatter that colours messages by severity.
-
-    ANSI colour codes are applied to log messages according to their level.
-
-    This formatter colors the log level and message differently for DEBUG,
-    INFO, WARNING, ERROR, and CRITICAL levels, and includes a timestamp and
-    logger name in the output.
-    """
+    """Format log records with a timestamp, logger name, and severity colors."""
 
     def format(self, record: logging.LogRecord) -> str:
-        """
-        Format the specified log record as a colored string.
-
-        Parameters
-        ----------
-        record : logging.LogRecord
-            The log record to be formatted.
-
-        Returns
-        -------
-        str
-            The formatted log message string with ANSI color codes.
-        """
+        """Apply severity colors to the original record message and level name."""
         level, levelno, msg = record.levelname, record.levelno, record.msg
         if levelno == logging.DEBUG:
             level = _colour_item(level, color="red")
@@ -148,34 +77,19 @@ class _ProtoFormatter(logging.Formatter):
         elif levelno == logging.WARN:
             level = _colour_item(level, color="yellow", bold=True)
             msg = _colour_item(msg, color="yellow")
-        elif levelno == logging.ERROR:
+        elif levelno in (logging.ERROR, logging.CRITICAL):
             level = _colour_item(level, color="red", bold=True)
-            msg = _colour_item(msg, color="red", bold=True)
-        elif levelno == logging.CRITICAL:
-            level = _colour_item(level, color="red", bold=True)
-            msg = _colour_item(msg, color="red")
+            msg = _colour_item(msg, color="red", bold=levelno == logging.ERROR)
         timestamp = time.strftime("%d-%m-%Y|%H:%M:%S")
         name = _colour_item(record.name, color="cyan")
         return f"[{timestamp}] - {name}::{level} -- {msg}"
 
 
 class _UnsupportedCompressionMethod(Exception):
-    """
-    Exception raised for an unsupported compression method.
-
-    Signals that an mzML file declares a compression type that the parser
-    does not implement.
-
-    This exception should be raised if the code encounters a compression
-    type that is not implemented or recognized.
-
-    Examples
-    --------
-    >>> raise _UnsupportedCompressionMethod("Compression method 'xyz' is not supported.")
-    """
+    """Raised when binary arrays declare an unsupported compression method."""
 
 
-class _Spectrum(object):
+class _Spectrum:
     """
     A single spectrum read from an mzML file.
 
@@ -255,220 +169,111 @@ class _Spectrum(object):
         self.relative = relative
 
     def _set_data_type(self) -> None:
-        """
-        Set the data type of the binary data within the spectrum.
-
-        Sets self.d_type to 'f' for 32-bit or 'd' for 64-bit floating point
-        data.
-
-        Returns
-        -------
-        None
-        """
+        """Normalize 32-bit and 64-bit float descriptions to struct format codes."""
         if "32" in self.d_type:
             self.d_type = "f"
         elif "64" in self.d_type:
             self.d_type = "d"
 
     def process(self) -> None:
-        """
-        Process the spectrum by decoding and decompressing the m/z and
-        intensity data.
-
-        Decodes the m/z and intensity data from Base64, decompresses if
-        required, converts to float arrays, and serialises the spectrum
-        data.
-
-        Returns
-        -------
-        None
-        """
+        """Decode both binary arrays and store the serialized spectrum."""
         self._set_data_type()
         self.decode_and_decompress()
         self.serialized = self.serialize()
 
     def decode_and_decompress(self) -> None:
+        """Decode base64/zlib arrays as little-endian floats.
+
+        Raises _UnsupportedCompressionMethod for compression other than zlib.
         """
-        Decode binary data from Base64 and decompress if necessary.
-
-        Converts the binary m/z and intensity data to lists of floats.
-
-        Returns
-        -------
-        None
-
-        Raises
-        ------
-        _UnsupportedCompressionMethod
-            If the compression method is not supported.
-        """
-        # Decode the MZ and intensity data
         self.mz = base64.b64decode(self.mz)
         self.intensity = base64.b64decode(self.intensity)
 
-        # Using ZLib compression
-        if "zlib" in self.compression:
-            self.mz = self.decompress(self.mz)
-            self.intensity = self.decompress(self.intensity)
-        else:
+        if "zlib" not in self.compression:
             raise _UnsupportedCompressionMethod(
                 f"Compression method {self.compression} is not supported."
             )
 
-        # Build the MZ array
-        self.mz = list(
-            struct.unpack(
-                f"<{self.array_length}{self.d_type}",
-                self.mz
-            )
-        )
-
-        # Build the Intensity array
-        self.intensity = list(
-            struct.unpack(
-                f"<{self.array_length}{self.d_type}",
-                self.intensity
-            )
-        )
+        self.mz = self.decompress(self.mz)
+        self.intensity = self.decompress(self.intensity)
+        array_format = f"<{self.array_length}{self.d_type}"
+        self.mz = list(struct.unpack(array_format, self.mz))
+        self.intensity = list(struct.unpack(array_format, self.intensity))
 
     def decompress(self, stream: bytes) -> bytes:
-        """
-        Decompress a data stream using a zlib decompression object.
-
-        Parameters
-        ----------
-        stream : bytes
-            Data stream to decompress.
-
-        Returns
-        -------
-        bytes
-            Decompressed data stream.
-        """
-        # Decompress the ZLib stream
-        zobj = zlib.decompressobj()
-        stream = zobj.decompress(stream)
-        return stream + zobj.flush()
+        """Decompress a zlib stream, including any buffered output."""
+        decompressor = zlib.decompressobj()
+        return decompressor.decompress(stream) + decompressor.flush()
 
     def serialize(self) -> Dict:
-        """
-        Convert the spectrum into a dictionary containing relevant information.
+        """Return filtered peaks and metadata, optionally using relative intensities.
 
-        Only includes peaks above the intensity threshold and relevant metadata.
-
-        Returns
-        -------
-        dict
-            Spectrum data, including m/z, intensity, retention time, parent info, etc.
+        MS1 peaks must exceed the intensity threshold; higher MS levels use
+        five percent of that threshold. Mass keys and mass_list entries are
+        rounded to four decimal places, and absolute intensities are integers.
         """
         out = {}
         mass_list = []
 
-        # Iterate through the MZ and intensity
         for mz, intensity in zip(self.mz, self.intensity):
-            # Check the intensity threshold is met and add to output
             if self.ms_level == "1":
-                if intensity > self.intensity_threshold:
-                    out[f"{mz:.4f}"] = int(intensity)
-                    mass_list.append(mz)
-
-            # Check the intensity threshold is met and add to output for MS 2+
+                threshold = self.intensity_threshold
             elif self.ms_level > "1":
-                if intensity > (self.intensity_threshold / 100) * 5:
-                    out[f"{mz:.4f}"] = int(intensity)
-                    mass_list.append(mz)
+                threshold = (self.intensity_threshold / 100) * 5
+            else:
+                continue
+            if intensity > threshold:
+                out[f"{mz:.4f}"] = int(intensity)
+                mass_list.append(mz)
 
-        # Populate remaining data
         out["retention_time"] = self.retention_time
         out["scan"] = self.scan
-        out['hcd'] = self.hcd
+        out["hcd"] = self.hcd
 
-        # Set the parent mass if applicable
         if self.parent_mass:
             out["parent"] = f"{float(self.precursors[0]):.4f}"
-
-        # Set the precursor list
         if self.precursors:
             out["precursors"] = self.precursors
-
-        # Set parent scan if applicable
         if self.parent_scan:
             out["parent_scan"] = self.precursors_scans[0]
-
-        # Set the precursor scan list
         if self.precursors_scans:
             out["precursors_scans"] = self.precursors_scans
-
-        # Set fragmentation energy
         if self.hcd:
             out["HCD"] = self.hcd
 
-        # Create mass list
         out["mass_list"] = [float(f"{mass:.4f}") for mass in mass_list]
-
-        # If relative intensities are to be returned, convert spectrum dict
-        if self.relative:
-            out = self.convert_to_relative(out)
-
-        return out
+        return self.convert_to_relative(out) if self.relative else out
 
     def convert_to_relative(self, spectrum_dict: dict) -> Dict:
+        """Return peaks in ascending intensity order, as percentages of the base peak.
+
+        Preserve metadata listed in _NON_MASS_KEYS and include the original
+        [m/z, intensity] pair under base_peak.
         """
-        Convert a spectrum dictionary of absolute intensities to relative intensities.
-
-        Parameters
-        ----------
-        spectrum_dict : dict
-            Standard spectrum dictionary with absolute intensities.
-
-        Returns
-        -------
-        dict
-            Spectrum data with relative intensities and base peak information.
-        """
-        #  get list of ions ([[m/z, I], ...]) sorted by intensity
-        all_ions = sorted([
-            [float(mass), float(intensity)]
-            for mass, intensity in spectrum_dict.items()
-            if mass not in _NON_MASS_KEYS], key=lambda x: x[1])
-
-        #  get the base peak - most intense ion
+        all_ions = sorted(
+            (
+                [float(mass), float(intensity)]
+                for mass, intensity in spectrum_dict.items()
+                if mass not in _NON_MASS_KEYS
+            ),
+            key=lambda ion: ion[1],
+        )
         base_peak = all_ions[-1]
 
-        #  make sure all _NON_MASS_KEYS remain unchanged in spectrum_dict
         spectrum_dict = {
-            key: value for key, value in spectrum_dict.items()
+            key: value
+            for key, value in spectrum_dict.items()
             if key in _NON_MASS_KEYS
         }
-
-        #  iterate through ions, readding to spectrum_dict with relative intensities
-        for ion in all_ions:
-            spectrum_dict[ion[0]] = round((ion[1] / base_peak[1]) * 100, 4)
+        for mass, intensity in all_ions:
+            spectrum_dict[mass] = round((intensity / base_peak[1]) * 100, 4)
         spectrum_dict["base_peak"] = base_peak
 
         return spectrum_dict
 
 
 def _create_regex_mapper() -> dict:
-    """
-    Create a mapping of XML tag names to their corresponding regular expression patterns.
-
-    This utility function returns a dictionary where each key is a descriptive string
-    for a particular mzML XML attribute or element, and each value is a regular expression
-    string that can be used to extract the corresponding value from a line of mzML text.
-
-    Returns
-    -------
-    dict
-        Mapping of tag names to regular expression patterns for extracting values from mzML lines.
-        Keys include:
-            - "spec_index": Regex for spectrum index attribute.
-            - "array_length": Regex for default array length attribute.
-            - "value": Regex for value attribute.
-            - "name": Regex for name attribute.
-            - "binary": Regex for binary data between <binary> tags.
-            - "scan": Regex for scan number attribute.
-    """
+    """Return the XML attribute and binary-data patterns used by the parser."""
     return {
         "spec_index": r'index="(.+?)"',
         "array_length": r'defaultArrayLength="(.+?)"',
@@ -480,88 +285,24 @@ def _create_regex_mapper() -> dict:
 
 
 def _value_finder(regex: str, line: str) -> str:
-    """
-    Search for a value in a string using a regular expression.
-
-    This function applies the provided regular expression to the input line and returns
-    the first captured group if a match is found. If no match is found, it returns None.
-
-    Parameters
-    ----------
-    regex : str
-        The regular expression pattern to search for.
-    line : str
-        The string to search within.
-
-    Returns
-    -------
-    str or None
-        The matched value (first capture group) if found, otherwise None.
-    """
+    """Return the first captured value, or None when the pattern does not match."""
     result = re.search(regex, line)
-
-    if result:
-        return result.group(1)
-    return None
+    return result.group(1) if result else None
 
 
 def _write_json(data: dict, filename: str) -> None:
-    """
-    Write a dictionary to a JSON file.
-
-    This function serializes the provided dictionary and writes it to the specified
-    file in JSON format with indentation for readability.
-
-    Parameters
-    ----------
-    data : dict
-        The data to write to the JSON file.
-    filename : str
-        The name (or path) of the file to write the JSON data to.
-
-    Returns
-    -------
-    None
-    """
-    with open(filename, "w") as f_d:
-        json.dump(data, f_d, indent=4)
+    """Write data as indented JSON to filename."""
+    with open(filename, "w") as output_file:
+        json.dump(data, output_file, indent=4)
 
 
 def _banned_phrases(line: str) -> bool:
-    """
-    Check if any banned phrase exists in the given line.
-
-    This function iterates through a list of banned phrases and checks if any of them
-    are present in the input line. Banned phrases are those that can interfere with
-    parsing and indicate that the parser should ignore the line.
-
-    Parameters
-    ----------
-    line : str
-        The line of text to check for banned phrases.
-
-    Returns
-    -------
-    bool
-        True if a banned phrase exists in the line, False otherwise.
-    """
-    # Iterate through all banned phrases
-    for phrase in _BANNED_PHRASES:
-        # Phrase is banned
-        if phrase in line:
-            return True
-
-    # No banned phrases found
-    return False
+    """Return whether the line contains a phrase the parser should ignore."""
+    return any(phrase in line for phrase in _BANNED_PHRASES)
 
 
 class _InvalidInputFile(Exception):
-    """
-    Exception raised for invalid input file formats.
-
-    This exception should be raised when a file provided to the mzML parser
-    does not exist, is not a file, or does not have the expected '.mzML' extension.
-    """
+    """Raised when the input is not an existing file with the .mzML extension."""
 
 
 class _MzmlParser:
@@ -603,12 +344,12 @@ class _MzmlParser:
     """
 
     def __init__(
-            self,
-            filename: str,
-            output_dir: str,
-            rt_units: Optional[str] = None,
-            int_threshold: Optional[int] = 1000,
-            relative_intensity: Optional[bool] = False,
+        self,
+        filename: str,
+        output_dir: str,
+        rt_units: Optional[str] = None,
+        int_threshold: Optional[int] = 1000,
+        relative_intensity: Optional[bool] = False,
     ) -> None:
         """
         Create a parser for a single mzML file.
@@ -651,253 +392,122 @@ class _MzmlParser:
         self.rt_units = rt_units
 
     def _check_file(self) -> None:
-        """
-        Check if the input file is valid for parsing.
-
-        Ensures the file exists, is a file, and has the '.mzML' extension.
-
-        Returns
-        -------
-        None
-
-        Raises
-        ------
-        _InvalidInputFile
-            If the file does not exist, is not a file, or does not have the
-            correct extension.
-        """
-        if not os.path.isfile(self.filename) or not self.filename.endswith(
-                ".mzML"
-        ):
+        """Raise _InvalidInputFile unless the input is an existing .mzML file."""
+        if not os.path.isfile(self.filename) or not self.filename.endswith(".mzML"):
             raise _InvalidInputFile(f"File {self.filename} is not valid!")
 
     def parse_file(self) -> Dict:
-        """
-        Parse the mzML file and extract all spectra information.
-
-        Reads the file line by line, processes each spectrum, and organizes the
-        data by MS level. The spectra are then processed and written to a JSON file.
-
-        Returns
-        -------
-        dict
-            Dictionary of each spectrum split by MS level.
-        """
-        # Check the file exists and is an mzML file
+        """Read spectra, process them by MS level, and return the saved JSON data."""
         self._check_file()
 
-        # Open the file and process each line individually
-        with open(self.filename) as f_d:
+        with open(self.filename) as input_file:
             self.logger.info(
                 f"Parsing file: {_colour_item(self.filename, 'yellow')}..."
             )
-            for line in f_d.readlines():
+            for line in input_file:
                 self.process_line(line)
 
         self.logger.info(
-            f"Parsing complete!\nTotal Spectra:\
-            {_colour_item(str(len(self.spectra)), 'green')}"
+            "Parsing complete!\nTotal Spectra:            "
+            f"{_colour_item(str(len(self.spectra)), 'green')}"
         )
         self.logger.info("Processing spectra...")
 
-        # Get all MS level spectra from the collection
         ms_levels = [
             [spec for spec in self.spectra if spec.ms_level == str(level)]
-            for level in range(1, max(map(int, self.ms.keys())) + 1)
+            for level in range(1, max(map(int, self.ms)) + 1)
         ]
 
-        # Process and write out to file
         self.bulk_process(*ms_levels)
         output = self.write_out_to_file()
-        self.logger.info(f"{_colour_item('Complete', 'green')}")
+        self.logger.info(_colour_item("Complete", "green"))
 
         return output
 
     def bulk_process(self, *ms_levels: List[_Spectrum]) -> None:
-        """
-        Create threads for processing MS1 and MS2 data simultaneously.
+        """Process each collection of spectra in a separate thread and wait for all."""
+        pool = [Thread(target=self.process_spectra, args=(ms,)) for ms in ms_levels]
 
-        Parameters
-        ----------
-        ms_levels : list of list of _Spectrum
-            Collections of MS spectra, one list per MS level.
-
-        Returns
-        -------
-        None
-        """
-        pool = [
-            Thread(target=self.process_spectra, args=(ms,)) for ms in ms_levels
-        ]
-
-        [thread.start() for thread in pool]
-        [thread.join() for thread in pool]
+        for thread in pool:
+            thread.start()
+        for thread in pool:
+            thread.join()
 
     def process_spectra(self, spectra: List[_Spectrum]) -> None:
-        """
-        Process spectra from a list and serialize the data.
-
-        Parameters
-        ----------
-        spectra : list of _Spectrum
-            List of Spectrum objects to process and serialise.
-
-        Returns
-        -------
-        None
-        """
+        """Decode and serialize spectra, appending each to its MS-level collection."""
         for spec in spectra:
             spec.process()
             self.ms[spec.ms_level].append(spec)
 
     def build_output(self) -> Dict:
+        """Return serialized spectra grouped by MS level and sorted by retention time.
+
+        Retention times retain their stored ordering (normally strings).
+        Empty spectra are omitted without renumbering the remaining spectra.
         """
-        Build the MS data output from the processed spectra.
+        output = {f"ms{level}": {} for level in self.ms}
 
-        Sorts spectra by retention time and organizes them by MS level.
-
-        Returns
-        -------
-        dict
-            MS spectra split by level, with each spectrum serialized.
-        """
-        # Create the output
-        output = {"ms" + str(x): {} for x in self.ms.keys()}
-
-        # Sort the MS spectra by retention time
-        for ms_level in self.ms:
+        for ms_level, spectra in self.ms.items():
             self.ms[ms_level] = sorted(
-                self.ms[ms_level], key=lambda x: x.retention_time
+                spectra, key=lambda spec: spec.retention_time
             )
 
-        # Populate the output
-        for ms_level in sorted(self.ms.keys()):
-            for pos, spec in enumerate(self.ms[ms_level]):
+        for ms_level in sorted(self.ms):
+            for position, spec in enumerate(self.ms[ms_level], start=1):
                 if not spec.serialized:
                     spec.process()
                 if spec.serialized["mass_list"]:
-                    output["ms" + ms_level][
-                        f"spectrum_{pos + 1}"
-                    ] = spec.serialized
+                    output["ms" + ms_level][f"spectrum_{position}"] = spec.serialized
 
         return output
 
     def write_out_to_file(self) -> Dict:
-        """
-        Write the processed MS1 and MS2 data to a JSON file.
-
-        If any spectra are not processed, they are processed here before writing.
-
-        Returns
-        -------
-        dict
-            The output dictionary that was written to file.
-        """
+        """Save and return the output as ripper_<input stem>.json in output_dir."""
         output = self.build_output()
 
-        name = self.filename.split(os.sep)[-1]
+        name = "ripper_" + os.path.basename(self.filename)
+        out_path = os.path.join(self.output_dir, name.replace(".mzML", ".json"))
 
-        name = "ripper_" + name
-        out_path = os.path.join(
-            self.output_dir, name.replace(".mzML", ".json")
-        )
-
-        if not os.path.exists(os.path.dirname(out_path)):
-            os.makedirs(os.path.dirname(out_path))
+        output_dir = os.path.dirname(out_path)
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
         _write_json(output, out_path)
 
         return output
 
     def process_line(self, line: str) -> None:
-        """
-        Process a single line from the mzML file.
-
-        Determines whether the line starts a new spectrum, ends a spectrum,
-        or contains relevant information to extract.
-
-        Parameters
-        ----------
-        line : str
-            Line from the mzML file.
-
-        Returns
-        -------
-        None
-        """
-        # Currently not in a spectrum, set the spectrum flag
+        """Start or finish a spectrum, or extract information from an allowed line."""
         if not self.in_spectrum:
             self.start_spectrum(line)
-
-        # Look for end of spectrum tag
-        else:
-            if "</spectrum>" in line:
-                self.spectra.append(self.spec)
-                self.in_spectrum = False
-                self.spec = _Spectrum(
-                    intensity_threshold=self.spec_int_threshold,
-                    relative=self.relative,
-                )
-            else:
-                if _banned_phrases(line):
-                    return
-
-                self.extract_information(line)
+        elif "</spectrum>" in line:
+            self.spectra.append(self.spec)
+            self.in_spectrum = False
+            self.spec = _Spectrum(
+                intensity_threshold=self.spec_int_threshold,
+                relative=self.relative,
+            )
+        elif not _banned_phrases(line):
+            self.extract_information(line)
 
     def start_spectrum(self, line: str) -> None:
-        """
-        Initiate the spectrum data gathering process.
-
-        Checks for a spectrum index tag and, if found, initialises a new
-        spectrum.
-
-        Parameters
-        ----------
-        line : str
-            Line from the mzML file.
-
-        Returns
-        -------
-        None
-        """
-        # Extract the spectrum ID
+        """Begin a spectrum when its index is found and record its array length."""
         spec_id = _value_finder(self.re_expr["spec_index"], line)
         if not spec_id:
             return
 
-        # Set the flag and ID
         self.in_spectrum = True
         self.spec.id = spec_id
-
-        # Find the size of the data array
         self.spec.array_length = _value_finder(self.re_expr["array_length"], line)
 
     def extract_information(self, line: str) -> None:
-        """
-        Attempt to extract information from a given line.
+        """Extract the first recognized spectrum field from a line.
 
-        Extracts retention time, data type, compression, m/z, intensity, and
-        other relevant spectrum information.
-
-        Parameters
-        ----------
-        line : str
-            Line from the mzML file.
-
-        Returns
-        -------
-        None
-
-        Raises
-        ------
-        Exception
-            If unable to determine what kind of binary data is being
-            processed.
+        Raise Exception if binary data appears before its array type is known.
         """
         # MS Level
         if "MS:1000511" in line:
             self.spec.ms_level = _value_finder(self.re_expr["value"], line)
-            if self.spec.ms_level not in self.ms:
-                self.ms[self.spec.ms_level] = []
+            self.ms.setdefault(self.spec.ms_level, [])
 
         # Scan Number
         elif "MS:1000796" in line:
@@ -905,9 +515,7 @@ class _MzmlParser:
 
         # Retention time
         elif "MS:1000016" in line:
-            rt_converter = 1
-            if self.rt_units == "sec":
-                rt_converter = 60
+            rt_converter = 60 if self.rt_units == "sec" else 1
             self.spec.retention_time = str(
                 float(_value_finder(self.re_expr["value"], line)) / rt_converter
             )
@@ -931,21 +539,12 @@ class _MzmlParser:
         # Parent mass
         elif "MS:1000744" in line:
             self.spec.parent_mass = _value_finder(self.re_expr["value"], line)
-            self.spec.precursors.append(
-                _value_finder(self.re_expr["value"], line)
-            )
+            self.spec.precursors.append(self.spec.parent_mass)
 
         # Parent Scan
         elif "<precursor spectrumRef" in line:
             self.spec.parent_scan = _value_finder(self.re_expr["scan"], line)
-            self.spec.precursors_scans.append(
-                _value_finder(self.re_expr["scan"], line)
-            )
-
-        # Suggested parent mass
-        elif "MS:1000512" in line:
-            suggested_parent = _value_finder(self.re_expr["value"], line)
-            self.update_parent(suggested_parent)
+            self.spec.precursors_scans.append(self.spec.parent_scan)
 
         # MZ data
         elif "MS:1000514" in line:
@@ -959,49 +558,29 @@ class _MzmlParser:
         elif "<binary>" in line:
             binary_text = _value_finder(self.re_expr["binary"], line)
 
-            # Looking at MZ values
             if self.curr_spec_bin_type == 0:
                 self.spec.mz = binary_text
-
-            # Looking at intensity values
             elif self.curr_spec_bin_type == 1:
                 self.spec.intensity = binary_text
-
-            # No idea what we're looking at
             else:
                 raise Exception("Error setting binary type")
 
     def update_parent(self, filter_string: str) -> None:
-        """
-        Update the parent mass for MS3 and above spectra.
-
-        Parameters
-        ----------
-        filter_string : str
-            String containing parent information, typically from the mzML
-            filter line.
-
-        Returns
-        -------
-        None
-        """
-        # Below MS level 3
-        if int(self.spec.ms_level) < 3:
+        """Read the parent mass from a filter string for MS3 and higher spectra."""
+        ms_level = int(self.spec.ms_level)
+        if ms_level < 3:
             return
 
-        # Sets the parent for MS levels 3 and above
         parents = filter_string.split("@")
-        self.spec.parent_mass = parents[int(self.spec.ms_level) - 2].split(
-            " "
-        )[-1]
+        self.spec.parent_mass = parents[ms_level - 2].split(" ")[-1]
 
 
 def process_mzml_file(
-        filename: str,
-        out_dir: str,
-        rt_units: Optional[str] = 'min',
-        int_threshold: int = 1000,
-        relative: bool = False,
+    filename: str,
+    out_dir: str,
+    rt_units: Optional[str] = "min",
+    int_threshold: int = 1000,
+    relative: bool = False,
 ) -> Dict:
     """
     Process an mzML file and extract MS spectra data, saving the results as JSON.

@@ -7,10 +7,10 @@ joint assembly calculations, generates random test strings, and builds the
 directed and undirected graph representations of a string.
 """
 
-import networkx as nx
 import random
 import string
-from typing import List
+
+import networkx as nx
 
 
 def load_fasta(file_path: str) -> str:
@@ -31,16 +31,9 @@ def load_fasta(file_path: str) -> str:
         The contents of the FASTA file as a single string with all
         sequence lines concatenated.
     """
-    sequence_content = ""
-
     with open(file_path, "r") as file:
-        for line in file:
-            line = line.strip()
-            # Skip header lines that start with '>'
-            if not line.startswith(">"):
-                sequence_content += line
-
-    return sequence_content
+        lines = (line.strip() for line in file)
+        return "".join(line for line in lines if not line.startswith(">"))
 
 
 def prep_joint_string_ai(input_list: list[str]) -> tuple[str, list[str]]:
@@ -66,7 +59,7 @@ def prep_joint_string_ai(input_list: list[str]) -> tuple[str, list[str]]:
     Raises
     ------
     ValueError
-        If an empty string is found in the input list.
+        If the input list is empty or contains an empty string.
 
     Examples
     --------
@@ -82,19 +75,17 @@ def prep_joint_string_ai(input_list: list[str]) -> tuple[str, list[str]]:
     if "" in input_list:
         raise ValueError("Empty string in input list")
 
-    # Build a string of all the inputs separated by unique fake characters
-    delimiters: List[str] = []
+    # Reserve every input character before choosing the first delimiter.
     reserved_chars = "".join(input_list)
-    amalgam_string: str = input_list[0]
+    delimiters: list[str] = []
+    parts = [input_list[0]]
     for item in input_list[1:]:
-        # Reserve characters from every input up front. Looking only at the
-        # strings processed so far allowed an early delimiter to collide with
-        # a character in a later string.
-        unique_char = get_unique_char(reserved_chars + "".join(delimiters))
-        amalgam_string += unique_char + item
-        delimiters.append(unique_char)
+        delimiter = get_unique_char(reserved_chars)
+        reserved_chars += delimiter
+        delimiters.append(delimiter)
+        parts.extend((delimiter, item))
 
-    return amalgam_string, delimiters
+    return "".join(parts), delimiters
 
 
 def get_unique_char(input_str: str) -> str:
@@ -132,23 +123,23 @@ def get_unique_char(input_str: str) -> str:
     >>> att.get_unique_char("abc0")
     '1'
     """
-    # Try ASCII printable characters first
+    used_chars = set(input_str)
     for char in string.printable:
-        if char not in input_str and char != ' ':
+        if char != " " and char not in used_chars:
             return char
 
-    # Try a broader range of Unicode characters (excluding surrogates and control chars)
-    for codepoint in range(0x00A1, 0x2FFF):  # Example: Latin-1 Supplement to CJK Radicals
+    for codepoint in range(0x00A1, 0x2FFF):
         char = chr(codepoint)
-        if char.isprintable() and char not in input_str:
+        if char.isprintable() and char not in used_chars:
             return char
 
-    # Raise an error if no unique character is found
-    raise ValueError("Ran out of delimiter symbols. Try broadening the range of allowable symbols.")
+    raise ValueError(
+        "Ran out of delimiter symbols. Try broadening the range of allowable symbols."
+    )
 
 
 def get_undir_str_molecule(
-        undir_str: str, debug: bool = False
+    undir_str: str, debug: bool = False
 ) -> tuple[nx.Graph, dict[str, str]]:
     """
     Create a molecular graph from an undirected string.
@@ -170,33 +161,29 @@ def get_undir_str_molecule(
 
         - A NetworkX graph of the corresponding molecule.
         - A dictionary mapping characters to edge colors (as strings).
+
+    Raises
+    ------
+    IndexError
+        If ``undir_str`` is empty.
     """
-
-    # Create a dictionary to map each unique character in the undirected string to a unique edge colour
-    edge_color_dict: dict[str, str] = {}
-    for i, char in enumerate(sorted(set(undir_str))):
-        edge_color_dict[char] = str(i + 1)
-
-    # If debug is enabled, print the edge colour dictionary
+    edge_color_dict = {
+        char: str(index)
+        for index, char in enumerate(sorted(set(undir_str)), start=1)
+    }
     if debug:
         print("Edge color dict:", flush=True)
         print(edge_color_dict, flush=True)
 
-    # Initialise the graph and add the first two nodes with a 'null' colour
-    blank = 'null'
+    if not undir_str:
+        raise IndexError("string index out of range")
+
     graph = nx.Graph()
-    graph.add_node(0, color=blank)
-    graph.add_node(1, color=blank)
-
-    # Add the first edge with the colour corresponding to the first character in the undirected string
-    graph.add_edge(0, 1, color=int(edge_color_dict[undir_str[0]]))
-
-    # Iterate through the rest of the undirected string, adding nodes and edges to the graph
-    for i in range(1, len(undir_str)):
-        graph.add_node(i + 1, color=blank)
-        graph.add_edge(i, i + 1, color=int(edge_color_dict[undir_str[i]]))
-
-    # Return the graph and the edge colour dictionary
+    graph.add_nodes_from(range(len(undir_str) + 1), color="null")
+    graph.add_edges_from(
+        (index, index + 1, {"color": int(edge_color_dict[char])})
+        for index, char in enumerate(undir_str)
+    )
     return graph, edge_color_dict
 
 
@@ -216,20 +203,23 @@ def get_dir_str_molecule(dir_str: str) -> nx.Graph:
     -------
     nx.Graph
         A NetworkX graph of the corresponding molecule.
-    """
-    blank = 'null'
-    graph = nx.Graph()
-    graph.add_node(0, color=blank)
-    graph.add_node(1, color=dir_str[0])
-    graph.add_node(2, color=blank)
-    graph.add_edge(0, 1, color=1)
-    graph.add_edge(1, 2, color=2)
-    for i in range(1, len(dir_str)):
-        graph.add_node(2 * i + 1, color=dir_str[i])
-        graph.add_edge(2 * i, 2 * i + 1, color=1)
-        graph.add_node(2 * i + 2, color=blank)
-        graph.add_edge(2 * i + 1, 2 * i + 2, color=2)
 
+    Raises
+    ------
+    IndexError
+        If ``dir_str`` is empty.
+    """
+    if not dir_str:
+        raise IndexError("string index out of range")
+
+    graph = nx.Graph()
+    graph.add_node(0, color="null")
+    for index, char in enumerate(dir_str):
+        node = 2 * index + 1
+        graph.add_node(node, color=char)
+        graph.add_node(node + 1, color="null")
+        graph.add_edge(node - 1, node, color=1)
+        graph.add_edge(node, node + 1, color=2)
     return graph
 
 
@@ -265,8 +255,7 @@ def generate_random_strings(n_pool: int, n_length: int) -> list[str]:
     An 11-character random string scores 10, against 7 for
     ``abracadabra``; the difference is what the internal structure buys.
     """
-    # Define the character set to include lowercase letters
-    chars = string.ascii_lowercase
-
-    # Generate a list of random strings using the specified character set
-    return [''.join(random.choices(chars, k=n_length)) for _ in range(n_pool)]
+    return [
+        "".join(random.choices(string.ascii_lowercase, k=n_length))
+        for _ in range(n_pool)
+    ]
