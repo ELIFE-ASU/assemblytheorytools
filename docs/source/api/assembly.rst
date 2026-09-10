@@ -13,6 +13,8 @@ ensemble quantities built on top of them.
    run_command
    add_assembly_to_path
    build_assembly_cpp
+   get_assembly_cpp_help
+   AssemblyCppOptions
    joint_assembly_index_correction
    calculate_assembly_index
    calculate_assembly
@@ -45,3 +47,6 @@ ensemble quantities built on top of them.
    :members:
    :undoc-members:
    :show-inheritance:
+
+.. autoclass:: AssemblyCppOptions
+   :members:

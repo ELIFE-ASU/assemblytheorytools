@@ -35,6 +35,7 @@ import networkx as nx
 import numpy as np
 from rdkit.Chem import AllChem as Chem
 
+from ._cpp_options import AssemblyCppOptions
 from .construction import (_VO_TYPES,
                            _VO_TYPE_ERROR,
                            parse_pathway_file,
@@ -267,6 +268,17 @@ def add_assembly_to_path(str_mode: bool = False) -> str:
 
     os.environ["ASS_PATH"] = executable
     return executable
+
+
+def get_assembly_cpp_help(dir_code: Optional[str] = None) -> str:
+    """Return the selected calculator's ``--help``, including build-specific options.
+
+    Locate or build the calculator when ``dir_code`` is omitted. A failed
+    executable raises the corresponding subprocess error.
+    """
+    executable = dir_code if dir_code is not None else add_assembly_to_path()
+    return subprocess.run([os.path.expanduser(os.fspath(executable)), "--help"],
+                          check=True, capture_output=True, text=True).stdout
 
 
 def _which_build_tool(name: str) -> Optional[str]:
@@ -561,24 +573,22 @@ def joint_assembly_index_correction(mol: Union[nx.Graph, Chem.Mol], ass_index: i
     return ass_index - max(0, num_components - 1)
 
 
-def _convert_timeout_for_platform(seconds: float) -> int:
-    """Convert seconds to the integer timeout units used by the C++ assembler.
-
-    Windows uses milliseconds, Linux and macOS use microseconds, and other
-    platforms fall back to integer seconds.
-    """
-    system = platform.system().lower()
-    if "windows" in system:
-        return int(seconds * 1_000)
-    if "linux" in system or "darwin" in system:
-        return int(seconds * 1_000_000)
-    return int(seconds)
-
-
-def _validate_cpp_timeout(timeout: float) -> None:
+def _validate_cpp_timeout(timeout: Optional[float]) -> None:
     """Reject unusable budgets before creating files or resolving a calculator."""
+    if timeout is None:
+        return
     if not isinstance(timeout, (int, float)) or not isfinite(timeout) or timeout < 0:
-        raise ValueError("timeout must be a finite, non-negative number of seconds")
+        raise ValueError("timeout must be None or a finite, non-negative number of seconds")
+
+
+def _cpp_options(options: Optional[AssemblyCppOptions], *, str_mode: bool) -> AssemblyCppOptions:
+    """Validate the options for this mode before creating any calculation files."""
+    if options is None:
+        options = AssemblyCppOptions()
+    if not isinstance(options, AssemblyCppOptions):
+        raise TypeError("cpp_options must be an AssemblyCppOptions instance or None")
+    options._arguments(str_mode=str_mode)
+    return options
 
 
 @contextmanager
@@ -589,7 +599,7 @@ def _calculation_directory(*, save: bool = False, debug: bool = False,
         tempfile.mkdtemp(prefix="ai_calc_", dir=".")
         if save or debug else tempfile.mkdtemp()
     ).resolve()
-    if debug:
+    if save or debug:
         print(f"Calculation directory: {directory}", flush=True)
     try:
         yield directory
@@ -609,7 +619,8 @@ def _calculator_error(message: str, log_file: str) -> OSError:
 
 
 def _run_assembler(dir_code: str, file_path_in: str, log_file: str,
-                   timeout: float, debug: bool, *, str_mode: bool = False) -> bool:
+                   timeout: Optional[float], debug: bool, *, str_mode: bool = False,
+                   cpp_options: Optional[AssemblyCppOptions] = None) -> bool:
     """Run either C++ mode with a bounded wait and a log streamed to disk.
 
     SIGINT gives the calculator two seconds to save its best result. A process
@@ -618,10 +629,8 @@ def _run_assembler(dir_code: str, file_path_in: str, log_file: str,
     executable = os.path.expanduser(os.fspath(dir_code))
     if os.path.dirname(executable):
         executable = os.path.abspath(executable)
-    command = [executable, file_path_in, "-memTest=0", "-removeHydrogens=0",
-               "-compensateDisjoint=0", f"-runTime={_convert_timeout_for_platform(timeout)}"]
-    if str_mode:
-        command.append("-runStrings=1")
+    options = _cpp_options(cpp_options, str_mode=str_mode)
+    command = [executable, file_path_in, *options._arguments(str_mode=str_mode)]
     if debug:
         print(f"Calling: {command}", flush=True)
 
@@ -688,14 +697,15 @@ def _read_calculation_index(file_path_out: str, log_file: str, timed_out: bool,
 
 def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
                              dir_code: Optional[str] = None,
-                             timeout: float = 100.0,
+                             timeout: Optional[float] = 100.0,
                              save_dir: bool = False,
                              debug: bool = False,
                              joint_corr: bool = True,
                              strip_hydrogen: bool = False,
                              return_log_file: bool = False,
                              canonicalize: bool = True,
-                             exact: bool = False) -> Union[Tuple[int, Any, Any], Tuple[int, Any, Any, Optional[str]]]:
+                             exact: bool = False, *,
+                             cpp_options: Optional[AssemblyCppOptions] = None) -> Union[Tuple[int, Any, Any], Tuple[int, Any, Any, Optional[str]]]:
     """
     Calculate the assembly index for a given graph or molecule.
 
@@ -712,7 +722,9 @@ def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
         Path to the assembly executable. If None, locate or build it via
         :func:`add_assembly_to_path`.
     timeout : float, optional
-        Maximum search time in seconds; must be finite and non-negative.
+        Maximum wall-clock search time in seconds; must be finite and
+        non-negative, or None for no wall-clock limit. This is independent of
+        the C++ CPU-time budget in ``cpp_options.runtime_ticks``.
         A timed-out calculator gets up to two more seconds to save its result
         before it is killed. Default is 100.0.
     save_dir : bool, optional
@@ -737,6 +749,12 @@ def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
     exact : bool, optional
         If True, require a proven minimum: return -1 rather than the best bound
         the calculator reached when its search stopped early. Default is False.
+    cpp_options : AssemblyCppOptions, optional
+        C++ search and output controls: parallelism, threads, enumeration and
+        CPU-time limits, pathway output and diagnostics. Diagnostic output
+        requests retain the calculation directory and print its location.
+        Hydrogen stripping and joint correction remain controlled by the
+        corresponding Python arguments so input and pathway labels agree.
 
     Returns
     -------
@@ -795,6 +813,7 @@ def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
     9
     """
     _validate_cpp_timeout(timeout)
+    options = _cpp_options(cpp_options, str_mode=False)
     molecule_input = isinstance(graph, Chem.Mol)
     if molecule_input:
         graph = mol_to_nx(graph)
@@ -806,7 +825,7 @@ def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
         graph = canonicalize_node_labels(graph)
 
     has_edges = graph.number_of_edges() > 0
-    with _calculation_directory(save=save_dir, debug=debug,
+    with _calculation_directory(save=save_dir or (options._retain_files and has_edges), debug=debug,
                                 return_log_file=return_log_file and has_edges) as directory:
         file_path_in = str(directory / "graph_in")
         file_path_out = file_path_in + "Out"
@@ -818,11 +837,12 @@ def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
             return (0, None, None, None) if return_log_file else (0, None, None)
         if dir_code is None:
             dir_code = add_assembly_to_path()
-        timed_out = _run_assembler(dir_code, file_path_in, log_file, timeout, debug)
+        timed_out = _run_assembler(dir_code, file_path_in, log_file, timeout, debug,
+                                   cpp_options=options)
         ai = _read_calculation_index(file_path_out, log_file, timed_out,
                                      exact=exact, debug=debug)
         virtual_objects = pathway = None
-        if os.path.isfile(file_path_pathway):
+        if options.pathway and os.path.isfile(file_path_pathway):
             try:
                 pathway, virtual_objects = parse_pathway_file(
                     file_path_pathway, vo_type="graph", debug=debug, input_graph=graph)
@@ -1251,7 +1271,8 @@ def exploration_ratio(pathways: Sequence[nx.DiGraph],
 
 def _calculate_string_assembly_molecular(
     string: str, delimiters: Sequence[str], *, dir_code: Optional[str],
-    timeout: float, debug: bool, return_log_file: bool,
+    timeout: Optional[float], debug: bool, return_log_file: bool,
+    save_dir: bool, cpp_options: Optional[AssemblyCppOptions],
 ) -> tuple:
     """Calculate string assembly using the molecular backend."""
     graph, edge_color_dict = get_undir_str_molecule(string, debug=debug)
@@ -1269,7 +1290,8 @@ def _calculate_string_assembly_molecular(
 
     graph_result = calculate_assembly_index(
         graph, dir_code=dir_code, timeout=timeout, debug=debug,
-        joint_corr=False, strip_hydrogen=False, return_log_file=return_log_file)
+        joint_corr=False, strip_hydrogen=False, return_log_file=return_log_file,
+        save_dir=save_dir, cpp_options=cpp_options)
     graph_ai, graph_virtual_obj, graph_path = graph_result[:3]
 
     # Each delimiter adds two joins to the encoded joint input.
@@ -1297,20 +1319,23 @@ def _calculate_string_assembly_molecular(
 
 def _calculate_string_assembly_cpp(
     string: str, delimiters: Sequence[str], *, dir_code: Optional[str],
-    timeout: float, debug: bool, return_log_file: bool,
+    timeout: Optional[float], debug: bool, return_log_file: bool,
+    save_dir: bool, cpp_options: Optional[AssemblyCppOptions],
 ) -> tuple:
     """Calculate string assembly using the shared C++ execution lifecycle."""
     _validate_cpp_timeout(timeout)
+    options = _cpp_options(cpp_options, str_mode=True)
     if not string.isascii() or "\n" in string or "\r" in string:
         raise ValueError("C++ string assembly requires a single line of ASCII text")
-    with _calculation_directory(debug=debug, return_log_file=return_log_file) as directory:
+    with _calculation_directory(save=save_dir or options._retain_files, debug=debug,
+                                return_log_file=return_log_file) as directory:
         file_path_in = str(directory / "string_in")
         Path(file_path_in).write_text(string, encoding="ascii")
         log_file = str(directory / "assembly_output.log")
         if dir_code is None:
             dir_code = add_assembly_to_path(str_mode=True)
         timed_out = _run_assembler(dir_code, file_path_in, log_file, timeout, debug,
-                                   str_mode=True)
+                                   str_mode=True, cpp_options=options)
         ai = _read_calculation_index(file_path_in + "Out", log_file, timed_out, debug=debug)
         if ai >= 0:
             ai -= 2 * len(delimiters)
@@ -1318,9 +1343,10 @@ def _calculate_string_assembly_cpp(
         virt_obj = path = None
         # The CLI writes one pathway per input line; this API supplies one line.
         file_path_pathway = directory / "string_in_0_Pathway"
-        if file_path_pathway.is_file():
+        if options.pathway and file_path_pathway.is_file():
             try:
-                virt_obj, path = parse_string_pathway_file(str(file_path_pathway))
+                virt_obj, path = parse_string_pathway_file(
+                    str(file_path_pathway), accept_palindromes=options.accept_palindromes)
             except Exception as error:
                 print(f"Failed to load pathway data: {error}", flush=True)
                 if debug:
@@ -1334,11 +1360,13 @@ def _calculate_string_assembly_cpp(
 
 def calculate_string_assembly_index(input_data: Union[str, List[str]],
                                     dir_code: Optional[str] = None,
-                                    timeout: float = 100.0,
+                                    timeout: Optional[float] = 100.0,
                                     debug: bool = False,
                                     directed: bool = True,
                                     mode: str = "str",
-                                    return_log_file: bool = False) -> Union[
+                                    return_log_file: bool = False, *,
+                                    save_dir: bool = False,
+                                    cpp_options: Optional[AssemblyCppOptions] = None) -> Union[
     Tuple[int, Any, Any], Tuple[int, Any, Any, Optional[str]]]:
     """
     Calculate the assembly index for a string or a list of strings.
@@ -1359,7 +1387,9 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         Path to the assembly executable. If None, locate or build it via
         :func:`add_assembly_to_path`.
     timeout : float, optional
-        Maximum search time in seconds; must be finite and non-negative.
+        Maximum wall-clock search time in seconds; must be finite and
+        non-negative, or None for no wall-clock limit. This is independent of
+        the C++ CPU-time budget in ``cpp_options.runtime_ticks``.
         A timed-out calculator gets up to two more seconds to save its result
         before it is killed. Default is 100.0.
     debug : bool, optional
@@ -1378,6 +1408,15 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         If True, return the path to the log file produced by the external run as
         the fourth element of the returned tuple, retaining its directory.
         No log is produced for a trivial input. Default is False.
+    save_dir : bool, optional
+        Retain calculation files in an ``ai_calc_*`` directory. Default is False.
+    cpp_options : AssemblyCppOptions, optional
+        C++ search and output controls. In native string mode,
+        ``accept_palindromes=True`` permits reuse of reversed fragments;
+        the pathway marks reversal operations with zero cost. Graph-only
+        controls are rejected in this mode. Options are forwarded to the
+        graph calculator for undirected molecular encoding. CFG mode does
+        not accept C++ options.
 
     Returns
     -------
@@ -1443,6 +1482,15 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         mode = "str"  # Use the string assembly calculator for directed strings
         print("Warning: mode 'mol' is not currently supported for directed strings. Switching to 'str'.", flush=True)
 
+    if mode not in ("str", "mol", "cfg"):
+        raise ValueError("Mode must be either 'mol', 'str', or 'cfg'.")
+    if mode == "cfg":
+        if cpp_options is not None:
+            raise ValueError("cpp_options do not apply to CFG mode")
+    else:
+        _validate_cpp_timeout(timeout)
+        _cpp_options(cpp_options, str_mode=mode == "str")
+
     if isinstance(input_data, str):
         string = input_data
         delimiters = []
@@ -1463,8 +1511,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
     else:
         raise ValueError("Input must be either a single string or a list of strings")
 
-    assert dir_code is None or isinstance(dir_code, str), "Directory code must be a string"
-    assert isinstance(timeout, (int, float)), "Timeout must be an integer or float"
+    assert dir_code is None or isinstance(dir_code, (str, os.PathLike)), "Directory code must be a path"
     assert isinstance(debug, bool), "Debug must be a boolean"
     assert isinstance(directed, bool), "Directed must be a boolean"
 
@@ -1474,11 +1521,13 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
     if mode == "mol":
         return _calculate_string_assembly_molecular(
             string, delimiters, dir_code=dir_code, timeout=timeout,
-            debug=debug, return_log_file=return_log_file)
+            debug=debug, return_log_file=return_log_file,
+            save_dir=save_dir, cpp_options=cpp_options)
     if mode == "str":
         return _calculate_string_assembly_cpp(
             string, delimiters, dir_code=dir_code, timeout=timeout,
-            debug=debug, return_log_file=return_log_file)
+            debug=debug, return_log_file=return_log_file,
+            save_dir=save_dir, cpp_options=cpp_options)
     raise ValueError("Mode must be either 'mol', 'str', or 'cfg'.")
 
 

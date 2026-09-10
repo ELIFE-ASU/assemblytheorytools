@@ -81,7 +81,7 @@ def test_molecular_timeout_uses_latest_bound_and_preserves_log(
     assert result[:3] == (expected, None, None)
     assert isinstance(result[0], int)
     assert Path(result[3]).read_text() == log_text
-    assert "-runTime=1000000" in commands[0]
+    assert not any("runTime" in argument for argument in commands[0])
     assert graph.number_of_nodes() == 4
 
 

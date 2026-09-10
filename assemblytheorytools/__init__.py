@@ -31,6 +31,8 @@ from importlib.metadata import version as _pkg_version
 __version__ = _pkg_version("assemblytheorytools")
 
 from .assembly import (calculate_assembly_index,
+                       AssemblyCppOptions,
+                       get_assembly_cpp_help,
                        calculate_assembly,
                        calculate_string_assembly_index,
                        calculate_string_assembly,

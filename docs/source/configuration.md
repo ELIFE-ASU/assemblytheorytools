@@ -105,8 +105,10 @@ functions built on it.
   stripping is applied to a copy, so the graph you pass is left unchanged.
 
 `timeout` (default `100.0` seconds)
-: A finite, non-negative limit for the external calculator, enforced by ATT
-  and also handed to the calculator as its own CPU-time budget. On a timeout,
+: A finite, non-negative wall-clock limit for the external calculator, enforced
+  by ATT; `None` disables this limit. The calculator's CPU-time budget is a
+  separate option, `cpp_options.runtime_ticks`, and is unlimited by default.
+  On a timeout,
   ATT interrupts the calculator and allows up to two seconds to write its best
   result before killing it. The search is exponential in the worst
   case, so a large molecule can exceed any limit. When the search stops early —
@@ -142,8 +144,8 @@ functions built on it.
 `return_log_file` (default `False`)
 : Return the log path as a fourth result field and retain the calculation
   directory. This applies to both graph and string calculations. Without
-  `return_log_file`, `debug` or `save_dir`, ATT removes temporary files on
-  success and failure. Failed launches and nonzero exits raise `OSError`;
+  `return_log_file`, `debug`, `save_dir` or a requested diagnostic output file,
+  ATT removes temporary files on success and failure. Failed launches and nonzero exits raise `OSError`;
   calculator failures include the end of the log in the exception.
 
 C++ string mode accepts one line of ASCII text: the calculator indexes bytes
@@ -152,6 +154,70 @@ need no joining operations and return index zero without launching a calculator.
 
 `dir_code`
 : Explicit path to the calculator executable, overriding `ASS_PATH`.
+
+## C++ command-line controls
+
+Pass an {class}`~assemblytheorytools.assembly.AssemblyCppOptions` instance as
+`cpp_options` to either C++ calculation entry point. The same instance can be
+reused or passed in a batch calculation's `settings` dictionary.
+
+```python
+import assemblytheorytools as att
+
+options = att.AssemblyCppOptions(enum_max=1_000_000, pathway=False)
+ai, virtual_objects, pathway = att.calculate_assembly_index(
+    att.smi_to_mol("c1ccccc1"), strip_hydrogen=True,
+    timeout=30, cpp_options=options,
+)
+# pathway=False returns the index with both remaining fields set to None.
+```
+
+Every C++ CLI control maps to the Python interface below. ATT emits compatible
+older aliases for renamed flags; the table uses the current `--help` names.
+
+| C++ option | Python control | Default and meaning |
+| --- | --- | --- |
+| `--runtime` | `cpp_options.runtime_ticks` | `None`: unlimited CPU time; otherwise integer `std::clock` ticks, from 0 through `2**64 - 1`. The maximum value also means unlimited. |
+| `--enum-max` | `cpp_options.enum_max` | `None`: C++ default, currently 50,000,000. Integers from 1 through `2**31 - 1`; graph mode only. |
+| `--pathway` | `cpp_options.pathway` | `True`; disable pathway computation/output with `False`. |
+| `--accept-palindromes` | `cpp_options.accept_palindromes` | `False`; allow a string fragment to be reused in reverse. Native string mode only. |
+| `--parallel` | `cpp_options.parallel` | `"off"`, `"auto"` or `"on"`; default `"off"`. `"auto"` can fall back to serial; `"on"` requires a compatible parallel executable. |
+| `--threads` | `cpp_options.threads` | `"auto"` or an integer from 1 through `2**31 - 1`; threads per C++ process, applicable to parallel graph search. |
+| `--verbose` | `cpp_options.verbose` | `False`; print the parsed graph into the calculator log, independently of Python's `debug`. Graph mode only. |
+| `--memory-report` | `cpp_options.memory_report` | `False`; write Linux peak memory to `memUsage`. |
+| `--telemetry` | `cpp_options.telemetry` | `False`; write `INPUTTelemetry.json`. Requires a telemetry executable; graph mode only. |
+| `--write-intermediate-mas` | `cpp_options.write_intermediate_mas` | `False`; write index improvements to `INPUTIntermediateMAs`. Graph mode only; requires serial search. |
+| `--run-strings` | String calculation entry point and `mode` | ATT selects the appropriate input serializer, C++ mode and pathway parser together. |
+| `--remove-hydrogens` | `strip_hydrogen` | ATT performs stripping in Python and disables C++ stripping so the pathway matches the input graph. |
+| `--compensate-disjoint` | `joint_corr` | ATT applies the correction in Python and disables C++ compensation to avoid applying it twice. |
+| `--help` | `att.get_assembly_cpp_help(dir_code=None)` | Return the selected executable's help text, including build-specific controls. |
+
+Booleans must be `True` or `False`; numeric bounds are checked before execution.
+Graph-only controls are rejected in native string mode instead of silently
+ignored. `cpp_options` is unavailable for the CFG backend.
+
+`parallel="on"` cannot be combined with a finite C++ CPU budget or intermediate
+index output. `parallel="auto"` permits the calculator's serial fallback in
+these cases. The Python wall-clock `timeout` works with every mode and does not
+force serial execution. See {doc}`guide/parallel` for selecting a parallel build.
+
+ATT's default build is serial and has no telemetry. Point `dir_code` or
+`ASS_PATH` at `ParallelAssemblyCppOMP` for OpenMP, `ParallelAssemblyCppTelemetry`
+for telemetry, or `ParallelAssemblyCppOMPTelemetry` for both, from an upstream
+build configured with `PARALLELASSEMBLYCPP_BUILD_OPENMP=ON` and/or
+`PARALLELASSEMBLYCPP_BUILD_TELEMETRY=ON`. Unsupported requested features raise
+the calculator's error; disabled telemetry emits no flag.
+
+Requesting a memory report, telemetry or intermediate indices retains the
+calculation directory and prints its location. Use `return_log_file=True` to
+retrieve that location programmatically: output files sit next to the returned
+log, with `INPUT` equal to `graph_in` or `string_in`. Both graph and string
+entry points also accept `save_dir=True` to retain their working files.
+
+For reversal matching, the returned string pathway distinguishes
+`operation="concatenate"` nodes with `cost=1` from `operation="reverse"` nodes
+and edges with `cost=0`. Summing **node** costs counts joining operations;
+counting all nonprimitive nodes would also count free reversals.
 
 ## Rust backend options
 

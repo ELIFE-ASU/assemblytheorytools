@@ -1321,8 +1321,23 @@ def immediate_predecessors(
     return output
 
 
+def _reuse_string_orientation(fragment: str, path: nx.DiGraph) -> bool:
+    """Reuse an existing orientation, adding a free reversal when needed."""
+    if fragment in path:
+        return True
+    reversed_fragment = fragment[::-1]
+    if reversed_fragment not in path:
+        return False
+    # Add only absent targets: choosing the first constructed orientation as
+    # the source prevents a later reuse from introducing a reversal cycle.
+    path.add_node(fragment, operation="reverse", cost=0)
+    path.add_edge(reversed_fragment, fragment, operation="reverse", cost=0)
+    return True
+
+
 def build_str(
-    interval: Union[List[int], Tuple[int, int]], data: Dict[str, Any], path: nx.DiGraph
+    interval: Union[List[int], Tuple[int, int]], data: Dict[str, Any], path: nx.DiGraph,
+    *, accept_palindromes: bool = False,
 ) -> nx.DiGraph:
     """
     Build the string from the pathway data and add it to the path.
@@ -1335,12 +1350,21 @@ def build_str(
         The pathway data from parallelassemblycpp (JSON format).
     path : nx.DiGraph
         The current pathway graph.
+    accept_palindromes : bool, optional
+        Reuse an already built fragment in either orientation. Reversals have
+        zero cost; each concatenation result node has ``cost=1``.
 
     Returns
     -------
     nx.DiGraph
         Updated pathway with the string added.
     """
+    if accept_palindromes:
+        fragment = data["file_graph"][0]["Fragments"][0]
+        fragment = fragment[interval[0]:sum(interval)]
+        if _reuse_string_orientation(fragment, path):
+            return path
+
     ledger = immediate_predecessors(data, interval)
     if not ledger:
         return path
@@ -1348,7 +1372,8 @@ def build_str(
     for sub_str in ledger:
         if sub_str not in path.nodes:
             # Recursively build the duplicate strings if not already in the path
-            path = build_str([c_idx, len(sub_str)], data, path)
+            path = build_str([c_idx, len(sub_str)], data, path,
+                             accept_palindromes=accept_palindromes)
         c_idx += len(sub_str)
 
     # Builds string from left to right. The membership checks below are only
@@ -1356,16 +1381,23 @@ def build_str(
     assembled = ledger[0]
     for part in ledger[1:]:
         combined = assembled + part
+        if accept_palindromes and _reuse_string_orientation(combined, path):
+            assembled = combined
+            continue
         if combined not in path.nodes:
-            path.add_node(combined)
+            attributes = {"operation": "concatenate", "cost": 1} if accept_palindromes else {}
+            path.add_node(combined, **attributes)
         for source in (assembled, part):
             if (source, combined) not in path.edges:
-                path.add_edge(source, combined)
+                attributes = {"operation": "concatenate"} if accept_palindromes else {}
+                path.add_edge(source, combined, **attributes)
         assembled = combined
     return path
 
 
-def parse_string_pathway_file(file_path_pathway: str) -> Tuple[List[str], nx.DiGraph]:
+def parse_string_pathway_file(
+    file_path_pathway: str, *, accept_palindromes: bool = False,
+) -> Tuple[List[str], nx.DiGraph]:
     """
     Parse a string pathway file into virtual objects and a directed graph.
 
@@ -1373,6 +1405,10 @@ def parse_string_pathway_file(file_path_pathway: str) -> Tuple[List[str], nx.DiG
     ----------
     file_path_pathway : str
         Path to the pathway file.
+    accept_palindromes : bool, optional
+        Whether the C++ search treated fragments and their reversals as
+        equivalent, by default False. Pass the value used for the calculation;
+        the pathway file does not record it.
 
     Returns
     -------
@@ -1380,6 +1416,12 @@ def parse_string_pathway_file(file_path_pathway: str) -> Tuple[List[str], nx.DiG
         List of virtual objects in the calculated pathway.
     path : nx.DiGraph
         NetworkX directed graph representing the pathway.
+        With ``accept_palindromes=True``, each node has an ``operation``
+        (``primitive``, ``concatenate`` or ``reverse``) and a ``cost``. Sum node
+        costs to count joins: concatenations cost one and primitives and
+        reversals cost zero. Reversal edges also have ``operation="reverse"``
+        and ``cost=0``. Reused objects retain their first construction, keeping
+        the graph acyclic even when both orientations occur repeatedly.
 
     Raises
     ------
@@ -1395,8 +1437,18 @@ def parse_string_pathway_file(file_path_pathway: str) -> Tuple[List[str], nx.DiG
     file_string = data["file_graph"][0]["Fragments"][0]
     path = nx.DiGraph()
     path.add_nodes_from(dict.fromkeys(file_string))
+    if accept_palindromes:
+        nx.set_node_attributes(path, "primitive", "operation")
+        nx.set_node_attributes(path, 0, "cost")
+        # C++ records eliminations from larger fragments to smaller ones. Its
+        # surviving Left copy can occur after an eliminated Right copy, and
+        # only the survivor carries the later nested decompositions. Build
+        # these survivors in reverse elimination order before their consumers.
+        for duplicate in reversed(data["duplicates"]):
+            build_str(duplicate["Left"], data, path, accept_palindromes=True)
 
-    path = build_str([0, len(file_string)], data, path)
+    path = build_str([0, len(file_string)], data, path,
+                     accept_palindromes=accept_palindromes)
     return list(path.nodes), path
 
 

@@ -184,7 +184,7 @@ def test_string_backend_timeout_and_file_lifecycle(
     def start_process(command, *, stdout, stderr, stdin, cwd):
         assert command[:2] == ["assembler", str(calculation_dir / "string_in")]
         assert "-runStrings=1" in command
-        assert "-runTime=1000000" in command
+        assert not any("runTime" in argument for argument in command)
         assert stdout is stderr
         assert cwd == str(calculation_dir)
         assert Path(command[1]).read_text() == "abab0baba"
@@ -239,6 +239,8 @@ def test_undirected_strings_use_molecular_backend(monkeypatch, capsys, mode):
                 "joint_corr": False,
                 "strip_hydrogen": False,
                 "return_log_file": True,
+                "save_dir": False,
+                "cpp_options": None,
             },
         )
     ]
