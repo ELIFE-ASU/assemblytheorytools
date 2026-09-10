@@ -1,6 +1,11 @@
+import fcntl
+import io
 import json
 
+import pytest
+
 import assemblytheorytools as att
+from assemblytheorytools import tools_file
 from assemblytheorytools.tools_file import prep_json
 
 
@@ -14,9 +19,10 @@ def test_file_list_returns_only_direct_files(tmp_path, monkeypatch):
 
     monkeypatch.chdir(tmp_path)
     assert set(att.file_list()) == {"a.txt", "b.dat"}
+    assert set(att.file_list("")) == {"a.txt", "b.dat"}
 
 
-def test_file_list_all_recurses_and_returns_paths(tmp_path):
+def test_file_list_all_recurses_and_preserves_path_style(tmp_path, monkeypatch):
     nested = tmp_path / "one" / "two"
     nested.mkdir(parents=True)
     direct_file = tmp_path / "direct.txt"
@@ -26,15 +32,25 @@ def test_file_list_all_recurses_and_returns_paths(tmp_path):
 
     assert set(att.file_list_all(tmp_path)) == {str(direct_file), str(nested_file)}
 
+    monkeypatch.chdir(tmp_path)
+    assert set(att.file_list_all(".")) == {"./direct.txt", "./one/two/nested.txt"}
+    assert set(att.file_list_all("")) == {str(direct_file), str(nested_file)}
 
-def test_filter_files_checks_the_basename_only():
+
+def test_filter_files_checks_basenames_and_preserves_iterable_order():
     paths = [
         "/matching-directory/result.csv",
         "/data/matching-result.txt",
         "/data/other.txt",
+        "/data/matching-result.csv",
+        "/data/matching-result.txt",
     ]
 
-    assert att.filter_files(paths, "matching") == ["/data/matching-result.txt"]
+    assert att.filter_files(iter(paths), "matching") == [
+        "/data/matching-result.txt",
+        "/data/matching-result.csv",
+        "/data/matching-result.txt",
+    ]
 
 
 def test_write_to_shared_file_appends_without_adding_content(tmp_path):
@@ -44,6 +60,29 @@ def test_write_to_shared_file_appends_without_adding_content(tmp_path):
     att.write_to_shared_file("second", shared_file)
 
     assert shared_file.read_text() == "first\nsecond"
+
+
+def test_write_to_shared_file_holds_lock_through_buffered_writes(tmp_path, monkeypatch):
+    shared_file = tmp_path / "shared.log"
+
+    class LockCheckedFile(io.FileIO):
+        def write(self, data):
+            # A separate descriptor must be unable to lock the file while
+            # buffered bytes are being written to the underlying stream.
+            with open(shared_file, "a") as contender:
+                with pytest.raises(BlockingIOError):
+                    fcntl.flock(contender, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return super().write(data)
+
+    stream = io.TextIOWrapper(LockCheckedFile(shared_file, "a"))
+    monkeypatch.setattr(tools_file, "open", lambda path, mode: stream, raising=False)
+
+    att.write_to_shared_file("buffered message", shared_file)
+
+    assert stream.closed
+    assert shared_file.read_text() == "buffered message"
+    with open(shared_file, "a") as contender:
+        fcntl.flock(contender, fcntl.LOCK_EX | fcntl.LOCK_NB)
 
 
 def test_remove_files_removes_nested_files_but_preserves_directories(tmp_path):
@@ -94,17 +133,48 @@ def test_prep_json_repairs_missing_and_unquoted_edge_colours(tmp_path):
     }
 
 
+@pytest.mark.parametrize(
+    ("colours", "expected"),
+    [
+        ("", ["ERROR"]),
+        ('"blue", ', ["blue", "ERROR"]),
+        ("\nred,\n, blue\n", ["red", "ERROR", "blue"]),
+    ],
+)
+def test_prep_json_preserves_empty_entry_repair_rules(tmp_path, colours, expected):
+    path = tmp_path / "pathway.json"
+    path.write_text('{"EdgeColours": [' + colours + "]}")
+
+    prep_json(path)
+
+    assert json.loads(path.read_text()) == {"EdgeColours": expected}
+
+
+def test_prep_json_leaves_invalid_json_unchanged(tmp_path):
+    path = tmp_path / "pathway.json"
+    original = '{"EdgeColours": [red,], "other": invalid}'
+    path.write_text(original)
+
+    with pytest.raises(json.JSONDecodeError):
+        prep_json(path)
+
+    assert path.read_text() == original
+
+
 def test_remove_file_pattern_removes_only_matching_files(tmp_path):
     matching = [tmp_path / "one.tmp", tmp_path / "two.tmp"]
     for path in matching:
         path.write_text("remove")
     keep = tmp_path / "keep.txt"
     keep.write_text("keep")
+    matching_directory = tmp_path / "directory.tmp"
+    matching_directory.mkdir()
 
     att.remove_file_pattern(str(tmp_path / "*.tmp"))
 
     assert all(not path.exists() for path in matching)
     assert keep.read_text() == "keep"
+    assert matching_directory.is_dir()
 
 
 def test_safe_folder_remove_handles_nested_and_missing_directories(tmp_path):
@@ -118,3 +188,13 @@ def test_safe_folder_remove_handles_nested_and_missing_directories(tmp_path):
     att.safe_folder_remove(target)
 
     assert not target.exists()
+
+
+@pytest.mark.parametrize("remove_directory", [att.safe_folder_remove, att.wipe_dir])
+def test_directory_removal_ignores_regular_files(tmp_path, remove_directory):
+    path = tmp_path / "keep.txt"
+    path.write_text("keep")
+
+    remove_directory(path)
+
+    assert path.read_text() == "keep"

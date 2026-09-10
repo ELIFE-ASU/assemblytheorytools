@@ -10,58 +10,58 @@ import glob
 import json
 import os
 import re
-from typing import List, Optional, Iterable, Match
+from typing import Iterable, List, Match, Optional
 
 
 def file_list(mypath: Optional[str] = None) -> List[str]:
     """
-    Generate a list of all files in a specified directory.
-
-    If no directory is specified, it defaults to the current working directory.
+    List file names directly inside a directory, in filesystem order.
 
     Parameters
     ----------
     mypath : Optional[str], optional
-        The path to the directory. Defaults to None, which means the current working directory.
+        The directory to list. A missing or empty path uses the current
+        working directory.
 
     Returns
     -------
     List[str]
-        A list of all files in the specified directory.
+        File names without the directory prefix.
     """
     mypath = mypath or os.getcwd()
-    return [f for f in os.listdir(mypath) if os.path.isfile(os.path.join(mypath, f))]
+    return [
+        name
+        for name in os.listdir(mypath)
+        if os.path.isfile(os.path.join(mypath, name))
+    ]
 
 
 def file_list_all(mypath: Optional[str] = None) -> List[str]:
     """
-    Generate a list of all files in a specified directory and its subdirectories.
-
-    If no directory is specified, it defaults to the current working directory.
+    List file paths recursively, in filesystem traversal order.
 
     Parameters
     ----------
     mypath : Optional[str], optional
-        The path to the directory. Defaults to None, which means the current working directory.
+        The directory to walk. A missing or empty path uses the current
+        working directory. Symlink directories encountered within the tree
+        are not traversed.
 
     Returns
     -------
     List[str]
-        A list of all files in the specified directory and its subdirectories.
+        Paths prefixed by the directory, with user-home prefixes expanded.
     """
-    mypath = mypath or os.getcwd()  # If no path is provided, use the current working directory
-    files = []
-    # os.walk generates the file names in a directory tree by walking the tree either top-down or bottom-up
-    for dirpath, dirnames, filenames in os.walk(mypath):
-        for filename in filenames:
-            # os.path.join joins one or more path parts intelligently
-            files.append(os.path.expanduser(os.path.join(dirpath, filename)))
-    return files
+    return [
+        os.path.expanduser(os.path.join(root, name))
+        for root, _, filenames in os.walk(mypath or os.getcwd())
+        for name in filenames
+    ]
 
 
 def filter_files(file_paths: Iterable[str], substring: str) -> List[str]:
     """
-    Filter a list of file paths and return only those where the file name contains a given substring.
+    Keep paths whose file name contains the given substring.
 
     Parameters
     ----------
@@ -73,14 +73,14 @@ def filter_files(file_paths: Iterable[str], substring: str) -> List[str]:
     Returns
     -------
     List[str]
-        A list of file paths where the file name contains the given substring.
+        Matching paths in their original order, including duplicates.
     """
-    return [file_path for file_path in file_paths if substring in os.path.basename(file_path)]
+    return [path for path in file_paths if substring in os.path.basename(path)]
 
 
 def write_to_shared_file(message: str, shared_file: str) -> None:
     """
-    Write a message to a shared file with an exclusive lock.
+    Append a message verbatim while holding an exclusive file lock.
 
     Parameters
     ----------
@@ -88,24 +88,16 @@ def write_to_shared_file(message: str, shared_file: str) -> None:
         The message to write to the file.
     shared_file : str
         The path to the shared file.
-
-    Returns
-    -------
-    None
-        This function does not return a value.
     """
-    with open(shared_file, 'a') as f:
-        # Acquire an exclusive lock before writing
-        fcntl.flock(f, fcntl.LOCK_EX)
-        # Write the message to the file
-        f.write(message)
-        # Release the lock after writing
-        fcntl.flock(f, fcntl.LOCK_UN)
+    with open(shared_file, "a") as stream:
+        fcntl.flock(stream, fcntl.LOCK_EX)
+        stream.write(message)
+        # Closing flushes buffered writes before releasing the lock.
 
 
 def remove_files(target_dir: str, debug: bool = False) -> None:
     """
-    Remove all files in the specified directory and its subdirectories.
+    Remove files recursively while preserving the directory structure.
 
     Parameters
     ----------
@@ -113,14 +105,8 @@ def remove_files(target_dir: str, debug: bool = False) -> None:
         The path to the target directory.
     debug : bool, optional
         If True, prints the name of each file being removed. Defaults to False.
-
-    Returns
-    -------
-    None
-        This function does not return a value.
     """
-    files: List[str] = file_list_all(target_dir)
-    for file_path in files:
+    for file_path in file_list_all(target_dir):
         if debug:
             print(f"Removing file {file_path}", flush=True)
         os.remove(file_path)
@@ -128,28 +114,19 @@ def remove_files(target_dir: str, debug: bool = False) -> None:
 
 def wipe_dir(temp_dir: str) -> None:
     """
-    Remove all files in the specified directory and then remove the directory itself.
+    Remove a directory and its contents via :func:`safe_folder_remove`.
 
     Parameters
     ----------
     temp_dir : str
         The path to the directory to be wiped.
-
-    Returns
-    -------
-    None
-        This function does not return a value.
     """
-    # ``remove_files`` deliberately preserves directory structure, so using it
-    # here left nested empty directories behind and made the final ``rmdir``
-    # fail. ``safe_folder_remove`` walks bottom-up and handles both files and
-    # subdirectories.
     safe_folder_remove(temp_dir)
 
 
 def list_subdirs(directory: str, target: str = "ai_calc") -> List[str]:
     """
-    List subdirectories in a given directory that start with a specific target string.
+    List immediate subdirectory names starting with ``target``.
 
     Parameters
     ----------
@@ -161,82 +138,62 @@ def list_subdirs(directory: str, target: str = "ai_calc") -> List[str]:
     Returns
     -------
     List[str]
-        A list of subdirectory names that start with the target string.
+        Matching subdirectory names in filesystem order.
     """
-    return [d for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d)) and d.startswith(target)]
+    return [
+        name
+        for name in os.listdir(directory)
+        if os.path.isdir(os.path.join(directory, name)) and name.startswith(target)
+    ]
 
 
 def prep_json(json_path: str) -> None:
     """
-    Take JSON file with missing edge colors entries and fill them with "ERROR" placeholder.
+    Repair ``EdgeColours`` entries and rewrite the JSON file in place.
+
+    Empty entries become ``"ERROR"`` and unquoted entries become strings.
+    The repaired text is parsed before the original file is overwritten.
 
     Parameters
     ----------
     json_path : str
         The path to the JSON file to be processed.
 
-    Returns
-    -------
-    None
-        This function modifies the JSON file in place and does not return a value.
+    Raises
+    ------
+    json.JSONDecodeError
+        If the repaired text is invalid JSON. The file remains unchanged.
     """
-    # Read the file as raw text
-    with open(json_path, 'r') as f:
-        raw = f.read()
+    with open(json_path) as stream:
+        raw = stream.read()
 
-    # This regex matches "EdgeColours": [ ... ]
-    pattern = r'"EdgeColours"\s*:\s*\[(.*?)\]'
-    fixed_raw = re.sub(pattern, _edge_colours_replacer, raw, flags=re.DOTALL)
+    repaired = re.sub(
+        r'"EdgeColours"\s*:\s*\[(.*?)\]', _edge_colours_replacer, raw, flags=re.DOTALL
+    )
+    data = json.loads(repaired)
 
-    # Now parse the fixed text as JSON
-    data = json.loads(fixed_raw)
-
-    # Write the updated data back to the JSON file
-    with open(json_path, 'w') as f:
-        json.dump(data, f, indent=4)
+    with open(json_path, "w") as stream:
+        json.dump(data, stream, indent=4)
 
 
 def _edge_colours_replacer(match: Match[str]) -> str:
-    """
-    Replace empty entries in EdgeColours list with "ERROR" placeholder.
-
-    Parameters
-    ----------
-    match : re.Match
-        A regular expression match object containing the EdgeColours list content.
-
-    Returns
-    -------
-    str
-        A string with the fixed EdgeColours list where empty entries are replaced with "ERROR".
-    """
-    items: str = match.group(1)
-    fixed_items: List[str] = []
-    for item in items.split(','):
-        val = item.strip()
-        if val == '':
-            fixed_items.append('"ERROR"')
-        elif '"' not in val:  # If the value is not already quoted, quote it
-            fixed_items.append(f'"{val}"')
-        else:
-            fixed_items.append(val)
-    return '"EdgeColours": [' + ', '.join(fixed_items) + ']'
+    """Fill empty entries and quote bare values in an ``EdgeColours`` match."""
+    fixed_items = []
+    for item in match.group(1).split(","):
+        value = item.strip() or "ERROR"
+        fixed_items.append(value if '"' in value else f'"{value}"')
+    return '"EdgeColours": [' + ", ".join(fixed_items) + "]"
 
 
 def remove_file_pattern(pattern: str) -> None:
     """
-    Remove all files matching a specific glob pattern.
+    Remove files matching a glob pattern, ignoring individual removal errors.
 
     Parameters
     ----------
     pattern : str
         The glob pattern to match files, for example ``*.txt`` for all text
         files.
-
-    Returns
-    -------
-    None
-        This function does not return a value.
     """
     for path in glob.glob(pattern):
         try:
@@ -247,22 +204,23 @@ def remove_file_pattern(pattern: str) -> None:
 
 def safe_folder_remove(folder_path: str) -> None:
     """
-    Safely remove a folder and all its contents.
+    Remove a folder and its contents, ignoring missing or non-directory paths.
+
+    Files and subdirectories are removed from the bottom up. Symlink
+    directories encountered within the tree are not traversed, and removal
+    errors are propagated.
 
     Parameters
     ----------
     folder_path : str
         The path to the folder to be removed.
-
-    Returns
-    -------
-    None
-        This function does not return a value.
     """
-    if os.path.exists(folder_path) and os.path.isdir(folder_path):
-        for root, dirs, files in os.walk(folder_path, topdown=False):
-            for name in files:
-                os.remove(os.path.join(root, name))
-            for name in dirs:
-                os.rmdir(os.path.join(root, name))
-        os.rmdir(folder_path)
+    if not os.path.isdir(folder_path):
+        return
+
+    for root, dirs, files in os.walk(folder_path, topdown=False):
+        for name in files:
+            os.remove(os.path.join(root, name))
+        for name in dirs:
+            os.rmdir(os.path.join(root, name))
+    os.rmdir(folder_path)
