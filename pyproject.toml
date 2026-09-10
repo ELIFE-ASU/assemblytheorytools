@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "assemblytheorytools"
-version = "1.15.0"
+version = "1.16.0"
 description = "A centralised set of tools for doing assembly theory calculations."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -52,6 +52,11 @@ dependencies = [
     # the ceiling are the same version. Bump deliberately, with the tests.
     "assembly-theory==0.7.0",
     "assemblycfg>=1.2.2",
+    # Build tools for the C++ calculator, which is compiled on first use from
+    # https://github.com/ELIFE-ASU/assemblycpp-v5 rather than shipped as a
+    # binary. assemblycpp-v5 needs CMake 3.25 or newer.
+    "cmake>=3.25",
+    "ninja",
 ]
 
 [project.optional-dependencies]
@@ -79,7 +84,7 @@ Changelog = "https://github.com/ELIFE-ASU/assemblytheorytools/releases"
 include = ["assemblytheorytools*"]
 
 [tool.setuptools.package-data]
-"assemblytheorytools" = ["precompiled/*", "data/*"]
+"assemblytheorytools" = ["data/*"]
 
 [tool.pytest.ini_options]
 minversion = "8.4"

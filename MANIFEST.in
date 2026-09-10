@@ -1,4 +1,3 @@
-graft assemblytheorytools/precompiled
 graft assemblytheorytools/data
 
 # The test suite ships in the sdist only; it is not packaged into the wheel.

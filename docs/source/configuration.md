@@ -2,27 +2,37 @@
 
 ## Environment variables
 
-ATT reads the following variables. On Linux x86-64, none is required for the
-default calculators because the package includes compatible binaries. Other
-platforms must build assemblyCPP and configure its path.
+ATT reads the following variables. None is required, but setting `ASS_PATH`
+avoids the on-demand build of the C++ calculator described below.
 
 `ASS_PATH`
-: Full path to the assemblyCPP executable used for molecule and graph
-  calculations. If unset,
-  {func}`~assemblytheorytools.assembly.add_assembly_to_path` locates the
-  bundled binary in `assemblytheorytools/precompiled/` and sets the variable
-  for the current Python process. If the packaged binary is missing, the helper
-  attempts a source build. Set it to use your own build — for example an
-  [oneAPI build](install.md#optional-a-faster-assemblycpp-with-intel-oneapi):
+: Full path to the `AssemblyCpp` executable, which computes molecule, graph and
+  string assembly indices. If unset,
+  {func}`~assemblytheorytools.assembly.add_assembly_to_path` searches `PATH`,
+  then ATT's cache directory, and finally builds the calculator with
+  {func}`~assemblytheorytools.assembly.build_assembly_cpp`. Whatever it finds
+  is stored in this variable for the current Python process. Set it to use your
+  own build — for example an [optimised build](install.md#optional-a-faster-assemblycpp-build):
 
   ```bash
-  export ASS_PATH=$HOME/assemblycpp-v5/v5/asscpp
+  export ASS_PATH=$HOME/assemblycpp-v5/build/release/AssemblyCpp
   ```
 
 `ASS_STR_PATH`
-: Full path to the *string* calculator. The same helper resolves it when
-  `str_mode=True`, using a separate bundled binary. Only set it if you have
-  built the string calculator yourself.
+: Full path to an `AssemblyCpp` executable to use for *string* calculations
+  instead of the one in `ASS_PATH`. One executable handles both, so this is
+  only needed to compare two builds; it falls back to `ASS_PATH` when unset.
+
+`ATT_ASSEMBLYCPP_REF`
+: Branch, tag or commit of
+  [assemblycpp-v5](https://github.com/ELIFE-ASU/assemblycpp-v5) that
+  {func}`~assemblytheorytools.assembly.build_assembly_cpp` builds. Defaults to
+  `main`.
+
+`XDG_CACHE_HOME`
+: Standard cache location, honoured when choosing where to build and look for
+  the calculator. Defaults to `~/.cache`, giving
+  `~/.cache/assemblytheorytools/assemblycpp/bin/AssemblyCpp`.
 
 `ORCA_PATH`
 : Full path to the ORCA executable, including the binary name. Read by the
@@ -50,20 +60,23 @@ in interactive or batch use. `add_assembly_to_path` changes only the current
 process; add an `export` line to your shell configuration yourself when the
 setting should persist.
 
-## Bundled binaries
+## The C++ calculator
 
-The wheel ships three static Linux builds under
-`assemblytheorytools/precompiled/`:
+The distribution ships no assemblyCPP binary. assemblyCPP is licensed
+CC BY-NC 4.0, which is more restrictive than this package's MIT licence, and a
+prebuilt binary would in any case only serve one platform. Instead, the first
+calculation that needs it runs
+{func}`~assemblytheorytools.assembly.build_assembly_cpp`, which clones
+[assemblycpp-v5](https://github.com/ELIFE-ASU/assemblycpp-v5), builds it and
+installs the executable into ATT's cache directory. That takes a few minutes and
+needs `git`, CMake 3.25 or newer, and a C++20 compiler; CMake and Ninja are
+installed as dependencies of this package.
 
-| File | Used for |
-| --- | --- |
-| `asscpp_combined_static_linux` | Molecule and graph assembly indices |
-| `asscpp_public_static_linux` | Directed string assembly indices |
-| `asscpp_combined_static_strings` | Legacy combined/string build; not selected automatically |
-
-They are Linux x86-64 binaries. On other platforms, build assemblyCPP from
-source and set `ASS_PATH`. Directed-string calculations also require
-`ASS_STR_PATH`; both variables may point to one compatible combined build.
+The build is deliberate about two settings. It does not use the repository's
+`release` CMake preset, which turns warnings into errors and would fail on a
+compiler newer than the one assemblycpp-v5 tests against, and it sets
+`BUILD_TESTING=OFF`, which CMake otherwise turns on. Set `ASS_PATH` to skip the
+build entirely.
 
 `assemblytheorytools/data/integer_chain_9999.txt` is a lookup table of
 precomputed integer-chain assembly indices used by
@@ -81,11 +94,13 @@ functions built on it.
   stripping is applied to a copy, so the graph you pass is left unchanged.
 
 `timeout` (default `100.0` seconds)
-: Wall-clock limit for the external calculator. The search is exponential in
-  the worst case, so a large molecule can exceed any limit. With the default
-  timeout handling, a timed-out calculation returns the best upper bound logged
-  so far, or `-1` if it found none. A calculation that finishes still returns an
-  exact result. Raise the limit for large structures, or use
+: Limit for the external calculator, checked by ATT and also handed to the
+  calculator as its own runtime budget. The search is exponential in the worst
+  case, so a large molecule can exceed any limit. When the search stops early —
+  its budget ran out, it hit its enumeration cap, or it was interrupted — ATT
+  returns the best upper bound the calculator reached, or `-1` if it reached
+  none. A search the calculator completes returns an exact result. Raise the
+  limit for large structures, or use
   {func}`~assemblytheorytools.assembly.calculate_assembly_index_upper_bound`
   when the edge-count bound is sufficient.
 
@@ -94,8 +109,9 @@ functions built on it.
   [Joint assembly](concepts.md#joint-assembly).
 
 `exact` (default `False`)
-: Require an exact result. A timed-out calculation returns `-1` instead of the
-  best upper bound found so far.
+: Require a proven minimum. When the search stopped early, return `-1` instead
+  of the best upper bound found so far. The calculator reports an early stop
+  explicitly, so this does not rest on the elapsed time alone.
 
 `canonicalize` (default `True`)
 : Relabel nodes, in their current iteration order, to contiguous integers

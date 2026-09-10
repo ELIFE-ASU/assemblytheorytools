@@ -2,11 +2,11 @@
 Assembly index calculation for molecules, strings and graphs.
 
 This module wraps the external assembly calculators and exposes them through a
-uniform interface. Three backends are supported: the bundled C++ ``assembly``
-executable, the ``assembly_theory`` Rust extension, and ``assemblycfg`` for
-context-free-grammar upper bounds. Helpers are provided for locating and
-compiling the C++ binary, parsing its output, correcting joint assembly indices,
-and deriving bounds, ratios and similarity measures.
+uniform interface. Three backends are supported: the ``AssemblyCpp``
+executable from assemblycpp-v5, the ``assembly_theory`` Rust extension, and
+``assemblycfg`` for context-free-grammar upper bounds. Helpers are provided for
+locating and building the C++ executable, parsing its output, correcting joint
+assembly indices, and deriving bounds, ratios and similarity measures.
 """
 
 import json
@@ -16,6 +16,7 @@ import re
 import shutil
 import signal
 import subprocess
+import sys
 import tempfile
 import time
 import traceback
@@ -23,6 +24,7 @@ from datetime import datetime
 from functools import cache, partial
 from importlib.metadata import PackageNotFoundError, version
 from math import ceil
+from pathlib import Path
 from typing import (Union, List, Optional, Sequence, Tuple, Dict, Any,
                     NamedTuple, Callable, Hashable, Iterable)
 
@@ -54,7 +56,21 @@ from .tools_string import (prep_joint_string_ai,
 
 # Patterns emitted by the C++ assembler, on its output file and log respectively
 _AI_PATTERN = re.compile(r"assembly index:\s*(\d+)")
-_MIN_AI_PATTERN = re.compile(r"min AI found so far:\s*(\d+)")
+# assemblycpp-v5 logs "Best assembly index: N (T clock ticks)"; the executables
+# this package used to bundle logged "min AI found so far: N". Accept both, so an
+# older binary on ASS_PATH still reports a bound after a timeout.
+_MIN_AI_PATTERN = re.compile(r"(?:min AI found so far|Best assembly index):\s*(\d+)")
+# Written to the output file when the search stopped before proving a minimum
+_STATUS_PATTERN = re.compile(r"^status:[ \t]*(.+?)[ \t]*$", re.MULTILINE)
+
+# The source of the C++ calculator. Tracking a branch rather than a pinned
+# commit keeps ATT current with the calculator it drives; the weekly scheduled
+# test run is what catches a breaking change there.
+_ASSEMBLYCPP_REPOSITORY = "https://github.com/ELIFE-ASU/assemblycpp-v5.git"
+_ASSEMBLYCPP_MINIMUM_CMAKE = (3, 25)
+_ASSEMBLYCPP_EXECUTABLE = (
+    "AssemblyCpp.exe" if platform.system() == "Windows" else "AssemblyCpp"
+)
 
 
 def _read_ai_from_output(file_path: str) -> int:
@@ -79,6 +95,39 @@ def _scan_log_for_min_ai(log_file: str, debug: bool = False) -> int:
         match = _MIN_AI_PATTERN.search(line)
         if match:
             return int(match.group(1))
+    return -1
+
+
+def _read_status_from_output(file_path: str) -> Optional[str]:
+    """Return why the assembler stopped early, or None if it ran to completion.
+
+    AssemblyCpp records ``status: runtime limit reached``, ``status: enumeration
+    limit reached`` or ``status: interrupted by user`` alongside its index when
+    the value it reports is the best found so far rather than a proven minimum.
+    """
+    try:
+        with open(file_path, "r") as output:
+            match = _STATUS_PATTERN.search(output.read())
+    except OSError:
+        return None
+    return match.group(1) if match else None
+
+
+def _read_bound_after_early_stop(file_path_out: str, log_file: str,
+                                 status: Optional[str],
+                                 debug: bool = False) -> int:
+    """Return the best assembly index available after an interrupted search.
+
+    Prefer the index the assembler wrote next to its own ``status:`` line. Fall
+    back on the best value it logged, which is all that survives when it was
+    killed before writing an output file.
+    """
+    if status is not None:
+        ai = _read_ai_from_output(file_path_out)
+        if ai != -1:
+            return ai
+    if os.path.exists(log_file):
+        return _scan_log_for_min_ai(log_file, debug=debug)
     return -1
 
 
@@ -149,255 +198,293 @@ def run_command(command: str) -> None:
     subprocess.run(command.split())
 
 
-def add_to_bashrc(export_line: str, file: str = ".bashrc") -> None:
+def _assemblycpp_cache_dir() -> Path:
     """
-    Append an export line to the specified bash configuration file.
-
-    Parameters
-    ----------
-    export_line : str
-        The export line to add to the bash configuration file.
-    file : str, optional
-        The name of the bash configuration file, by default ".bashrc".
+    Return the directory AssemblyCpp is built into and looked up from.
 
     Returns
     -------
-    None
+    Path
+        ``<cache>/assemblytheorytools/assemblycpp``, where ``<cache>`` is
+        ``XDG_CACHE_HOME`` or ``~/.cache``.
+
+    Notes
+    -----
+    The location sits outside the installed package on purpose:
+    ``site-packages`` is often read only and is replaced on upgrade. Honouring
+    ``XDG_CACHE_HOME`` also lets the test suite redirect the cache.
     """
-    file_path = os.path.expanduser(f"~/{file}")
-    with open(file_path, "a") as f:
-        f.write(f"\nexport {export_line}\n")
+    root = os.environ.get("XDG_CACHE_HOME") or "~/.cache"
+    return Path(root).expanduser() / "assemblytheorytools" / "assemblycpp"
 
 
 def add_assembly_to_path(str_mode: bool = False) -> str:
     """
-    Ensure the assembly executable path is available in the environment and return it.
+    Return the path to the AssemblyCpp executable, building it if necessary.
 
-    The function checks the environment for a path variable (`ASS_STR_PATH` when
-    *str_mode* is True, otherwise `ASS_PATH`). If not present it looks for a
-    precompiled executable in the package `precompiled` directory, attempts to
-    compile the assembly code when necessary, and sets the environment variable.
+    A single AssemblyCpp executable computes molecular, graph and string
+    assembly indices; string mode is selected per call with ``-runStrings=1``
+    rather than by a separate binary. ``ASS_STR_PATH`` is therefore only an
+    override for pointing string calculations at a different build.
 
     Parameters
     ----------
     str_mode : bool, optional
-        If True, operate on the string-assembly executable variable
-        ``ASS_STR_PATH``; otherwise operate on the molecular assembly variable
-        ``ASS_PATH``. Default is False.
+        If True, honour ``ASS_STR_PATH`` before falling back to the shared
+        executable. Default is False.
 
     Returns
     -------
     str
-        Absolute path to the assembly executable stored in the chosen environment variable.
+        Path to the AssemblyCpp executable.
 
     Raises
     ------
+    OSError
+        If no executable is found and the build tools needed to produce one are
+        missing or the build fails.
     FileNotFoundError
-        If the executable cannot be located or compiled successfully.
+        If the build reports success but installs nothing.
 
     Notes
     -----
-    - The function mutates ``os.environ`` by setting the selected key.
-    - The function searches for executables inside the package `precompiled`
-      folder adjacent to the module file and may call ``compile_assembly_cpp()``
-      to build a missing executable.
+    Resolution order is ``ASS_STR_PATH`` (only when *str_mode*), ``ASS_PATH``,
+    the executable on ``PATH``, the cached build under
+    ``$XDG_CACHE_HOME/assemblytheorytools/assemblycpp``, and finally a fresh
+    :func:`build_assembly_cpp`. A resolved path is cached in ``ASS_PATH``, so
+    the search and any build happen once per process. A value taken from
+    ``ASS_STR_PATH`` is never written to ``ASS_PATH``.
     """
-    key = "ASS_STR_PATH" if str_mode else "ASS_PATH"
-    if os.environ.get(key):
-        return os.environ[key]
+    if str_mode and os.environ.get("ASS_STR_PATH"):
+        return os.environ["ASS_STR_PATH"]
+    if os.environ.get("ASS_PATH"):
+        return os.environ["ASS_PATH"]
 
-    precompiled_dir = os.path.join(os.path.dirname(__file__), "precompiled")
-    exec_name = "asscpp_public_static_linux" if str_mode else "asscpp_combined_static_linux"
-    executable = os.path.join(precompiled_dir, exec_name)
-    if not os.path.isfile(executable):
-        executable = os.path.join(precompiled_dir, "assembly")
-        if not os.path.isfile(executable):
-            print("Assembly code not found.", flush=True)
-            compile_assembly_cpp()
-            if not os.path.isfile(executable):
-                raise FileNotFoundError(f"Failed to compile assembly code: {executable}")
+    executable = shutil.which(_ASSEMBLYCPP_EXECUTABLE)
+    if executable is None:
+        cached = _assemblycpp_cache_dir() / "bin" / _ASSEMBLYCPP_EXECUTABLE
+        if cached.is_file():
+            executable = str(cached)
+        else:
+            print("AssemblyCpp not found.", flush=True)
+            executable = build_assembly_cpp()
 
-    os.environ[key] = executable
-    return os.environ[key]
+    os.environ["ASS_PATH"] = executable
+    return executable
 
 
-def compile_assembly_cpp_script(assembly_tar_path: str = "assemblycpp-main",
-                                boost_version: str = "1_86_0",
-                                exe_name: str = "asscpp_v5") -> None:
+def _which_build_tool(name: str) -> Optional[str]:
     """
-    Compile a packaged assembly C++ tarball into a local executable and install it for user use.
-
-    This helper extracts a tarball containing the assembly C++ source (expected to
-    contain a v5 combined source tree), downloads or locates Boost as required,
-    compiles the main source into a standalone executable and installs the result
-    into the current working directory.
+    Locate a build tool on ``PATH`` or beside the running interpreter.
 
     Parameters
     ----------
-    assembly_tar_path : str, optional
-        Base path (without ``.tar.gz``) to the packaged assembly source archive.
-        Default is ``assemblycpp-main``, implying an archive named
-        ``assemblycpp-main.tar.gz`` in the current working directory.
-    boost_version : str, optional
-        Boost release identifier to download when a system-provided Boost is not
-        available, formatted like ``1_86_0``. Default is ``1_86_0``.
-    exe_name : str, optional
-        Base name for the produced executable file. Default is ``asscpp_v5``.
+    name : str
+        Executable to look for, such as ``cmake``.
+
+    Returns
+    -------
+    Optional[str]
+        Path to the executable, or None if it was not found.
+
+    Notes
+    -----
+    cmake and ninja are dependencies of this package, so pip installs them into
+    the same directory as the interpreter. That directory is not on ``PATH``
+    unless the environment has been activated, which is easy to miss when a
+    script is run through an absolute path to the interpreter.
+    """
+    found = shutil.which(name)
+    if found is not None:
+        return found
+
+    candidate = Path(sys.executable).parent / name
+    if candidate.is_file() and os.access(candidate, os.X_OK):
+        return str(candidate)
+    return None
+
+
+def _require_cmake() -> str:
+    """
+    Return the cmake command to build with, raising if the build tools are unusable.
+
+    Returns
+    -------
+    str
+        Absolute path to a cmake new enough to configure assemblycpp-v5.
+
+    Raises
+    ------
+    OSError
+        If ``git`` or ``cmake`` is missing, or cmake is older than
+        :data:`_ASSEMBLYCPP_MINIMUM_CMAKE`.
+    """
+    if shutil.which("git") is None:
+        raise OSError(
+            "Cannot build AssemblyCpp: git was not found on PATH. Install git, "
+            "or set ASS_PATH to an existing AssemblyCpp executable."
+        )
+
+    cmake = _which_build_tool("cmake")
+    minimum = ".".join(str(part) for part in _ASSEMBLYCPP_MINIMUM_CMAKE)
+    advice = (
+        f'Install them with `pip install "cmake>={minimum}" ninja`, or create the '
+        f"conda environment from the environment.yml in {_ASSEMBLYCPP_REPOSITORY}. "
+        f"Alternatively set ASS_PATH to an existing AssemblyCpp executable."
+    )
+    if cmake is None:
+        raise OSError(f"Cannot build AssemblyCpp: cmake was not found on PATH. {advice}")
+
+    report = subprocess.run([cmake, "--version"], capture_output=True, text=True).stdout
+    found = re.search(r"(\d+)\.(\d+)", report)
+    if found and tuple(int(part) for part in found.groups()) < _ASSEMBLYCPP_MINIMUM_CMAKE:
+        raise OSError(
+            f"Cannot build AssemblyCpp: it needs cmake {minimum} or newer, but "
+            f"{cmake} reports {found.group(0)}. {advice}"
+        )
+    return cmake
+
+
+def _fetch_assembly_cpp(source: Path, ref: str) -> None:
+    """
+    Clone or update the assemblycpp-v5 checkout at *source* and check out *ref*.
+
+    Parameters
+    ----------
+    source : Path
+        Directory holding the checkout. Created if absent.
+    ref : str
+        Branch, tag or commit to check out.
 
     Returns
     -------
     None
 
+    Notes
+    -----
+    Fetching the ref by name and checking out ``FETCH_HEAD`` handles branches,
+    tags and bare commit hashes identically. The clone is blobless, which keeps
+    it small despite the roughly one thousand MOL fixtures in the repository.
+    """
+    if not (source / ".git").is_dir():
+        shutil.rmtree(source, ignore_errors=True)
+        source.parent.mkdir(parents=True, exist_ok=True)
+        subprocess.run(
+            ["git", "clone", "--quiet", "--filter=blob:none",
+             _ASSEMBLYCPP_REPOSITORY, str(source)],
+            check=True,
+        )
+
+    subprocess.run(["git", "-C", str(source), "fetch", "--quiet", "origin", ref],
+                   check=True)
+    subprocess.run(["git", "-C", str(source), "checkout", "--quiet", "--detach",
+                    "FETCH_HEAD"], check=True)
+
+
+def build_assembly_cpp(ref: Optional[str] = None, force: bool = False) -> str:
+    """
+    Build AssemblyCpp from source and install it into the ATT cache directory.
+
+    Clone or update `assemblycpp-v5 <https://github.com/ELIFE-ASU/assemblycpp-v5>`_,
+    configure and build it with CMake, and install the executable under
+    ``$XDG_CACHE_HOME/assemblytheorytools/assemblycpp`` (``~/.cache`` by
+    default).
+
+    Parameters
+    ----------
+    ref : str, optional
+        Branch, tag or commit to build. Defaults to ``ATT_ASSEMBLYCPP_REF`` if
+        set, otherwise ``main``.
+    force : bool, optional
+        If True, rebuild even when a cached executable is already present.
+        Default is False.
+
+    Returns
+    -------
+    str
+        Path to the installed AssemblyCpp executable.
+
     Raises
     ------
-    subprocess.CalledProcessError
-        If a required external command (``wget``, ``g++``, ``clang++``, ...) fails.
     OSError
-        On filesystem or permission errors, or if the host platform is unsupported.
+        If the build tools are missing or too old, or a build step fails.
     FileNotFoundError
-        If the source archive is missing or the executable is absent after the build.
+        If the build succeeds but installs no executable.
 
     Notes
     -----
-    - On Linux the GNU toolchain (``tar``, ``wget``, ``g++``) is used and an
-      ``export ASS_PATH=...`` line is appended to ``~/.bashrc`` and ``~/.profile``;
-      inspect those files if unwanted modifications occur.
-    - On macOS Boost is located through Homebrew (``brew --prefix boost``) and the
-      source is compiled with ``clang++``.
-    - The tarball is assumed to contain ``v5_combined_linux/main.cpp``.
-    - Use this helper only in trusted environments: it downloads over the network
-      and runs compilers.
+    - This clones over the network and runs a compiler; use it only in trusted
+      environments. Set ``ASS_PATH`` instead to use an executable you built
+      yourself.
+    - The build deliberately does not use the repository's ``release`` CMake
+      preset. The preset requires Ninja and turns warnings into errors, so a
+      compiler newer than the one assemblycpp-v5 tests against can fail the
+      build; configuring explicitly avoids both.
+    - assemblycpp-v5 is licensed CC BY-NC 4.0, which is more restrictive than
+      this package's MIT licence. That is why the executable is built on demand
+      rather than distributed with ATT.
+    - On success the build tree is removed and the source checkout is kept, so
+      that a rebuild is cheap. On failure both are left in place.
     """
-    print("compile_assembly_code", flush=True)
+    prefix = _assemblycpp_cache_dir()
+    executable = prefix / "bin" / _ASSEMBLYCPP_EXECUTABLE
+    if executable.is_file() and not force:
+        return str(executable)
 
-    system = platform.system().lower()
+    cmake = _require_cmake()
+    ref = ref or os.environ.get("ATT_ASSEMBLYCPP_REF") or "main"
+    source = prefix / "src"
+    build = prefix / "build"
 
-    if system == "linux":
-        boost_code = f"boost_{boost_version}"
-        exe_dir = os.path.abspath(os.path.expanduser(os.path.join(os.getcwd(), exe_name)))
+    print(f"Building AssemblyCpp ({ref}) in {build}", flush=True)
+    start_time = time.time()
 
-        run_command(f"tar -xvzf {assembly_tar_path}.tar.gz")
-        subprocess.run(
-            f"wget 'https://archives.boost.io/release/{boost_version.replace('_', '.')}/source/{boost_code}.tar.gz'",
-            shell=True, check=True)
-        run_command(f"tar -xvzf {boost_code}.tar.gz")
+    configure = [
+        cmake, "-S", str(source), "-B", str(build),
+        "-DCMAKE_BUILD_TYPE=Release",
+        # include(CTest) turns BUILD_TESTING on unless it is set explicitly,
+        # which would compile a dozen unwanted test executables.
+        "-DBUILD_TESTING=OFF",
+        # The project treats warnings as errors by default; a newer compiler
+        # emitting a new warning must not break the build for a consumer.
+        "-DASSEMBLYCPP_STRICT_WARNINGS=OFF",
+        "-DASSEMBLYCPP_BUILD_TELEMETRY=OFF",
+    ]
+    # Ninja is a dependency of this package, but the build must still work when
+    # only a default generator is available. Naming the executable explicitly
+    # matters: cmake looks for it on PATH, where a pip-installed ninja beside
+    # the interpreter does not appear unless the environment is activated.
+    ninja = _which_build_tool("ninja")
+    if ninja is not None:
+        configure += ["-G", "Ninja", f"-DCMAKE_MAKE_PROGRAM={ninja}"]
 
-        start_time = time.time()
-        run_command(f"g++ {assembly_tar_path}/v5_combined_linux/main.cpp -O3 -o {exe_dir} -I{boost_code}/")
-        print(f"Compilation time: {time.time() - start_time:.2f} seconds", flush=True)
-        os.chmod(exe_dir, 0o755)
+    # A tree left behind by a failed attempt records the generator it was
+    # configured with, so reconfiguring in place can fail on a mismatch.
+    shutil.rmtree(build, ignore_errors=True)
 
-        for path in (f"{boost_code}.tar.gz", f"{boost_code}/", f"{assembly_tar_path}/"):
-            run_command(f"rm -r {path}")
-        for config_file in (".bashrc", ".profile"):
-            add_to_bashrc(f"ASS_PATH={exe_dir}", file=config_file)
-
-        print("Done!", flush=True)
-
-    elif system == "darwin":
-        print("Running on macOS: Using brew to install Boost and clang++ to compile.", flush=True)
-        subprocess.run("brew install boost", shell=True, check=True)
-        brew_prefix = subprocess.check_output("brew --prefix boost", shell=True, text=True).strip()
-        boost_include = os.path.join(brew_prefix, "include")
-        boost_lib = os.path.join(brew_prefix, "lib")
-        exe_dir = os.path.abspath(os.path.expanduser(os.path.join(os.getcwd(), "assemblycpp3")))
-
-        start_time = time.time()
-        subprocess.run(
-            f"clang++ -std=c++17 {assembly_tar_path}/v5_combined_linux/main.cpp -O3 -o {exe_dir} "
-            f"-I{boost_include} -L{boost_lib}",
-            shell=True, check=True)
-        print(f"Compilation time: {time.time() - start_time:.2f} seconds", flush=True)
-        os.chmod(exe_dir, 0o755)
-        print("Compilation on macOS completed successfully!", flush=True)
-
-    else:
-        raise OSError(f"Unsupported operating system: {system}")
-
-
-def compile_assembly_cpp() -> None:
-    """
-    Compile the assemblycpp C++ project and install the produced executable.
-
-    This function clones the `assemblycpp-v5` repository, configures and builds it
-    using CMake (platform-specific adjustments applied), moves the resulting
-    executable to `assemblytheorytools/precompiled/assembly`, sets executable
-    permissions, and removes temporary build artifacts.
-
-    Returns
-    -------
-    None
-
-    Raises
-    ------
-    OSError
-        If required build tools (e.g. `git`, `cmake`) are missing or the host
-        operating system is unsupported.
-
-    Notes
-    -----
-    - Host platform detection is performed via `platform.system().lower()` and
-      behaviour is adjusted for `linux`, `darwin` (macOS) and `windows`.
-    - On macOS the function may attempt to install missing dependencies using
-      Homebrew; on Linux it currently requires `git` and `cmake` to be present.
-    - The function temporarily changes the working directory to the cloned
-      repository and restores the original working directory on exit.
-    - Build failures are caught, reported, and terminate the interpreter via
-      ``exit()`` rather than propagating.
-    """
-
-    start_dir = os.getcwd()
     try:
-        print(flush=True)
-        system = platform.system().lower()
-        print(f"Compiling assCPP. Detected operating system: {system}", flush=True)
+        _fetch_assembly_cpp(source, ref)
+        subprocess.run(configure, check=True)
+        subprocess.run([cmake, "--build", str(build), "--parallel"], check=True)
+        subprocess.run([cmake, "--install", str(build), "--prefix", str(prefix)],
+                       check=True)
+    except subprocess.CalledProcessError as error:
+        raise OSError(
+            f"Building AssemblyCpp failed: {' '.join(str(part) for part in error.cmd)} "
+            f"exited with {error.returncode}. The source and build trees are left "
+            f"under {prefix} for inspection; see {_ASSEMBLYCPP_REPOSITORY} for the "
+            f"build instructions."
+        ) from error
 
-        if system == "darwin":
-            if shutil.which("brew") is None:
-                print('Homebrew is not installed. Installing Homebrew...', flush=True)
-                run_command(
-                    '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"')
+    print(f"Build time: {time.time() - start_time:.2f} seconds", flush=True)
+    shutil.rmtree(build, ignore_errors=True)
 
-            for command, name in (("git", "Git"), ("cmake", "CMake")):
-                if shutil.which(command) is None:
-                    print(f"{name} is not installed. Installing {name}...", flush=True)
-                    run_command(f"brew install {command}")
-
-        elif system == "linux":
-            for command, name in (("git", "Git"), ("cmake", "CMake")):
-                if shutil.which(command) is None:
-                    raise OSError(
-                        f"{name} is not installed. Please install {name} to compile assemblycpp on Linux.\n"
-                        f" sudo apt update \n sudo apt install {command}")
-
-        subprocess.run(
-            "git clone https://github.com/LouieSlocombe/assemblycpp-v5.git",
-            shell=True, check=True)
-
-        assemblycpp_dir = os.path.join(start_dir, "assemblycpp-v5")
-        os.chdir(assemblycpp_dir)
-        run_command('cmake -S . -B build')
-
-        if system in ("linux", "darwin"):
-            run_command('cmake --build build')
-        elif system == "windows":
-            run_command('cmake --build build --config Release')
-        else:
-            raise OSError(f"Unsupported operating system: {system}")
-
-        # Move the compiled executable into the package's precompiled folder
-        exe_path = os.path.join(assemblycpp_dir, "build", "bin", "assembly")
-        end_path = os.path.join(start_dir, "assemblytheorytools", "precompiled", "assembly")
-        shutil.move(exe_path, end_path)
-        shutil.rmtree(assemblycpp_dir)
-        os.chmod(end_path, 0o755)
-        os.chdir(start_dir)
-        print("Assembly code compiled successfully.", flush=True)
-    except Exception as e:
-        print(f"Failed to automatically compile the assembly code: {e}", flush=True)
-        print("Please refer to the manual compilation instructions on the ATT GitHub page.", flush=True)
-        os.chdir(start_dir)
-        exit()
+    if not executable.is_file():
+        raise FileNotFoundError(
+            f"AssemblyCpp built successfully but was not installed to {executable}"
+        )
+    executable.chmod(0o755)
+    return str(executable)
 
 
 def joint_assembly_index_correction(mol: Union[nx.Graph, Chem.Mol], ass_index: int) -> int:
@@ -493,8 +580,8 @@ def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
         If True, canonicalize the node labels in the graph.
         Default is True.
     exact : bool, optional
-        If True, enforce exact mode for assembly index calculation.
-        Default is False.
+        If True, require a proven minimum: return -1 rather than the best bound
+        the calculator reached when its search stopped early. Default is False.
 
     Returns
     -------
@@ -605,18 +692,27 @@ def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
         if debug:
             traceback.print_exc()
 
+    # The assembler exits normally when its own runtime or enumeration limit
+    # trips, so the wall-clock check above can miss a run that only found a
+    # bound. Its status line is the authoritative signal.
+    status = _read_status_from_output(file_path_out)
+    if status is not None:
+        timed_out = True
+        print(f"Warning: the assembly search stopped early ({status}).", flush=True)
+
     if not timed_out:
         ai = _read_ai_from_output(file_path_out)
-    elif os.path.exists(log_file):
-        # Fall back on the best bound the assembler logged before it was stopped
+    else:
         try:
-            last_ai = _scan_log_for_min_ai(log_file)
+            bound = _read_bound_after_early_stop(file_path_out, log_file, status)
             if not exact:
-                ai = last_ai
-            if ai == -1:
+                ai = bound
+            if bound == -1:
                 print("No minimum AI found before timeout.", flush=True)
+            elif exact:
+                print(f"Discarding the inexact bound AI =< {bound}.", flush=True)
             else:
-                print(f"Upper Bound to AI Found: AI =< {ai}", flush=True)
+                print(f"Upper Bound to AI Found: AI =< {bound}", flush=True)
         except Exception as e:
             print(f"Failed to read AI from log file: {e}", flush=True)
 
@@ -1169,18 +1265,24 @@ def _calculate_string_assembly_cpp(
 
     timed_out = _run_string_assembler(dir_code, file_path_in, log_file, timeout, debug)
 
+    status = _read_status_from_output(file_path_out)
+    if status is not None:
+        timed_out = True
+        print(f"Warning: the assembly search stopped early ({status}).", flush=True)
+
     if not timed_out:
         if debug:
             print("Assembly calculation completed successfully.", flush=True)
 
         ai = _read_ai_from_output(file_path_out)
 
-    elif os.path.exists(log_file):
-        # Fall back on the best bound the assembler logged before it was stopped
+    else:
+        # Fall back on the best bound the assembler recorded before it stopped
         if debug:
             print(f"log_file: {log_file}")
         try:
-            ai = _scan_log_for_min_ai(log_file, debug=debug)
+            ai = _read_bound_after_early_stop(file_path_out, log_file, status,
+                                              debug=debug)
 
             if ai == -1:
                 print("No assembly paths found before timeout.")

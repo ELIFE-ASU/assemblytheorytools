@@ -93,9 +93,10 @@ calculator and parses the result. Three backends are available.
 
 assemblyCPP
 : The default. A C++ branch-and-bound calculator, invoked by
-  {func}`~assemblytheorytools.assembly.calculate_assembly_index`. Precompiled
-  static binaries ship in the wheel, and `ASS_PATH` overrides them. This is the
-  default source of virtual objects and one assembly pathway.
+  {func}`~assemblytheorytools.assembly.calculate_assembly_index`. The
+  executable is not distributed with ATT: it is found through `ASS_PATH` or
+  `PATH`, or built from source on first use. This is the default source of
+  virtual objects and one assembly pathway.
 
 assembly-theory (Rust)
 : Reached through

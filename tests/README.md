@@ -6,9 +6,22 @@ Run the normal development suite from the repository root:
 pytest
 ```
 
-The default run is self-contained. Tests needing a live service, an external
-dataset, or an external executable such as ORCA are marked `integration` and
-require an explicit opt-in:
+The default run needs no live service and no external dataset, but it does need
+the C++ calculator. That is not shipped as a binary, so the first test that uses
+it builds assemblycpp-v5 from source, which takes a few minutes and needs `git`
+and a C++20 compiler. Point `ASS_PATH` at an executable you already have to skip
+that:
+
+```bash
+ASS_PATH=/path/to/AssemblyCpp pytest
+```
+
+The on-demand build lands in `.pytest_cache/runtime/assemblytheorytools/`,
+because `conftest.py` redirects `XDG_CACHE_HOME` there; delete that directory to
+force a rebuild.
+
+Tests needing a live service, an external dataset, or an external executable
+such as ORCA are marked `integration` and require an explicit opt-in:
 
 ```bash
 pytest --run-integration

@@ -56,11 +56,12 @@ jobs:
         # --strict fails on a README that PyPI would refuse to render.
         run: twine check --strict dist/*
 
-      - name: Check the package data is present and still executable
-        # The assembly binaries under precompiled/ are shelled out to at
-        # runtime, so both their presence and their mode bits matter. Neither
-        # is covered by an editable install, which is what every other job
-        # uses, so this is the only place the shipped layout is verified.
+      - name: Check the package data is present and no binaries crept back in
+        # An editable install, which every other job uses, does not exercise
+        # the shipped layout, so this is the only place it is verified. The
+        # C++ calculator is deliberately not distributed: it is built from
+        # assemblycpp-v5 on demand, and its CC BY-NC licence is incompatible
+        # with shipping it inside this MIT package.
         run: |
           python - <<'PY'
           import sys
@@ -69,36 +70,32 @@ jobs:
           from pathlib import Path
 
           REQUIRED = [
-              "assemblytheorytools/precompiled/asscpp_combined_static_linux",
-              "assemblytheorytools/precompiled/asscpp_combined_static_strings",
-              "assemblytheorytools/precompiled/asscpp_public_static_linux",
               "assemblytheorytools/data/integer_chain_9999.txt",
               # Read at import time by tools_test, so a wheel without it
               # cannot even be imported.
               "assemblytheorytools/data/test_molecule_data.csv",
           ]
-          EXECUTABLE = [name for name in REQUIRED if "/precompiled/" in name]
+          FORBIDDEN_PREFIX = "assemblytheorytools/precompiled/"
 
           failures = []
 
+          def check(label, names, root=""):
+              for name in REQUIRED:
+                  if root + name not in names:
+                      failures.append(f"{label} is missing {name}")
+              for name in sorted(names):
+                  if name.removeprefix(root).startswith(FORBIDDEN_PREFIX):
+                      failures.append(f"{label} ships a precompiled binary: {name}")
+
           (wheel,) = Path("dist").glob("*.whl")
           with zipfile.ZipFile(wheel) as archive:
-              names = set(archive.namelist())
-              modes = {i.filename: i.external_attr >> 16 for i in archive.infolist()}
-          for name in REQUIRED:
-              if name not in names:
-                  failures.append(f"{wheel.name} is missing {name}")
-          for name in EXECUTABLE:
-              if name in names and not modes[name] & 0o111:
-                  failures.append(f"{wheel.name} lost the executable bit on {name}")
+              check(wheel.name, set(archive.namelist()))
 
           (sdist,) = Path("dist").glob("*.tar.gz")
           with tarfile.open(sdist) as archive:
-              root = f"{sdist.name.removesuffix('.tar.gz')}/"
               names = set(archive.getnames())
-          for name in REQUIRED:
-              if root + name not in names:
-                  failures.append(f"{sdist.name} is missing {name}")
+          root = f"{sdist.name.removesuffix('.tar.gz')}/"
+          check(sdist.name, names, root)
           # The suite ships in the sdist only (see MANIFEST.in).
           if not any(n.startswith(root + "tests/") for n in names):
               failures.append(f"{sdist.name} is missing the test suite")
@@ -151,9 +148,10 @@ jobs:
       - name: Smoke-test the installed package
         # There is deliberately no checkout, so the import below can only
         # resolve to the installed wheel and not to a source tree beside it.
-        # The assembly index call shells out to the bundled binary, making this
-        # the end-to-end check that the executable shipped, kept its mode bits
-        # and runs.
+        # The calculation uses the Rust backend, which arrives as a declared
+        # dependency, so this job proves the wheel installs and computes
+        # without needing a C++ toolchain. The C++ backend is covered by
+        # tests.yml, which builds it from assemblycpp-v5.
         env:
           MPLBACKEND: Agg
           EXPECTED_VERSION: ${{ needs.build.outputs.version }}
@@ -168,7 +166,7 @@ jobs:
           expected = os.environ["EXPECTED_VERSION"]
           assert att.__version__ == expected, f"{att.__version__} != {expected}"
 
-          index, *_ = att.calculate_assembly_index(Chem.MolFromSmiles("CCO"))
+          index = att.calculate_assembly_index_rust(Chem.MolFromSmiles("CCO"))
           assert isinstance(index, int) and index >= 0, index
 
           print(f"assemblytheorytools {att.__version__} installs and runs; MA(ethanol) = {index}")

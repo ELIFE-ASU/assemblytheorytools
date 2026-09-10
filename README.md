@@ -30,7 +30,7 @@ elementary parts, while allowing previously created intermediates to be reused. 
 structure and repetition rather than size alone.
 
 For molecules, the elementary parts are bonds and the calculation is performed on the molecular graph. ATT exposes the
-[assemblyCPP](https://github.com/LouieSlocombe/assemblycpp-v5) C++ calculator, the
+[assemblyCPP](https://github.com/ELIFE-ASU/assemblycpp-v5) C++ calculator, the
 [assembly-theory](https://github.com/DaymudeLab/assembly-theory) Rust calculator, and
 [assemblycfg](https://github.com/ELIFE-ASU/assemblycfg) for fast approximate string calculations through one Python
 package.
@@ -48,8 +48,10 @@ ATT requires **Python 3.12 or newer**. Install the current release from PyPI:
 python -m pip install assemblytheorytools
 ```
 
-> **Platform note:** The bundled C++ calculators target Linux x86-64. On Windows, use WSL; on other platforms, provide
-> a compatible assemblyCPP build as described under **Use a custom assemblyCPP build** below.
+> **Platform note:** The C++ calculator is not distributed as a binary. The first calculation that needs it builds
+> [assemblyCPP](https://github.com/ELIFE-ASU/assemblycpp-v5) from source into `~/.cache/assemblytheorytools`, which
+> takes a few minutes and needs a C++20 compiler. To use a build you already have, set `ASS_PATH` instead; see
+> **Use your own assemblyCPP build** below.
 
 Calculate and plot the assembly pathway for caffeine:
 
@@ -144,10 +146,10 @@ quantity ATT computes, with its inputs, its outputs, and what it is used for.
 The Rust backend always strips hydrogens. For a meaningful comparison, compare it with
 `calculate_assembly_index(..., strip_hydrogen=True)`.
 
-The PyPI distribution contains precompiled assemblyCPP executables for **Linux x86-64**. On Windows, use the Windows
-Subsystem for Linux (WSL). On another platform, build assemblyCPP for that platform and set `ASS_PATH` to the full path
-of its executable. See [configuration](https://assemblytheorytools.readthedocs.io/en/latest/configuration.html) for all
-backend options and environment variables.
+The PyPI distribution ships no assemblyCPP binary. ATT looks for an `AssemblyCpp` executable in `ASS_PATH`, then on
+`PATH`, then in its own cache, and builds one from source if it finds none. A single executable covers molecules,
+graphs and strings. See [configuration](https://assemblytheorytools.readthedocs.io/en/latest/configuration.html) for
+all backend options and environment variables.
 
 </details>
 
@@ -218,25 +220,32 @@ srun "$HOME/.conda/envs/att/bin/python3" my_script.py
 </details>
 
 <details>
-<summary><strong>Use a custom assemblyCPP build</strong></summary>
+<summary><strong>Use your own assemblyCPP build</strong></summary>
 
-The bundled C++ executables are generic Linux x86-64 builds. A platform-specific build is required elsewhere, and an
-optimised local build can be faster on supported hardware.
-
-Set `ASS_PATH` to the **full path of the executable**, not its containing directory:
+ATT builds assemblyCPP on demand, but a build you control is worth having: it skips the wait on first use, and an
+optimised build is faster on supported hardware. Build it once:
 
 ```bash
-export ASS_PATH=/absolute/path/to/asscpp
+git clone https://github.com/ELIFE-ASU/assemblycpp-v5.git
+cmake -S assemblycpp-v5 -B assemblycpp-v5/build/release -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+cmake --build assemblycpp-v5/build/release --parallel
 ```
 
-If you also build the dedicated string calculator, set:
+Then set `ASS_PATH` to the **full path of the executable**, not its containing directory:
 
 ```bash
-export ASS_STR_PATH=/absolute/path/to/string-calculator
+export ASS_PATH=$PWD/assemblycpp-v5/build/release/AssemblyCpp
 ```
 
-For the maintained Intel oneAPI recipe, including the compiler and Boost setup, see the
-[installation guide](https://assemblytheorytools.readthedocs.io/en/latest/install.html#optional-a-faster-assemblycpp-with-intel-oneapi).
+The same executable computes molecular, graph and string assembly indices. `ASS_STR_PATH` is only needed to point
+string calculations at a *different* build; it falls back to `ASS_PATH` when unset.
+
+To build a specific revision on demand instead, set `ATT_ASSEMBLYCPP_REF` to a branch, tag or commit. For the
+optimised and parallel build presets, see the
+[installation guide](https://assemblytheorytools.readthedocs.io/en/latest/install.html#optional-a-faster-assemblycpp-build).
+
+> assemblyCPP is licensed CC BY-NC 4.0, which is more restrictive than this package's MIT licence. That is why ATT
+> builds it on demand rather than distributing it.
 
 </details>
 

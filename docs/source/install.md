@@ -9,13 +9,12 @@ Unix-like systems; on Windows, use the Windows Subsystem for Linux.
 pip install assemblytheorytools
 ```
 
-This pulls in every runtime dependency and the Rust `assembly-theory` wheel. On
-Linux x86-64, the package also includes precompiled C++ calculators, which is
-all that is needed for the {doc}`quick start <index>`. Other platforms need a
-source build and must configure `ASS_PATH` for graph/molecule calculations and
-`ASS_STR_PATH` for directed strings (a compatible combined build may serve
-both); see
-[Configuration](configuration.md#bundled-binaries).
+This pulls in every runtime dependency and the Rust `assembly-theory` wheel,
+which is all the {doc}`quick start <index>` needs. The C++ calculator is not
+distributed as a binary: the first calculation that needs it builds
+assemblyCPP from source, which takes a few minutes and needs `git` and a C++20
+compiler. Set `ASS_PATH` to use a build you already have, and see
+[Configuration](configuration.md#the-c-calculator) for the details.
 
 ## From source
 
@@ -79,36 +78,29 @@ right environment:
 srun $HOME/.conda/envs/ass_env/bin/python3 my_script.py
 ```
 
-## Optional: a faster assemblyCPP with Intel oneAPI
+## Optional: a faster assemblyCPP build
 
-The bundled calculator is a generic static build. On Intel hardware, compiling
-`assemblycpp` yourself with the oneAPI compiler is significantly faster.
-
-Install the [oneAPI DPC++/C++ compiler](https://www.intel.com/content/www/us/en/developer/tools/oneapi/dpc-compiler-download.html?operatingsystem=linux&distribution-linux=offline)
-and source its environment:
-
-```bash
-bash ./intel-dpcpp-cpp-compiler-2025.0.4.20_offline.sh
-source ~/intel/oneapi/setvars.sh
-```
-
-Fetch Boost and the assemblyCPP sources:
+ATT's on-demand build is a plain portable release. assemblyCPP also ships CMake
+presets for tuned and parallel builds, which are worth using for large
+molecules. It needs only CMake 3.25 or newer, Ninja and a C++20 compiler — no
+Boost.
 
 ```bash
-wget https://archives.boost.io/release/1.89.0/source/boost_1_89_0.tar.gz
-tar -xvzf boost_1_89_0.tar.gz && rm -f boost_1_89_0.tar.gz
-git clone --branch script https://github.com/LouieSlocombe/assemblycpp-v5.git
+git clone https://github.com/ELIFE-ASU/assemblycpp-v5.git
+cd assemblycpp-v5
+cmake --preset performance      # tuned for x86-64-v3
+cmake --build --preset performance
+export ASS_PATH=$PWD/build/performance/AssemblyCpp
 ```
 
-Compile, then point ATT at the result:
+`--preset release` builds a portable executable instead, and
+`--preset parallel` adds OpenMP and MPI search. See the
+[assemblycpp-v5 README](https://github.com/ELIFE-ASU/assemblycpp-v5) for the
+full list of presets and for its CC BY-NC 4.0 licence, which is more
+restrictive than this package's MIT licence.
 
-```bash
-cd assemblycpp-v5/v5/
-icpx main.cpp -o asscpp -I $HOME/boost_1_89_0/ -O3 -ipo -xHost -ffast-math -qopt-zmm-usage=high -fno-alias
-export ASS_PATH=$HOME/assemblycpp-v5/v5/asscpp
-```
-
-See {doc}`configuration` for the full list of environment variables ATT reads.
+The same executable computes molecular, graph and string assembly indices. See
+{doc}`configuration` for the full list of environment variables ATT reads.
 
 ## Optional: ORCA
 

@@ -1,9 +1,11 @@
 # Run the test suite on every supported interpreter.
 #
-# The default `pytest` run is self-contained: conftest.py skips the
-# `integration` and `slow` groups unless their opt-in flag is passed, so this
-# workflow needs no network services, no external datasets and no ORCA.
-# The opt-in groups are exercised separately by the weekly job below.
+# The default `pytest` run needs no network services, no external datasets and
+# no ORCA: conftest.py skips the `integration` and `slow` groups unless their
+# opt-in flag is passed. It does need the C++ calculator, which is no longer
+# shipped as a binary, so each job builds it first with the local composite
+# action and points ASS_PATH at the result. The opt-in groups are exercised
+# separately by the weekly job below.
 
 name: Tests
 
@@ -98,6 +100,11 @@ jobs:
         # anyone needs when a scheduled run goes red.
         run: python -m pip list
 
+      - name: Build the C++ calculator
+        # After the install step, so it uses the cmake and ninja the package
+        # declares as dependencies.
+        uses: ./.github/actions/assemblycpp
+
       - name: Run the test suite
         run: pytest --cov --cov-report=xml --cov-report=term-missing
 
@@ -135,6 +142,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
+
+      - name: Build the C++ calculator
+        uses: ./.github/actions/assemblycpp
 
       - name: Run the integration and slow tests
         run: pytest --run-integration --run-slow -m "integration or slow" -ra
