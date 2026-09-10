@@ -281,6 +281,25 @@ def test_pathway_reader_recovers_omitted_legacy_colors_from_input(tmp_path):
     assert path.read_text() == raw
 
 
+def test_pathway_reader_accepts_native_named_and_numeric_colors(tmp_path):
+    # Current parallelassemblycpp names orders 1-3 and writes higher orders
+    # as numeric strings, including graph colours outside RDKit's bond types.
+    colors = ["single", "double", "triple", "4", "12", "32767"]
+    edges = [[i, i + 1] for i in range(len(colors))]
+    data = pathway_data(edges, ["C"] * (len(colors) + 1))
+    data["file_graph"][0]["EdgeColours"] = colors
+    path = tmp_path / "pathway.json"
+    raw = json.dumps(data)
+    path.write_text(raw)
+
+    _, virtual_objects = construction.parse_pathway_file(path, vo_type="graph")
+
+    target = max(virtual_objects, key=lambda graph: graph.number_of_edges())
+    assert target.number_of_edges() == len(edges)
+    assert sorted(nx.get_edge_attributes(target, "color").values()) == [1, 2, 3, 4, 12, 32767]
+    assert path.read_text() == raw
+
+
 @pytest.mark.parametrize(
     "edges, colors, expected_nodes, expected_degrees",
     [

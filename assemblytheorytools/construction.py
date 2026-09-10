@@ -10,7 +10,6 @@ assembly digraphs from a target structure.
 
 import copy
 import io
-import json
 import os
 import re
 from collections import Counter
@@ -500,10 +499,9 @@ class AssemblyConstruction:
         )
         self.remnant_e = data["remnant"][0]["Edges"] + data["removed_edges"]
         self.duplicates = [[dup["Right"], dup["Left"]] for dup in data["duplicates"]]
-        self.equivalences = [[1, 1]]
-        self.remnant_e, self.duplicates, self.equivalences = fix_repeated_equiv(
-            self.remnant_e, self.duplicates, self.equivalences, self.e
-        )
+        # Native pathway edges already use the original graph's vertex labels;
+        # there are no equivalence mappings to repair or apply.
+        self.equivalences = []
         self.if_string = if_string
         self.vo_type = vo_type
 
@@ -1431,8 +1429,7 @@ def parse_string_pathway_file(
     if not os.path.isfile(file_path_pathway):
         raise FileNotFoundError(f"Pathway file not found: {file_path_pathway}")
 
-    with open(file_path_pathway) as f:
-        data = json.load(f)
+    data = _read_assembly_json(file_path_pathway)
 
     file_string = data["file_graph"][0]["Fragments"][0]
     path = nx.DiGraph()

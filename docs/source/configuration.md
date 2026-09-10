@@ -75,6 +75,9 @@ calculation that needs it runs
 installs the executable into ATT's cache directory. That takes a few minutes and
 needs `git`, CMake 3.25 or newer, and a C++20 compiler; CMake and Ninja are
 installed as dependencies of this package.
+CMake and Ninja beside the running Python interpreter take precedence over
+tools on `PATH`, so an absolute interpreter path still uses its environment's
+build dependencies.
 
 The build is deliberate about two settings. It does not use the repository's
 `release` CMake preset, which turns warnings into errors and would fail on a
@@ -114,8 +117,9 @@ functions built on it.
   case, so a large molecule can exceed any limit. When the search stops early —
   its budget ran out, it hit its enumeration cap, or it was interrupted — ATT
   returns the best upper bound the calculator reached, or `-1` if it reached
-  none. A search the calculator completes returns an exact result. Raise the
-  limit for large structures, or use
+  none. ATT reads the saved result first and falls back to the log when no
+  result was written. A search the calculator completes returns an exact result.
+  Raise the limit for large structures, or use
   {func}`~assemblytheorytools.assembly.calculate_assembly_index_upper_bound`
   when the edge-count bound is sufficient.
 
@@ -147,6 +151,12 @@ functions built on it.
   `return_log_file`, `debug`, `save_dir` or a requested diagnostic output file,
   ATT removes temporary files on success and failure. Failed launches and nonzero exits raise `OSError`;
   calculator failures include the end of the log in the exception.
+
+{func}`~assemblytheorytools.assembly.calculate_assembly_index_jo` reads the
+pathway from its own calculation directory and honors these retention options
+through `settings`. Its result remains `(jo, virtual_objects, pathway)`;
+`settings={"return_log_file": True}` retains the directory and prints the log
+location without adding a fourth result field.
 
 C++ string mode accepts one line of ASCII text: the calculator indexes bytes
 and reads each line as a separate input. Empty strings and edgeless graphs

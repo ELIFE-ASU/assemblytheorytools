@@ -116,8 +116,8 @@ class AssemblyCppOptions:
     def _retain_files(self) -> bool:
         return self.memory_report or self.telemetry or self.write_intermediate_mas
 
-    def _arguments(self, *, str_mode: bool) -> list[str]:
-        """Validate the input mode and serialize each applicable option once."""
+    def _validate_mode(self, *, str_mode: bool) -> None:
+        """Reject controls that the selected input mode cannot honor."""
         if str_mode:
             if self.parallel == "on":
                 raise ValueError("parallel='on' is unavailable for C++ string mode")
@@ -139,6 +139,9 @@ class AssemblyCppOptions:
                 if self.write_intermediate_mas:
                     raise ValueError("parallel='on' cannot use write_intermediate_mas")
 
+    def _arguments(self, *, str_mode: bool) -> list[str]:
+        """Validate the input mode and serialize each applicable option once."""
+        self._validate_mode(str_mode=str_mode)
         arguments = [
             "-removeHydrogens=0",
             "-compensateDisjoint=0",

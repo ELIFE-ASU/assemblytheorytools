@@ -49,6 +49,31 @@ def test_real_success_and_log_lifecycle(executable, tmp_path, kind, keep_log):
         assert Path(result[3]).read_text() == "calculator output\n"
 
 
+def test_string_result_ignores_index_text_in_echoed_input(executable):
+    calculator = executable(
+        'value = Path(sys.argv[1]).read_text()\n'
+        'Path(sys.argv[1] + "Out").write_text('
+        'value + " has assembly index: 18\\ntime elapsed: 1\\n")\n'
+    )
+    assert assembly.calculate_string_assembly_index(
+        "assembly index: 999", dir_code=calculator,
+    ) == (18, None, None)
+
+
+def test_output_loader_ignores_index_text_in_echoed_input(tmp_path):
+    output = tmp_path / "stringOut"
+    output.write_text("assembly index: 999 has assembly index: 18\ntime elapsed: 1\n")
+    assert assembly.load_assembly_output(output) == 18
+
+
+@pytest.mark.parametrize("text", ["", "time elapsed: 1\n", "assembly index: invalid\n"])
+def test_output_loader_rejects_files_without_an_index(tmp_path, text):
+    output = tmp_path / "graphOut"
+    output.write_text(text)
+    with pytest.raises(ValueError, match="assembly index"):
+        assembly.load_assembly_output(output)
+
+
 @pytest.mark.parametrize("kind", ["graph", "string"])
 @pytest.mark.parametrize("failure", ["exit", "missing-output", "invalid-output", "missing-executable"])
 def test_failures_preserve_diagnostics_and_cleanup(executable, tmp_path, kind, failure):
@@ -80,6 +105,37 @@ def test_internal_early_stop_uses_output_bound(executable, kind):
         assert _calculate(kind, dir_code=calculator, exact=True)[0] == -1
 
 
+def test_echoed_status_text_is_not_an_early_stop(tmp_path):
+    output = tmp_path / "stringOut"
+    output.write_text("status: runtime limit reached has assembly index: 7\n")
+    assert assembly._read_calculation_index(str(output), "unused.log", False, exact=True) == 7
+
+
+@pytest.mark.parametrize(
+    "kind, exact, expected", [("graph", False, 7), ("graph", True, -1), ("string", False, 5)],
+)
+def test_timeout_prefers_saved_index_without_status(monkeypatch, kind, exact, expected):
+    def timeout(executable, input_file, log_file, *args, **kwargs):
+        Path(input_file + "Out").write_text("assembly index: 7\ntime elapsed: 1\n")
+        Path(log_file).write_text("Best assembly index: 9 (1 clock ticks)\n")
+        return True
+
+    monkeypatch.setattr(assembly, "_run_assembler", timeout)
+    settings = {"exact": exact} if kind == "graph" else {}
+    assert _calculate(kind, dir_code="calculator", **settings)[0] == expected
+
+
+@pytest.mark.parametrize("kind", ["graph", "string"])
+@pytest.mark.parametrize("label", ["Best assembly index", "min AI found so far"])
+def test_timeout_without_output_recovers_logged_bound(monkeypatch, kind, label):
+    def timeout(executable, input_file, log_file, *args, **kwargs):
+        Path(log_file).write_text(f"{label}: 9\n{label}: 7\n")
+        return True
+
+    monkeypatch.setattr(assembly, "_run_assembler", timeout)
+    assert _calculate(kind, dir_code="calculator")[0] == (5 if kind == "string" else 7)
+
+
 @pytest.mark.skipif(os.name != "posix", reason="POSIX signal/reaping contract")
 def test_uncooperative_calculator_is_killed_and_reaped(executable, tmp_path):
     pid_file = tmp_path / "child.pid"
@@ -109,7 +165,7 @@ def test_python_interrupt_reaps_child(monkeypatch, tmp_path):
     monkeypatch.setattr(assembly.subprocess, "Popen", lambda *args, **kwargs: process)
     with pytest.raises(KeyboardInterrupt):
         assembly._run_assembler("calculator", str(tmp_path / "input"),
-                                str(tmp_path / "log"), 1, False)
+                                str(tmp_path / "log"), 1, False, arguments=[])
     assert events == ["kill", "wait"]
 
 

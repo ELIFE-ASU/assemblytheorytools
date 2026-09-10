@@ -188,7 +188,8 @@ def test_string_backend_timeout_and_file_lifecycle(
         assert stdout is stderr
         assert cwd == str(calculation_dir)
         assert Path(command[1]).read_text() == "abab0baba"
-        Path(command[1] + "Out").write_text("assembly index: 5\n")
+        if not timeouts:
+            Path(command[1] + "Out").write_text("assembly index: 5\n")
         stdout.write(output)
         return Process()
 
@@ -240,7 +241,7 @@ def test_undirected_strings_use_molecular_backend(monkeypatch, capsys, mode):
                 "strip_hydrogen": False,
                 "return_log_file": True,
                 "save_dir": False,
-                "cpp_options": None,
+                "cpp_options": att.AssemblyCppOptions(),
             },
         )
     ]

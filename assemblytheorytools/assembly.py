@@ -43,7 +43,7 @@ from .construction import (_VO_TYPES,
                            parse_string_pathway_file,
                            molstr_to_str,
                            convert_digraph_vo_to_target)
-from .tools_file import _read_assembly_json, safe_folder_remove
+from .tools_file import _read_assembly_json
 from .tools_graph import (write_ass_graph_file,
                           remove_hydrogen_from_graph,
                           nx_to_mol,
@@ -57,7 +57,7 @@ from .tools_string import (prep_joint_string_ai,
                            get_undir_str_molecule)
 
 # Patterns emitted by the C++ assembler, on its output file and log respectively
-_AI_PATTERN = re.compile(r"assembly index:\s*(\d+)")
+_AI_PATTERN = re.compile(r"assembly index:[ \t]*(\d+)[ \t]*$")
 # parallelassemblycpp logs "Best assembly index: N (T clock ticks)"; the executables
 # this package used to bundle logged "min AI found so far: N". Accept both, so an
 # older binary on ASS_PATH still reports a bound after a timeout.
@@ -78,11 +78,24 @@ _ASSEMBLYCPP_EXECUTABLE_NAMES = (
 )
 
 
-def _read_ai_from_output(file_path: str) -> int:
-    """Read the first output line, returning -1 if it has no assembly index."""
-    with open(file_path, "r") as f:
-        match = _AI_PATTERN.search(f.readline())
-    return int(match.group(1)) if match else -1
+def _read_assembly_output(file_path: str) -> tuple[int, Optional[str]]:
+    """Read the index and any early-stop status in a single pass.
+
+    The native string output includes the input before its result, so match
+    the final numeric field rather than an ``assembly index:`` in that input.
+    """
+    ai, status = -1, None
+    with open(file_path, encoding="utf-8") as output:
+        for line in output:
+            match = _AI_PATTERN.search(line)
+            if match:
+                if ai == -1:
+                    ai = int(match.group(1))
+                continue
+            match = _STATUS_PATTERN.search(line)
+            if match:
+                status = match.group(1)
+    return ai, status
 
 
 def _scan_log_for_min_ai(log_file: str, debug: bool = False) -> int:
@@ -96,39 +109,6 @@ def _scan_log_for_min_ai(log_file: str, debug: bool = False) -> int:
             if match:
                 bound = int(match.group(1))
     return bound
-
-
-def _read_status_from_output(file_path: str) -> Optional[str]:
-    """Return why the assembler stopped early, or None if it ran to completion.
-
-    AssemblyCpp records ``status: runtime limit reached``, ``status: enumeration
-    limit reached`` or ``status: interrupted by user`` alongside its index when
-    the value it reports is the best found so far rather than a proven minimum.
-    """
-    try:
-        with open(file_path, "r") as output:
-            match = _STATUS_PATTERN.search(output.read())
-    except OSError:
-        return None
-    return match.group(1) if match else None
-
-
-def _read_bound_after_early_stop(file_path_out: str, log_file: str,
-                                 status: Optional[str],
-                                 debug: bool = False) -> int:
-    """Return the best assembly index available after an interrupted search.
-
-    Prefer the index the assembler wrote next to its own ``status:`` line. Fall
-    back on the best value it logged, which is all that survives when it was
-    killed before writing an output file.
-    """
-    if status is not None:
-        ai = _read_ai_from_output(file_path_out)
-        if ai != -1:
-            return ai
-    if os.path.exists(log_file):
-        return _scan_log_for_min_ai(log_file, debug=debug)
-    return -1
 
 
 def _count_edges(mol: Union[nx.Graph, Chem.Mol]) -> int:
@@ -159,13 +139,16 @@ def load_assembly_output(file_path: str) -> int:
     -------
     int
         The assembly index extracted from the file.
+
+    Raises
+    ------
+    ValueError
+        If the file contains no assembly index.
     """
-    with open(file_path, "r") as output:
-        return next(
-            int(line.rsplit(":", 1)[-1].strip())
-            for line in output
-            if "assembly index" in line
-        )
+    ai, _ = _read_assembly_output(file_path)
+    if ai == -1:
+        raise ValueError(f"No assembly index found in {file_path}")
+    return ai
 
 
 def run_command(command: str) -> None:
@@ -283,7 +266,7 @@ def get_assembly_cpp_help(dir_code: Optional[str] = None) -> str:
 
 def _which_build_tool(name: str) -> Optional[str]:
     """
-    Locate a build tool on ``PATH`` or beside the running interpreter.
+    Locate a build tool beside the running interpreter, then on ``PATH``.
 
     Parameters
     ----------
@@ -300,17 +283,14 @@ def _which_build_tool(name: str) -> Optional[str]:
     cmake and ninja are dependencies of this package, so pip installs them into
     the same directory as the interpreter. That directory is not on ``PATH``
     unless the environment has been activated, which is easy to miss when a
-    script is run through an absolute path to the interpreter.
+    script is run through an absolute path to the interpreter. Prefer those
+    declared dependencies over a potentially older system installation.
     """
-    found = shutil.which(name)
-    if found is not None:
-        return found
-
     suffix = ".exe" if platform.system() == "Windows" else ""
-    candidate = Path(sys.executable).parent / (name + suffix)
+    candidate = Path(sys.executable).with_name(name + suffix)
     if candidate.is_file() and os.access(candidate, os.X_OK):
         return str(candidate)
-    return None
+    return shutil.which(name)
 
 
 def _require_cmake() -> str:
@@ -378,14 +358,14 @@ def _fetch_assembly_cpp(source: Path, ref: str) -> None:
     Notes
     -----
     Fetching the ref by name and checking out ``FETCH_HEAD`` handles branches,
-    tags and bare commit hashes identically. The clone is blobless, which keeps
-    it small despite the roughly one thousand MOL fixtures in the repository.
+    tags and bare commit hashes identically. The blobless clone skips its
+    default checkout so only the requested revision's files are downloaded.
     """
     if not (source / ".git").is_dir():
         shutil.rmtree(source, ignore_errors=True)
         source.parent.mkdir(parents=True, exist_ok=True)
         subprocess.run(
-            ["git", "clone", "--quiet", "--filter=blob:none",
+            ["git", "clone", "--quiet", "--filter=blob:none", "--no-checkout",
              _ASSEMBLYCPP_REPOSITORY, str(source)],
             check=True,
         )
@@ -581,13 +561,12 @@ def _validate_cpp_timeout(timeout: Optional[float]) -> None:
         raise ValueError("timeout must be None or a finite, non-negative number of seconds")
 
 
-def _cpp_options(options: Optional[AssemblyCppOptions], *, str_mode: bool) -> AssemblyCppOptions:
-    """Validate the options for this mode before creating any calculation files."""
+def _cpp_options(options: Optional[AssemblyCppOptions]) -> AssemblyCppOptions:
+    """Resolve the optional, typed C++ controls at the public API boundary."""
     if options is None:
         options = AssemblyCppOptions()
     if not isinstance(options, AssemblyCppOptions):
         raise TypeError("cpp_options must be an AssemblyCppOptions instance or None")
-    options._arguments(str_mode=str_mode)
     return options
 
 
@@ -619,8 +598,8 @@ def _calculator_error(message: str, log_file: str) -> OSError:
 
 
 def _run_assembler(dir_code: str, file_path_in: str, log_file: str,
-                   timeout: Optional[float], debug: bool, *, str_mode: bool = False,
-                   cpp_options: Optional[AssemblyCppOptions] = None) -> bool:
+                   timeout: Optional[float], debug: bool, *,
+                   arguments: Sequence[str]) -> bool:
     """Run either C++ mode with a bounded wait and a log streamed to disk.
 
     SIGINT gives the calculator two seconds to save its best result. A process
@@ -629,8 +608,7 @@ def _run_assembler(dir_code: str, file_path_in: str, log_file: str,
     executable = os.path.expanduser(os.fspath(dir_code))
     if os.path.dirname(executable):
         executable = os.path.abspath(executable)
-    options = _cpp_options(cpp_options, str_mode=str_mode)
-    command = [executable, file_path_in, *options._arguments(str_mode=str_mode)]
+    command = [executable, file_path_in, *arguments]
     if debug:
         print(f"Calling: {command}", flush=True)
 
@@ -673,11 +651,18 @@ def _run_assembler(dir_code: str, file_path_in: str, log_file: str,
 def _read_calculation_index(file_path_out: str, log_file: str, timed_out: bool,
                             *, exact: bool = False, debug: bool = False) -> int:
     """Interpret completion and bounds identically for molecules and strings."""
-    status = _read_status_from_output(file_path_out)
+    try:
+        ai, status = _read_assembly_output(file_path_out)
+    except FileNotFoundError:
+        ai, status = -1, None
     if status is not None:
         print(f"Warning: the assembly search stopped early ({status}).", flush=True)
     if timed_out or status is not None:
-        bound = _read_bound_after_early_stop(file_path_out, log_file, status, debug)
+        # Prefer a saved result even when the wall-clock deadline raced with
+        # normal completion. The log is only a fallback for missing output.
+        bound = ai
+        if bound == -1 and os.path.isfile(log_file):
+            bound = _scan_log_for_min_ai(log_file, debug=debug)
         if bound == -1:
             print("No assembly index found before the search stopped.", flush=True)
         elif exact:
@@ -686,10 +671,6 @@ def _read_calculation_index(file_path_out: str, log_file: str, timed_out: bool,
             print(f"Upper bound to AI found: AI <= {bound}", flush=True)
         return -1 if exact else bound
 
-    try:
-        ai = _read_ai_from_output(file_path_out)
-    except FileNotFoundError:
-        ai = -1
     if ai == -1:
         raise _calculator_error("AssemblyCpp produced no assembly index", log_file)
     return ai
@@ -813,7 +794,8 @@ def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
     9
     """
     _validate_cpp_timeout(timeout)
-    options = _cpp_options(cpp_options, str_mode=False)
+    options = _cpp_options(cpp_options)
+    arguments = options._arguments(str_mode=False)
     molecule_input = isinstance(graph, Chem.Mol)
     if molecule_input:
         graph = mol_to_nx(graph)
@@ -838,7 +820,7 @@ def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
         if dir_code is None:
             dir_code = add_assembly_to_path()
         timed_out = _run_assembler(dir_code, file_path_in, log_file, timeout, debug,
-                                   cpp_options=options)
+                                   arguments=arguments)
         ai = _read_calculation_index(file_path_out, log_file, timed_out,
                                      exact=exact, debug=debug)
         virtual_objects = pathway = None
@@ -1320,11 +1302,9 @@ def _calculate_string_assembly_molecular(
 def _calculate_string_assembly_cpp(
     string: str, delimiters: Sequence[str], *, dir_code: Optional[str],
     timeout: Optional[float], debug: bool, return_log_file: bool,
-    save_dir: bool, cpp_options: Optional[AssemblyCppOptions],
+    save_dir: bool, options: AssemblyCppOptions, arguments: Sequence[str],
 ) -> tuple:
     """Calculate string assembly using the shared C++ execution lifecycle."""
-    _validate_cpp_timeout(timeout)
-    options = _cpp_options(cpp_options, str_mode=True)
     if not string.isascii() or "\n" in string or "\r" in string:
         raise ValueError("C++ string assembly requires a single line of ASCII text")
     with _calculation_directory(save=save_dir or options._retain_files, debug=debug,
@@ -1335,7 +1315,7 @@ def _calculate_string_assembly_cpp(
         if dir_code is None:
             dir_code = add_assembly_to_path(str_mode=True)
         timed_out = _run_assembler(dir_code, file_path_in, log_file, timeout, debug,
-                                   str_mode=True, cpp_options=options)
+                                   arguments=arguments)
         ai = _read_calculation_index(file_path_in + "Out", log_file, timed_out, debug=debug)
         if ai >= 0:
             ai -= 2 * len(delimiters)
@@ -1489,7 +1469,12 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
             raise ValueError("cpp_options do not apply to CFG mode")
     else:
         _validate_cpp_timeout(timeout)
-        _cpp_options(cpp_options, str_mode=mode == "str")
+        options = _cpp_options(cpp_options)
+        if mode == "str":
+            arguments = options._arguments(str_mode=True)
+        else:
+            # The graph API serializes these controls after string encoding.
+            options._validate_mode(str_mode=False)
 
     if isinstance(input_data, str):
         string = input_data
@@ -1522,13 +1507,11 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         return _calculate_string_assembly_molecular(
             string, delimiters, dir_code=dir_code, timeout=timeout,
             debug=debug, return_log_file=return_log_file,
-            save_dir=save_dir, cpp_options=cpp_options)
-    if mode == "str":
-        return _calculate_string_assembly_cpp(
-            string, delimiters, dir_code=dir_code, timeout=timeout,
-            debug=debug, return_log_file=return_log_file,
-            save_dir=save_dir, cpp_options=cpp_options)
-    raise ValueError("Mode must be either 'mol', 'str', or 'cfg'.")
+            save_dir=save_dir, cpp_options=options)
+    return _calculate_string_assembly_cpp(
+        string, delimiters, dir_code=dir_code, timeout=timeout,
+        debug=debug, return_log_file=return_log_file,
+        save_dir=save_dir, options=options, arguments=arguments)
 
 
 def regularise_assembly_index(ai: Optional[int]) -> int:
@@ -1971,37 +1954,6 @@ def calculate_assembly_index_similarity(graphs: List[Union[nx.Graph, Chem.Mol]],
     return ai_sum / joint_ai - 1.0 if joint_ai != 0 else 0.0
 
 
-def _parse_graph_entries(entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Normalise graph field names, defaulting missing fields to empty lists."""
-    return [
-        {
-            'vertices': entry.get('Vertices', []),
-            'edges': entry.get('Edges', []),
-            'vertex_colours': entry.get('VertexColours', []),
-            'edge_colours': entry.get('EdgeColours', []),
-        }
-        for entry in entries
-    ]
-
-
-def _parse_pathway_file(data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Normalise the graphs, duplicate fragments and removed edges in pathway JSON.
-
-    Missing fields default to empty lists, including the left and right edge
-    lists of each duplicate fragment.
-    """
-    return {
-        'file_graph': _parse_graph_entries(data.get('file_graph', [])),
-        'remnant': _parse_graph_entries(data.get('remnant', [])),
-        'duplicates': [
-            {'left_edges': dup.get('Left', []), 'right_edges': dup.get('Right', [])}
-            for dup in data.get('duplicates', [])
-        ],
-        'removed_edges': data.get('removed_edges', []),
-    }
-
-
 def _calculate_jo_from_pathway(json_file: str) -> int:
     """
     Derive the joint assembly correction from a saved pathway file.
@@ -2010,9 +1962,9 @@ def _calculate_jo_from_pathway(json_file: str) -> int:
     Their overlap with the remnant and changes in connected components supply
     the joint-object correction to the raw assembly index.
     """
-    data = _parse_pathway_file(_read_assembly_json(json_file))
+    data = _read_assembly_json(json_file)
 
-    edges = [tuple(edge) for edge in data["file_graph"][0]["edges"]]
+    edges = [tuple(edge) for edge in data["file_graph"][0].get("Edges", [])]
     original_graph = nx.Graph()
     original_graph.add_edges_from(edges)
     component_count = nx.number_connected_components(original_graph)
@@ -2021,8 +1973,8 @@ def _calculate_jo_from_pathway(json_file: str) -> int:
     jo_correction = 0
     remaining_edges = set(edges)
 
-    for duplicate in data["duplicates"]:
-        fragment = duplicate["right_edges"]
+    for duplicate in data.get("duplicates", []):
+        fragment = duplicate.get("Right", [])
         ma -= len(fragment) - 1
         fragment_atoms = {atom for edge in fragment for atom in edge}
         remaining_edges -= {tuple(edge) for edge in fragment}
@@ -2075,30 +2027,35 @@ def calculate_assembly_index_jo(mol: Union[nx.Graph, Chem.Mol],
 
     Notes
     -----
-    - ``save_dir`` is forced on so that the pathway output survives long enough
-      to be read back.
+    - The pathway is read from this calculation's returned log directory.
+      Files are removed afterwards unless ``save_dir``, ``debug``,
+      ``return_log_file`` or a diagnostic output option requests retention.
+      The return value remains a 3-tuple, including when retaining a log.
     - If no valid pathway file is found, or if JO calculation fails, the function
       returns -1 for the JO index.
     """
 
-    settings = dict(settings or {}, save_dir=True)
-    _, vo, pathway = calculate_assembly_index(mol, **settings)
-    assembly_path = _get_most_recent_calc()
+    settings = settings or {}
+    ai, vo, pathway, log_file = calculate_assembly_index(
+        mol, **{**settings, "return_log_file": True})
+    if log_file is None:  # Trivial inputs need no calculator or saved pathway.
+        return ai, vo, pathway
 
-    pathway_files = [f for f in os.listdir(assembly_path) if f.endswith("Pathway")]
-    if not pathway_files:
-        print("No pathway file found. Returning -1.", flush=True)
-        safe_folder_remove(assembly_path)
-        return -1, None, None
-
-    pathway_file = os.path.join(assembly_path, pathway_files[0])
+    assembly_path = Path(log_file).parent
+    keep_files = (any(settings.get(name) for name in ("save_dir", "debug", "return_log_file"))
+                  or _cpp_options(settings.get("cpp_options"))._retain_files)
     try:
-        return _calculate_jo_from_pathway(pathway_file), vo, pathway
+        pathway_file = assembly_path / "graph_inPathway"
+        if ai < 0 or not pathway_file.is_file():
+            print("No usable pathway found. Returning -1.", flush=True)
+            return -1, None, None
+        return _calculate_jo_from_pathway(str(pathway_file)), vo, pathway
     except Exception as e:
         print(f"Error calculating joint assembly index: {e}", flush=True)
         return -1, None, None
     finally:
-        safe_folder_remove(assembly_path)
+        if not keep_files:
+            shutil.rmtree(assembly_path)
 
 
 def calculate_assembly_index_ratio(graph: Union[nx.Graph, Chem.Mol], settings: Dict[str, Any]) -> float:

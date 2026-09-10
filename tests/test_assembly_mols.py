@@ -459,14 +459,15 @@ def test_joining_correction_tracks_overlap_and_components(
 
 
 @pytest.mark.parametrize("output", ["valid", "invalid", "missing"])
+@pytest.mark.parametrize("retention", [None, "save_dir", "debug", "return_log_file", "telemetry"])
 def test_joining_calculation_cleans_output_and_preserves_settings(
-    tmp_path, monkeypatch, output
+    tmp_path, monkeypatch, output, retention
 ):
     folder = tmp_path / "ai_calc_example"
     folder.mkdir()
     if output != "missing":
         text = json.dumps({"file_graph": [{"Edges": [[0, 1], [1, 2]]}]})
-        (folder / "graphPathway").write_text(
+        (folder / "graph_inPathway").write_text(
             text if output == "valid" else "invalid JSON", encoding="utf-8"
         )
 
@@ -477,20 +478,38 @@ def test_joining_calculation_cleans_output_and_preserves_settings(
     def calculate(input_graph, **settings):
         assert input_graph is graph
         forwarded_settings.append(settings)
-        return 1, virtual_objects, pathway
+        return 1, virtual_objects, pathway, str(folder / "assembly_output.log")
 
     monkeypatch.setattr(assembly, "calculate_assembly_index", calculate)
-    monkeypatch.setattr(assembly, "_get_most_recent_calc", lambda: str(folder))
+    # Another run must never supply this calculation's pathway or be deleted.
+    unrelated = tmp_path / "ai_calc_other"
+    unrelated.mkdir()
+    monkeypatch.chdir(tmp_path)
     settings = {"save_dir": False, "timeout": 0.5}
+    if retention == "telemetry":
+        settings["cpp_options"] = att.AssemblyCppOptions(telemetry=True)
+    elif retention:
+        settings[retention] = True
+    original_settings = dict(settings)
 
     result = assembly.calculate_assembly_index_jo(graph, settings)
 
-    assert settings == {"save_dir": False, "timeout": 0.5}
-    assert forwarded_settings == [{"save_dir": True, "timeout": 0.5}]
-    assert not folder.exists()
+    assert settings == original_settings
+    assert forwarded_settings == [{**original_settings, "return_log_file": True}]
+    assert folder.exists() == (retention is not None)
+    assert unrelated.is_dir()
     if output == "valid":
         assert result[0] == 1
         assert result[1] is virtual_objects
         assert result[2] is pathway
     else:
         assert result == (-1, None, None)
+
+
+def test_joining_trivial_graph_needs_no_calculator_or_pathway(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(assembly, "add_assembly_to_path", lambda: pytest.fail("backend lookup"))
+    graph = nx.empty_graph(2)
+    nx.set_node_attributes(graph, "C", "color")
+    assert att.calculate_assembly_index_jo(graph) == (0, None, None)
+    assert not list(tmp_path.iterdir())

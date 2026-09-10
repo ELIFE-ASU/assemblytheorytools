@@ -164,34 +164,36 @@ def prep_json(json_path: str) -> None:
     json.JSONDecodeError
         If the repaired text is invalid JSON. The file remains unchanged.
     """
-    with open(json_path) as stream:
-        raw = stream.read()
+    data = _read_assembly_json(json_path, normalize_edge_colours=True)
 
-    repaired = re.sub(
-        r'"EdgeColours"\s*:\s*\[(.*?)\]', _edge_colours_replacer, raw, flags=re.DOTALL
-    )
-    data = json.loads(repaired)
-
-    with open(json_path, "w") as stream:
+    with open(json_path, "w", encoding="utf-8") as stream:
         json.dump(data, stream, indent=4)
 
 
-def _read_assembly_json(json_path: str) -> dict:
-    """Read current or legacy AssemblyCpp pathway JSON without rewriting it."""
+def _read_assembly_json(
+    json_path: str, *, normalize_edge_colours: bool = False
+) -> dict:
+    """Read pathway JSON, repairing legacy colours only if parsing fails.
+
+    ``prep_json`` explicitly requests normalization even for valid JSON to
+    retain its public conversion of numeric and empty colour entries.
+    """
     with open(json_path, encoding="utf-8") as stream:
         raw = stream.read()
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
-        # Older executables emitted unquoted bond names and empty entries for
-        # colours above five. Current output is valid JSON and needs no repair.
-        repaired = re.sub(
-            r'"EdgeColours"\s*:\s*\[(.*?)\]',
-            _edge_colours_replacer,
-            raw,
-            flags=re.DOTALL,
-        )
-        return json.loads(repaired)
+    if not normalize_edge_colours:
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            pass
+    # Older executables emitted unquoted bond names and empty entries for
+    # colours above five. Current output is valid JSON and needs no repair.
+    repaired = re.sub(
+        r'"EdgeColours"\s*:\s*\[(.*?)\]',
+        _edge_colours_replacer,
+        raw,
+        flags=re.DOTALL,
+    )
+    return json.loads(repaired)
 
 
 def _edge_colours_replacer(match: Match[str]) -> str:
