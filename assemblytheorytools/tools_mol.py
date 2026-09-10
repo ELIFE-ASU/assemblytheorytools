@@ -8,98 +8,100 @@ multi-fragment molecules, V2000 mol file writing, and peptide sequence
 conversion.
 """
 
-import networkx as nx
 import re
 import warnings
+from typing import List, Union
+
+import networkx as nx
 from rdkit.Chem import AllChem as Chem
 from rdkit.Chem.MolStandardize import rdMolStandardize
 from rdkit.Chem.rdchem import GetPeriodicTable
-from typing import List, Union
+
+_AMINO_ACIDS = "ACDEFGHIKLMNPQRSTVWY"
 
 
 def safe_standardize_mol(mol: Chem.Mol, add_hydrogens: bool = True) -> Chem.Mol:
     """
-    Standardise the given RDKit molecule with additional safety checks.
+    Standardise a molecule with relaxed valence checks.
 
     Parameters
     ----------
     mol : rdkit.Chem.Mol
-        The input RDKit molecule to be standardised.
+        The molecule to standardise in place.
     add_hydrogens : bool, optional
-        Whether to add hydrogens to the molecule. Default is True.
+        Whether to return a copy with explicit hydrogens. Default is True.
 
     Returns
     -------
     rdkit.Chem.Mol
-        The standardised RDKit molecule.
+        The standardised molecule, or a hydrogenated copy if requested.
+
+    Notes
+    -----
+    Skips cleanup and property sanitisation, but propagates other RDKit
+    sanitisation errors. Without added hydrogens, returns the input object.
     """
-    # Update the molecule's property cache without strict checking
     mol.UpdatePropertyCache(strict=False)
-    # Set conjugation and hybridisation states
     Chem.SetConjugation(mol)
     Chem.SetHybridization(mol)
-    # Normalise the molecule, excluding clean-up and property sanitisation
-    Chem.SanitizeMol(mol,
-                     sanitizeOps=(Chem.SANITIZE_ALL ^ Chem.SANITIZE_CLEANUP ^ Chem.SANITIZE_PROPERTIES),
-                     catchErrors=False)
-    # Normalise the molecule in place using RDKit's MolStandardize
+    Chem.SanitizeMol(
+        mol,
+        sanitizeOps=(
+            Chem.SANITIZE_ALL ^ Chem.SANITIZE_CLEANUP ^ Chem.SANITIZE_PROPERTIES
+        ),
+        catchErrors=False,
+    )
     rdMolStandardize.NormalizeInPlace(mol)
-    # Kekulise the molecule (convert aromatic bonds to alternating single and double bonds)
     Chem.Kekulize(mol)
-    if add_hydrogens:
-        # Add hydrogens
-        mol = Chem.AddHs(mol)
-    return mol
+    return Chem.AddHs(mol) if add_hydrogens else mol
 
 
 def standardize_mol(mol: Chem.Mol, add_hydrogens: bool = True) -> Chem.Mol:
     """
-    Standardize the given RDKit molecule.
+    Standardise a molecule with full sanitisation and strict valence checks.
 
     Parameters
     ----------
     mol : Chem.Mol
-        The input RDKit molecule to be standardised.
+        The molecule to standardise in place.
     add_hydrogens : bool, optional
-        Whether to add hydrogens to the molecule. Default is True.
+        Whether to return a copy with explicit hydrogens. Default is True.
 
     Returns
     -------
     Chem.Mol
-        The standardized RDKit molecule.
+        The standardised molecule, or a hydrogenated copy if requested.
+
+    Notes
+    -----
+    RDKit sanitisation errors propagate to the caller. Without added
+    hydrogens, returns the input object.
     """
-    # Sanitise the molecule
     Chem.SanitizeMol(mol, catchErrors=False)
-    # Normalise the molecule in place using RDKit's MolStandardize
     rdMolStandardize.NormalizeInPlace(mol)
-    # Update the molecule's property cache without strict checking
     mol.UpdatePropertyCache(strict=True)
-    # Kekulise the molecule (convert aromatic bonds to alternating single and double bonds)
     Chem.Kekulize(mol)
-    if add_hydrogens:
-        # Add hydrogens
-        mol = Chem.AddHs(mol)
-    # Return the molecule
-    return mol
+    return Chem.AddHs(mol) if add_hydrogens else mol
 
 
-def get_free_valence(atom: Chem.Atom,
-                     pt: Chem.rdchem.PeriodicTable = None,
-                     method: str = '1') -> int:
+def get_free_valence(
+    atom: Chem.Atom,
+    pt: Chem.rdchem.PeriodicTable = None,
+    method: str = "1",
+) -> int:
     """
-    Calculate the free valence of an atom based on the specified method.
+    Calculate an atom's free valence using the selected method.
 
     Parameters
     ----------
     atom : Chem.Atom
-        The RDKit atom object for which the free valence is calculated.
+        The atom to inspect.
     pt : Chem.rdchem.PeriodicTable, optional
-        The RDKit periodic table object. If not provided, it defaults to the global periodic table.
+        Periodic table to use. Defaults to RDKit's global table.
     method : str, optional
-        The method used to calculate the free valence. Options are:
-        - '1': Uses the minimum valence from the periodic table's valence list minus the atom's degree.
-        - '2': Uses the default valence minus the atom's explicit valence.
-        - '3': Uses the number of outer electrons of the atom.
+        ``'1'`` (default): minimum allowed valence minus the integer part of
+        the sum of bond orders. ``'2'``: default minus explicit valence.
+        ``'3'``: number of outer electrons.
 
     Returns
     -------
@@ -110,38 +112,33 @@ def get_free_valence(atom: Chem.Atom,
     ------
     ValueError
         If an unknown method is provided.
-
-    Notes
-    -----
-    - The free valence is calculated differently depending on the method specified.
-    - The periodic table is used to retrieve atomic properties such as valence and outer electrons.
     """
     pt = pt or GetPeriodicTable()
     symbol = atom.GetSymbol()
     atomic_number = pt.GetAtomicNumber(symbol)
 
-    if method == '1':
-        return min(pt.GetValenceList(atomic_number)) - int(
-            sum([bond.GetBondTypeAsDouble() for bond in atom.GetBonds()]))
-    elif method == '2':
+    if method == "1":
+        bond_order = sum(bond.GetBondTypeAsDouble() for bond in atom.GetBonds())
+        return min(pt.GetValenceList(atomic_number)) - int(bond_order)
+    if method == "2":
         return pt.GetDefaultValence(symbol) - atom.GetExplicitValence()
-    elif method == '3':
+    if method == "3":
         return pt.GetNOuterElecs(atomic_number)
-    else:
-        raise ValueError(f"Unknown method {method} for calculating free valence of atom {symbol}")
+    raise ValueError(
+        f"Unknown method {method} for calculating free valence of atom {symbol}"
+    )
 
 
-def reset_mol_charge(mol: Chem.Mol,
-                     pt: Chem.rdchem.PeriodicTable = None) -> Chem.Mol:
+def reset_mol_charge(mol: Chem.Mol, pt: Chem.rdchem.PeriodicTable = None) -> Chem.Mol:
     """
-    Adjust the formal charges of atoms to match their free valence.
+    Return a copy with formal charges set to each atom's free valence.
 
     Parameters
     ----------
     mol : Chem.Mol
-        An RDKit molecule object whose atom charges need to be reset.
+        The molecule to copy and adjust.
     pt : Chem.rdchem.PeriodicTable, optional
-        The RDKit periodic table object. If not provided, it defaults to the global periodic table.
+        Periodic table to use. Defaults to RDKit's global table.
 
     Returns
     -------
@@ -150,40 +147,36 @@ def reset_mol_charge(mol: Chem.Mol,
 
     Notes
     -----
-    - The function iterates over all atoms in the molecule and sets their formal charge
-      based on the free valence calculated using the `get_free_valence` function.
-    - The molecule's property cache is updated after modifying the charges.
+    Uses :func:`get_free_valence` with its default method. The input is
+    unchanged; the result is not sanitised or given a property-cache update.
     """
     pt = pt or GetPeriodicTable()
-    rw = Chem.RWMol(mol)
+    editable = Chem.RWMol(mol)
 
-    for atom in rw.GetAtoms():
+    for atom in editable.GetAtoms():
         atom.SetFormalCharge(get_free_valence(atom, pt=pt))
 
-    return rw.GetMol()
+    return editable.GetMol()
 
 
-def get_total_free_valence(mol: Chem.Mol | nx.Graph,
-                           pt: Chem.rdchem.PeriodicTable = None,
-                           method: str = '1') -> int:
+def get_total_free_valence(
+    mol: Chem.Mol | nx.Graph,
+    pt: Chem.rdchem.PeriodicTable = None,
+    method: str = "1",
+) -> int:
     """
     Calculate the total free valence of a molecule or graph.
-
-    This function computes the total free valence for either an RDKit molecule object
-    or a NetworkX graph representation of a molecular structure. The calculation method
-    can be specified to determine how free valence is computed.
 
     Parameters
     ----------
     mol : Chem.Mol | nx.Graph
-        The input molecule, either as an RDKit molecule object or a NetworkX graph.
+        A molecule or graph. Graphs store element symbols in node ``color``
+        attributes and bond orders in edge ``color`` attributes.
     pt : Chem.rdchem.PeriodicTable, optional
-        The RDKit periodic table object. Defaults to the global periodic table.
+        Periodic table to use. Defaults to RDKit's global table.
     method : str, optional
-        The method used to calculate free valence for RDKit molecules. Options are:
-        - '1': Uses the minimum valence from the periodic table's valence list minus the atom's degree.
-        - '2': Uses the default valence minus the atom's explicit valence.
-        - '3': Uses the number of outer electrons of the atom. Defaults to '1'.
+        Passed to :func:`get_free_valence` for RDKit molecules. Default is
+        ``'1'``. Ignored for graphs.
 
     Returns
     -------
@@ -192,85 +185,52 @@ def get_total_free_valence(mol: Chem.Mol | nx.Graph,
 
     Notes
     -----
-    For NetworkX graphs, the function iterates over nodes and edges to calculate free valence.
-    For RDKit molecules, the `get_free_valence` function is used for individual atoms.
-    The periodic table is used to retrieve atomic properties such as valence and outer electrons.
+    Graphs use each element's minimum allowed valence minus the sum of its
+    incident bond orders, converting each edge's ``color`` to an integer.
     """
+    pt = pt or GetPeriodicTable()
     if isinstance(mol, nx.Graph):
-        pt = pt or GetPeriodicTable()
+        total = 0
+        for node, data in mol.nodes(data=True):
+            atomic_number = pt.GetAtomicNumber(data.get("color"))
+            bond_order = sum(
+                int(mol.edges[edge].get("color")) for edge in mol.edges(node)
+            )
+            total += min(pt.GetValenceList(atomic_number)) - bond_order
+        return total
 
-        # Loop through all nodes in the graph
-        free = 0
-        for node in mol.nodes:
-            symbol = mol.nodes[node].get('color')
-            atomic_number = pt.GetAtomicNumber(symbol)
-
-            edge_total = 0
-            for edge in mol.edges(node):
-                edge_total += int(mol.edges[edge].get('color'))
-
-            free += min(pt.GetValenceList(atomic_number)) - edge_total
-    else:
-        free = 0
-        pt = pt or GetPeriodicTable()
-        for atom in mol.GetAtoms():
-            free += get_free_valence(atom, pt=pt, method=method)
-    return free
+    return sum(get_free_valence(atom, pt=pt, method=method) for atom in mol.GetAtoms())
 
 
 def _maybe_sanitize(mol: Chem.Mol, sanitize: bool, add_hydrogens: bool) -> Chem.Mol:
-    """
-    Standardise *mol* if requested, otherwise return it unchanged.
-
-    Parameters
-    ----------
-    mol : Chem.Mol
-        The molecule to conditionally standardise.
-    sanitize : bool
-        Whether to run :func:`safe_standardize_mol` on *mol*.
-    add_hydrogens : bool
-        Passed through to :func:`safe_standardize_mol` when *sanitize* is True.
-
-    Returns
-    -------
-    Chem.Mol
-        The standardised molecule, or *mol* itself if *sanitize* is False.
-    """
+    """Standardise if requested; otherwise ignore the hydrogen flag."""
     return safe_standardize_mol(mol, add_hydrogens=add_hydrogens) if sanitize else mol
 
 
 def smi_to_mol(smi: str, add_hydrogens: bool = True, sanitize: bool = True) -> Chem.Mol:
     """
-    Convert a SMILES string to an RDKit molecule object.
-
-    This function takes a SMILES (Simplified Molecular Input Line Entry System) string
-    and converts it into an RDKit molecule object. Optionally, the molecule can be
-    sanitized and explicit hydrogens can be added.
+    Convert a SMILES string to an optionally standardised RDKit molecule.
 
     Parameters
     ----------
     smi : str
         A SMILES string representing the molecular structure.
     add_hydrogens : bool, optional
-        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to True.
+        Add explicit hydrogens during standardisation. Default is True;
+        ignored when ``sanitize=False``.
     sanitize : bool, optional
-        If True, sanitizes the molecule after conversion. Defaults to True.
+        Run :func:`safe_standardize_mol` after parsing. Default is True.
 
     Returns
     -------
-    Chem.Mol
-        An RDKit molecule object representing the input SMILES string.
+    Chem.Mol or None
+        The parsed molecule. Failed parsing returns None if sanitisation
+        is disabled; otherwise standardisation raises an error.
 
-    Raises
-    ------
-    Warning
-        If the SMILES string contains disconnected molecules (indicated by a '.' character).
-
-    Notes
+    Warns
     -----
-    - The function uses RDKit's `MolFromSmiles` to create the molecule object.
-    - Sanitization ensures the molecule is chemically valid and standardized.
-    - Disconnected molecules in the SMILES string are flagged with a warning.
+    UserWarning
+        If the SMILES string contains ``'.'`` (disconnected molecules).
 
     Examples
     --------
@@ -287,112 +247,96 @@ def smi_to_mol(smi: str, add_hydrogens: bool = True, sanitize: bool = True) -> C
     >>> att.smi_to_mol("CCO", add_hydrogens=False).GetNumAtoms()
     3
     """
-    if '.' in smi:
-        warnings.warn("Disconnected molecules detected in SMILES string. Ensure proper handling of these molecules.")
-    # Convert the SMILES string to an RDKit molecule object
+    if "." in smi:
+        warnings.warn(
+            "Disconnected molecules detected in SMILES string. "
+            "Ensure proper handling of these molecules."
+        )
     mol = Chem.MolFromSmiles(smi, sanitize=False)
     return _maybe_sanitize(mol, sanitize, add_hydrogens)
 
 
-def inchi_to_mol(inchi: str, add_hydrogens: bool = True, sanitize: bool = True) -> Chem.Mol:
+def inchi_to_mol(
+    inchi: str, add_hydrogens: bool = True, sanitize: bool = True
+) -> Chem.Mol:
     """
-    Convert an InChI string to an RDKit molecule object.
-
-    This function takes an InChI (International Chemical Identifier) string
-    and converts it into an RDKit molecule object. Optionally, the molecule
-    can be sanitized and explicit hydrogens can be added.
+    Convert an InChI string to an optionally standardised RDKit molecule.
 
     Parameters
     ----------
     inchi : str
         An InChI string representing the molecular structure.
     add_hydrogens : bool, optional
-        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to True.
+        Add explicit hydrogens during standardisation. Default is True;
+        ignored when ``sanitize=False``.
     sanitize : bool, optional
-        If True, sanitizes the molecule after conversion. Defaults to True.
+        Run :func:`safe_standardize_mol` after parsing. Default is True.
 
     Returns
     -------
-    Chem.Mol
-        An RDKit molecule object representing the input InChI string.
-
-    Raises
-    ------
-    ValueError
-        If the InChI string is invalid or the molecule could not be created.
-
-    Notes
-    -----
-    - The function uses RDKit's `MolFromInchi` to create the molecule object.
-    - Sanitization ensures the molecule is chemically valid and standardized.
+    Chem.Mol or None
+        The parsed molecule, retaining existing hydrogens. Failed parsing
+        returns None if sanitisation is disabled; otherwise standardisation
+        raises an error.
     """
     mol = Chem.MolFromInchi(inchi, sanitize=False, removeHs=False)
     return _maybe_sanitize(mol, sanitize, add_hydrogens)
 
 
-def molfile_to_mol(mol: str, add_hydrogens: bool = True, sanitize: bool = True) -> Chem.Mol:
+def molfile_to_mol(
+    mol: str, add_hydrogens: bool = True, sanitize: bool = True
+) -> Chem.Mol:
     """
-    Convert a Molfile to an RDKit molecule object.
-
-    This function takes a Molfile (a file format for storing molecular structures),
-    reads it, and converts it into an RDKit molecule object. Optionally, the molecule
-    can be sanitized and explicit hydrogens can be added.
+    Read a mol file into an optionally standardised RDKit molecule.
 
     Parameters
     ----------
     mol : str
-        The path to the Molfile containing the molecular structure.
+        Path to the mol file.
     add_hydrogens : bool, optional
-        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to True.
+        Add explicit hydrogens during standardisation. Default is True;
+        ignored when ``sanitize=False``.
     sanitize : bool, optional
-        If True, sanitizes the molecule after conversion. Defaults to True.
+        Run :func:`safe_standardize_mol` after parsing. Default is True.
 
     Returns
     -------
-    Chem.Mol
-        An RDKit molecule object representing the input Molfile.
-
-    Raises
-    ------
-    ValueError
-        If the Molfile is invalid or the molecule could not be created.
-
-    Notes
-    -----
-    - The function uses RDKit's `MolFromMolFile` to create the molecule object.
-    - Sanitization ensures the molecule is chemically valid and standardized.
+    Chem.Mol or None
+        The parsed molecule. Failed parsing returns None if sanitisation
+        is disabled; otherwise standardisation raises an error. File-reading
+        errors propagate from RDKit.
     """
-    # Convert the Molfile to an RDKit molecule
     mol = Chem.MolFromMolFile(mol, sanitize=False)
     return _maybe_sanitize(mol, sanitize, add_hydrogens)
 
 
 def combine_mols(mols: Union[List[Chem.Mol], Chem.Mol]) -> Chem.Mol:
     """
-    Combine multiple RDKit molecules into a single molecule.
+    Combine a list of molecules as disconnected fragments.
 
     Parameters
     ----------
     mols : Union[List[Chem.Mol], Chem.Mol]
-        A list of RDKit molecules to be combined or a single RDKit molecule.
+        Molecules in fragment order, or a single molecule to return as is.
 
     Returns
     -------
     Chem.Mol
-        The combined RDKit molecule if input is a list, otherwise returns the input molecule.
+        A combined copy for a list input; otherwise the input itself.
+        An empty list produces an empty editable molecule.
     """
-    if isinstance(mols, list):
-        combined_mol = Chem.RWMol()
-        for mol in mols:
-            combined_mol = Chem.CombineMols(combined_mol, mol)
-        return combined_mol
-    else:
+    if not isinstance(mols, list):
         return mols
+
+    combined = Chem.RWMol()
+    for mol in mols:
+        combined = Chem.CombineMols(combined, mol)
+    return combined
 
 
 def split_mols(mol: Chem.Mol) -> tuple[Chem.Mol, ...]:
     """
-    Split an RDKit molecule into its individual components.
+    Split a molecule into its connected components.
 
     Parameters
     ----------
@@ -402,14 +346,14 @@ def split_mols(mol: Chem.Mol) -> tuple[Chem.Mol, ...]:
     Returns
     -------
     tuple[Chem.Mol, ...]
-        A tuple of RDKit molecule fragments.
+        Sanitised fragments in RDKit's component order.
     """
     return Chem.GetMolFrags(mol, asMols=True)
 
 
 def write_v2k_mol_file(mol: Chem.Mol, file_path: str) -> None:
     """
-    Write an RDKit molecule to a file in V2K Mol block format.
+    Write a molecule to a mol file, forcing V2000 format.
 
     Parameters
     ----------
@@ -422,9 +366,8 @@ def write_v2k_mol_file(mol: Chem.Mol, file_path: str) -> None:
     -------
     None
     """
-    # Need to force rdkit to use V2k mol block format
-    with open(file_path, "w") as f:
-        f.write(Chem.MolToV2KMolBlock(mol))
+    with open(file_path, "w") as mol_file:
+        mol_file.write(Chem.MolToV2KMolBlock(mol))
 
 
 def get_element_set_from_mols(mols: List[Chem.Mol]) -> set:
@@ -434,65 +377,51 @@ def get_element_set_from_mols(mols: List[Chem.Mol]) -> set:
     Parameters
     ----------
     mols : List[Chem.Mol]
-        A list of RDKit molecule objects to extract elements from.
+        Molecules to inspect. False-valued entries, including None, are
+        skipped.
 
     Returns
     -------
     set
         A set containing unique element symbols found in all molecules.
     """
-    element_set = set()
-    for mol in mols:
-        if mol:
-            for atom in mol.GetAtoms():
-                element_set.add(atom.GetSymbol())
-    return element_set
+    return {atom.GetSymbol() for mol in mols if mol for atom in mol.GetAtoms()}
 
 
-def standardise_smiles(smi: str, add_hydrogens: bool = True, sanitize: bool = True) -> str:
+def standardise_smiles(
+    smi: str, add_hydrogens: bool = True, sanitize: bool = True
+) -> str:
     """
-    Standardize a SMILES string.
-
-    This function converts a SMILES (Simplified Molecular Input Line Entry System) string
-    into a standardized format using RDKit. Optionally, explicit hydrogens can be added
-    and the molecule can be sanitized.
+    Return canonical, isomeric SMILES with Kekule bond notation.
 
     Parameters
     ----------
     smi : str
         A SMILES string representing the molecular structure.
     add_hydrogens : bool, optional
-        If True, adds explicit hydrogens to the molecule during standardization. Defaults to True.
+        Run :func:`safe_standardize_mol` and add explicit hydrogens, even
+        when ``sanitize=False``. Default is True.
     sanitize : bool, optional
-        If True, sanitizes the molecule during conversion. Defaults to True.
+        Sanitise during SMILES parsing. Default is True.
 
     Returns
     -------
     str
-        A standardized SMILES string with isomeric, kekule, and canonical options enabled.
+        The canonical SMILES string.
 
     Raises
     ------
     ValueError
-        If the SMILES string is invalid or the molecule could not be created.
-
-    Notes
-    -----
-    - The function uses RDKit's `MolFromSmiles` to create the molecule object.
-    - Sanitization ensures the molecule is chemically valid and standardized.
-    - The standardized SMILES string is returned with specified options.
+        If parsing fails and ``add_hydrogens=False``. With added hydrogens,
+        standardisation errors propagate before this check.
     """
-    # Convert the SMILES string to an RDKit molecule object and add explicit hydrogens
     mol = Chem.MolFromSmiles(smi, sanitize=sanitize)
     if add_hydrogens:
-        # Standardise the molecule with hydrogens
         mol = safe_standardize_mol(mol, add_hydrogens=True)
 
-    # Raise an error if the molecule could not be created
     if not mol:
         raise ValueError(f"Invalid SMILES: {smi}")
 
-    # Return the standardised SMILES string with specified options
     return Chem.MolToSmiles(mol, isomericSmiles=True, kekuleSmiles=True, canonical=True)
 
 
@@ -500,13 +429,10 @@ def smi_remove_implicit_hydrogen(input_string: str) -> str:
     """
     Remove implicit hydrogen counts from SMILES strings.
 
-    This function processes a SMILES (Simplified Molecular Input Line Entry System) string
-    and removes implicit hydrogen counts from atomic symbols enclosed in square brackets.
-
     Parameters
     ----------
     input_string : str
-        A SMILES string containing atomic symbols with implicit hydrogen counts.
+        A SMILES string containing bracketed atom tokens.
 
     Returns
     -------
@@ -515,46 +441,24 @@ def smi_remove_implicit_hydrogen(input_string: str) -> str:
 
     Notes
     -----
-    - The function uses a regular expression to identify atomic symbols with implicit hydrogen counts.
-    - Only the atomic symbol is retained, and the hydrogen count is removed.
+    Bracketed letters followed by optional digits are reduced to their first
+    letter: ``[CH3]`` becomes ``[C]``, as does ``[Cl]``. Tokens containing
+    charges, isotope prefixes, or stereochemistry are left unchanged.
     """
-    pattern = r'\[([a-zA-Z]+[0-9]*)\]'
-
-    def update_match(match: re.Match) -> str:
-        """
-        Reduce a bracketed atom token to its bare element symbol.
-
-        Parameters
-        ----------
-        match : re.Match
-            Match of the bracketed-atom pattern, whose first group holds the
-            atom token, for example ``"CH3"``.
-
-        Returns
-        -------
-        str
-            The bracketed element symbol alone, for example ``"[C]"``.
-        """
-        group = match.group(1)
-        return f"[{group[0]}]"
-
-    return re.sub(pattern, update_match, input_string)
+    return re.sub(r"\[([a-zA-Z])[a-zA-Z]*[0-9]*\]", r"[\1]", input_string)
 
 
 def peptide_to_smiles(seq: str, *, canonical: bool = True) -> str:
     """
-    Convert a peptide sequence to a SMILES string.
-
-    This function takes a peptide sequence, validates it, and converts it into a
-    SMILES (Simplified Molecular Input Line Entry System) string using RDKit.
+    Convert a peptide sequence to an isomeric SMILES string.
 
     Parameters
     ----------
     seq : str
-        The peptide sequence to be converted. It should consist of single-letter
-        amino acid codes.
+        Standard single-letter amino acid codes. Whitespace is removed and
+        letters are converted to uppercase before validation.
     canonical : bool, optional
-        If True, generates a canonical SMILES string. Defaults to True.
+        Whether to generate canonical SMILES. Default is True.
 
     Returns
     -------
@@ -564,26 +468,22 @@ def peptide_to_smiles(seq: str, *, canonical: bool = True) -> str:
     Raises
     ------
     ValueError
-        If the sequence is empty, contains invalid amino acid codes, or if RDKit
-        fails to parse/build the peptide.
+        If the sequence is empty, contains invalid amino acid codes, or
+        cannot be built by RDKit.
 
     Notes
     -----
-    - The function only allows standard amino acid codes (ACDEFGHIKLMNPQRSTVWY).
-    - RDKit's `MolFromFASTA` is used to generate the molecule from the sequence.
+    Accepts the amino acid codes ``ACDEFGHIKLMNPQRSTVWY`` and uses RDKit's
+    ``MolFromFASTA`` to build the peptide.
     """
-    _allowed_aa = set("ACDEFGHIKLMNPQRSTVWY")
-
-    s = "".join(seq.split()).upper()
-    if not s:
+    sequence = "".join(seq.split()).upper()
+    if not sequence:
         raise ValueError("Empty sequence")
 
-    bad = [(i, ch) for i, ch in enumerate(s, start=1) if ch not in _allowed_aa]
-    if bad:
-        raise ValueError(f"Invalid amino acid code(s). "
-                         f"Allowed: {''.join(sorted(_allowed_aa))}")
+    if any(code not in _AMINO_ACIDS for code in sequence):
+        raise ValueError(f"Invalid amino acid code(s). Allowed: {_AMINO_ACIDS}")
 
-    mol = Chem.MolFromFASTA(s)
+    mol = Chem.MolFromFASTA(sequence)
     if mol is None:
         raise ValueError("RDKit could not parse/build the peptide from this sequence")
 
