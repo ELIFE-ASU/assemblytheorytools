@@ -1,14 +1,7 @@
-# Documentation build requirements.
+# Install from the repository root:
+#     python -m pip install -r docs/requirements.txt
 #
-# autodoc imports the real package, so the runtime dependencies must be present
-# too. The supported invocation is, from the project root:
-#
-#     pip install -e ".[docs]"
-#     sphinx-build -W -b html docs/source docs/build
-#
-# This file exists for build systems that want a plain requirements file; it
-# mirrors the "docs" extra in pyproject.toml.
-sphinx>=8.0
-sphinx-rtd-theme>=3.0
-myst-parser>=4.0
-myst-nb>=1.4
+# Local project paths are relative to the working directory. Installing the
+# docs extra also supplies the runtime dependencies needed by autodoc, with
+# pyproject.toml as the single source of dependency declarations.
+.[docs]

@@ -18,12 +18,21 @@ a pull request.
 
 ### Development environment
 
-The project supports Python 3.12 and newer. Fork and clone the repository,
-create an isolated environment, then install the package and development tools:
+The project supports Python 3.12 and newer; CI tests Python 3.12–3.14. Fork and
+clone the repository, create an isolated environment, then run these commands
+from the repository root to install the package and development tools:
 
 ```console
+python -m pip install --upgrade "pip>=25.1"
 python -m pip install -e ".[dev]"
+python -m pip install --group build --group lint
 ```
+
+The `dev` extra provides the test tools. The `build` and `lint` dependency
+groups in `pyproject.toml` provide build, distribution validation and lint tools;
+installing groups requires pip 25.1 or newer. For a Conda environment that also
+includes documentation and notebook dependencies, see
+[build_tools/README.md](https://github.com/ELIFE-ASU/assemblytheorytools/blob/main/build_tools/README.md).
 
 ## Development workflow
 
@@ -95,6 +104,10 @@ python -m pip install -e ".[docs]"
 make -C docs strict
 ```
 
+Build systems that need a requirements file can instead run
+`python -m pip install -r docs/requirements.txt` from the repository root. That
+file installs the same package and `docs` extra declared in `pyproject.toml`.
+
 The strict target treats warnings as errors and writes the HTML output to
 `docs/build/html`. Autodoc imports the real package, so missing runtime
 dependencies and broken docstrings fail the build.
@@ -112,6 +125,19 @@ When changing documentation:
   After editing one, re-execute it with
   `jupyter nbconvert --to notebook --execute --inplace protocol_N.ipynb` from
   its own directory so the stored outputs stay current.
+
+## Building distributions
+
+With the `build` dependency group installed, create and validate the source
+distribution and wheel from the repository root:
+
+```console
+python -m build
+python -m twine check --strict dist/*
+```
+
+The build uses an isolated environment with the backend requirements declared
+in `pyproject.toml`. The artifacts are written to `dist/`.
 
 ## Pull request checklist
 

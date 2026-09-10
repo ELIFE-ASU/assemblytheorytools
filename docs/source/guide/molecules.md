@@ -38,7 +38,8 @@ Other entry points into the same graph format:
 | SMILES | {func}`~assemblytheorytools.tools_graph.smi_to_nx` |
 | InChI | {func}`~assemblytheorytools.tools_graph.inchi_to_nx` |
 | RDKit `Mol` | {func}`~assemblytheorytools.tools_graph.mol_to_nx` |
-| ASE `Atoms` | {func}`~assemblytheorytools.tools_atoms.atoms_to_nx` |
+| ASE `Atoms` (molecule) | {func}`~assemblytheorytools.tools_atoms.atoms_to_nx` |
+| ASE `Atoms` (periodic cell) | {func}`~assemblytheorytools.tools_cell.cell_to_nx` |
 | CIF file | {func}`~assemblytheorytools.tools_cell.cif_to_nx` |
 | PubChem name or CID | {func}`~assemblytheorytools.tools_data.pubchem_name_to_nx`, {func}`~assemblytheorytools.tools_data.pubchem_id_to_nx` |
 

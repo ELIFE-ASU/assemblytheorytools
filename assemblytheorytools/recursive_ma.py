@@ -9,11 +9,12 @@ identification, and the :class:`MAEstimator` driver class.
 
 import functools
 import logging
+from collections import defaultdict
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
-from collections import defaultdict
 from scipy.stats.distributions import skewnorm
-from typing import Any, Dict, List, Optional, Tuple
 
 ISOTOPES = {
     "Antimony": 120.903824,
@@ -97,198 +98,171 @@ MIN_CHUNK = 20.0
 
 
 def ma_distribution_params(mw: float) -> Tuple[float, float, float]:
-    """
-    Calculate the parameters for the molecular assembly (MA) distribution based on molecular weight.
-
-    This function computes the shape (alpha), location (loc), and scale (scale) parameters
-    for a skew-normal distribution that models the distribution of assembly numbers (MA)
-    for a given molecular weight (mw). These parameters are used to generate random samples
-    or to describe the expected distribution of assembly numbers for fragments of a given size.
+    """Return skew-normal MA prior parameters for a molecular weight.
 
     Parameters
     ----------
     mw : float
-        The molecular weight for which to calculate the distribution parameters.
+        Molecular weight in Da.
 
     Returns
     -------
-    tuple
-        A tuple (alpha, loc, scale) containing the skewness, location, and scale parameters
-        for the skew-normal distribution.
+    tuple of float
+        Shape, location, and scale ``(alpha, loc, scale)``.
 
     Notes
     -----
-    - The coefficients are hard-coded from an offline fit of assembly index against
-      molecular weight, the relationship reported by Marshall et al.
-      [Marshall2021a]_, over a reference set of molecules. They are not re-derived
-      from the data being analysed, and nothing checks that a fragment resembles
-      that reference set.
-    - What they describe is a prior over the assembly index molecules of this mass
-      usually have, not a property of any one molecule: two fragments of equal mass
-      get identical parameters however different their structures are.
-    - All three parameters are linear in `mw` and extrapolate without bound. Below
-      about 17 Da `loc` is negative, so samples pile up on the zero floor applied by
-      `ma_samples`; at several thousand Da it grows past any assembly index a real
-      molecule reaches. Masses far outside the ordinary small-molecule range are out
-      of scope.
-    - `mw` is not validated. A zero or negative mass returns parameters without
-      complaint.
+    The fixed coefficients come from an offline fit of assembly index
+    against molecular weight, following Marshall et al.
+    [Marshall2021a]_. They are not fitted to the input or checked
+    against its chemistry. Equal masses receive the same prior
+    regardless of structure; this models typical assembly indices, not a
+    particular molecule's index.
+
+    All parameters extrapolate linearly without bounds. Below about 17
+    Da, the negative location causes many draws to hit the zero floor in
+    `ma_samples`. At several thousand Da, the predicted location becomes
+    unrealistically large. Masses outside the ordinary small-molecule
+    range are out of scope. Zero and negative masses are not validated.
 
     References
     ----------
-    .. [Marshall2021a] Marshall, S. M. *et al.* (2021). Identifying molecules as
-       biosignatures with assembly theory and mass spectrometry. Nature
-       Communications, 12, 3033.
+    .. [Marshall2021a] Marshall, S. M. *et al.* (2021). Identifying
+       molecules as biosignatures with assembly theory and mass
+       spectrometry. Nature Communications, 12, 3033.
        https://doi.org/10.1038/s41467-021-23258-x
     """
-    alpha = -0.0044321370413747405 * mw + -1.1014882364398888
+    alpha = -0.0044321370413747405 * mw - 1.1014882364398888
     loc = 0.075 * mw - 1.3
     scale = 0.008058454819492319 * mw + 0.546185725719078
     return alpha, loc, scale
 
 
 def ma_samples(mw: float, n_samples: int) -> np.ndarray:
-    """
-    Generate random samples from the molecular assembly (MA) distribution for a given molecular weight.
-
-    This function uses the skew-normal distribution parameters (alpha, loc, scale) calculated
-    for the specified molecular weight (mw) to generate random samples representing possible
-    assembly numbers (MA). Negative values are replaced with zero to ensure all samples are non-negative.
+    """Draw MA prior samples for a molecular weight, clipping negatives.
 
     Parameters
     ----------
     mw : float
-        The molecular weight for which to generate the MA distribution samples.
+        Molecular weight in Da.
     n_samples : int
-        The number of random samples to generate.
+        Number of samples to draw.
 
     Returns
     -------
     np.ndarray
-        An array of non-negative random samples from the MA distribution for the given molecular weight.
+        Non-negative, continuous MA samples.
 
     Notes
     -----
-    - The draws stand in for an unknown structure. Their spread is the variation
-      across molecules of this mass, not a measurement uncertainty for one fragment.
-    - Negative draws are clipped to zero rather than rejected, so the result is not
-      a true skew-normal sample. At low molecular weight, where the distribution
-      sits near zero, much of the sample can be exactly 0 and the mean is biased
-      upwards relative to the underlying fit.
-    - Sampling uses the global NumPy random state; there is no `random_state`
-      argument. Seed NumPy yourself when a run has to be reproducible.
-    - The samples are continuous while an assembly index is an integer. Round at the
-      end of an analysis, not per fragment.
+    The spread represents variation across structures of the same mass,
+    not measurement uncertainty for one fragment. Clipping negative
+    draws to zero changes the skew-normal distribution and raises its
+    mean, particularly at low mass where many samples can become exactly
+    zero.
+
+    Sampling uses the global NumPy random state; seed NumPy for
+    repeatable results. Samples are continuous although assembly indices
+    are integers. Round at the end of an analysis rather than separately
+    per fragment.
     """
     alpha, loc, scale = ma_distribution_params(mw)
-    return np.maximum(skewnorm(alpha, loc, scale).rvs(n_samples), 0.)
+    return np.maximum(skewnorm(alpha, loc, scale).rvs(n_samples), 0.0)
 
 
 def rma_unify_trees(trees: list[dict]) -> Dict[float, Any]:
-    """
-    Recursively merge multiple fragmentation trees into a single unified tree.
-
-    This function takes a list of fragmentation trees (each represented as a nested dictionary)
-    and merges them into a single tree. If the list is empty, it returns an empty dictionary.
-    If there is only one tree, it returns that tree. If there are multiple trees, it merges
-    them by:
-
-    - Taking all unique keys from each tree and including their subtrees as-is.
-    - For keys present in more than one tree, recursively merging their subtrees.
-
-    This is useful for combining results from multiple samples or experiments into a single
-    hierarchical structure for further analysis.
+    """Merge the first two fragmentation trees recursively.
 
     Parameters
     ----------
     trees : list of dict
-        A list of fragmentation trees, where each tree is a nested dictionary.
+        Nested fragmentation trees; ``None`` is treated as empty when
+        merged.
 
     Returns
     -------
-    dict
-        A single unified fragmentation tree as a nested dictionary.
+    dict or None
+        The merged tree, or an empty dictionary for an empty list. A
+        single input is returned unchanged, including ``None``.
+
+    Notes
+    -----
+    For compatibility, inputs after the first two are ignored. Shared
+    keys are merged recursively; other subtrees are retained unchanged.
     """
     if not trees:
         return {}
-    elif len(trees) == 1:
+    if len(trees) == 1:
         return trees[0]
-    else:
-        child1, child2, *rest = trees
-        child1_keys = set(child1 or {})
-        child2_keys = set(child2 or {})
-        common_keys = child1_keys.intersection(child2_keys)
-        return {
-            **{k: child1[k] for k in child1_keys - common_keys},
-            **{k: child2[k] for k in child2_keys - common_keys},
-            **{k: rma_unify_trees([child1[k], child2[k]]) for k in common_keys},
-        }
+
+    first, second = trees[:2]
+    first_keys = set(first or {})
+    second_keys = set(second or {})
+    common_keys = first_keys & second_keys
+    # Preserve the merge order: estimator traversal consumes random samples.
+    return {
+        **{key: first[key] for key in first_keys - common_keys},
+        **{key: second[key] for key in second_keys - common_keys},
+        **{key: rma_unify_trees([first[key], second[key]]) for key in common_keys},
+    }
 
 
 class MAEstimator:
-    """
-    Estimation of molecular assembly (MA) numbers in fragmentation trees.
-
-    The MAEstimator provides methods to estimate the assembly number (MA)
-    for a given molecular weight (MW) or fragmentation tree, identify common
-    precursors, and recursively analyze fragmentation patterns. It supports
-    both same-level and cross-level precursor analysis, configurable mass
-    tolerance, and customizable adduct masses.
+    """Estimate molecular assembly from fragment masses and observed trees.
 
     Attributes
     ----------
     same_level : bool
-        Whether to restrict precursor search to the same fragmentation
-        level.
+        Enable same-level precursor search when matched parents give no
+        children. Complement searches also use same-level peaks.
     tol : float
         Mass tolerance for m/z matching.
     adduct_masses : list of float
-        Adduct ion masses considered in precursor search.
+        Adduct masses considered in precursor searches.
     n_samples : int
-        Number of samples for MA estimation.
+        Number of Monte Carlo samples per mass estimate.
     zero : np.ndarray
-        Array of zeros used when a fragment matches an isotope (MA = 0).
+        Shared zero array returned for childless isotope matches.
 
     Notes
     -----
-    - Everything this class produces is an estimate built from mass alone plus the
-      fragments that happened to be observed. It is neither the assembly index of
-      the molecule nor a proven bound on it: the search only sees peaks present in
-      the tree it was given, so a sparsely fragmented sample falls back to the
-      molecular-weight prior of `ma_distribution_params` and reports whatever that
-      prior says.
-    - Fragments are matched on mass within `tol` and nothing else. No check is made
-      that a candidate decomposition is chemically possible, so an accidental mass
-      coincidence is indistinguishable from a real precursor relationship. Match
-      `tol` to the instrument: too loose invents relationships, too tight discards
-      real ones.
-    - Results are Monte Carlo samples drawn from the global NumPy random state.
-      Report the mean with its spread, and seed NumPy for reproducibility.
-    - Fragments lighter than `MIN_CHUNK` (20 Da) are ignored throughout, so losses
-      of small neutrals never contribute.
+    Results are heuristic estimates, neither exact assembly indices nor
+    proven bounds. Only observed peaks inform the search; sparse trees
+    rely heavily on the molecular-weight prior in
+    `ma_distribution_params`.
+
+    Matching uses mass alone, with no chemical feasibility check.
+    Accidental mass coincidences can therefore look like precursor
+    relationships. Choose `tol` for the instrument: large tolerances
+    admit false matches, while small ones discard real relationships.
+
+    Sampling uses the global NumPy random state. Seed NumPy for
+    reproducibility and report the mean with its spread. Decomposition
+    searches skip fragments and complements below `MIN_CHUNK` (20 Da),
+    so small neutral losses do not contribute to those candidates.
     """
 
-    def __init__(self,
-                 same_level: bool = True,
-                 tol: float = 0.01,
-                 adduct_masses: List[float] = COMMON_PRECURSORS,
-                 n_samples: int = 500) -> None:
-        """
-        Create an estimator with a fixed tolerance and sampling budget.
+    def __init__(
+        self,
+        same_level: bool = True,
+        tol: float = 0.01,
+        adduct_masses: List[float] = COMMON_PRECURSORS,
+        n_samples: int = 500,
+    ) -> None:
+        """Configure precursor matching and the MA sampling budget.
 
         Parameters
         ----------
         same_level : bool, optional
-            If True, only consider same-level precursors when searching for
-            fragmentation relationships. Defaults to True.
+            Enable same-level fallback searches. Defaults to True.
         tol : float, optional
-            Mass tolerance for matching m/z values. Defaults to 0.01.
+            Mass tolerance for m/z matching. Defaults to 0.01.
         adduct_masses : list of float, optional
-            List of adduct ion masses to consider when searching for
-            possible precursor ions. Defaults to ``COMMON_PRECURSORS``.
+            Adduct masses used in precursor searches. Defaults to
+            ``COMMON_PRECURSORS``; the supplied list is retained by
+            reference.
         n_samples : int, optional
-            Number of random samples to use for MA estimation. Defaults to
-            500.
+            Number of MA samples per estimate. Defaults to 500.
         """
         self.same_level = same_level
         self.tol = tol
@@ -298,39 +272,32 @@ class MAEstimator:
 
     @functools.cache
     def estimate_by_MW(self, mw: float, has_children: bool) -> np.ndarray:
-        """
-        Estimate the MA distribution for a given molecular weight.
-
-        If the fragment matches a known isotope within the specified tolerance and has no children,
-        returns an array of zeros (MA = 0). Otherwise, generates random MA samples for the given MW.
+        """Return cached MA prior samples, or zeros for a childless isotope.
 
         Parameters
         ----------
         mw : float
-            The molecular weight for which to estimate the MA distribution.
+            Molecular weight in Da.
         has_children : bool
-            Indicates whether the fragment has child fragments.
+            Whether the fragment has children, disabling isotope matching.
 
         Returns
         -------
         np.ndarray
-            An array of estimated MA values for the given molecular weight.
+            MA samples, or the estimator's shared zero array for an isotope
+            strictly within `tol` of `mw`.
 
         Notes
         -----
-        - Results are cached per estimator instance and per ``(mw, has_children)``
-          pair, so repeated calls hand back the *same* array rather than fresh
-          draws. Equal-mass fragments in one tree therefore share a single sample,
-          which keeps a traversal self-consistent but means the sampling error does
-          not average out over reuse. Build a new estimator for an independent
-          sample.
-        - The isotope shortcut is a mass match and nothing more: any childless
-          fragment whose m/z falls within `tol` of a monoisotopic element mass is
-          assigned MA = 0. No charge or adduct correction is applied first, so an
-          ion whose m/z coincides with an element mass is read as a bare atom. A few
-          elements are commented out of `ISOTOPES` and never match.
-        - Fragments that do have children skip the isotope check and always draw
-          from the molecular-weight prior, however small they are.
+        Results are cached per estimator and call arguments. Repeated calls
+        return the same array; equal-mass fragments can therefore share
+        draws, and reuse does not average away sampling error. Create a new
+        estimator for independent draws.
+
+        Isotope matching uses mass alone without charge or adduct
+        correction. A coincident ion mass is treated as a bare atom;
+        elements excluded from `ISOTOPES` cannot match. Fragments with
+        children always use the prior, regardless of their mass.
         """
         lower, upper = mw - self.tol, mw + self.tol
         if not has_children:
@@ -341,71 +308,66 @@ class MAEstimator:
                     return self.zero
         return ma_samples(mw, self.n_samples)
 
-    def estimate_MA(self,
-                    tree: dict[float, dict],
-                    mw: float,
-                    progress_levels: int = 0,
-                    joint: bool = False) -> np.ndarray:
-        """
-        Recursively estimate the mean assembly number (MA) for a given molecular weight in a fragmentation tree.
-
-        This method traverses the fragmentation tree, considering all possible fragmentations
-        and their complements, and recursively estimates the MA for each. It supports both
-        simple and joint estimation strategies, and can consider common precursors for more
-        complex fragmentation patterns.
+    def estimate_MA(
+        self,
+        tree: dict[float, dict],
+        mw: float,
+        progress_levels: int = 0,
+        joint: bool = False,
+    ) -> np.ndarray:
+        """Recursively select an MA estimate from observed decompositions.
 
         Parameters
         ----------
         tree : dict[float, dict]
-            The fragmentation tree as a nested dictionary.
+            Fragmentation tree as nested dictionaries keyed by m/z.
         mw : float
-            The molecular weight for which to estimate the MA.
+            Molecular weight to estimate.
         progress_levels : int, optional
-            Depth, in recursion levels, for which progress is printed. It is
-            decremented on each recursive call and gates diagnostic printing only;
-            the recursion always runs to the leaves, so this argument does not
-            change the estimate. Defaults to 0 (silent).
+            Number of recursion levels with diagnostic printing. Defaults to
+            0 (silent); this does not limit recursion or change the
+            estimate.
         joint : bool, optional
-            If True, sum the estimates of every child instead of searching over
-            child/complement decompositions. This skips the connection cost the
-            default strategy adds; a node with no children has nothing to sum, so it
-            falls back to the molecular-weight prior. Defaults to False.
+            Sum estimates for all children at this node without a joining
+            cost. Descendants use the default decomposition search. If there
+            are no children, use the molecular-weight prior. Defaults to
+            False.
 
         Returns
         -------
         np.ndarray
-            An array of estimated MA values for the given molecular weight.
+            Estimated MA samples for the molecular weight.
 
         Notes
         -----
-        - The return value is a heuristic estimate, neither the exact assembly index
-          nor a proven bound on it. The search is greedy: at each node it keeps the
-          cheapest candidate decomposition by mean, drawn only from fragments present
-          in the tree, and never enumerates the full space of decompositions.
-        - Because each node keeps the cheapest candidate it can find, observing more
-          fragments generally lowers the estimate, so an under-fragmented spectrum
-          reads high.
-        - The costs charged for joining fragments are fixed heuristics: 1 for a
-          child/complement pair, 3 for the three-way split through a common
-          precursor. They stand in for the joins a real assembly pathway would need
-          and are not derived from the spectrum.
-        - Fragments and complements lighter than `MIN_CHUNK` (20 Da) are skipped.
-        - A node with no usable children falls back to `estimate_by_MW`, which knows
-          only the mass. For a tree with no fragmentation the whole result is the
-          molecular-weight prior.
-        - The recursion is not memoised across branches, so a wide tree revisits the
-          same masses repeatedly.
+        This greedy heuristic retains the candidate with the lowest sample
+        mean at each node. It considers only observed fragments, rather than
+        all possible decompositions, and gives neither an exact assembly
+        index nor a proven bound. More observed fragments generally lower
+        the estimate; under-fragmented spectra therefore tend to read high.
+
+        Joining costs are fixed heuristics: 1 for a child/complement pair
+        and 3 for a split using a common precursor. These costs stand in for
+        assembly joins and are not derived from the spectrum. Fragments and
+        complements below `MIN_CHUNK` (20 Da) are excluded from candidates.
+
+        In the default strategy, the molecular-weight prior remains a
+        candidate and is the fallback when no usable children exist.
+        Without fragmentation data, it supplies the entire estimate.
+        Recursive tree estimates are not memoised across branches, though
+        `estimate_by_MW` caches draws from the prior.
         """
-        children = rma_unify_trees([tree.get(mw, None) or self.precursors(tree, mw)])
+        children = tree.get(mw) or self.precursors(tree, mw)
+        if not children:
+            return self.estimate_by_MW(mw, False)
+
+        next_level = progress_levels - 1
         if joint:
-            if not children:
-                # Nothing to sum over. Fall back to the same molecular-weight prior
-                # the default strategy uses as its base case -- called positionally,
-                # so both share one `estimate_by_MW` cache entry -- rather than
-                # letting sum() over no children collapse to a bare int 0.
-                return self.estimate_by_MW(mw, bool(children))
-            return sum(self.estimate_MA(children, child, progress_levels - 1) for child in children)
-        child_estimates = {mw: self.estimate_by_MW(mw, bool(children))}
+            return sum(
+                self.estimate_MA(children, child, next_level) for child in children
+            )
+
+        estimates = [self.estimate_by_MW(mw, True)]
 
         for child in children:
             complement = mw - child
@@ -413,9 +375,10 @@ class MAEstimator:
                 continue
 
             common = [
-                p
-                for p in self.common_precursors(children, child, complement)
-                if p > MIN_CHUNK and max(child - p, complement - p) > MIN_CHUNK
+                precursor
+                for precursor in self.common_precursors(children, child, complement)
+                if precursor > MIN_CHUNK
+                and max(child - precursor, complement - precursor) > MIN_CHUNK
             ]
 
             if common and progress_levels > 0:
@@ -423,8 +386,8 @@ class MAEstimator:
 
             # Simple child + complement with no common precursors
             ma_candidates = [
-                self.estimate_MA(children, child, progress_levels - 1)
-                + self.estimate_MA(children, complement, progress_levels - 1)
+                self.estimate_MA(children, child, next_level)
+                + self.estimate_MA(children, complement, next_level)
                 + 1.0
             ]
 
@@ -433,159 +396,167 @@ class MAEstimator:
                 if min(chunks) < MIN_CHUNK:
                     continue
                 chunk_mas = sum(
-                    self.estimate_MA(
-                        children,
-                        chunk,
-                        progress_levels - 1,
-                    )
-                    for chunk in chunks
+                    self.estimate_MA(children, chunk, next_level) for chunk in chunks
                 )
                 ma_candidates.append(chunk_mas + 3)
 
-            child_estimates[child] = min(ma_candidates, key=np.mean)
+            best = min(ma_candidates, key=np.mean)
+            estimates.append(best)
             if progress_levels > 0:
-                print(f"MA({mw} = {child} + {complement}) = {child_estimates[child].mean()}")
+                print(f"MA({mw} = {child} + {complement}) = {best.mean()}")
 
-        return min(child_estimates.values(), key=np.mean)
+        return min(estimates, key=np.mean)
 
-    def common_precursors(self, data: Dict[float, Any], parent1: float, parent2: float) -> set:
-        """
-        Find common precursor ions between two parent ions in a fragmentation tree.
+    def common_precursors(
+        self, data: Dict[float, Any], parent1: float, parent2: float
+    ) -> set:
+        """Return precursor masses shared by two parent-ion searches.
 
         Parameters
         ----------
         data : dict
-            The fragmentation tree or data structure.
+            Fragmentation tree keyed by m/z.
         parent1 : float
-            The m/z value of the first parent ion.
+            m/z of the first parent ion.
         parent2 : float
-            The m/z value of the second parent ion.
+            m/z of the second parent ion.
 
         Returns
         -------
         set
-            Set of m/z values representing common precursor ions.
+            Exact intersection of masses returned by `precursors` for each
+            parent; the intersection itself applies no additional tolerance.
         """
         precursors1 = self.precursors(data, parent1)
         precursors2 = self.precursors(data, parent2)
         return set(precursors1).intersection(precursors2)
 
     def precursors(self, data: Dict[float, Any], parent: float) -> Dict[float, Any]:
-        """
-        Identify possible precursor ions for a given parent ion in the fragmentation tree.
-
-        Considers adduct masses and mass tolerance to find candidate precursor ions.
-        If no children are found and same_level is enabled, attempts same-level precursor search.
+        """Find child and complementary fragments for a parent mass.
 
         Parameters
         ----------
         data : dict
-            The fragmentation tree or data structure.
+            Fragmentation tree keyed by m/z.
         parent : float
-            The m/z value of the parent ion.
+            Parent-ion m/z before adding candidate adduct masses.
 
         Returns
         -------
         dict
-            Dictionary of precursor ions and their subtrees.
+            Candidate fragment masses and subtrees, restricted to masses
+            strictly between zero and `parent`. Empty below `MIN_CHUNK`.
+
+        Notes
+        -----
+        Match tree keys to `parent` plus each adduct, strictly within `tol`.
+        Combine matched parents' children with their mass complements; each
+        complement subtree comes from `same_level_precursors`. If the merged
+        tree is empty and `same_level` is enabled, search same-level peaks
+        using matched parent masses, or adduct-adjusted parent masses when
+        none match. Tree combinations follow the legacy behavior of
+        `rma_unify_trees`.
         """
         if parent < MIN_CHUNK:
             return {}
 
         possible_ions = [parent + adduct for adduct in self.adduct_masses]
         parent_candidates = [
-            d
-            for d in data
-            if any(d - self.tol < p < d + self.tol for p in possible_ions)
+            mass
+            for mass in data
+            if any(mass - self.tol < ion < mass + self.tol for ion in possible_ions)
         ]
-        children = rma_unify_trees([
-            {
-                **{
-                    p - child: self.same_level_precursors(data, p - child)
-                    for child in data[p] or {}
-                },
-                **(data[p] or {}),
+        candidate_trees = []
+        for mass in parent_candidates:
+            fragments = data[mass] or {}
+            complements = {
+                mass - child: self.same_level_precursors(data, mass - child)
+                for child in fragments
             }
-            for p in parent_candidates
-        ])
+            candidate_trees.append({**complements, **fragments})
+
+        children = rma_unify_trees(candidate_trees)
         if not children and self.same_level:
-            children = rma_unify_trees([
-                self.same_level_precursors(data, p)
-                for p in parent_candidates or possible_ions
-            ])
+            children = rma_unify_trees(
+                [
+                    self.same_level_precursors(data, p)
+                    for p in parent_candidates or possible_ions
+                ]
+            )
 
-        # sometimes child peaks are heavier than parent
-        return {k: v for k, v in children.items() if 0 < k < parent}
+        # Observed peaks can be heavier than their parent.
+        return {
+            mass: subtree for mass, subtree in children.items() if 0 < mass < parent
+        }
 
-    def same_level_precursors(self, data: Dict[float, Any], parent: float) -> Dict[float, Any]:
-        """
-        Find same-level precursor ions for a given parent ion.
-
-        Searches for ions at the same fragmentation level that could serve as precursors,
-        considering adduct masses and mass tolerance.
+    def same_level_precursors(
+        self, data: Dict[float, Any], parent: float
+    ) -> Dict[float, Any]:
+        """Find same-level ions with an observed mass complement.
 
         Parameters
         ----------
         data : dict
-            The fragmentation tree or data structure.
+            Same-level ion masses mapped to their subtrees.
         parent : float
-            The m/z value of the parent ion.
+            Parent-ion m/z to split.
 
         Returns
         -------
         dict
-            Dictionary of same-level precursor ions and their subtrees.
+            Ions whose ``parent - ion + adduct`` lies strictly within `tol`
+            of any key in `data`, retaining their original subtrees.
         """
         result = {}
         adducts, tol = self.adduct_masses, self.tol
-        for ion in data:
+        for ion, subtree in data.items():
             target = parent - ion
             if any(
-                    d - tol < target + adduct < d + tol for d in data for adduct in adducts
+                mass - tol < target + adduct < mass + tol
+                for mass in data
+                for adduct in adducts
             ):
-                result[ion] = data[ion]
+                result[ion] = subtree
         return result
 
 
-def _build_tree(data: Dict[int, pd.DataFrame],
-                level: int = 1,
-                acc: Optional[Dict[float, Any]] = None,
-                parent: Optional[float] = None,
-                max_level: int = 3) -> Optional[Dict[float, Any]]:
-    """
-    Recursively build a nested fragmentation tree from a multi-level mass spectrometry dataset.
-
-    This internal helper function constructs a hierarchical tree structure from a dictionary
-    of pandas DataFrames, where each DataFrame represents a different MS level (e.g., MS1, MS2, etc.).
-    The resulting tree is a nested dictionary, with each node corresponding to a peak (m/z value)
-    and its children representing fragment ions at subsequent MS levels. The recursion continues
-    up to a specified maximum MS level.
+def _build_tree(
+    data: Dict[int, pd.DataFrame],
+    level: int = 1,
+    acc: Optional[Dict[float, Any]] = None,
+    parent: Optional[float] = None,
+    max_level: int = 3,
+) -> Optional[Dict[float, Any]]:
+    """Build the root tree or populate a subtree from linked MS levels.
 
     Parameters
     ----------
     data : dict
-        A dictionary mapping MS levels (integers) to pandas DataFrames containing peak data.
+        MS levels mapped to peak DataFrames with ``mz`` and, above MS1,
+        ``parent_id`` referring to the previous level's row index.
     level : int, optional
-        The current MS level being processed. Defaults to 1 (root level).
+        Current MS level. Defaults to 1.
     acc : dict or None, optional
-        The accumulator dictionary for building the tree. If None, a new dictionary is created at the root.
+        Subtree to populate in place. A new root dictionary is created
+        at level 1, regardless of this argument.
     parent : float or None, optional
-        The m/z value of the parent peak for the current recursion level. Used to filter child peaks.
+        Parent m/z used to select children above level 1.
     max_level : int, optional
-        The maximum MS level to include in the tree. Defaults to 3.
+        Last MS level to include, capped at the highest level in `data`.
+        Defaults to 3.
 
     Returns
     -------
     dict or None
-        A nested dictionary representing the fragmentation tree, or None if the recursion exceeds max_level.
+        Root tree at level 1; otherwise ``None`` after updating `acc`,
+        or immediately when beyond `max_level`.
     """
     max_level = min(max_level, max(data))
     if level == 1:
         acc = {}
-        for peak in data[1]["mz"]:
-            peak_float = float(peak)
-            acc[peak_float] = {}
-            _build_tree(data, level=2, acc=acc[peak_float], parent=peak_float, max_level=max_level)
+        for peak in map(float, data[1]["mz"]):
+            acc[peak] = {}
+            _build_tree(data, level=2, acc=acc[peak], parent=peak, max_level=max_level)
         return acc
     if level > max_level:
         return
@@ -593,58 +564,49 @@ def _build_tree(data: Dict[int, pd.DataFrame],
     parent_df = data[level - 1].drop(columns=["parent_id"], errors="ignore")
     level_df = level_df.join(parent_df, on="parent_id", rsuffix="_parent")
     child_peaks = level_df[level_df["mz_parent"] == parent]["mz"].unique()
-    for peak in child_peaks:
-        peak_float = float(peak)
-        acc[peak_float] = None if level == max_level else {}
-        _build_tree(
-            data, level=level + 1, acc=acc[peak_float], parent=peak_float, max_level=max_level
-        )
+    for peak in map(float, child_peaks):
+        acc[peak] = None if level == max_level else {}
+        if level < max_level:
+            _build_tree(
+                data, level=level + 1, acc=acc[peak], parent=peak, max_level=max_level
+            )
 
 
 def rma_build_tree(data: dict, max_level: int = 3) -> Dict[float, Any]:
-    """
-    Build a nested fragmentation tree from a multi-level mass spectrometry dataset.
-
-    This function constructs a hierarchical tree structure from a dictionary of pandas DataFrames,
-    where each DataFrame represents a different MS level (e.g., MS1, MS2, etc.). The resulting tree
-    is a nested dictionary, with each node corresponding to a peak (m/z value) and its children
-    representing fragment ions at subsequent MS levels. The tree is built up to a specified maximum
-    MS level.
+    """Build a fragmentation tree from linked mass-spectrometry levels.
 
     Parameters
     ----------
     data : dict
-        A dictionary mapping MS levels (integers) to pandas DataFrames containing peak data.
+        MS levels mapped to peak DataFrames with ``mz`` and, above MS1,
+        ``parent_id`` referring to the previous level's row index.
     max_level : int, optional
-        The maximum MS level to include in the tree. Defaults to 3.
+        Last MS level to include, capped at the highest available level.
+        Defaults to 3.
 
     Returns
     -------
     dict
-        A nested dictionary representing the fragmentation tree, where each key is an m/z value
-        and each value is either a subtree (dict) or None for terminal nodes.
+        Nested dictionaries keyed by m/z. Terminal nodes at the maximum
+        level use ``None``; nodes without children can be empty
+        dictionaries.
     """
     return _build_tree(data, max_level=max_level)
 
 
 def rma_tree_depth(tree: dict) -> int:
-    """
-    Recursively determine the depth of a fragmentation tree.
-
-    This function computes the maximum depth of a nested dictionary structure representing
-    a fragmentation tree. The depth is defined as the number of levels from the root node
-    to the deepest leaf node. An empty dictionary or non-dictionary input returns a depth of 0.
+    """Return the maximum number of nested levels in a fragmentation tree.
 
     Parameters
     ----------
     tree : dict
-        The fragmentation tree as a nested dictionary, where each key is an m/z value and
-        each value is either a subtree (dict) or a terminal node (e.g., None or empty dict).
+        Tree with m/z keys and subtree values; leaves may be ``None`` or
+        empty dictionaries.
 
     Returns
     -------
     int
-        The maximum depth of the tree. Returns 0 for empty or non-dictionary input.
+        Maximum depth, or 0 for empty or non-dictionary input.
 
     Examples
     --------
@@ -654,62 +616,62 @@ def rma_tree_depth(tree: dict) -> int:
     >>> att.rma_tree_depth({})
     0
     """
-    if isinstance(tree, dict) and len(tree) > 0:
-        return 1 + max(rma_tree_depth(v) for v in tree.values())
-    else:
+    if not isinstance(tree, dict) or not tree:
         return 0
+    return 1 + max(rma_tree_depth(subtree) for subtree in tree.values())
 
 
 def _process_df(
-        level: int,
-        ms_df: pd.DataFrame,
-        max_num_peaks: int,
-        min_abs_intensity: Dict[int, float],
-        min_rel_intensity: float,
-        n_digits: int,
+    level: int,
+    ms_df: pd.DataFrame,
+    max_num_peaks: int,
+    min_abs_intensity: Dict[int, float],
+    min_rel_intensity: float,
+    n_digits: int,
 ) -> pd.DataFrame:
-    """
-    Filter, bin, and aggregate peaks for a single MS level in a mass spectrometry dataset.
-
-    This function processes a pandas DataFrame containing peak data for a specific MS level.
-    It performs the following steps:
-      - Ensures a 'parent' column exists (assigns a large default if missing).
-      - Filters out peaks where the m/z is not less than the parent m/z minus 1.
-      - Bins m/z and parent m/z values to integer bins with a specified number of decimal digits.
-      - Aggregates peaks by (mz_bin, parent_bin), summing intensities and taking the median m/z and parent.
-      - Applies intensity-based filtering: keeps only peaks above a minimum absolute or relative intensity threshold.
-      - Limits the number of peaks per parent to a maximum.
-      - Returns the processed DataFrame.
+    """Bin, aggregate, and filter peaks at one MS level.
 
     Parameters
     ----------
     level : int
-        The MS level being processed (e.g., 1 for MS1, 2 for MS2, etc.).
+        MS level used to select the absolute intensity threshold.
     ms_df : pd.DataFrame
-        DataFrame containing columns 'mz', 'intensity', and optionally 'parent'.
+        Peak data with ``mz``, ``intensity``, and optionally ``parent``.
+        A missing ``parent`` column is added to this frame with value
+        1e6.
     max_num_peaks : int
-        Maximum number of peaks to retain per parent_bin.
+        Maximum retained peaks per parent bin.
     min_abs_intensity : dict
-        Dictionary mapping MS levels to minimum absolute intensity thresholds.
+        Absolute intensity thresholds keyed by MS level.
     min_rel_intensity : float
-        Minimum relative intensity threshold (as a fraction of the maximum intensity in a group).
+        Intensity threshold as a fraction of each parent's strongest
+        peak.
     n_digits : int
-        Number of decimal digits to use for binning m/z values.
+        Decimal places used to create integer m/z and parent bins.
 
     Returns
     -------
     pd.DataFrame
-        The filtered, binned, and aggregated DataFrame for this MS level.
+        Aggregated peaks with integer ``mz_bin`` and ``parent_bin``
+        columns.
+
+    Notes
+    -----
+    Only peaks with ``mz < parent - 1`` enter binning. Within each
+    ``(mz_bin, parent_bin)`` group, intensities are summed and masses
+    use the median. Retain peaks strictly above both intensity
+    thresholds, then the strongest `max_num_peaks` per parent bin.
     """
     original_len = len(ms_df)
+    bin_scale = 10**n_digits
 
     if "parent" not in ms_df:
-        ms_df["parent"] = 10 ** 6
-    ms_df = ms_df[ms_df.mz < ms_df.parent - 1]
+        ms_df["parent"] = 1_000_000
+    ms_df = ms_df[ms_df["mz"] < ms_df["parent"] - 1]
 
     ms_df = ms_df.assign(
-        mz_bin=(ms_df.mz.round(n_digits) * 10 ** n_digits).astype(int),
-        parent_bin=(ms_df.parent.round(n_digits) * 10 ** n_digits).astype(int),
+        mz_bin=(ms_df["mz"].round(n_digits) * bin_scale).astype(int),
+        parent_bin=(ms_df["parent"].round(n_digits) * bin_scale).astype(int),
     )
 
     grouped = (
@@ -718,17 +680,11 @@ def _process_df(
         .reset_index()
     )
 
-    # Per-parent intensity floor: the larger of the level's absolute floor and a
-    # fraction of that parent's strongest peak. `transform` broadcasts the
-    # per-group maximum back to every row.
+    # Broadcast each parent's intensity floor to its peaks.
     group_max = grouped.groupby("parent_bin")["intensity"].transform("max")
-    min_intensity = np.maximum(min_abs_intensity[level],
-                               group_max * min_rel_intensity)
+    min_intensity = np.maximum(min_abs_intensity[level], group_max * min_rel_intensity)
 
-    # Keep peaks above the floor, then the strongest `max_num_peaks` per parent.
-    # `groupby(...).tail` is used instead of `groupby(...).apply`, whose handling
-    # of the grouping column changed in pandas 3.0 (it is now dropped from the
-    # applied frame), which broke the previous two-stage implementation.
+    # Keep the strongest peaks per parent without dropping the grouping column.
     result = (
         grouped[grouped["intensity"] > min_intensity]
         .sort_values("intensity")
@@ -736,47 +692,46 @@ def _process_df(
         .tail(max_num_peaks)
     )
 
-    logging.debug(f"Level {level}: {len(result)} out of {original_len} peaks retained")
+    logging.debug(
+        "Level %s: %s out of %s peaks retained", level, len(result), original_len
+    )
     return result
 
 
 def rma_process(
-        sample: dict[int, pd.DataFrame],
-        max_num_peaks: int = 200,
-        min_abs_intensity: dict[int, float] | None = None,
-        min_rel_intensity: float = 0.0,
-        n_digits: int = 3,
+    sample: dict[int, pd.DataFrame],
+    max_num_peaks: int = 200,
+    min_abs_intensity: dict[int, float] | None = None,
+    min_rel_intensity: float = 0.0,
+    n_digits: int = 3,
 ) -> dict[int, pd.DataFrame]:
-    """
-    Process a multi-level mass spectrometry sample by filtering and binning peaks for each MS level.
-
-    This function processes a dictionary of pandas DataFrames representing different MS levels
-    (e.g., MS1, MS2, etc.) in a mass spectrometry experiment. For each level, it applies filtering
-    based on intensity thresholds and bins m/z values to reduce noise and redundancy. If the MS1
-    level is missing, a placeholder is generated from the most intense parent peak in MS2.
+    """Filter and bin each MS level, adding a placeholder MS1 if needed.
 
     Parameters
     ----------
     sample : dict[int, pd.DataFrame]
-        A dictionary mapping MS levels (integers) to pandas DataFrames containing peak data.
+        MS levels mapped to DataFrames with ``mz``, ``intensity``, and
+        optionally ``parent`` columns.
     max_num_peaks : int, optional
-        The maximum number of peaks to retain per parent per MS level. Defaults to 200.
+        Maximum retained peaks per parent and MS level. Defaults to 200.
     min_abs_intensity : dict[int, float], optional
-        Minimum absolute intensity threshold for each MS level. Defaults to 0.0 for all levels.
+        Absolute intensity thresholds by MS level. If omitted, use 0.0
+        for every level.
     min_rel_intensity : float, optional
-        Minimum relative intensity threshold (as a fraction of the maximum intensity) for peak filtering.
-        Defaults to 0.0.
+        Threshold as a fraction of each parent's strongest aggregated
+        peak intensity. Defaults to 0.0.
     n_digits : int, optional
-        Number of decimal digits to use for binning m/z values. Defaults to 3.
+        Decimal places for m/z binning. Defaults to 3.
 
     Returns
     -------
     dict[int, pd.DataFrame]
-        A dictionary with the same structure as the input, where each DataFrame has been filtered
-        and binned. If MS1 was missing, it will be added as a placeholder.
+        Processed DataFrames keyed by MS level. If MS1 is absent, create
+        it from the parent with the greatest summed intensity in the
+        processed MS2 data.
     """
     if min_abs_intensity is None:
-        min_abs_intensity = defaultdict(lambda: 0.0)
+        min_abs_intensity = defaultdict(float)
     sample = {
         level: _process_df(
             level,
@@ -789,60 +744,55 @@ def rma_process(
         for level, df in sample.items()
     }
     if 1 not in sample:
-        # Generate placeholder MS1 if only MS2+ present
+        # Use the parent with the largest total retained MS2 intensity.
         parent_peak = (
             sample[2].groupby("parent")["intensity"].sum().sort_values().index[-1]
         )
         sample[1] = pd.DataFrame(
-            {"mz": [parent_peak],
-             "intensity": 100000.0,
-             "mz_bin": [int(parent_peak * 10 ** n_digits)],
-             }
+            {
+                "mz": [parent_peak],
+                "intensity": 100000.0,
+                "mz_bin": [int(parent_peak * 10**n_digits)],
+            }
         )
     return sample
 
 
-def rma_identify_parents(dataset: Dict[int, pd.DataFrame],
-                         mass_tol: float,
-                         ms_n_digits: int = 3) -> Dict[int, pd.DataFrame]:
-    """
-    Assign parent-child relationships between MS levels in a mass spectrometry dataset.
-
-    This function iteratively assigns parent IDs to peaks in higher MS levels (e.g., MS2, MS3)
-    by matching their parent_bin values to the mz_bin values of peaks in the previous level,
-    within a specified mass tolerance. It uses pandas' merge_asof for efficient nearest-neighbor
-    matching, and ensures that each child peak is associated with the closest parent peak.
+def rma_identify_parents(
+    dataset: Dict[int, pd.DataFrame], mass_tol: float, ms_n_digits: int = 3
+) -> Dict[int, pd.DataFrame]:
+    """Match peaks to the nearest parent in the preceding MS level.
 
     Parameters
     ----------
     dataset : dict
-        A dictionary mapping MS levels (integers) to pandas DataFrames. Each DataFrame must
-        contain at least the columns 'mz_bin' and 'parent_bin'.
+        Consecutive MS levels mapped to DataFrames with ``mz_bin`` and,
+        above the first level, ``parent_bin`` columns. Parent
+        identifiers are the previous level's row indices.
     mass_tol : float
-        The mass tolerance for matching parent and child peaks, in the same units as m/z.
-    ms_n_digits : int
-        The number of decimal digits used for binning m/z values. Used to scale the tolerance.
+        Matching tolerance in m/z units, scaled to integer bins.
+    ms_n_digits : int, optional
+        Decimal places used for binning. Defaults to 3.
 
     Returns
     -------
     dict
-        A new dictionary with the same structure as the input, but with parent-child relationships
-        assigned. Each DataFrame in the output will have a 'parent_id' column indicating the
-        matched parent peak index.
+        New level mapping with the first DataFrame unchanged. Higher
+        levels have integer ``parent_id`` columns and omit unmatched
+        peaks.
     """
     first_level = min(dataset)
     new_dataset = {first_level: dataset[first_level]}
     for level in sorted(dataset)[:-1]:
+        parents = new_dataset[level][["mz_bin"]].sort_values("mz_bin").reset_index()
         new_dataset[level + 1] = (
             pd.merge_asof(
                 dataset[level + 1].sort_values("parent_bin"),
-                new_dataset[level][["mz_bin"]]
-                .sort_values("mz_bin")
-                .reset_index(),
+                parents,
                 left_on="parent_bin",
                 right_on="mz_bin",
                 suffixes=("", "_x"),
-                tolerance=int(mass_tol * 10 ** ms_n_digits),
+                tolerance=int(mass_tol * 10**ms_n_digits),
                 direction="nearest",
             )
             .rename(columns={"index": "parent_id"})
@@ -854,71 +804,62 @@ def rma_identify_parents(dataset: Dict[int, pd.DataFrame],
 
 
 def _tol_from_decimals(decimals: Optional[int]) -> float:
-    """
-    Convert a number of decimal places to a mass tolerance value.
-
-    This utility function is used to determine the mass tolerance (e.g., for m/z matching)
-    based on the number of decimal places specified. If `decimals` is None, a default
-    tolerance of 0.01 is returned. Otherwise, the tolerance is calculated as 10 to the
-    negative power of the number of decimals (e.g., decimals=3 yields 0.001).
+    """Convert decimal precision to a mass tolerance.
 
     Parameters
     ----------
     decimals : int or None
-        The number of decimal places to use for the tolerance. If None, a default value is used.
+        Decimal places defining the tolerance, or ``None`` for the
+        default.
 
     Returns
     -------
     float
-        The calculated tolerance value.
+        ``10 ** (-decimals)``, or 0.01 when `decimals` is ``None``.
     """
-    if decimals is None:
-        return 0.01
-    return 10 ** (-decimals)
+    return 0.01 if decimals is None else 10 ** (-decimals)
 
 
-def rma_estimate_ma(tree: Dict[float, Any],
-                    mw: float,
-                    progress_levels: int = 0,
-                    joint: bool = False,
-                    **kwargs: Any) -> float:
-    """
-    Estimate the mean assembly number (MA) for a given molecular weight (MW) in a fragmentation tree.
-
-    This function uses the MAEstimator class to estimate the assembly number (MA) for a specified
-    molecular weight (mw) within a given fragmentation tree. The estimation can be performed
-    recursively to a specified depth (progress_levels), and can optionally use a joint estimation
-    strategy.
+def rma_estimate_ma(
+    tree: Dict[float, Any],
+    mw: float,
+    progress_levels: int = 0,
+    joint: bool = False,
+    **kwargs: Any,
+) -> float:
+    """Return the mean recursive MA estimate using a fresh estimator.
 
     Parameters
     ----------
     tree : dict
-        The fragmentation tree, represented as a nested dictionary structure.
+        Fragmentation tree as nested dictionaries keyed by m/z.
     mw : float
-        The molecular weight (MW) for which to estimate the assembly number.
+        Molecular weight to estimate.
     progress_levels : int, optional
-        Depth, in recursion levels, for which progress is printed. It gates
-        diagnostic printing only and does not change the estimate. Defaults to 0
-        (silent).
+        Number of recursion levels with diagnostic printing. Defaults to
+        0 (silent); this does not limit recursion or change the
+        estimate.
     joint : bool, optional
-        If True, use a joint estimation strategy for the assembly number. Defaults to False.
+        Sum child estimates at the requested node without a joining
+        cost. Defaults to False. See `MAEstimator.estimate_MA`.
     **kwargs
-        Additional keyword arguments to pass to the MAEstimator constructor.
+        Additional arguments for the `MAEstimator` constructor.
 
     Returns
     -------
     float
-        The mean estimated assembly number (MA) for the given molecular weight.
+        Mean estimated MA for the molecular weight.
 
     Notes
     -----
-    - This returns the mean of a Monte Carlo sample and throws the spread away. Call
-      `MAEstimator.estimate_MA` directly when the uncertainty matters, and report the
-      standard deviation with the mean.
-    - The value is not reproducible unless the global NumPy seed is set, and it
-      changes with the mass tolerance passed through `**kwargs`.
-    - See `MAEstimator.estimate_MA` for the heuristics behind the number: it is an
-      estimate from observed fragments and mass, not the assembly index itself.
+    This discards the Monte Carlo sample's spread. Call
+    `MAEstimator.estimate_MA` directly to retain samples and report the
+    standard deviation with the mean. Results depend on mass tolerance;
+    seed the global NumPy random state for reproducibility.
+
+    The result is a heuristic based on observed fragments and mass, not
+    the exact assembly index. See `MAEstimator.estimate_MA` for the
+    underlying assumptions.
     """
     estimator = MAEstimator(**kwargs)
     result = estimator.estimate_MA(
@@ -930,106 +871,99 @@ def rma_estimate_ma(tree: Dict[float, Any],
     return float(result.mean())
 
 
-def rma_estimate_by_mw(mw: float,
-                       has_children: bool = False,
-                       **kwargs: Any) -> np.ndarray:
-    """
-    Estimate the assembly number (MA) distribution for a given molecular weight (MW).
-
-    This function creates an instance of the MAEstimator class and uses it to estimate
-    the assembly number distribution for a specified molecular weight. If the fragment
-    is known to have children (i.e., it is not a terminal node in a fragmentation tree),
-    this can be indicated with the has_children flag.
+def rma_estimate_by_mw(
+    mw: float, has_children: bool = False, **kwargs: Any
+) -> np.ndarray:
+    """Return MA prior samples using a fresh estimator.
 
     Parameters
     ----------
     mw : float
-        The molecular weight (MW) for which to estimate the assembly number distribution.
+        Molecular weight in Da.
     has_children : bool, optional
-        Indicates whether the fragment has child fragments (default is False).
+        Whether the fragment has children, disabling isotope matching.
+        Defaults to False.
     **kwargs
-        Additional keyword arguments to pass to the MAEstimator constructor.
+        Additional arguments for the `MAEstimator` constructor.
 
     Returns
     -------
     np.ndarray
-        An array of estimated assembly numbers (MA) for the given molecular weight.
+        Estimated MA samples, or zeros for a childless isotope match.
 
     Notes
     -----
-    - This is the molecular-weight prior on its own: no fragmentation data is used,
-      so the result says what assembly index molecules of this mass typically have,
-      not what this one's is. The spread is population variation, not measurement
-      error.
-    - `has_children=False` enables the isotope shortcut, which returns zeros when
-      `mw` falls within the estimator's tolerance of a monoisotopic element mass.
-    - A fresh estimator is built on each call, so successive calls give independent
-      samples -- unlike repeated calls on one estimator, which are cached.
+    Without fragmentation data, the prior describes typical assembly
+    indices at this mass, not a particular structure's index. Its spread
+    represents population variation rather than measurement error.
+
+    When `has_children` is False, a mass strictly within the estimator's
+    `tol` of a monoisotopic element returns zeros. A fresh estimator is
+    created for each call, so draws are independent rather than reused
+    from a previous call's cache. Sampling uses NumPy's global random
+    state.
     """
     estimator = MAEstimator(**kwargs)
     return estimator.estimate_by_MW(mw=mw, has_children=has_children)
 
 
-def find_common_precursors(data: Dict[float, Any],
-                           parent1: float,
-                           parent2: float,
-                           same_level: bool = True,
-                           decimals: Optional[int] = None,
-                           **kwargs: Any) -> set:
-    """
-    Find common precursor ions between two parent ions in a fragmentation tree.
-
-    This function identifies precursor ions that are shared between two specified parent ions
-    within a given fragmentation tree or dataset. It uses the MAEstimator class to perform the
-    search, allowing for control over matching tolerance and whether to consider only same-level
-    precursors.
+def find_common_precursors(
+    data: Dict[float, Any],
+    parent1: float,
+    parent2: float,
+    same_level: bool = True,
+    decimals: Optional[int] = None,
+    **kwargs: Any,
+) -> set:
+    """Find shared precursor masses using a fresh estimator.
 
     Parameters
     ----------
     data : dict
-        The fragmentation tree or data structure containing parent and child ion relationships.
+        Fragmentation tree keyed by m/z.
     parent1 : float
-        The m/z value of the first parent ion.
+        m/z of the first parent ion.
     parent2 : float
-        The m/z value of the second parent ion.
+        m/z of the second parent ion.
     same_level : bool, optional
-        If True, only consider precursors at the same fragmentation level. Defaults to True.
+        Enable same-level fallback searches. Defaults to True.
     decimals : int or None, optional
-        Number of decimal places to use for m/z tolerance. If None, a default tolerance is used.
+        Decimal places defining tolerance as ``10 ** (-decimals)``.
+        Defaults to ``None``, which selects a tolerance of 0.01.
     **kwargs
-        Additional keyword arguments passed to the MAEstimator.
+        Additional arguments for the `MAEstimator` constructor.
 
     Returns
     -------
     set
-        A set of m/z values representing the common precursor ions between parent1 and parent2.
+        Exact intersection of candidate precursor masses found for each
+        parent. See `MAEstimator.precursors` for the search behavior.
     """
-    estimator = MAEstimator(same_level=same_level, tol=_tol_from_decimals(decimals), **kwargs)
+    estimator = MAEstimator(
+        same_level=same_level, tol=_tol_from_decimals(decimals), **kwargs
+    )
     return estimator.common_precursors(data=data, parent1=parent1, parent2=parent2)
 
 
 def rma_print_tree(tree: Dict, indent: int = 0, max_depth: int = 10) -> None:
-    """
-    Pretty print a fragmentation tree.
-
-    Recursively prints the structure of a fragmentation tree in a readable format,
-    showing the m/z values at each level with indentation to represent tree depth.
+    """Print tree masses in descending order, indented by depth.
 
     Parameters
     ----------
     tree : dict
-        The fragmentation tree as a nested dictionary, where each key is an m/z value
-        and each value is a subtree (or None/empty dict for leaves).
+        Tree with m/z keys and subtrees; leaves may be ``None`` or
+        empty.
     indent : int, optional
-        Current indentation level. Used internally for recursive calls. Defaults to 0.
+        Starting indentation level, with two spaces per level. Defaults
+        to 0; recursive calls increment it.
     max_depth : int, optional
-        Maximum depth to print. If the tree is deeper, deeper levels are not shown.
-        Defaults to 10.
+        Greatest indentation level to print, inclusive. Defaults to 10.
 
     Returns
     -------
     None
-        This function prints the tree structure to standard output and does not return a value.
+        Prints the tree to standard output with masses rounded to two
+        decimal places.
     """
     if indent > max_depth or not isinstance(tree, dict):
         return
@@ -1039,25 +973,27 @@ def rma_print_tree(tree: Dict, indent: int = 0, max_depth: int = 10) -> None:
         rma_print_tree(children, indent + 1, max_depth)
 
 
-def rma_meta_tree(samples: List[Dict], meta_parent_mz: float = 1e6) -> Dict[float, Dict]:
-    """
-    Combine multiple fragmentation trees under a single 'meta' parent precursor.
-
-    This function takes a list of fragmentation trees and merges them into a single
-    unified tree structure, encapsulated under a 'meta' parent precursor with a specified
-    mass-to-charge ratio (m/z).
+def rma_meta_tree(
+    samples: List[Dict], meta_parent_mz: float = 1e6
+) -> Dict[float, Dict]:
+    """Wrap a merged fragmentation tree under a synthetic parent mass.
 
     Parameters
     ----------
     samples : list of dict
-        A list of fragmentation trees, where each tree is represented as a dictionary.
+        Fragmentation trees to combine using `rma_unify_trees`.
     meta_parent_mz : float, optional
-        The mass-to-charge ratio (m/z) of the 'meta' parent precursor. Defaults to 1e6.
+        Synthetic parent m/z. Defaults to 1e6.
 
     Returns
     -------
     dict
-        A dictionary representing the unified tree structure, with the 'meta' parent precursor
-        as the root node.
+        One root keyed by `meta_parent_mz`, containing the merged tree.
+
+    Notes
+    -----
+    The legacy unification behavior combines only the first two samples;
+    additional samples are ignored. A single sample is retained
+    unchanged.
     """
     return {meta_parent_mz: rma_unify_trees(samples)}

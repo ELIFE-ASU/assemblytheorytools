@@ -11,10 +11,10 @@ ensemble quantities built on top of them.
 
    load_assembly_output
    run_command
-   add_to_bashrc
    add_assembly_to_path
-   compile_assembly_cpp_script
-   compile_assembly_cpp
+   build_assembly_cpp
+   get_assembly_cpp_help
+   AssemblyCppOptions
    joint_assembly_index_correction
    calculate_assembly_index
    calculate_assembly
@@ -47,3 +47,6 @@ ensemble quantities built on top of them.
    :members:
    :undoc-members:
    :show-inheritance:
+
+.. autoclass:: AssemblyCppOptions
+   :members:

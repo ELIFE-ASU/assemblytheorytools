@@ -6,9 +6,9 @@ the spectra and peak lists used for downstream assembly analysis.
 """
 
 import json
+from typing import Any, Callable, Dict, Optional, Union
 
 import pandas as pd
-from typing import Any, Callable, Dict, Optional, Union
 
 # Characters that can lead an m/z key in a scan dict, as opposed to metadata keys.
 _DECIMAL_DIGITS = set("0123456789")
@@ -30,11 +30,12 @@ def _link_msn(data: Dict[int, pd.DataFrame]) -> Dict[int, pd.DataFrame]:
         Dictionary with the same structure as input, but with child levels linked to their parent scans.
     """
     first_level = min(data)
-    new_dataset = {first_level: data[first_level]}
+    linked = {first_level: data[first_level]}
     for level in sorted(data)[:-1]:
-        new_dataset[level + 1] = (
+        parent_peaks = linked[level][["scan", "mz"]].reset_index()
+        linked[level + 1] = (
             pd.merge(
-                new_dataset[level][["scan", "mz"]].reset_index(),
+                parent_peaks,
                 data[level + 1],
                 how="inner",
                 left_on=["scan", "mz"],
@@ -44,7 +45,7 @@ def _link_msn(data: Dict[int, pd.DataFrame]) -> Dict[int, pd.DataFrame]:
             .rename(columns={"index": "parent_id"})
             .drop(columns=["scan_x", "mz_x"])
         )
-    return new_dataset
+    return linked
 
 
 def _try_parse(parser: Callable[[Any], Any], default: Any) -> Callable[[Any], Any]:
@@ -65,20 +66,7 @@ def _try_parse(parser: Callable[[Any], Any], default: Any) -> Callable[[Any], An
     """
 
     def inner(value: Any) -> Any:
-        """
-        Parse a value, falling back to the default on failure.
-
-        Parameters
-        ----------
-        value : Any
-            The value to pass to the wrapped parser.
-
-        Returns
-        -------
-        Any
-            The parsed value, or the captured default if parsing raised
-            ``ValueError``.
-        """
+        """Parse a value, falling back only when the parser raises ValueError."""
         try:
             return parser(value)
         except ValueError:
@@ -101,24 +89,23 @@ def _scan_to_df(scan_dict: dict) -> pd.DataFrame:
     pandas.DataFrame
         DataFrame with columns for intensity, scan, retention_time, and optional parent information.
     """
-    required_keys = {
-        "scan": int,
-        "retention_time": float,
-    }
-
-    optional_keys = {
+    optional_parsers = {
         "parent": float,
         "parent_scan": int,
         "hcd": _try_parse(float, 0.0),
     }
-    mass_dict = {float(k): v for k, v in scan_dict.items() if k[0] in _DECIMAL_DIGITS}
-    df = pd.DataFrame.from_dict(mass_dict, orient="index", columns=["intensity"])
-    df = df.assign(scan=int(scan_dict["scan"]), retention_time=float(scan_dict["retention_time"]))
-    for key, process_fn in required_keys.items():
-        df[key] = process_fn(scan_dict[key])
-    for key, process_fn in optional_keys.items():
+    peaks = {
+        float(mass): intensity
+        for mass, intensity in scan_dict.items()
+        if mass[0] in _DECIMAL_DIGITS
+    }
+    df = pd.DataFrame.from_dict(peaks, orient="index", columns=["intensity"]).assign(
+        scan=int(scan_dict["scan"]),
+        retention_time=float(scan_dict["retention_time"]),
+    )
+    for key, parser in optional_parsers.items():
         if key in scan_dict:
-            df[key] = process_fn(scan_dict[key])
+            df[key] = parser(scan_dict[key])
     return df
 
 
@@ -139,8 +126,8 @@ def _read_level(level_data: dict) -> Optional[pd.DataFrame]:
     if not level_data:
         return None
     return pd.concat(
-        [_scan_to_df(s) for s in level_data.values()],
-        keys=[int(k.split("_")[1]) for k in level_data],
+        [_scan_to_df(scan) for scan in level_data.values()],
+        keys=[int(name.split("_")[1]) for name in level_data],
         names=["spectrum_id", "mz"],
     )
 
@@ -160,10 +147,10 @@ def process_mzml_json(data: Union[Dict[str, Any], str]) -> Dict[int, pd.DataFram
         Dictionary mapping MSn levels (int) to pandas DataFrames of scan data.
     """
     if not isinstance(data, dict):
-        with open(data) as f:
-            data = json.load(f)
+        with open(data) as source:
+            data = json.load(source)
     return {
-        int(k[2:]): level
-        for k, v in data.items()
-        if k.startswith("ms") and (level := _read_level(v)) is not None
+        int(name[2:]): level
+        for name, scans in data.items()
+        if name.startswith("ms") and (level := _read_level(scans)) is not None
     }

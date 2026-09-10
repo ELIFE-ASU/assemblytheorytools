@@ -1,290 +1,518 @@
-import matplotlib.pyplot as plt
+"""Molecular graph conversion, composition, traversal, and serialization."""
+
+import random
+from copy import deepcopy
+
 import networkx as nx
+import numpy as np
+import pytest
+from rdkit import Chem
 
 import assemblytheorytools as att
+from assemblytheorytools import tools_graph as tg
 
 
-def test_get_graph_charges():
-    """
-    Test the calculation of formal charges for nodes in a molecular graph.
-
-    This function performs the following steps:
-    1. Creates a molecular graph using `att.ph_2p_graph()`.
-    2. Calculates the formal charges of the graph's nodes using `att.get_graph_charges()`.
-    3. Prints the calculated charges.
-    4. Asserts that the calculated charges match the expected values.
-
-    Asserts:
-        - The calculated charges are equal to [2, 0].
-
-    Notes:
-        - The graph represents a molecule with two nodes, where the expected charges are predefined.
-    """
-    print(flush=True)
-    print('Testing charged case', flush=True)
-    graph = att.ph_2p_graph()
-    charges = att.get_graph_charges(graph)
-    print("Charges of the graph:", charges, flush=True)
-    assert charges == [2, 0]
+@pytest.mark.parametrize(
+    "text, to_graph, from_graph",
+    [
+        ("[H]O[H]", tg.smi_to_nx, tg.nx_to_smi),
+        ("InChI=1S/H2O/h1H2", tg.inchi_to_nx, tg.nx_to_inchi),
+    ],
+    ids=["smiles", "inchi"],
+)
+def test_molecular_notation_roundtrip(text, to_graph, from_graph):
+    assert from_graph(to_graph(text)) == text
 
 
-def test_smi_to_nx_conversion():
-    """
-    Test the conversion of a SMILES string to a NetworkX graph and back to a SMILES string.
-
-    This function performs the following steps:
-    1. Converts a SMILES string to a NetworkX graph.
-    2. Converts the NetworkX graph back to a SMILES string.
-    3. Asserts that the original SMILES string and the converted SMILES string are equal.
-
-    Asserts:
-        - The converted SMILES string is equal to the original SMILES string.
-    """
-    print(flush=True)
-    smi = "[H]O[H]"
-    graph = att.smi_to_nx(smi)
-    smi_out = att.nx_to_smi(graph)
-    assert smi_out == smi, f"Expected {smi}, but got {smi_out}"
+def test_graph_charges():
+    assert tg.get_graph_charges(att.ph_2p_graph()) == [2, 0]
 
 
-def test_remove_hydrogen_from_graph_does_not_mutate_input():
-    """
-    Test that hydrogen removal returns a new graph and leaves the input alone.
+def test_hydrogen_removal_returns_a_copy_and_preserves_input():
+    graph = tg.smi_to_nx("CCO")
+    original = deepcopy(graph)
 
-    This function performs the following steps:
-    1. Builds the ethanol graph, which carries six explicit hydrogens.
-    2. Removes the hydrogens with `att.remove_hydrogen_from_graph`.
-    3. Asserts the returned graph holds only the three heavy atoms.
-    4. Asserts the input graph is untouched, and is a different object.
+    stripped = tg.remove_hydrogen_from_graph(graph)
 
-    Asserts:
-        - The returned graph has 3 nodes and 2 edges.
-        - The input graph still has 9 nodes and 8 edges.
-        - The result is not the same object as the input.
-
-    Notes:
-        - Regression test: the function used to strip in place while also
-          returning the graph, so a caller reusing its own graph silently
-          got the hydrogen-free answer from every later calculation.
-    """
-    print(flush=True)
-    graph = att.smi_to_nx("CCO")
-    assert (graph.number_of_nodes(), graph.number_of_edges()) == (9, 8)
-
-    stripped = att.remove_hydrogen_from_graph(graph)
-
-    assert (stripped.number_of_nodes(), stripped.number_of_edges()) == (3, 2)
-    assert (graph.number_of_nodes(), graph.number_of_edges()) == (9, 8), \
-        "remove_hydrogen_from_graph must not modify the caller's graph"
     assert stripped is not graph
+    assert (stripped.number_of_nodes(), stripped.number_of_edges()) == (3, 2)
+    assert list(stripped.nodes(data="color")) == [(0, "C"), (1, "C"), (2, "O")]
+    assert nx.utils.graphs_equal(graph, original)
 
 
-def test_strip_hydrogen_does_not_mutate_input_graph():
-    """
-    Test that a strip_hydrogen calculation leaves the caller's graph intact.
+def test_assembly_calculation_can_reuse_the_graph_after_hydrogen_stripping():
+    graph = tg.smi_to_nx("CCO")
+    original = deepcopy(graph)
 
-    This function performs the following steps:
-    1. Builds the ethanol graph.
-    2. Calculates the assembly index with `strip_hydrogen=True`.
-    3. Asserts the input graph still carries its hydrogens.
-    4. Recalculates without stripping and asserts the unstripped index.
-
-    Asserts:
-        - The stripped assembly index is 1.
-        - The input graph still has 9 nodes after the stripped call.
-        - The same graph then yields the unstripped index of 6.
-
-    Notes:
-        - Regression test: `strip_hydrogen=True` used to strip the caller's
-          graph in place, so this second unstripped call returned 1 rather
-          than 6. The RDKit `Chem.Mol` path was always correct, since
-          `Chem.RemoveHs` copies; only the graph path was affected.
-    """
-    print(flush=True)
-    graph = att.smi_to_nx("CCO")
-
-    ai_stripped, _, _ = att.calculate_assembly_index(graph, strip_hydrogen=True)
-    assert ai_stripped == 1
-
-    assert graph.number_of_nodes() == 9, \
-        "strip_hydrogen=True must not modify the caller's graph"
-
-    ai_unstripped, _, _ = att.calculate_assembly_index(graph)
-    assert ai_unstripped == 6, f"Expected 6, but got {ai_unstripped}"
+    assert att.calculate_assembly_index(graph, strip_hydrogen=True)[0] == 1
+    assert nx.utils.graphs_equal(graph, original)
+    assert att.calculate_assembly_index(graph)[0] == 6
+    assert nx.utils.graphs_equal(graph, original)
 
 
-def test_inchi_to_nx_conversion():
-    """
-    Test the conversion of an InChI string to a NetworkX graph and back to an InChI string.
+def test_joining_and_splitting_preserves_colored_molecular_components():
+    graphs = [tg.smi_to_nx(smiles) for smiles in ["[H][O][H]", "[O][O]"]]
 
-    This function performs the following steps:
-    1. Converts an InChI string to a NetworkX graph.
-    2. Converts the NetworkX graph back to an InChI string.
-    3. Checks if the original InChI string and the converted InChI string are equal.
+    joined = tg.join_graphs(graphs)
+    components = tg.get_disconnected_subgraphs(joined)
 
-    Asserts:
-        - The converted InChI string is equal to the original InChI string.
-    """
-    print(flush=True)
-    inchi = "InChI=1S/H2O/h1H2"
-    graph = att.inchi_to_nx(inchi)
-    inchi_out = att.nx_to_inchi(graph)
-    assert inchi_out == inchi, f"Expected {inchi}, but got {inchi_out}"
+    assert (joined.number_of_nodes(), joined.number_of_edges()) == (5, 3)
+    assert len(components) == 2
+    for original, restored in zip(graphs, components):
+        assert nx.is_isomorphic(
+            original,
+            restored,
+            node_match=nx.algorithms.isomorphism.categorical_node_match("color", None),
+            edge_match=nx.algorithms.isomorphism.categorical_edge_match("color", None),
+        )
 
 
-def test_join_graphs():
-    """
-    Test the functionality of joining and splitting molecular graphs.
+def test_composition_merges_overlapping_node_labels():
+    graphs = [tg.smi_to_nx(smiles) for smiles in ["[H][O][H]", "[O][O]"]]
 
-    This function performs the following steps:
-    1. Creates two molecular graphs from SMILES strings.
-    2. Joins the two graphs into a single graph.
-    3. Asserts that the joined graph has the correct number of nodes and edges.
-    4. Splits the joined graph back into its disconnected subgraphs.
-    5. Asserts that the split subgraphs have the correct number of nodes and edges.
-    6. Verifies that the original graphs are isomorphic to the split subgraphs.
+    composed = tg.compose_graphs(graphs)
 
-    Asserts:
-        - The joined graph has 5 nodes and 3 edges.
-        - The split subgraphs have the correct number of nodes and edges.
-        - The original graphs are isomorphic to the split subgraphs.
-    """
-    print(flush=True)
-    # Create a molecular graph for water
-    g1 = att.smi_to_nx('[H][O][H]')
-    # Create a molecular graph for oxygen
-    g2 = att.smi_to_nx('[O][O]')
-    # Join the two graphs into a single graph
-    joined = att.join_graphs([g1, g2])
-    assert joined.number_of_nodes() == 5
-    assert joined.number_of_edges() == 3
-
-    # Split the joined graph back into its components
-    g1_split, g2_split = att.get_disconnected_subgraphs(joined)
-    assert g1_split.number_of_nodes() == 3
-    assert g1_split.number_of_edges() == 2
-    assert g2_split.number_of_nodes() == 2
-    assert g2_split.number_of_edges() == 1
-
-    # Check that the original graphs are equal to the split graphs
-    assert nx.is_isomorphic(g1, g1_split)
-    assert nx.is_isomorphic(g2, g2_split)
+    assert (composed.number_of_nodes(), composed.number_of_edges()) == (3, 2)
+    assert nx.get_node_attributes(composed, "color") == {0: "O", 1: "O", 2: "H"}
 
 
-def test_compose_graphs():
-    """
-    Test the composition of two molecular graphs.
+def test_graph_layers_follow_dependencies():
+    graph = nx.DiGraph([(0, 1), (1, 2), (0, 2)])
 
-    This function performs the following steps:
-    1. Creates two molecular graphs from SMILES strings (water and oxygen).
-    2. Composes the two graphs into a single graph using `att.compose_graphs`.
-    3. Asserts that the composed graph has the correct number of nodes and edges.
-
-    Asserts:
-        - The composed graph has 3 nodes.
-        - The composed graph has 2 edges.
-    """
-    print(flush=True)
-    # Create a molecular graph for water
-    g1 = att.smi_to_nx('[H][O][H]')
-    # Create a molecular graph for oxygen
-    g2 = att.smi_to_nx('[O][O]')
-    # Compose the two graphs into a single graph
-    composed = att.compose_graphs([g1, g2])
-    assert composed.number_of_nodes() == 3
-    assert composed.number_of_edges() == 2
+    assert tg.set_graph_layer(graph) is graph
+    assert nx.get_node_attributes(graph, "layer") == {0: 0, 1: 1, 2: 2}
 
 
-def test_set_graph_layer():
-    """
-    Test the setting of layers for nodes in a directed graph.
+def test_top_degree_pathway_retains_requested_molecules():
+    graphs = [
+        tg.smi_to_nx(smiles) for smiles in ["CC(OC)C=C", "CC(OC)C", "CC(OC)CCC", "CCC"]
+    ]
+    pathway = att.calculate_assembly_index(tg.join_graphs(graphs), strip_hydrogen=True)[
+        -1
+    ]
 
-    This function performs the following steps:
-    1. Creates two molecular graphs from SMILES strings (water and oxygen).
-    2. Creates a directed graph where the nodes are the molecular graphs.
-    3. Sets the layer attribute for each node in the directed graph using `att.set_graph_layer`.
-    4. Asserts that all nodes have a 'layer' attribute with a value of either 0 or 1.
+    selected = tg.top_n_degree_subgraph(pathway, n=3, must_keep=graphs)
 
-    Asserts:
-        - All nodes in the graph have a 'layer' attribute with a value of 0 or 1.
-    """
-    print(flush=True)
-    # Create a molecular graph for water
-    g1 = att.smi_to_nx('[H][O][H]')
-    # Create a molecular graph for oxygen
-    g2 = att.smi_to_nx('[O][O]')
-
-    # create a directed graph and add the two graphs as nodes
-    g = nx.DiGraph()
-    g.add_node(0, graph=g1)
-    g.add_node(1, graph=g2)
-    g.add_edge(0, 1)
-
-    g = att.set_graph_layer(g)
-
-    # Fixed assert statement
-    assert all(g.nodes[node]['layer'] == 1 or g.nodes[node]['layer'] == 0 for node in g.nodes)
+    assert len(selected) == 5
+    assert set(selected) <= set(pathway)
+    for requested in graphs:
+        assert any(
+            nx.is_isomorphic(vo, tg.remove_hydrogen_from_graph(requested))
+            for _, vo in selected.nodes(data="vo")
+        )
 
 
-def test_strip_digraph_layer():
-    """
-    Test the stripping of a layer from a directed graph.
-
-    This function performs the following steps:
-    1. Creates a list of SMILES strings and converts them to graphs.
-    2. Calculates the pairwise joint assembly pathway for the graphs.
-    3. Strips the first layer (layer 0) from the pathway.
-    4. Asserts that all remaining nodes in the pathway have a layer greater than 0.
-
-    Asserts:
-        - All nodes in the stripped pathway have a layer greater than 0.
-    """
-    print(flush=True)
-    smis = ['CC(OC)C=C',
-            'CC(OC)C',
-            'CCC']
-    graphs = [att.smi_to_nx(smi) for smi in smis]
-    pathway = att.calculate_assembly_index_pairwise_joint(graphs, settings={'strip_hydrogen': True})
-    pathway = att.strip_digraph_layer(pathway, 0)
-    # Check that the first layer has been stripped
-    assert all(pathway.nodes[node]['layer'] > 0 for node in pathway.nodes)
+def colored_path(*colors):
+    graph = nx.path_graph(len(colors))
+    nx.set_node_attributes(graph, dict(enumerate(colors)), "color")
+    nx.set_edge_attributes(graph, 1, "color")
+    return graph
 
 
-def test_top_n_degree_subgraph():
-    """
-    Test the creation of a subgraph containing the top N degree nodes.
+@pytest.mark.parametrize("order", range(1, 22))
+def test_supported_rdkit_bond_order_roundtrip(order):
+    assert tg.bond_order_rdkit_to_int(tg.bond_order_int_to_rdkit(order)) == order
 
-    This function performs the following steps:
-    1. Creates a list of SMILES strings and converts them to graphs.
-    2. Joins the graphs and calculates the assembly pathway.
-    3. Creates a subgraph containing the top 3 degree nodes, while keeping specified graphs.
-    4. Plots the original pathway and the subgraph.
-    5. Asserts that the subgraph has the correct number of nodes.
 
-    Asserts:
-        - The subgraph has 5 nodes.
-    """
-    print(flush=True)
-    smis = ['CC(OC)C=C',
-            'CC(OC)C',
-            'CC(OC)CCC',
-            'CCC']
-    graphs = [att.smi_to_nx(smi) for smi in smis]
+def test_unspecified_rdkit_bond_order_is_zero():
+    assert tg.bond_order_rdkit_to_int(Chem.BondType.UNSPECIFIED) == 0
 
-    joined_graph = att.join_graphs(graphs)
-    pathway = att.calculate_assembly_index(joined_graph, strip_hydrogen=True)[-1]
-    att.plot_pathway(pathway,
-                     frame_on=True,
-                     plot_type='mol',
-                     fig_size=(14, 7),
-                     layout_style='crossmin_long')
-    plt.show()
 
-    subgraph = att.top_n_degree_subgraph(pathway, n=3, must_keep=graphs)
-    att.plot_pathway(subgraph,
-                     frame_on=True,
-                     plot_type='mol',
-                     fig_size=(14, 7),
-                     layout_style='crossmin_long')
-    plt.show()
-    assert len(subgraph) == 5
+def test_unsupported_bond_orders_are_rejected():
+    with pytest.raises(ValueError, match="Unsupported bond order: 0"):
+        tg.bond_order_int_to_rdkit(0)
+    with pytest.raises(ValueError, match="Unsupported RDKit BondType: 100"):
+        tg.bond_order_rdkit_to_int(100)
+
+
+@pytest.mark.parametrize(
+    "value, expected", [("single", 1), ("quintuple", 5), ("12", 12), (2, 2)]
+)
+def test_assembly_bond_orders_accept_names_and_numeric_values(value, expected):
+    assert tg.bond_order_assout_to_int(value) == expected
+
+
+def test_nx_to_mol_preserves_node_order_and_accepts_string_bond_orders():
+    graph = nx.Graph()
+    graph.add_node("oxygen", color=" O ")
+    graph.add_node(42, color="C")
+    graph.add_edge("oxygen", 42, color="2")
+
+    mol = tg.nx_to_mol(graph, sanitize=False)
+
+    assert isinstance(mol, Chem.RWMol)
+    assert [atom.GetSymbol() for atom in mol.GetAtoms()] == ["O", "C"]
+    assert mol.GetBondWithIdx(0).GetBondType() == Chem.BondType.DOUBLE
+    assert graph.nodes["oxygen"]["color"] == " O "
+    assert graph.edges["oxygen", 42]["color"] == "2"
+
+
+@pytest.mark.parametrize("missing", ["node", "edge"])
+def test_nx_to_mol_reports_missing_colors(missing):
+    graph = colored_path("C", "O")
+    if missing == "node":
+        del graph.nodes[0]["color"]
+        message = "Node 0 is missing the 'color' attribute."
+    else:
+        del graph.edges[0, 1]["color"]
+        message = "Edge (0, 1) is missing the 'color' attribute."
+
+    with pytest.raises(KeyError) as error:
+        tg.nx_to_mol(graph)
+    assert error.value.args == (message,)
+
+
+def test_unsanitized_conversion_does_not_add_hydrogens():
+    mol = Chem.MolFromSmiles("CO")
+    graph = tg.mol_to_nx(mol, sanitize=False, add_hydrogens=True)
+
+    assert list(graph.nodes(data="color")) == [(0, "C"), (1, "O")]
+    assert tg.nx_to_mol(graph, sanitize=False, add_hydrogens=True).GetNumAtoms() == 2
+    assert mol.GetNumAtoms() == 2
+
+
+def test_inchi_parser_hydrogens_survive_disabled_graph_sanitization():
+    graph = tg.inchi_to_nx("InChI=1S/H2O/h1H2", add_hydrogens=False, sanitize=False)
+    assert len(graph) == 3
+    assert len(tg.smi_to_nx("O")) == 3
+
+
+@pytest.mark.parametrize(
+    "converter, parser, message",
+    [
+        (tg.smi_to_nx, "smi_to_mol", "Invalid SMILES string or conversion failed."),
+        (tg.inchi_to_nx, "inchi_to_mol", "Invalid InChI string or conversion failed."),
+    ],
+)
+def test_string_converters_report_failed_parsing(
+    monkeypatch, converter, parser, message
+):
+    monkeypatch.setattr(tg, parser, lambda *args, **kwargs: None)
+    with pytest.raises(ValueError) as error:
+        converter("invalid")
+    assert str(error.value) == message
+
+
+def test_disconnected_subgraphs_share_attributes_with_the_original():
+    graph = nx.Graph([(2, 3)])
+    graph.add_node("isolated")
+
+    connected, isolated = tg.get_disconnected_subgraphs(graph)
+
+    assert set(connected) == {2, 3}
+    assert list(isolated) == ["isolated"]
+    assert nx.is_frozen(connected)
+    connected.nodes[2]["label"] = "shared"
+    assert graph.nodes[2]["label"] == "shared"
+    graph.remove_node(3)
+    assert list(connected) == [2]
+
+
+@pytest.mark.parametrize("combine", [tg.join_graphs, tg.compose_graphs])
+def test_singleton_combination_returns_the_original_graph(combine):
+    graph = nx.Graph()
+    graph.add_node("original-label")
+    assert combine(iter([graph])) is graph
+
+
+def test_join_composition_preserves_disjoint_labels_and_copies_singletons():
+    first = nx.Graph([(2, 3)])
+    second = nx.Graph([("x", "y")])
+
+    assert tg.join_graphs([first], disjoint=False) is not first
+    joined = tg.join_graphs(iter([first, second]), disjoint=False)
+    assert list(joined) == [2, 3, "x", "y"]
+
+
+def test_join_composition_prefixes_every_graph_when_any_labels_clash():
+    graphs = [nx.Graph([(0, 1)]), nx.Graph([(1, 2)]), nx.Graph([("x", "y")])]
+    joined = tg.join_graphs(graphs, disjoint=False, rename_prefix="part")
+
+    assert list(joined) == [
+        "part0_0",
+        "part0_1",
+        "part1_1",
+        "part1_2",
+        "part2_x",
+        "part2_y",
+    ]
+    assert list(graphs[0]) == [0, 1]
+
+
+def test_combination_empty_inputs_and_join_type_validation():
+    with pytest.raises(ValueError, match="Need at least one graph"):
+        tg.join_graphs(iter([]))
+    with pytest.raises(
+        ValueError, match=r"compose_graphs\(\) requires at least one graph"
+    ):
+        tg.compose_graphs(iter([]))
+
+    class CustomGraph(nx.Graph):
+        pass
+
+    with pytest.raises(TypeError, match="All graphs must be of the same NetworkX type"):
+        tg.join_graphs([nx.Graph(), CustomGraph()])
+
+
+def test_composition_later_attributes_override_without_mutating_inputs():
+    first = colored_path("C", "O")
+    first.graph["source"] = "first"
+    first.nodes[0]["retained"] = True
+    second = colored_path("N", "H")
+    second.graph["source"] = "second"
+    second.edges[0, 1]["color"] = 2
+
+    composed = tg.compose_graphs(iter([first, second]))
+
+    assert composed.graph["source"] == "second"
+    assert composed.nodes[0] == {"color": "N", "retained": True}
+    assert composed.edges[0, 1]["color"] == 2
+    assert first.nodes[0]["color"] == "C"
+    assert first.edges[0, 1]["color"] == 1
+
+
+@pytest.mark.parametrize(
+    "labeler, attribute, expected",
+    [(tg.set_graph_layer, "layer", 0), (tg.relabel_digraph, "label", "Step 0")],
+)
+def test_layer_labelers_mutate_in_place_even_before_a_cycle_error(
+    labeler, attribute, expected
+):
+    graph = nx.DiGraph([(0, 1)])
+    assert labeler(graph) is graph
+    graph = nx.DiGraph([(1, 2), (2, 1)])
+    graph.add_node(0)
+
+    with pytest.raises(nx.NetworkXUnfeasible):
+        labeler(graph)
+
+    assert graph.nodes[0][attribute] == expected
+    assert attribute not in graph.nodes[1]
+
+
+def test_stripping_a_layer_recomputes_generations_on_a_mutable_copy():
+    graph = nx.DiGraph([(0, 1), (1, 2)])
+    nx.set_node_attributes(graph, 99, "layer")
+    nx.set_node_attributes(graph, "Step 0", "label")
+
+    result = tg.strip_digraph_layer(graph, 0)
+
+    assert list(result.nodes(data="layer")) == [(1, 1), (2, 2)]
+    assert nx.get_node_attributes(graph, "layer") == {0: 99, 1: 99, 2: 99}
+    assert not nx.is_frozen(result)
+
+
+@pytest.mark.parametrize("graph_type", [nx.DiGraph, nx.MultiDiGraph])
+def test_longest_path_is_unweighted_and_rejects_cycles(graph_type):
+    graph = graph_type([(0, 1), (1, 2), (0, 2)])
+    nx.set_edge_attributes(graph, -100, "weight")
+
+    assert tg.longest_path_length(graph) == 2
+    assert tg.longest_path_length(nx.DiGraph()) == 0
+    graph.add_edge(2, 0)
+    with pytest.raises(ValueError, match="Graph must be a Directed Acyclic Graph"):
+        tg.longest_path_length(graph)
+
+
+def test_top_degree_ties_follow_insertion_order_and_return_a_view_of_a_copy():
+    graph = nx.DiGraph()
+    for node in ["z", "a", "b"]:
+        graph.add_node(node, vo=colored_path("C"), label="original")
+
+    result = tg.top_n_degree_subgraph(graph, 1, [])
+
+    assert list(result) == ["z"]
+    assert nx.is_frozen(result)
+    result.nodes["z"]["label"] = "changed"
+    assert graph.nodes["z"]["label"] == "original"
+    assert result.nodes["z"]["vo"] is graph.nodes["z"]["vo"]
+    assert set(tg.top_n_degree_subgraph(graph, -1, [])) == {"z", "a"}
+
+
+def test_must_keep_strips_hydrogens_without_mutation_and_matches_topology_only():
+    reference = colored_path("C", "O", "H")
+    graph = nx.DiGraph()
+    graph.add_node("match", vo=colored_path("N", "N"))
+    graph.add_node("other", vo=colored_path("C"))
+
+    result = tg.top_n_degree_subgraph(graph, 0, [reference])
+
+    assert list(result) == ["match"]
+    assert list(reference.nodes(data="color")) == [(0, "C"), (1, "O"), (2, "H")]
+
+
+def test_zero_indegree_stripping_is_one_pass_and_returns_a_view_of_a_copy():
+    graph = nx.DiGraph([(0, 1), (1, 2)])
+    graph.nodes[1]["label"] = "original"
+
+    result = tg.strip_digraph_zero_indegree(graph)
+
+    assert list(result) == [1, 2]
+    assert nx.is_frozen(result)
+    result.nodes[1]["label"] = "changed"
+    assert graph.nodes[1]["label"] == "original"
+
+
+def test_canonical_labels_follow_iteration_order_and_preserve_attributes():
+    graph = nx.MultiDiGraph(name="original")
+    graph.add_node("z", color="C")
+    graph.add_node(42, color="O")
+    graph.add_edge(42, "z", key="bond", color=2)
+
+    result = tg.canonicalize_node_labels(graph)
+
+    assert isinstance(result, nx.MultiDiGraph)
+    assert list(result.nodes(data="color")) == [(0, "C"), (1, "O")]
+    assert result.edges[1, 0, "bond"]["color"] == 2
+    assert result.name == "original"
+    assert list(graph) == ["z", 42]
+
+
+def test_scrambling_preserves_labels_and_seeded_global_random_behavior():
+    graph = nx.path_graph(["a", "b", "c", "d"])
+    random_state = random.getstate()
+    try:
+        expected_random = random.Random(42)
+        expected_labels = list(graph)
+        expected_random.shuffle(expected_labels)
+
+        result = tg.scramble_node_indices(graph, seed=42)
+
+        assert list(result) == expected_labels
+        assert set(result) == set(graph)
+        assert random.random() == expected_random.random()
+        assert list(graph) == ["a", "b", "c", "d"]
+    finally:
+        random.setstate(random_state)
+
+
+def test_assembly_file_aligns_node_colors_with_endpoint_indices(tmp_path):
+    graph = nx.Graph(name="example")
+    graph.add_node(2, color="O")
+    graph.add_node(0, color="C")
+    graph.add_node(1, color="N")
+    graph.add_edge(2, 1, color=2)
+    graph.add_edge(0, 1, color=1)
+    path = tmp_path / "graph_info"
+
+    assert tg.write_ass_graph_file(graph, path) is None
+    assert path.read_text() == "example\n3\n3 2 1 2\nC N O\n2 1\n"
+    assert list(graph) == [2, 0, 1]
+
+
+@pytest.mark.parametrize("node_count", [0, 1, 2])
+def test_assembly_file_includes_empty_fifth_line_for_edgeless_graphs(tmp_path, node_count):
+    graph = nx.empty_graph(node_count)
+    nx.set_node_attributes(graph, "C", "color")
+    path = tmp_path / "graph_info"
+
+    tg.write_ass_graph_file(graph, path)
+
+    assert path.read_text().splitlines() == ["", str(node_count), "", " ".join(["C"] * node_count), ""]
+
+
+@pytest.mark.parametrize("color", [None, "", "C H", "C\tH", "C\nH", 1])
+def test_assembly_file_validates_node_colors_before_overwriting(tmp_path, color):
+    graph = colored_path("C", "O")
+    graph.nodes[0]["color"] = color
+    path = tmp_path / "graph_info"
+    path.write_text("keep me")
+
+    with pytest.raises(ValueError, match="Node color for node 0"):
+        tg.write_ass_graph_file(graph, path)
+    assert path.read_text() == "keep me"
+
+
+@pytest.mark.parametrize("color", [None, "1", 1.0, True, 0, -1, 32768])
+def test_assembly_file_validates_edge_colors_before_overwriting(tmp_path, color):
+    graph = colored_path("C", "O")
+    graph.edges[0, 1]["color"] = color
+    path = tmp_path / "graph_info"
+    path.write_text("keep me")
+
+    with pytest.raises(ValueError, match=r"Edge color for edge \(0, 1\)"):
+        tg.write_ass_graph_file(graph, path)
+    assert path.read_text() == "keep me"
+
+
+@pytest.mark.parametrize("missing", ["node", "edge"])
+def test_assembly_file_rejects_missing_colors(tmp_path, missing):
+    graph = colored_path("C", "O")
+    attributes = graph.nodes[0] if missing == "node" else graph.edges[0, 1]
+    del attributes["color"]
+
+    with pytest.raises(ValueError, match="color"):
+        tg.write_ass_graph_file(graph, tmp_path / "graph_info")
+
+
+def test_assembly_file_accepts_numpy_integer_colors(tmp_path):
+    graph = colored_path("C", "O")
+    graph.edges[0, 1]["color"] = np.int64(32767)
+    path = tmp_path / "graph_info"
+
+    tg.write_ass_graph_file(graph, path)
+
+    assert path.read_text().splitlines()[-1] == "32767"
+
+
+@pytest.mark.parametrize("graph_type", [nx.DiGraph, nx.MultiGraph, nx.MultiDiGraph])
+def test_assembly_file_rejects_unsupported_graph_types(tmp_path, graph_type):
+    with pytest.raises(ValueError, match="simple undirected"):
+        tg.write_ass_graph_file(graph_type(), tmp_path / "graph_info")
+
+
+@pytest.mark.parametrize("labels", [[1, 2], [0, 2], ["a", "b"], [0.0, 1.0], [False, True]])
+def test_assembly_file_rejects_nonconsecutive_integer_labels(tmp_path, labels):
+    graph = nx.path_graph(labels)
+    with pytest.raises(ValueError, match="consecutive integers"):
+        tg.write_ass_graph_file(graph, tmp_path / "graph_info")
+
+
+def test_assembly_file_rejects_self_loops_and_multiline_names(tmp_path):
+    graph = colored_path("C", "O")
+    graph.add_edge(0, 0, color=1)
+    with pytest.raises(ValueError, match="self-loop"):
+        tg.write_ass_graph_file(graph, tmp_path / "graph_info")
+    graph.remove_edge(0, 0)
+    graph.name = "name\nextra line"
+    with pytest.raises(ValueError, match="one line"):
+        tg.write_ass_graph_file(graph, tmp_path / "graph_info")
+
+
+def test_graphml_roundtrip_uses_string_node_ids_and_retains_attributes(
+    tmp_path, monkeypatch
+):
+    graph = colored_path("C", "O")
+    monkeypatch.chdir(tmp_path)
+
+    assert tg.write_graphml(graph) is None
+    result = tg.read_graphml()
+
+    assert list(result.nodes(data="color")) == [("0", "C"), ("1", "O")]
+    assert result.edges["0", "1"]["color"] == 1
+
+
+@pytest.mark.parametrize(
+    "smiles, expected_edges",
+    [
+        ("C.O", []),
+        ("[Na+].O", []),
+        ("[Na+].[Cl-]", [(0, 1)]),
+        ("[Na+].[Cl-].[K+].[F-]", [(2, 3)]),
+    ],
+)
+def test_ionic_molecules_always_return_components_and_join_the_last_charged_pair(
+    smiles, expected_edges
+):
+    graph, mols = tg.create_ionic_molecule(smiles, add_hydrogens=False, sanitize=False)
+
+    assert isinstance(mols, list)
+    assert len(mols) == len(smiles.split("."))
+    assert all(isinstance(mol, Chem.Mol) for mol in mols)
+    assert list(graph.edges()) == expected_edges
+    assert all(data["color"] == 6 for *_, data in graph.edges(data=True))
+
+
+def test_bond_smiles_are_unique_alphabetized_and_use_fallback_for_aromatic_bonds():
+    mol = Chem.MolFromSmiles("OCCN.C=O.N#C.c1ccccc1")
+    assert tg.get_bond_smi(mol) == {"C-O", "C-C", "C-N", "C=O", "C#N", "C~C"}

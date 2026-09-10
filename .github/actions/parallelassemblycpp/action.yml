@@ -1,0 +1,41 @@
+# Exercise the same builder used by an ATT user's first calculation.
+name: Build parallelassemblycpp
+description: Build parallelassemblycpp and export its executable as ASS_PATH.
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve the parallelassemblycpp revision
+      id: revision
+      shell: bash
+      # Key the cache to the current main commit, matching ATT's default ref.
+      run: |
+        sha=$(git ls-remote https://github.com/ELIFE-ASU/parallelassemblycpp.git refs/heads/main | cut -f1)
+        [ -n "$sha" ] || { echo "::error::could not resolve parallelassemblycpp main"; exit 1; }
+        echo "sha=$sha" >> "$GITHUB_OUTPUT"
+        echo "parallelassemblycpp is at $sha"
+
+    - name: Restore the cached executable
+      uses: actions/cache@v6
+      with:
+        path: |
+          ${{ runner.temp }}/parallelassemblycpp-cache/assemblytheorytools/assemblycpp/bin
+          ${{ runner.temp }}/parallelassemblycpp-cache/assemblytheorytools/assemblycpp/build.json
+        key: parallelassemblycpp-${{ runner.os }}-${{ runner.arch }}-${{ steps.revision.outputs.sha }}-${{ hashFiles('assemblytheorytools/assembly.py', '.github/actions/parallelassemblycpp/action.yml') }}
+
+    - name: Build, verify and export the executable
+      shell: bash
+      env:
+        XDG_CACHE_HOME: ${{ runner.temp }}/parallelassemblycpp-cache
+        ATT_ASSEMBLYCPP_REF: ${{ steps.revision.outputs.sha }}
+      run: |
+        python - <<'PY'
+        import os
+        import subprocess
+        from assemblytheorytools import build_assembly_cpp
+
+        executable = build_assembly_cpp()
+        subprocess.run([executable, "--help"], check=True, stdout=subprocess.DEVNULL)
+        with open(os.environ["GITHUB_ENV"], "a") as env:
+            env.write(f"ASS_PATH={executable}\n")
+        PY

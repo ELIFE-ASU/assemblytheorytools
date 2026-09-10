@@ -1,263 +1,262 @@
+"""Molecular conversion, standardization, valence, and peptide behavior."""
+
+import networkx as nx
+import pytest
 from rdkit import Chem
-from rdkit.Chem import AllChem as Chem
 
 import assemblytheorytools as att
+import assemblytheorytools.tools_mol as mol_tools
 
 
-def test_graph_to_mol():
-    """
-    Test the conversion of a SMILES string to a molecular graph and back to a molecule.
+@pytest.fixture(params=["smiles", "inchi", "molfile"])
+def conversion(request, tmp_path):
+    if request.param == "smiles":
+        return mol_tools.smi_to_mol, "O", "invalid smiles"
+    if request.param == "inchi":
+        return mol_tools.inchi_to_mol, "InChI=1S/H2O/h1H2", "invalid inchi"
 
-    This function performs the following steps:
-    1. Converts a SMILES string to a molecule object.
-    2. Converts the molecule object to a NetworkX graph.
-    3. Converts the NetworkX graph back to a molecule object.
-    4. Checks if the original graph and the graph obtained from the converted molecule are isomorphic.
-
-    Asserts:
-        - The graph obtained from the converted molecule is isomorphic to the original graph.
-    """
-    print(flush=True)
-    smi_in = "[Mo](Cl)(Cl)(C#N)(C=O)-[Mo](Cl)(Cl)(C#N)(C=O)"
-    # Convert the SMILES string to a molecule object
-    mol = att.smi_to_mol(smi_in)
-    # Convert the molecule object to a NetworkX graph
-    graph = att.mol_to_nx(mol)
-    # Convert the NetworkX graph back to a molecule object
-    mol_out = att.nx_to_mol(graph)
-    # Check if the original graph and the graph obtained from the converted molecule are isomorphic
-    assert att.is_graph_isomorphic(graph, att.mol_to_nx(mol_out))
+    valid_path = tmp_path / "water.mol"
+    invalid_path = tmp_path / "invalid.mol"
+    Chem.MolToMolFile(Chem.MolFromSmiles("O"), str(valid_path))
+    invalid_path.write_text("invalid molfile\n")
+    return mol_tools.molfile_to_mol, str(valid_path), str(invalid_path)
 
 
-def test_reset_mol_charge():
-    """
-    Test the functionality of resetting the formal charge of a molecule.
+@pytest.mark.parametrize(
+    "sanitize, add_hydrogens, atom_count",
+    [
+        (False, False, 1),
+        (False, True, 1),
+        (True, False, 1),
+        (True, True, 3),
+    ],
+)
+def test_conversion_only_adds_hydrogens_during_sanitization(
+    conversion, sanitize, add_hydrogens, atom_count
+):
+    convert, source, _ = conversion
 
-    This function performs multiple tests to verify the behavior of the `reset_mol_charge` function
-    and related utilities. It checks the formal charge of molecules in various scenarios, including
-    charged and uncharged cases, as well as SMILES-based molecule creation.
+    molecule = convert(source, sanitize=sanitize, add_hydrogens=add_hydrogens)
 
-    Steps:
-    ------
-    1. Test a charged molecule graph and verify its formal charge.
-    2. Test an uncharged molecule graph and verify its formal charge.
-    3. Test a molecule graph with multiple possible charged cases and verify the simplest one is picked.
-    4. Test an uncharged molecule created from a SMILES string and verify its formal charge.
-    5. Test a charged molecule created from a SMILES string and verify its formal charge.
-
-    Asserts:
-    -------
-    - The formal charge of the molecule matches the expected value in each test case.
-
-    Notes:
-    ------
-    - The function uses RDKit utilities to calculate the formal charge of molecules.
-    - Molecules are created from graphs or SMILES strings using `assemblytheorytools`.
-    """
-    print(flush=True)
-    print('Testing charged case', flush=True)
-    graph = att.ph_2p_graph()
-    mol = att.nx_to_mol(graph)
-    charge = Chem.GetFormalCharge(mol)
-    print("Charge of the molecule:", charge, flush=True)
-    assert charge == 0
-
-    print('Testing uncharged case', flush=True)
-    graph = att.water_graph()
-    mol = att.nx_to_mol(graph)
-    charge = Chem.GetFormalCharge(mol)
-    print("Charge of the molecule:", charge, flush=True)
-    assert charge == 0
-
-    print('Testing case where there are multiple possible charged cases and simplest one is picked', flush=True)
-    graph = att.phosphine_graph()
-    mol = att.nx_to_mol(graph)
-    charge = Chem.GetFormalCharge(mol)
-    print("Charge of the molecule:", charge, flush=True)
-    assert charge == 0
-
-    print('Testing uncharged SMILES case', flush=True)
-    mol = att.smi_to_mol("[H]O[H]")
-    charge = Chem.GetFormalCharge(mol)
-    print("Charge of the molecule:", charge, flush=True)
-    assert charge == 0
-
-    graph = att.ph_2p_graph()
-    mol = att.nx_to_mol(graph)
-    # print the smiles of the molecule
-    smi_out = Chem.MolToSmiles(mol, allHsExplicit=True)
-    print(smi_out, flush=True)
-    print('Testing charged SMILES case', flush=True)
-    smi_out = '[H][P]'
-    print(smi_out)
-    graph_out = att.smi_to_nx(smi_out)
-    mol = att.nx_to_mol(graph_out)
-    charge = Chem.GetFormalCharge(mol)
-    print("Charge of the molecule:", charge, flush=True)
-    att.print_graph_details(graph_out)
-    assert charge == 0
-
-    smi_out = '[N]=O'
-    graph = att.smi_to_nx(smi_out)
-    mol = att.nx_to_mol(graph)
-    charge = Chem.GetFormalCharge(mol)
-    print("Charge of the molecule:", charge, flush=True)
-    assert charge == 0
-
-    att.print_graph_details(graph)
-    mol = att.smi_to_mol(smi_out)
-    charge = Chem.GetFormalCharge(mol)
-    print("Charge of the molecule:", charge, flush=True)
-    assert charge == 0
+    assert molecule.GetNumAtoms() == atom_count
 
 
-def test_implicit_hydrogens():
-    """
-    Test the removal of implicit hydrogens from SMILES strings.
+def test_conversion_preserves_invalid_input_behavior(conversion):
+    convert, _, source = conversion
 
-    This function tests the `smi_remove_implicit_hydrogen` function with three
-    different SMILES strings and asserts that the output is as expected.
-    """
-    str1 = '[H]-[C]'  # -> '[H]-[C]'
-    str2 = '[H]-[CH](-[H])-[N]'  # -> '[H]-[C](-[H])-[N]'
-    str3 = '[CH3]-[CH2]-[CH1]'  # -> '[C]-[C]'
-
-    assert att.smi_remove_implicit_hydrogen(str1) == '[H]-[C]', "Test failed for str1"
-    assert att.smi_remove_implicit_hydrogen(str2) == '[H]-[C](-[H])-[N]', "Test failed for str2"
-    assert att.smi_remove_implicit_hydrogen(str3) == '[C]-[C]-[C]', "Test failed for str3"
+    assert convert(source, sanitize=False) is None
+    with pytest.raises(AttributeError, match="UpdatePropertyCache"):
+        convert(source)
 
 
-def test_create_ionic_molecule():
-    """
-    Test the creation and validation of an ionic molecule.
+def test_disconnected_smiles_warns_and_retains_both_fragments():
+    with pytest.warns(
+        UserWarning, match="Disconnected molecules detected in SMILES string"
+    ):
+        molecule = mol_tools.smi_to_mol("C.O", sanitize=False)
 
-    This function performs the following steps:
-    1. Defines a SMILES string for an ionic molecule.
-    2. Creates the ionic molecule from the SMILES string.
-    3. Checks that the combined graph has the correct number of nodes and edges.
-    4. Checks that the combined graph contains the ionic bond.
-    5. Calculates the assembly index of the combined graph.
-    6. Adjusts the assembly index for ionic molecules.
-    7. Asserts that the adjusted assembly index is equal to 3.
-
-    Asserts:
-        - The combined graph has the correct number of nodes and edges.
-        - The combined graph contains the ionic bond.
-        - The adjusted assembly index is equal to 3.
-    """
-    print(flush=True)
-    smiles = "[NH4+].[SH-]"
-    # Create the ionic molecule
-    combined, mols = att.create_ionic_molecule(smiles)
-
-    # Check that the combined graph has the correct number of nodes and edges
-    assert combined.number_of_nodes() == sum(mol.GetNumAtoms() for mol in mols)
-    assert combined.number_of_edges() == sum(mol.GetNumBonds() for mol in mols) + len(mols) - 1
-
-    # Check that the graph contains the ionic bond, between the relevant charged atoms (here N+ and S-)
-    ionic_bond_found = False
-    h_s_bond_found = False
-    for u, v, data in combined.edges(data=True):
-        if data.get('color') == 6:
-            ionic_bond_found = True
-            # Check node labels
-            label_u = combined.nodes[u].get('color')
-            label_v = combined.nodes[v].get('color')
-            if (label_u == 'N' and label_v == 'S') or (label_u == 'S' and label_v == 'N'):
-                h_s_bond_found = True
-            break
-    assert ionic_bond_found
-    assert h_s_bond_found
-
-    # Check that the assembly index is 3
-    ai, _, _ = att.calculate_assembly_index(combined)
-
-    # Subtract 1 from assembly index for ionic molecules
-    if '.' in smiles:
-        ai -= 1
-
-    assert ai == 3
+    assert len(Chem.GetMolFrags(molecule)) == 2
 
 
-def test_get_total_free_valence():
-    """
-    Test the calculation of the total free valence for a molecule and its graph representation.
+def test_molecular_graph_roundtrip_preserves_metals_and_bond_orders():
+    molecule = att.smi_to_mol("[Mo](Cl)(Cl)(C#N)(C=O)-[Mo](Cl)(Cl)(C#N)(C=O)")
+    graph = att.mol_to_nx(molecule)
 
-    This function performs the following steps:
-    1. Converts a SMILES string to a molecule object.
-    2. Calculates the total free valence of the molecule.
-    3. Converts the SMILES string to a NetworkX graph.
-    4. Calculates the total free valence of the graph.
-    5. Removes all hydrogen atoms from the graph.
-    6. Calculates the total free valence of the modified molecule.
+    result = att.nx_to_mol(graph)
 
-    Asserts:
-        - The total free valence of the molecule is 0.
-        - The total free valence of the graph is 0.
-        - The total free valence of the modified molecule is 2.
-
-    Notes:
-        - The function uses `att.smi_to_mol` to convert SMILES strings to RDKit molecule objects.
-        - The function uses `att.smi_to_nx` to convert SMILES strings to NetworkX graphs.
-        - Hydrogen atoms are removed using `att.remove_hydrogen_from_graph`.
-    """
-    print(flush=True)
-    smi_in = "[H]C#C[H]"
-    # Convert the SMILES string to a molecule object
-    mol = att.smi_to_mol(smi_in)
-    fv = att.get_total_free_valence(mol)
-    print("Total free valence:", fv, flush=True)
-    assert fv == 0
-
-    graph = att.smi_to_nx(smi_in)
-    fv = att.get_total_free_valence(graph)
-    print("Total free valence from graph:", fv, flush=True)
-    assert fv == 0
-
-    # delete all the hydrogens
-    mol = att.remove_hydrogen_from_graph(graph)
-    fv = att.get_total_free_valence(mol)
-    print("Total free valence:", fv, flush=True)
-    assert fv == 2
+    assert att.is_graph_isomorphic(graph, att.mol_to_nx(result))
 
 
-def test_standardise_smiles():
-    """
-    Test the `standardise_smiles` function for standardizing SMILES strings.
-
-    This function performs the following steps:
-    1. Defines an input SMILES string.
-    2. Standardizes the SMILES string with hydrogen addition enabled.
-    3. Asserts that the output is a string and matches the expected standardized SMILES.
-    4. Standardizes the SMILES string with hydrogen addition disabled.
-    5. Asserts that the output matches the expected SMILES without added hydrogens.
-
-    Asserts:
-        - The output is a string.
-        - The standardized SMILES matches the expected value with hydrogens added.
-        - The standardized SMILES matches the expected value without hydrogens added.
-    """
-    smi_in = 'O'  # Input SMILES string
-    out = att.standardise_smiles(smi_in)  # Standardize the SMILES string
-    # Check that the output is a string
-    assert isinstance(out, str)
-    # Check that the output matches the expected standardized SMILES
-    assert out == '[H]O[H]'
-
-    out = att.standardise_smiles(smi_in, add_hydrogens=False)
-    assert out == 'O'
+@pytest.mark.parametrize(
+    "graph_factory",
+    [att.ph_2p_graph, att.water_graph, att.phosphine_graph],
+)
+def test_graph_conversion_chooses_neutral_molecule(graph_factory):
+    assert Chem.GetFormalCharge(att.nx_to_mol(graph_factory())) == 0
 
 
-def test_peptide_to_smiles():
-    """
-    Test the conversion of a peptide sequence to a SMILES string.
+@pytest.mark.parametrize("smiles", ["[H]O[H]", "[H][P]", "[N]=O"])
+def test_smiles_and_graph_conversions_retain_neutral_charge(smiles):
+    assert Chem.GetFormalCharge(att.smi_to_mol(smiles)) == 0
+    assert Chem.GetFormalCharge(att.nx_to_mol(att.smi_to_nx(smiles))) == 0
 
-    This function converts the peptide "GGG" to its corresponding SMILES string
-    and asserts that the output is a string and matches the expected SMILES.
-    """
-    print(flush=True)
-    peptide = "GGG"
-    smi_out = att.peptide_to_smiles(peptide)
-    print(smi_out, flush=True)
-    assert isinstance(smi_out, str)
-    assert smi_out == 'NCC(=O)NCC(=O)NCC(=O)O'
+
+@pytest.mark.parametrize(
+    "standardize", [mol_tools.safe_standardize_mol, mol_tools.standardize_mol]
+)
+@pytest.mark.parametrize("add_hydrogens", [False, True])
+def test_standardization_mutates_input_and_only_copies_when_adding_hydrogens(
+    standardize, add_hydrogens
+):
+    molecule = Chem.MolFromSmiles("c1ccccc1", sanitize=False)
+
+    result = standardize(molecule, add_hydrogens=add_hydrogens)
+
+    assert (result is molecule) == (not add_hydrogens)
+    assert molecule.GetNumAtoms() == 6
+    assert result.GetNumAtoms() == (12 if add_hydrogens else 6)
+    assert sorted(bond.GetBondTypeAsDouble() for bond in molecule.GetBonds()) == [
+        1,
+        1,
+        1,
+        2,
+        2,
+        2,
+    ]
+
+
+@pytest.mark.parametrize(
+    "smiles,options,expected",
+    [
+        ("O", {}, "[H]O[H]"),
+        ("O", {"sanitize": False}, "[H]O[H]"),
+        ("O", {"add_hydrogens": False}, "O"),
+        ("OCC", {"add_hydrogens": False}, "CCO"),
+    ],
+)
+def test_smiles_standardization(smiles, options, expected):
+    assert mol_tools.standardise_smiles(smiles, **options) == expected
+
+
+def test_smiles_standardization_rejects_invalid_input():
+    with pytest.raises(ValueError, match="^Invalid SMILES: invalid smiles$"):
+        mol_tools.standardise_smiles("invalid smiles", add_hydrogens=False)
+    with pytest.raises(AttributeError, match="UpdatePropertyCache"):
+        mol_tools.standardise_smiles("invalid smiles")
+
+
+@pytest.mark.parametrize(
+    "source,expected",
+    [
+        ("[H]-[C]", "[H]-[C]"),
+        ("[H]-[CH](-[H])-[N]", "[H]-[C](-[H])-[N]"),
+        ("[CH3]-[CH2]-[CH1]", "[C]-[C]-[C]"),
+        (
+            "[CH3][Cl][SiH2][nH][Na+][13CH3][C@H][C:1]",
+            "[C][C][S][n][Na+][13CH3][C@H][C:1]",
+        ),
+    ],
+)
+def test_implicit_hydrogen_removal_preserves_bracket_matching_rules(source, expected):
+    assert mol_tools.smi_remove_implicit_hydrogen(source) == expected
+
+
+def test_charge_reset_returns_a_copy_and_leaves_original_charges_unchanged():
+    molecule = Chem.MolFromSmiles("C=O")
+
+    result = mol_tools.reset_mol_charge(molecule)
+
+    assert result is not molecule
+    assert [atom.GetFormalCharge() for atom in molecule.GetAtoms()] == [0, 0]
+    assert [atom.GetFormalCharge() for atom in result.GetAtoms()] == [2, 0]
+
+
+def test_combine_molecules_preserves_empty_and_single_input_contracts():
+    molecule = Chem.MolFromSmiles("CO")
+    molecules = (molecule,)
+
+    empty = mol_tools.combine_mols([])
+    assert isinstance(empty, Chem.RWMol)
+    assert empty.GetNumAtoms() == 0
+    assert mol_tools.combine_mols(molecule) is molecule
+    assert mol_tools.combine_mols(molecules) is molecules
+
+    combined = mol_tools.combine_mols([molecule])
+    assert combined is not molecule
+    assert Chem.MolToSmiles(combined) == "CO"
+
+
+def test_ionic_molecule_connects_oppositely_charged_atoms():
+    graph, fragments = att.create_ionic_molecule("[NH4+].[SH-]")
+
+    assert graph.number_of_nodes() == sum(mol.GetNumAtoms() for mol in fragments)
+    assert graph.number_of_edges() == sum(mol.GetNumBonds() for mol in fragments) + 1
+    ionic_bonds = [
+        {graph.nodes[u]["color"], graph.nodes[v]["color"]}
+        for u, v, data in graph.edges(data=True)
+        if data["color"] == 6
+    ]
+    assert ionic_bonds == [{"N", "S"}]
+    assembly_index, _, _ = att.calculate_assembly_index(graph)
+    assert assembly_index - 1 == 3
+
+
+def test_element_set_ignores_missing_and_empty_molecules():
+    assert mol_tools.get_element_set_from_mols(
+        [None, Chem.Mol(), Chem.MolFromSmiles("CO"), Chem.MolFromSmiles("NCl")]
+    ) == {"C", "O", "N", "Cl"}
+
+
+def test_free_valence_agrees_across_representations_and_tracks_removed_hydrogens():
+    molecule = att.smi_to_mol("[H]C#C[H]")
+    graph = att.smi_to_nx("[H]C#C[H]")
+
+    assert att.get_total_free_valence(molecule) == 0
+    assert att.get_total_free_valence(graph) == 0
+    assert att.get_total_free_valence(att.remove_hydrogen_from_graph(graph)) == 2
+
+
+@pytest.mark.parametrize("method, expected", [("1", 3), ("2", -1), ("3", 5)])
+def test_free_valence_methods_distinguish_bracket_hydrogens(method, expected):
+    molecule = Chem.MolFromSmiles("[NH4+]")
+
+    assert (
+        mol_tools.get_free_valence(molecule.GetAtomWithIdx(0), method=method)
+        == expected
+    )
+    assert mol_tools.get_total_free_valence(molecule, method=method) == expected
+
+
+def test_free_valence_rejects_unknown_methods():
+    atom = Chem.MolFromSmiles("C").GetAtomWithIdx(0)
+
+    with pytest.raises(
+        ValueError,
+        match="^Unknown method unknown for calculating free valence of atom C$",
+    ):
+        mol_tools.get_free_valence(atom, method="unknown")
+
+
+def test_graph_valence_truncates_each_edge_and_ignores_molecule_method():
+    graph = nx.cycle_graph(3)
+    nx.set_node_attributes(graph, "C", "color")
+    nx.set_edge_attributes(graph, 1.5, "color")
+
+    assert mol_tools.get_total_free_valence(graph, method="unused") == 6
+
+
+@pytest.mark.parametrize(
+    "sequence,canonical,expected",
+    [
+        ("GGG", True, "NCC(=O)NCC(=O)NCC(=O)O"),
+        (" a\n g\t", True, "C[C@H](N)C(=O)NCC(=O)O"),
+        (" a\n g\t", False, "N[C@H](C(=O)NCC(=O)O)C"),
+    ],
+)
+def test_peptide_normalizes_sequence_and_respects_canonical_flag(
+    sequence, canonical, expected
+):
+    assert mol_tools.peptide_to_smiles(sequence, canonical=canonical) == expected
+
+
+@pytest.mark.parametrize(
+    "sequence, message",
+    [
+        (" \n\t", "Empty sequence"),
+        ("GAZ", "Invalid amino acid code(s). Allowed: ACDEFGHIKLMNPQRSTVWY"),
+    ],
+)
+def test_peptide_validation_preserves_error_messages(sequence, message):
+    with pytest.raises(ValueError) as error:
+        mol_tools.peptide_to_smiles(sequence)
+
+    assert str(error.value) == message
+
+
+def test_peptide_reports_rdkit_build_failure(monkeypatch):
+    monkeypatch.setattr(mol_tools.Chem, "MolFromFASTA", lambda sequence: None)
+
+    with pytest.raises(
+        ValueError, match="RDKit could not parse/build the peptide from this sequence"
+    ):
+        mol_tools.peptide_to_smiles("AG")

@@ -1,30 +1,12 @@
 name: att_dev_env
 channels:
   - conda-forge
-  - defaults
+  - nodefaults
 dependencies:
-  - python>=3.14
-  - pip
-  - numpy
-  - scipy
-  - pandas
-  - matplotlib
-  - networkx
-  - pydot
-  - ase
-  - rdkit
-  - ipython
-  - pyvis
-  - pytest
-  - pytest-cov
-  - sphinx
-  - sphinx-rtd-theme
-  - myst-nb
-  - jupyterlab
-  - pubchempy
-  - cairosvg
-  - pillow
+  - python>=3.12,<3.15
+  - pip>=25.1
+  - git
+  - cxx-compiler
+  - cairo
   - pip:
-      - dagviz
-      - assemblycfg
-      - assembly-theory
+      - -e .[dev,docs,notebooks]

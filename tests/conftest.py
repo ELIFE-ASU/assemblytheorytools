@@ -1,106 +1,71 @@
-"""Keep the test run headless.
-
-The tests exercise the plotting helpers the same way the examples do, so
-they call the display entry points too: ``plt.show()``, PIL's
-``Image.show()`` and ASE's ``view()``. None of those affect an assertion,
-but on a desktop they open matplotlib windows, spawn external image
-viewers and launch ASE GUI subprocesses, and on a headless box they warn
-on every call instead. This module stubs the display layer out once,
-rather than editing the ~30 call sites that use it.
-
-Set ``ATT_TEST_SHOW_PLOTS=1`` to restore the real viewers when you want to
-eyeball a figure while debugging locally.
-"""
+"""Shared test isolation, bundled data and opt-in environment checks."""
 
 import os
+import random
+import re
 import shutil
+import signal
+import subprocess
 from pathlib import Path
 
-# Keep caches inside pytest's already-ignored cache directory. This makes test
-# collection/imports work in containers and read-only home directories without
-# Matplotlib and fontconfig filling the warning summary with environment noise.
-REPO_ROOT = Path(__file__).resolve().parents[1]
-TEST_CACHE = REPO_ROOT / ".pytest_cache" / "runtime"
+# Configure caches and the backend before importing pyplot or the package.
+TEST_CACHE = Path(__file__).resolve().parents[1] / ".pytest_cache" / "runtime"
 TEST_CACHE.mkdir(parents=True, exist_ok=True)
 os.environ.setdefault("MPLCONFIGDIR", str(TEST_CACHE / "matplotlib"))
 os.environ.setdefault("XDG_CACHE_HOME", str(TEST_CACHE))
-
-import matplotlib
-import pytest
-
 SHOW_PLOTS = os.environ.get("ATT_TEST_SHOW_PLOTS", "") not in ("", "0")
 
+import matplotlib
+
 if not SHOW_PLOTS:
-    # Select the non-interactive backend before pyplot is imported below.
-    # Without it, plt.show() blocks waiting for a display that never
-    # appears in a headless/CI environment, hanging the whole run instead
-    # of failing fast.
     matplotlib.use("Agg")
 
+import ase.visualize
 import matplotlib.pyplot as plt
+import numpy as np
+import pytest
+from PIL import Image
+
+OPT_IN_GROUPS = {
+    "integration": "tests requiring live services, external data, or executables",
+    "slow": "long-running local calculations",
+}
 
 
 def pytest_addoption(parser):
-    """Keep environment-dependent and expensive checks opt-in."""
-    parser.addoption(
-        "--run-integration",
-        action="store_true",
-        default=False,
-        help="run tests requiring network access, external data, or executables",
-    )
-    parser.addoption(
-        "--run-slow",
-        action="store_true",
-        default=False,
-        help="run tests excluded from the normal fast development loop",
-    )
+    for marker, description in OPT_IN_GROUPS.items():
+        parser.addoption(
+            f"--run-{marker}", action="store_true", help=f"run {description}"
+        )
 
 
 def pytest_collection_modifyitems(config, items):
-    """Skip opt-in test groups unless their command-line flag is supplied."""
-    skip_integration = pytest.mark.skip(
-        reason="pass --run-integration to run integration tests"
-    )
-    skip_slow = pytest.mark.skip(reason="pass --run-slow to run slow tests")
-
-    for item in items:
-        if "integration" in item.keywords and not config.getoption("--run-integration"):
-            item.add_marker(skip_integration)
-        if "slow" in item.keywords and not config.getoption("--run-slow"):
-            item.add_marker(skip_slow)
-
-
-if not SHOW_PLOTS:
-    import ase.visualize
-    from PIL import Image
-
-    # Agg alone still makes plt.show() warn "FigureCanvasAgg is
-    # non-interactive, and thus cannot be shown" once per *open* figure.
-    # Because the tests never close their figures, that count climbs as
-    # the run goes on and buries the real warnings. Drop the call.
-    plt.show = lambda *args, **kwargs: None
-
-    # PIL hands the image to an external viewer and leaves the process
-    # running, which pytest reports as a leaked-subprocess ResourceWarning.
-    Image.Image.show = lambda self, *args, **kwargs: None
-
-    # ASE's view() launches a GUI subprocess per call. test_tools_cell.py
-    # calls it once per CIF file, so an unstubbed run opens a window for
-    # every structure in tests/data/cif_files/. Patch the function on the
-    # package here, before the test modules do `from ase.visualize import
-    # view` and bind their own reference to it.
-    ase.visualize.view = lambda *args, **kwargs: None
+    for marker in OPT_IN_GROUPS:
+        if not config.getoption(f"--run-{marker}"):
+            skip = pytest.mark.skip(reason=f"pass --run-{marker} to run {marker} tests")
+            for item in items:
+                if item.get_closest_marker(marker) is not None:
+                    item.add_marker(skip)
 
 
 @pytest.fixture(autouse=True)
-def close_figures():
-    """Close any figures a test leaves behind.
+def isolated_random_state():
+    """Make stochastic tests reproducible without leaking seeds between tests."""
+    python_state, numpy_state = random.getstate(), np.random.get_state()
+    random.seed(0)
+    np.random.seed(0)
+    yield
+    random.setstate(python_state)
+    np.random.set_state(numpy_state)
 
-    pyplot keeps every unclosed figure alive for the whole session, which
-    leaks memory across the suite and trips the "More than 20 figures have
-    been opened" warning. The tests assert on the figure they were handed
-    and never close it, so do it for them.
-    """
+
+@pytest.fixture(autouse=True)
+def headless_display(monkeypatch):
+    """Suppress external viewers and release figures even when a test fails."""
+    if not SHOW_PLOTS:
+        monkeypatch.setattr(plt, "show", lambda *args, **kwargs: None)
+        monkeypatch.setattr(Image.Image, "show", lambda *args, **kwargs: None)
+        monkeypatch.setattr(ase.visualize, "view", lambda *args, **kwargs: None)
     yield
     if not SHOW_PLOTS:
         plt.close("all")
@@ -108,17 +73,81 @@ def close_figures():
 
 @pytest.fixture(scope="session")
 def data_dir():
-    """Absolute path to bundled test data, independent of the working directory."""
+    """Bundled test data, independent of the working directory."""
     return Path(__file__).resolve().parent / "data"
 
 
 @pytest.fixture
+def serial_data_mp(monkeypatch):
+    """Keep data-transform checks local; process pools have their own tests."""
+    from assemblytheorytools import tools_data
+
+    monkeypatch.setattr(
+        tools_data, "mp_calc", lambda function, values: list(map(function, values))
+    )
+
+
+# ORCA prints this in its startup banner, even when the input file is missing.
+_ORCA_VERSION_PATTERN = re.compile(r"Program Version (\S+)")
+
+
+def _orca_version(executable):
+    """Return the version *executable* reports, or None if it is not ORCA.
+
+    Identifying ORCA means running it: like most quantum-chemistry codes it has
+    no ``--version`` flag, so ASE reads the version out of the startup banner
+    (:meth:`ase.calculators.orca.OrcaProfile.version`). This does the same, but
+    with a timeout and a closed stdin, because the candidate may be some
+    unrelated program that blocks instead of exiting.
+
+    The probe gets its own session so a timeout can kill the whole process
+    group. GNOME Orca is a long-running desktop application, and killing only
+    the process that was spawned would leave a screen reader running.
+    """
+    try:
+        probe = subprocess.Popen(
+            [executable, "does_not_exist"],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            start_new_session=True,
+        )
+    except OSError:
+        return None
+
+    try:
+        stdout, _ = probe.communicate(timeout=30)
+    except subprocess.TimeoutExpired:
+        os.killpg(probe.pid, signal.SIGKILL)
+        probe.communicate()
+        return None
+
+    found = _ORCA_VERSION_PATTERN.search(stdout)
+    return found.group(1) if found else None
+
+
+@pytest.fixture(scope="session")
 def orca_path():
-    """Return a configured ORCA executable or skip the dependent integration test."""
-    configured = os.environ.get("ORCA_PATH")
-    executable = shutil.which(configured) if configured else shutil.which("orca")
-    if executable is None and configured and Path(configured).is_file():
-        executable = configured
+    """Return a verified ORCA executable or skip the tests that need one.
+
+    Finding a program called ``orca`` is not enough to conclude ORCA is
+    installed. Ubuntu ships an ``orca`` package that is GNOME Orca, the
+    accessibility screen reader, at ``/usr/bin/orca``; it has nothing to do with
+    the quantum-chemistry ORCA. Passing it to ASE wastes minutes and fails with
+    a bare non-zero exit status, which reads like flakiness rather than a
+    misconfigured environment. So the candidate has to identify itself before it
+    is handed on, and the probe runs once per session.
+    """
+    configured = os.environ.get("ORCA_PATH") or "orca"
+    executable = shutil.which(configured)
     if executable is None:
         pytest.skip("ORCA executable is not configured")
+
+    if _orca_version(executable) is None:
+        pytest.skip(
+            f"{executable} does not identify itself as ORCA, so it is probably "
+            f"a different program of the same name (Ubuntu's 'orca' package is "
+            f"the GNOME screen reader); set ORCA_PATH to a real ORCA executable"
+        )
     return executable

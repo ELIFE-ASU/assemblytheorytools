@@ -17,6 +17,7 @@ Everything named here is re-exported at the package root, so
 | A sequence or any text string | {func}`~assemblytheorytools.assembly.calculate_string_assembly_index` | {doc}`guide/strings` |
 | A labelled NetworkX graph | {func}`~assemblytheorytools.assembly.calculate_assembly_index` | {doc}`guide/graphs` |
 | A crystal structure in a CIF file | {func}`~assemblytheorytools.tools_cell.cif_to_nx`, then the same calculation | {doc}`guide/graphs` |
+| A periodic ASE `Atoms` object | {func}`~assemblytheorytools.tools_cell.cell_to_nx`, then the same calculation | {doc}`guide/graphs` |
 | Several objects to treat as one | {func}`~assemblytheorytools.tools_graph.join_graphs`, then the same calculation | {doc}`guide/molecules` |
 | Thousands of structures | {func}`~assemblytheorytools.assembly.calculate_assembly_index_parallel` | {doc}`guide/parallel` |
 | A tandem-MS fragmentation tree | {class}`~assemblytheorytools.recursive_ma.MAEstimator` | {doc}`guide/mass_spectrometry` |

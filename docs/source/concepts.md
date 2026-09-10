@@ -84,18 +84,19 @@ value returned by the calculator.
 | Molecules | {func}`~assemblytheorytools.tools_graph.smi_to_nx`, RDKit `Mol` | {doc}`guide/molecules` |
 | Strings, directed and undirected | {func}`~assemblytheorytools.assembly.calculate_string_assembly_index` | {doc}`guide/strings` |
 | Arbitrary labelled graphs | NetworkX `Graph` with `color` attributes | {doc}`guide/graphs` |
-| Crystal structures | {func}`~assemblytheorytools.tools_cell.cif_to_nx` | {doc}`guide/graphs` |
+| Crystal structures and periodic cells | {func}`~assemblytheorytools.tools_cell.cif_to_nx`, {func}`~assemblytheorytools.tools_cell.cell_to_nx` | {doc}`guide/graphs` |
 
 ## Calculator backends
 
 ATT does not implement the search itself; it prepares input, drives an external
 calculator and parses the result. Three backends are available.
 
-assemblyCPP
+parallelassemblycpp
 : The default. A C++ branch-and-bound calculator, invoked by
-  {func}`~assemblytheorytools.assembly.calculate_assembly_index`. Precompiled
-  static binaries ship in the wheel, and `ASS_PATH` overrides them. This is the
-  default source of virtual objects and one assembly pathway.
+  {func}`~assemblytheorytools.assembly.calculate_assembly_index`. The
+  executable is not distributed with ATT: it is found through `ASS_PATH` or
+  `PATH`, or built from source on first use. This is the default source of
+  virtual objects and one assembly pathway.
 
 assembly-theory (Rust)
 : Reached through

@@ -4,6 +4,32 @@ Assembly index calculations are independent of one another. The default C++
 backend spawns an external process for each calculation, so batches parallelise
 well.
 
+## Threads within one calculation
+
+To parallelise a single graph search, use an upstream OpenMP executable and
+pass {class}`~assemblytheorytools.assembly.AssemblyCppOptions`:
+
+```python
+import assemblytheorytools as att
+
+ai, virtual_objects, pathway = att.calculate_assembly_index(
+    att.smi_to_mol("CN1C=NC2=C1C(=O)N(C(=O)N2C)C"),
+    strip_hydrogen=True,
+    dir_code="/path/to/ParallelAssemblyCppOMP",
+    cpp_options=att.AssemblyCppOptions(parallel="on", threads=8),
+    timeout=30,
+)
+```
+
+`parallel="on"` requires native parallel execution; `"auto"` allows serial
+fallback. ATT's default cached executable is serial. Build the OpenMP target
+with `PARALLELASSEMBLYCPP_BUILD_OPENMP=ON` in upstream CMake, then point
+`dir_code` or `ASS_PATH` at it.
+
+`timeout` limits elapsed wall time and works with parallel execution. The
+separate `runtime_ticks` option imposes the C++ CPU-time budget, which currently
+requires serial search, as does `write_intermediate_mas=True`.
+
 ## Many molecules at once
 
 {func}`~assemblytheorytools.assembly.calculate_assembly_index_parallel` takes a
@@ -25,6 +51,12 @@ print(ai)   # [3, 4, 0, 3]
 It returns three lists — indices, virtual objects and pathways — aligned with
 the input order, so results stay matched to their inputs even though the
 calculations finish out of order.
+
+`settings` can include `cpp_options=att.AssemblyCppOptions(...)`. When combining
+Python worker processes with C++ threads, allow for their product when choosing
+the total number of cores. The two parallel settings control different levels:
+batch functions' `parallel` selects Python workers; `cpp_options.parallel`
+selects the C++ search within each worker.
 
 ## The general parallel map
 

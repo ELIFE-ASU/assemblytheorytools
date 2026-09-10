@@ -10,36 +10,22 @@ chunked variant for large workloads.
 import multiprocessing as mp
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
-from typing import Callable, Iterable, Any, Tuple
+from typing import Any, Callable, Iterable, Tuple
 
 
 def _bind_kwargs(func: Callable[..., Any], kwargs: dict) -> Callable[..., Any]:
-    """
-    Partially apply *kwargs* to *func*, if any were given.
-
-    Parameters
-    ----------
-    func : Callable[..., Any]
-        The function to bind keyword arguments to.
-    kwargs : dict
-        Keyword arguments to bind. If empty, *func* is returned unchanged.
-
-    Returns
-    -------
-    Callable[..., Any]
-        *func* itself, or a `partial` wrapping it with *kwargs* bound.
-    """
+    """Bind keyword arguments, leaving the callable unchanged when empty."""
     return partial(func, **kwargs) if kwargs else func
 
 
-def mp_calc(func: Callable[[Any], Any],
-            arg: Iterable[Any],
-            n: int = mp.cpu_count(),
-            **kwargs: Any) -> list[Any]:
+def mp_calc(
+    func: Callable[[Any], Any],
+    arg: Iterable[Any],
+    n: int = mp.cpu_count(),
+    **kwargs: Any,
+) -> list[Any]:
     """
-    Execute a function in parallel using a process pool.
-
-    Keyword arguments are supported.
+    Map a function over arguments in order using a process pool.
 
     Parameters
     ----------
@@ -93,14 +79,14 @@ def mp_calc(func: Callable[[Any], Any],
         return pool.map(func, arg)
 
 
-def mp_calc_star(func: Callable[..., Any],
-                 args: Iterable[Tuple[Any, ...]],
-                 n: int = mp.cpu_count(),
-                 **kwargs: Any) -> list[Any]:
+def mp_calc_star(
+    func: Callable[..., Any],
+    args: Iterable[Tuple[Any, ...]],
+    n: int = mp.cpu_count(),
+    **kwargs: Any,
+) -> list[Any]:
     """
-    Execute a function in parallel over multiple arguments.
-
-    A process pool is used, and keyword arguments are supported.
+    Map a function over argument tuples in order using a process pool.
 
     Parameters
     ----------
@@ -123,14 +109,16 @@ def mp_calc_star(func: Callable[..., Any],
         return pool.starmap(func, args)
 
 
-def tp_calc(func: Callable[[Any], Any],
-            arg: Iterable[Any],
-            n: int = mp.cpu_count(),
-            **kwargs: Any) -> list[Any]:
+def tp_calc(
+    func: Callable[[Any], Any],
+    arg: Iterable[Any],
+    n: int = mp.cpu_count(),
+    **kwargs: Any,
+) -> list[Any]:
     """
-    Execute a function in parallel using a thread pool.
+    Map a function over arguments in order using a thread pool.
 
-    Keyword arguments are supported. Works best for I/O-bound tasks.
+    Works best for I/O-bound tasks.
 
     Parameters
     ----------
@@ -154,16 +142,14 @@ def tp_calc(func: Callable[[Any], Any],
 
 
 def mp_calc_chunked(
-        func: Callable[[Any], Any],
-        arg: Iterable[Any],
-        n: int | None = None,
-        chunksize: int | None = None,
-        **kwargs: Any
+    func: Callable[[Any], Any],
+    arg: Iterable[Any],
+    n: int | None = None,
+    chunksize: int | None = None,
+    **kwargs: Any,
 ) -> list[Any]:
     """
-    Execute a function in parallel with optional chunking.
-
-    A process pool is used, and keyword arguments are supported.
+    Map a function in order using a process pool with explicit chunking.
 
     Parameters
     ----------

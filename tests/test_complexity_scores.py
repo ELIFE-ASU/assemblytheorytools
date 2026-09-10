@@ -1,664 +1,400 @@
+"""Molecular descriptors, complexity scores, and compression behavior."""
+
+import bz2
+import copy
+import lzma
+import math
+import zlib
+
 import networkx as nx
-import numpy as np
+import pytest
 from rdkit import Chem
-from rdkit.Chem import AllChem as Chem
 
 import assemblytheorytools as att
+from assemblytheorytools import complexity_scores as scores
 
 
-def test_count_unique_bonds():
-    """
-    Test the `count_unique_bonds` function.
-
-    This function performs the following tests:
-    1. Converts a SMILES string for water ("O") to a molecule object.
-       - Asserts that the number of unique bonds is 1.
-    2. Converts a SMILES string for benzene ("c1ccccc1") to a molecule object.
-       - Asserts that the number of unique bonds is 3.
-
-    Asserts:
-        - The number of unique bonds matches the expected value for each test case.
-    """
-    print(flush=True)
-    # Test with water
-    smi = "O"
-    mol = att.smi_to_mol(smi)  # Convert SMILES to molecule object
-    n = att.count_unique_bonds(mol)  # Count unique bonds
-    assert n == 1, f"Expected 1 unique bonds for {smi}, got {n}"
-
-    # Test with benzene
-    smi = "c1ccccc1"  # Benzene
-    mol = att.smi_to_mol(smi)  # Convert SMILES to molecule object
-    n = att.count_unique_bonds(mol)  # Count unique bonds
-    assert n == 3, f"Expected 2 unique bonds for {smi}, got {n}"
+@pytest.fixture
+def benzoic_acid():
+    return att.smi_to_mol("C1=CC=C(C=C1)C(=O)O")
 
 
-def test_count_bonds():
-    """
-    Test the `count_bonds` function.
+@pytest.mark.parametrize(
+    "smiles, unique, total, heavy",
+    [("O", 1, 2, 0), ("c1ccccc1", 3, 12, 6)],
+    ids=["water", "benzene"],
+)
+def test_bond_counts_include_explicit_hydrogens(smiles, unique, total, heavy):
+    molecule = att.smi_to_mol(smiles)
 
-    This function performs the following tests:
-    1. Converts a SMILES string for water ("O") to a molecule object.
-       - Asserts that the total number of bonds is 2.
-    2. Converts a SMILES string for benzene ("c1ccccc1") to a molecule object.
-       - Asserts that the total number of bonds is 12.
-
-    Asserts:
-        - The total number of bonds matches the expected value for each test case.
-    """
-    print(flush=True)
-    # Test with water
-    smi = "O"
-    mol = att.smi_to_mol(smi)  # Convert SMILES to molecule object
-    n = att.count_bonds(mol)  # Count total bonds
-    assert n == 2, f"Expected 2 bonds for {smi}, got {n}"
-
-    # Test with benzene
-    smi = "c1ccccc1"  # Benzene
-    mol = att.smi_to_mol(smi)  # Convert SMILES to molecule object
-    n = att.count_bonds(mol)  # Count total bonds
-    assert n == 12, f"Expected 12 bonds for {smi}, got {n}"
+    assert scores.count_unique_bonds(molecule) == unique
+    assert scores.count_bonds(molecule) == total
+    assert scores.count_non_h_bonds(molecule) == heavy
 
 
-def test_count_non_h_bonds():
-    """
-    Test the `count_non_h_bonds` function.
+@pytest.mark.parametrize(
+    "smiles, explicit_hydrogens, expected",
+    [
+        ("CCC", False, 4),
+        ("CCCC", False, 10),
+        ("CC(C)C", False, 9),
+        ("c1ccccc1", False, 27),
+        ("O", True, 4),
+        ("C", True, 16),
+    ],
+    ids=["propane", "butane", "isobutane", "benzene", "water", "methane"],
+)
+def test_wiener_index_sums_distances_over_unordered_atom_pairs(
+    smiles, explicit_hydrogens, expected
+):
+    # Equal atom counts must distinguish the path (butane) and star
+    # (isobutane); explicit hydrogens also contribute vertices.
+    molecule = Chem.MolFromSmiles(smiles)
+    if explicit_hydrogens:
+        molecule = Chem.AddHs(molecule)
 
-    This function performs the following tests:
-    1. Converts a SMILES string for water ("O") to a molecule object.
-       - Asserts that the number of non-hydrogen bonds is 0.
-    2. Converts a SMILES string for benzene ("c1ccccc1") to a molecule object.
-       - Asserts that the number of non-hydrogen bonds is 6.
-
-    Asserts:
-        - The number of non-hydrogen bonds matches the expected value for each test case.
-    """
-    print(flush=True)
-    # Test with water
-    smi = "O"
-    mol = att.smi_to_mol(smi)  # Convert SMILES to molecule object
-    n = att.count_non_h_bonds(mol)  # Count non-hydrogen bonds
-    assert n == 0, f"Expected 0 non-hydrogen bonds for {smi}, got {n}"
-
-    # Test with benzene
-    smi = "c1ccccc1"  # Benzene
-    mol = att.smi_to_mol(smi)  # Convert SMILES to molecule object
-    n = att.count_non_h_bonds(mol)  # Count non-hydrogen bonds
-    assert n == 6, f"Expected 6 non-hydrogen bonds for {smi}, got {n}"
+    assert scores.wiener_index(molecule) == expected
 
 
-def test_wiener_index():
-    """
-    Test the `wiener_index` function against hand-computed values.
+def test_molecular_descriptors_for_doravirine():
+    molecule = Chem.MolFromSmiles(
+        "Cn1c(n[nH]c1=O)Cn2ccc(c(c2=O)Oc3cc(cc(c3)Cl)C#N)C(F)(F)F"
+    )
 
-    The Wiener index is the sum of the topological shortest-path distances over
-    all unordered pairs of atoms. Every atom present in the molecule counts, so
-    the expected value depends on whether hydrogens are explicit.
+    descriptors = scores.get_mol_descriptors(molecule)
 
-    Heavy-atom skeletons (built with `Chem.MolFromSmiles`, which leaves
-    hydrogens implicit):
-    1. Propane ("CCC") is the path C-C-C: 1 + 1 + 2 = 4.
-    2. n-Butane ("CCCC") is the path C-C-C-C: (3x1) + (2x2) + 3 = 10.
-    3. Isobutane ("CC(C)C") is the star K(1,3): (3x1) + (3x2) = 9.
-    4. Benzene ("c1ccccc1") is the 6-cycle: each atom is at distance
-       1, 2, 3, 2, 1 from the others, so 6 x 9 / 2 = 27.
-
-    With explicit hydrogens (as `att.smi_to_mol` adds by default):
-    5. Water ("O") is the path H-O-H: 1 + 1 + 2 = 4.
-    6. Methane ("C") is the star K(1,4): (4x1) + (6x2) = 16.
-
-    Asserts:
-        - Each computed index matches its hand-computed value.
-        - n-Butane and isobutane differ, even though both have four heavy
-          atoms. This guards against a regression in which the index depended
-          only on the atom count and not on the molecular topology.
-    """
-    print(flush=True)
-    # Heavy-atom skeletons: hydrogens stay implicit and so are not vertices
-    heavy_expected = {"CCC": 4, "CCCC": 10, "CC(C)C": 9, "c1ccccc1": 27}
-    for smi, expected in heavy_expected.items():
-        mol = Chem.MolFromSmiles(smi)
-        n = att.wiener_index(mol)
-        assert n == expected, f"Expected Wiener index {expected} for {smi}, got {n}"
-
-    # Same heavy-atom count, different topology, so the indices must differ
-    assert att.wiener_index(Chem.MolFromSmiles("CCCC")) != att.wiener_index(Chem.MolFromSmiles("CC(C)C"))
-
-    # Explicit hydrogens are counted as vertices too
-    h_expected = {"O": 4, "C": 16}
-    for smi, expected in h_expected.items():
-        mol = att.smi_to_mol(smi)  # add_hydrogens defaults to True
-        n = att.wiener_index(mol)
-        assert n == expected, f"Expected Wiener index {expected} for {smi} with hydrogens, got {n}"
+    assert descriptors["BertzCT"] == pytest.approx(1236.821427)
+    assert descriptors["MolWt"] == pytest.approx(425.754)
 
 
-def test_get_mol_descriptors():
-    """
-    Test that `get_mol_descriptors()` correctly calculates molecular
-    descriptors for a known compound (doravirine).
-
-    Molecule:
-    - Doravirine (an antiretroviral drug)
-    - SMILES: 'Cn1c(n[nH]c1=O)Cn2ccc(c(c2=O)Oc3cc(cc(c3)Cl)C#N)C(F)(F)F'
-
-    Method:
-    - Uses RDKit to generate a Mol object.
-    - Uses `assemblytheorytools.get_mol_descriptors()` to extract descriptors.
-
-    Assertions:
-    - Molecular Weight (MolWt) ≈ 425.754
-    - Bertz Complexity (BertzCT) ≈ 1236.821427
-
-    Notes:
-    - Uses rounding to avoid test failures due to small floating-point differences.
-    """
-    # Create an RDKit Mol object from SMILES for doravirine (a drug molecule)
-    doravirine = Chem.MolFromSmiles('Cn1c(n[nH]c1=O)Cn2ccc(c(c2=O)Oc3cc(cc(c3)Cl)C#N)C(F)(F)F')
-
-    # Compute molecular descriptors using assemblytheorytools
-    desc = att.get_mol_descriptors(doravirine)
-
-    # Check expected descriptor values (approximate)
-    assert np.allclose(desc['BertzCT'], 1236.821427)
-    assert np.allclose(desc['MolWt'], 425.754)
-
-
-def test_tanimoto_similarity():
-    """
-    Test that Tanimoto similarity between RDKit topological fingerprints
-    is computed correctly for a set of small molecules.
-
-    Method:
-    - Uses `tanimoto_similarity()` from `assemblytheorytools`, which wraps
-      RDKit's topological fingerprinting and similarity computation.
-
-    Assertions:
-    - Similarity(CCOC, CCO)  == 0.6
-    - Similarity(CCOC, COC)  == 0.4
-    - Similarity(CCO,  COC)  == 0.25
-    """
-    # https://www.rdkit.org/docs/GettingStartedInPython.html#rdkit-topological-fingerprints
-
-    # Create RDKit Mol objects from SMILES
-    ms = [Chem.MolFromSmiles('CCOC'),
-          Chem.MolFromSmiles('CCO'),
-          Chem.MolFromSmiles('COC')]
-
-    # Compute and assert Tanimoto similarities using att's wrapper
-    sim = att.tanimoto_similarity(ms[0], ms[1])
-    assert sim == 0.6
-    sim = att.tanimoto_similarity(ms[0], ms[2])
-    assert sim == 0.4
-    sim = att.tanimoto_similarity(ms[1], ms[2])
-    assert sim == 0.25
+@pytest.mark.parametrize(
+    "first, second, expected",
+    [("CCOC", "CCO", 0.6), ("CCOC", "COC", 0.4), ("CCO", "COC", 0.25)],
+)
+def test_tanimoto_similarity(first, second, expected):
+    assert scores.tanimoto_similarity(
+        Chem.MolFromSmiles(first), Chem.MolFromSmiles(second)
+    ) == pytest.approx(expected)
 
 
 def test_dice_morgan_similarity():
-    """
-    Test that the Dice similarity between two small molecules,
-    computed using Morgan fingerprints (radius=2), returns the expected value.
-
-    Molecules:
-    - Toluene: SMILES = 'Cc1ccccc1'
-    - Methylpyridine: SMILES = 'Cc1ncccc1'
-
-    Method:
-    - Uses `dice_morgan_similarity()` from `assemblytheorytools`
-      with circular fingerprints of radius 2.
-
-    Assertion:
-    - The computed similarity must be equal to 0.55.
-    """
-    # https://www.rdkit.org/docs/GettingStartedInPython.html#morgan-fingerprints-circular-fingerprints
-
-    # Create two RDKit Mol objects from SMILES strings
-    m1 = Chem.MolFromSmiles('Cc1ccccc1')  # Toluene
-    m2 = Chem.MolFromSmiles('Cc1ncccc1')  # Methylpyridine
-
-    # Compute Dice similarity between Morgan fingerprints (circular)
-    sim = att.dice_morgan_similarity(m1, m2, radius=2)
-
-    # Assert similarity value (approximate comparison recommended)
-    assert sim == 0.55
-
-
-def test_get_chirality():
-    """
-    Test that the `get_chirality` function correctly counts the number
-    of chiral centers in a stereochemically defined molecule.
-
-    Assertion:
-    - The function must return 3, matching the number of explicitly defined
-      stereocenters in the SMILES string.
-    """
-    # SMILES string for a chiral molecule (likely a sugar derivative)
-    smi = "OC[C@H]1OC=C[C@@H](O)[C@@H]1O"
-
-    # Convert SMILES to RDKit Mol object
-    mol = att.smi_to_mol(smi)
-
-    # Compute number of chiral centers
-    chirality = att.get_chirality(mol)
-
-    # Assert the expected number of stereocenters
-    assert chirality == 3
-
-
-def test_compression_zlib_smi():
-    """
-    Test the compression of a molecule's SMILES representation using zlib.
-
-    This function performs the following steps:
-    1. Converts a SMILES string to a molecule object.
-    2. Compresses the molecule's SMILES representation using `compression_zlib_smi`.
-    3. Compresses the molecule with and without hydrogens.
-    4. Compresses the molecule with a low compression level.
-    5. Asserts that the compressed size is smaller with higher compression levels.
-    6. Asserts that the compressed size is smaller when hydrogens are excluded.
-    7. Asserts that the compressed sizes match expected values.
-
-    Asserts:
-        - The compressed size with higher compression is smaller than with lower compression.
-        - The compressed size without hydrogens is smaller than with hydrogens.
-        - The compressed sizes match the expected values (13 and 29).
-    """
-    print(flush=True)
-    smi = "C1=CC=C(C=C1)C(=O)O"  # SMILES for benzoic acid
-    mol = att.smi_to_mol(smi)  # Convert the SMILES string to a molecule object
-
-    # Compress the molecule's SMILES representation without hydrogens
-    compressed = att.compression_zlib_smi(mol, add_hydrogens=False)
-    # Compress the molecule's SMILES representation with a low compression level
-    bad_compressed = att.compression_zlib_smi(mol, add_hydrogens=False, level=0)
-    # Compress the molecule's SMILES representation with hydrogens
-    h_compressed = att.compression_zlib_smi(mol, add_hydrogens=True)
-
-    # Assert that the compressed size with higher compression is smaller
-    assert compressed < bad_compressed
-    # Assert that the compressed size without hydrogens matches the expected value
-    assert compressed == 13
-    # Assert that the compressed size with hydrogens matches the expected value
-    assert h_compressed == 29
-
-
-def test_compression_bz2_smi():
-    """
-    Test the compression of a molecule's SMILES representation using bz2.
-
-    This function performs the following steps:
-    1. Defines a SMILES string for benzoic acid.
-    2. Converts the SMILES string to a molecule object.
-    3. Compresses the molecule's SMILES representation with and without hydrogens.
-    4. Asserts that the compressed size is smaller when hydrogens are excluded.
-    5. Asserts that the compressed sizes match the expected values.
-
-    Asserts:
-        - The compressed size without hydrogens is smaller than with hydrogens.
-        - The compressed size without hydrogens matches the expected value (35).
-        - The compressed size with hydrogens matches the expected value (48).
-    """
-    print(flush=True)
-    smi = "C1=CC=C(C=C1)C(=O)O"  # SMILES for benzoic acid
-    mol = att.smi_to_mol(smi)
-
-    # Compress the molecule's SMILES representation
-    compressed = att.compression_bz2_smi(mol, add_hydrogens=False)
-    h_compressed = att.compression_bz2_smi(mol, add_hydrogens=True)
-
-    # Assert that the compressed size is smaller without hydrogens
-    assert compressed < h_compressed
-    # Assert expected compressed sizes
-    assert compressed == 35
-    assert h_compressed == 48
-
-
-def test_compression_lzma_smi():
-    """
-    Test the compression of a molecule's SMILES representation using lzma.
-
-    This function performs the following steps:
-    1. Defines a SMILES string for benzoic acid.
-    2. Converts the SMILES string to a molecule object.
-    3. Compresses the molecule's SMILES representation with and without hydrogens.
-    4. Asserts that the compressed size is smaller when hydrogens are excluded.
-    5. Asserts that the compressed sizes match the expected values.
-
-    Asserts:
-        - The compressed size without hydrogens is smaller than with hydrogens.
-        - The compressed size without hydrogens matches the expected value (44).
-        - The compressed size with hydrogens matches the expected value (60).
-    """
-    print(flush=True)
-    smi = "C1=CC=C(C=C1)C(=O)O"  # SMILES for benzoic acid
-    mol = att.smi_to_mol(smi)  # Convert the SMILES string to a molecule object
-
-    # Compress the molecule's SMILES representation without hydrogens
-    compressed = att.compression_lzma_smi(mol, add_hydrogens=False)
-    # Compress the molecule's SMILES representation with hydrogens
-    h_compressed = att.compression_lzma_smi(mol, add_hydrogens=True)
-
-    # Assert that the compressed size is smaller without hydrogens
-    assert compressed < h_compressed
-    # Assert expected compressed sizes
-    assert compressed == 44
-    assert h_compressed == 60
-
-
-def test_compression_zlib_graph():
-    """
-    Test the compression and decompression of a graph using zlib.
-
-    This function performs the following steps:
-    1. Creates a simple graph with colored nodes and edges.
-    2. Compresses the graph using `compress_zlib_graph`.
-    3. Decompresses the graph and verifies the node and edge attributes.
-    4. Converts a molecule's SMILES representation to a NetworkX graph.
-    5. Compresses the molecule's graph representation with and without hydrogens.
-    6. Compresses the molecule's graph representation with a low compression level.
-    7. Asserts that the compressed size with higher compression is smaller.
-    8. Asserts that the compressed sizes match the expected values.
-
-    Asserts:
-        - The compressed size with higher compression is smaller than with lower compression.
-        - The compressed size without hydrogens matches the expected value (111).
-        - The compressed size with hydrogens matches the expected value (152).
-
-    Notes:
-        - The with-hydrogens assertion was 111 until 2026-08-17, matching the
-          without-hydrogens value. That was an artefact of
-          `remove_hydrogen_from_graph` stripping in place: the earlier
-          `add_hydrogens=False` call mutated `graph`, so the `add_hydrogens=True`
-          call re-measured the stripped graph. Each measurement now gets its own
-          graph, and 152 is the true with-hydrogens size.
-    """
-    print(flush=True)
-    # Create a simple graph with colors
-    graph = nx.Graph()
-    graph.add_node(1, color='red')
-    graph.add_node(2, color='blue')
-    graph.add_edge(1, 2, color='green')
-
-    # Compress
-    compressed = att.compress_zlib_graph(graph)
-    print(f"Compressed size: {len(compressed)} bytes", flush=True)
-
-    # Decompress
-    G2 = att.decompress_zlib_graph(compressed)
-    print("Node colors:", nx.get_node_attributes(G2, 'color'), flush=True)
-    print("Edge colors:", nx.get_edge_attributes(G2, 'color'), flush=True)
-
-    smi = "C1=CC=C(C=C1)C(=O)O"  # SMILES for benzoic acid
-    mol = att.smi_to_mol(smi)  # Convert the SMILES string to a molecule object
-    graph = att.mol_to_nx(mol, add_hydrogens=True)
-    print(graph, flush=True)
-    print(graph.nodes(data=True), flush=True)
-
-    # Compress
-    compressed = att.compress_zlib_graph(graph)
-    print(f"Compressed size: {len(compressed)} bytes", flush=True)
-
-    # Decompress
-    G2 = att.decompress_zlib_graph(compressed)
-    print("Node colors:", nx.get_node_attributes(G2, 'color'), flush=True)
-    print("Edge colors:", nx.get_edge_attributes(G2, 'color'), flush=True)
-
-    # Compress the molecule's SMILES representation without hydrogens
-    compressed = att.compression_zlib_graph(graph, add_hydrogens=False)
-    # Compress the molecule's SMILES representation with a low compression level
-    bad_compressed = att.compression_zlib_graph(graph, add_hydrogens=False, level=0)
-    # Compress the molecule's SMILES representation with hydrogens
-    h_compressed = att.compression_zlib_graph(graph, add_hydrogens=True)
-    print(compressed, bad_compressed, h_compressed)
-    # Assert that the compressed size with higher compression is smaller
-    assert compressed < bad_compressed
-    # Assert that the compressed size without hydrogens matches the expected value
-    assert compressed == 111
-    # Assert that the compressed size with hydrogens matches the expected value
-    assert h_compressed == 152
-    # The hydrogens make the graph bigger, so it must not compress to the same size
-    assert h_compressed > compressed
-    # The input graph must be untouched by any of the calls above
-    assert graph.number_of_nodes() == 15
-
-
-def test_compression_ratio_zlib_graph():
-    """
-    Test the compression ratio of a graph using zlib.
-
-    This function performs the following steps:
-    1. Defines a SMILES string for benzoic acid.
-    2. Converts the SMILES string to a molecule object and then to a NetworkX graph.
-    3. Calculates the compression ratio with and without hydrogens.
-    4. Asserts that the compression ratios match the expected values.
-
-    Asserts:
-        - The compression ratio with hydrogens is approximately 6.97.
-        - The compression ratio without hydrogens is approximately 5.95.
-    """
-    print(flush=True)
-    smi = "C1=CC=C(C=C1)C(=O)O"  # SMILES for benzoic acid
-    mol = att.smi_to_mol(smi)  # Convert the SMILES string to a molecule object
-    graph = att.mol_to_nx(mol, add_hydrogens=True)
-    ratio = att.compression_ratio_zlib_graph(graph, add_hydrogens=True)
-    print(f"Compression ratio: {ratio:.2f}", flush=True)
-    assert np.allclose(ratio, 6.97, atol=0.01)
-
-    ratio = att.compression_ratio_zlib_graph(graph, add_hydrogens=False)
-    print(f"Compression ratio: {ratio:.2f}", flush=True)
-    assert np.allclose(ratio, 5.95, atol=0.01)
-
-
-def test_calculate_assembly_ratio():
-    """
-    Test the calculation of the assembly ratio for a molecular graph.
-
-    This function performs the following steps:
-    1. Defines a SMILES string for benzoic acid.
-    2. Converts the SMILES string to a molecule object and then to a NetworkX graph.
-    3. Calculates the assembly ratio with and without hydrogen stripping.
-    4. Asserts that the calculated ratios match the expected values.
-
-    Asserts:
-        - The assembly ratio with hydrogen stripping is approximately 2.50.
-        - The assembly ratio without hydrogen stripping is approximately 1.67.
-
-    Notes:
-        - The unstripped assertion was 1.50 until 2026-08-17. That was the
-          *stripped* ratio measured a second time: `remove_hydrogen_from_graph`
-          stripped in place, so the earlier `strip_hydrogen=True` call mutated
-          `graph` and the `strip_hydrogen=False` call never saw its hydrogens.
-          The true unstripped ratio is 1.67.
-    """
-    print(flush=True)
-    smi = "C1=CC=C(C=C1)C(=O)O"  # SMILES for benzoic acid
-    mol = att.smi_to_mol(smi)  # Convert the SMILES string to a molecule object
-    graph = att.mol_to_nx(mol, add_hydrogens=True)
-    ratio = att.calculate_assembly_index_ratio(graph, settings={'strip_hydrogen': True})
-    print(f"Compression ratio: {ratio:.2f}", flush=True)
-    assert np.allclose(ratio, 2.50, atol=0.01)
-
-    # The call above must not have stripped `graph`, or this measures it twice
-    assert graph.number_of_nodes() == 15
-    ratio = att.calculate_assembly_index_ratio(graph, settings={'strip_hydrogen': False})
-    print(f"Compression ratio: {ratio:.2f}", flush=True)
-    assert np.allclose(ratio, 1.6667, atol=0.01)
-
-
-def test_calculate_jo_assembly_ratio():
-    """
-    Test the calculation of the joining operation assembly ratio for a molecular graph.
-
-    This function performs the following steps:
-    1. Defines a SMILES string for benzoic acid.
-    2. Converts the SMILES string to a molecule object and then to a NetworkX graph.
-    3. Calculates the joining operation assembly ratio with and without hydrogen stripping.
-    4. Asserts that the calculated ratios match the expected values.
-
-    Asserts:
-        - The joining operation assembly ratio with hydrogen stripping is approximately 2.14.
-        - The joining operation assembly ratio without hydrogen stripping is approximately 1.50.
-
-    Notes:
-        - The unstripped assertion was 1.29 until 2026-08-17. That was the
-          *stripped* ratio measured a second time: `remove_hydrogen_from_graph`
-          stripped in place, so the earlier `strip_hydrogen=True` call mutated
-          `graph` and the `strip_hydrogen=False` call never saw its hydrogens.
-          The true unstripped ratio is 1.50.
-    """
-    print(flush=True)
-    smi = "C1=CC=C(C=C1)C(=O)O"  # SMILES for benzoic acid
-    mol = att.smi_to_mol(smi)  # Convert the SMILES string to a molecule object
-    graph = att.mol_to_nx(mol, add_hydrogens=True)
-    ratio = att.calculate_assembly_index_jo_ratio(graph, settings={'strip_hydrogen': True})
-    print(f"Compression ratio: {ratio:.2f}", flush=True)
-    assert np.allclose(ratio, 2.14, atol=0.01)
-
-    # The call above must not have stripped `graph`, or this measures it twice
-    assert graph.number_of_nodes() == 15
-    ratio = att.calculate_assembly_index_jo_ratio(graph, settings={'strip_hydrogen': False})
-    print(f"Compression ratio: {ratio:.2f}", flush=True)
-    assert np.allclose(ratio, 1.50, atol=0.01)
-
-
-def test_fcfp4():
-    """
-    Test the FCFP4 fingerprint calculation for a molecule.
-
-    This function performs the following steps:
-    1. Defines a SMILES string for a molecule.
-    2. Converts the SMILES string to a molecule object.
-    3. Calculates the FCFP4 fingerprint using the `fcfp4` function.
-    4. Asserts that the calculated fingerprint matches the expected value.
-
-    Asserts:
-        - The FCFP4 fingerprint is equal to 29.
-    """
-    print(flush=True)
-    smi = "COC1=C(O)C=C(CC(=O)O)C=C1Br"
-    mol = Chem.MolFromSmiles(smi)
-    assert att.fcfp4(mol) == 29
-
-
-def test_bottcher():
-    """
-    Test the Böttcher complexity score calculation for a molecule.
-
-    This function performs the following steps:
-    1. Defines a SMILES string for a molecule.
-    2. Converts the SMILES string to a molecule object.
-    3. Calculates the Böttcher complexity score using the `bottcher` function.
-    4. Asserts that the calculated score matches the expected value.
-
-    Asserts:
-        - The Böttcher complexity score is equal to 161.80418485421137.
-    """
-    print(flush=True)
-    smi = "COC1=C(O)C=C(CC(=O)O)C=C1Br"
-    mol = Chem.MolFromSmiles(smi)
-    assert att.bottcher(mol) == 161.80418485421137
-
-
-def test_bottcher_batch():
-    """
-    Test the batch calculation of Böttcher complexity scores for a list of molecules.
-
-    This function performs the following steps:
-    1. Defines a list of SMILES strings and their corresponding expected Böttcher scores.
-    2. Calculates the Böttcher scores for each molecule in the list.
-    3. Asserts that the calculated scores match the expected scores.
-
-    Asserts:
-        - The calculated Böttcher scores match the expected scores.
-    """
-    print(flush=True)
-    smiles = [r"CC(/C=C/C1=CC=CC=C1)=O",
-              r"Cl/C=C\C=C\Br",
-              r"CC/C(C1=CC=CC=C1)=C(C2=CC=CC=C2)/CC",
-              r"C/C(=C(/C=C/C)\CCC)/CC",
-              r"CC/C=C(C)/[2H]",
-              r"CC/C=C1CCC[C@H](Br)C/1",
-              "C/C=C(C)/C",
-              "CC/C=C1CCCCC/1"]
-    scores = [73.43, 54.25, 45.92, 60.34, 41.17, 95.8, 19.17, 34.17]
-    calc_scores = [att.bottcher(Chem.MolFromSmiles(smi)) for smi in smiles]
-    # round to 2 decimal places
-    calc_scores = [round(score, 2) for score in calc_scores]
-    # assert that the scores are the same
-    assert calc_scores == scores
-
-
-def test_proudfoot():
-    """
-    Test the Proudfoot complexity score calculation for a molecule.
-
-    This function performs the following steps:
-    1. Defines a SMILES string for a molecule.
-    2. Converts the SMILES string to a molecule object.
-    3. Calculates the Proudfoot complexity score using the `proudfoot` function.
-    4. Asserts that the calculated score matches the expected value.
-
-    Asserts:
-        - The Proudfoot complexity score is equal to 30.54277674961796.
-    """
-    print(flush=True)
-    smi = "COC1=C(O)C=C(CC(=O)O)C=C1Br"
-    mol = Chem.MolFromSmiles(smi)
-    assert att.proudfoot(mol) == 30.54277674961796
-
-
-def test_mc1():
-    """
-    Test the MC1 complexity score calculation for a molecule.
-
-    This function performs the following steps:
-    1. Defines a SMILES string for a molecule.
-    2. Converts the SMILES string to a molecule object.
-    3. Calculates the MC1 complexity score using the `mc1` function.
-    4. Asserts that the calculated score matches the expected value.
-
-    Asserts:
-        - The MC1 complexity score is equal to 0.7142857142857143.
-    """
-    print(flush=True)
-    smi = "COC1=C(O)C=C(CC(=O)O)C=C1Br"
-    mol = Chem.MolFromSmiles(smi)
-    assert att.mc1(mol) == 0.7142857142857143
-
-
-def test_mc2():
-    """
-    Test the MC2 complexity score calculation for a molecule.
-
-    This function performs the following steps:
-    1. Defines a SMILES string for a molecule.
-    2. Converts the SMILES string to a molecule object.
-    3. Calculates the MC2 complexity score using the `mc2` function.
-    4. Asserts that the calculated score matches the expected value.
-
-    Asserts:
-        - The MC2 complexity score is equal to 8.
-    """
-    print(flush=True)
-    smi = "COC1=C(O)C=C(CC(=O)O)C=C1Br"
-    mol = Chem.MolFromSmiles(smi)
-    assert att.mc2(mol) == 8
-
-
-def test_shannon_entropy():
-    """
-    Test the `shannon_entropy` function from the `assemblytheorytools` library.
-
-    This function performs the following steps:
-    1. Defines a string `smi` representing a sequence of characters.
-    2. Computes the Shannon entropy of the string using `att.shannon_entropy`.
-    3. Prints the computed entropy value.
-    4. Asserts that the computed entropy is approximately equal to 3.251
-       (with a tolerance of 0.001).
-
-    Example see https://www.science.org/doi/10.1126/sciadv.abj2465
-    """
-    print(flush=True)  # Ensure output is flushed immediately
-    smi = "CG_TTG_A1_GAC1G_3CTC4_1T5CAG42342543"  # Input sequence for entropy calculation
-    entropy = att.shannon_entropy(smi)  # Compute Shannon entropy of the input sequence
-    print(f"Shannon entropy: {entropy:.2f}", flush=True)  # Print the computed entropy value
-    assert np.allclose(entropy, 3.251, atol=0.001)  # Verify the computed value matches the expected result
+    assert scores.dice_morgan_similarity(
+        Chem.MolFromSmiles("Cc1ccccc1"), Chem.MolFromSmiles("Cc1ncccc1"), radius=2
+    ) == pytest.approx(0.55)
+
+
+def test_chirality_counts_defined_stereocenters():
+    molecule = att.smi_to_mol("OC[C@H]1OC=C[C@@H](O)[C@@H]1O")
+
+    assert scores.get_chirality(molecule) == 3
+
+
+@pytest.mark.parametrize(
+    "compress, heavy_size, hydrogen_size",
+    [
+        (scores.compression_zlib_smi, 13, 29),
+        (scores.compression_bz2_smi, 35, 48),
+        (scores.compression_lzma_smi, 44, 60),
+    ],
+    ids=["zlib", "bz2", "lzma"],
+)
+def test_smiles_compression_sizes(benzoic_acid, compress, heavy_size, hydrogen_size):
+    assert compress(benzoic_acid, add_hydrogens=False) == heavy_size
+    assert compress(benzoic_acid, add_hydrogens=True) == hydrogen_size
+
+
+def test_zlib_compression_reduces_uncompressed_smiles_and_graph(benzoic_acid):
+    graph = att.mol_to_nx(benzoic_acid, add_hydrogens=True)
+
+    assert scores.compression_zlib_smi(
+        benzoic_acid, add_hydrogens=False
+    ) < scores.compression_zlib_smi(benzoic_acid, add_hydrogens=False, level=0)
+    assert scores.compression_zlib_graph(
+        graph, add_hydrogens=False
+    ) < scores.compression_zlib_graph(graph, add_hydrogens=False, level=0)
+    assert scores.compression_zlib_graph(graph, add_hydrogens=False) == 111
+    assert scores.compression_zlib_graph(graph, add_hydrogens=True) == 152
+
+
+@pytest.mark.parametrize(
+    "measure, keyword, without_hydrogens, with_hydrogens",
+    [
+        (scores.compression_ratio_zlib_graph, "add_hydrogens", 5.95, 6.97),
+        (att.calculate_assembly_index_ratio, "strip_hydrogen", 2.50, 1.6667),
+        (att.calculate_assembly_index_jo_ratio, "strip_hydrogen", 2.14, 1.50),
+    ],
+    ids=["compression", "assembly", "joining-operations"],
+)
+def test_graph_ratios_preserve_hydrogens_between_measurements(
+    benzoic_acid, measure, keyword, without_hydrogens, with_hydrogens
+):
+    graph = att.mol_to_nx(benzoic_acid, add_hydrogens=True)
+    original = copy.deepcopy(graph)
+
+    # Measure the same graph twice: stripping used to mutate the input, so
+    # both calls silently measured the heavy-atom graph.
+    for include_hydrogens, expected in [
+        (False, without_hydrogens),
+        (True, with_hydrogens),
+    ]:
+        options = (
+            {keyword: include_hydrogens}
+            if keyword == "add_hydrogens"
+            else {"settings": {keyword: not include_hydrogens}}
+        )
+        assert measure(graph, **options) == pytest.approx(expected, abs=0.01)
+        assert nx.utils.graphs_equal(graph, original)
+
+
+@pytest.mark.parametrize(
+    "score, expected",
+    [
+        (scores.fcfp4, 29),
+        (scores.bottcher, 161.80418485421137),
+        (scores.proudfoot, 30.54277674961796),
+        (scores.mc1, 0.7142857142857143),
+        (scores.mc2, 8),
+    ],
+    ids=lambda value: value.__name__ if callable(value) else None,
+)
+def test_molecular_complexity_scores(score, expected):
+    molecule = Chem.MolFromSmiles("COC1=C(O)C=C(CC(=O)O)C=C1Br")
+
+    assert score(molecule) == pytest.approx(expected)
+
+
+@pytest.mark.parametrize(
+    "smiles, expected",
+    [
+        (r"CC(/C=C/C1=CC=CC=C1)=O", 73.43),
+        (r"Cl/C=C\C=C\Br", 54.25),
+        (r"CC/C(C1=CC=CC=C1)=C(C2=CC=CC=C2)/CC", 45.92),
+        (r"C/C(=C(/C=C/C)\CCC)/CC", 60.34),
+        (r"CC/C=C(C)/[2H]", 41.17),
+        (r"CC/C=C1CCC[C@H](Br)C/1", 95.80),
+        ("C/C=C(C)/C", 19.17),
+        ("CC/C=C1CCCCC/1", 34.17),
+    ],
+)
+def test_bottcher_stereochemical_examples(smiles, expected):
+    assert scores.bottcher(Chem.MolFromSmiles(smiles)) == pytest.approx(
+        expected, abs=0.005
+    )
+
+
+def test_shannon_entropy_of_mixed_sequence():
+    assert scores.shannon_entropy(
+        "CG_TTG_A1_GAC1G_3CTC4_1T5CAG42342543"
+    ) == pytest.approx(3.251, abs=0.001)
+
+
+@pytest.mark.parametrize(
+    "smiles, explicit_hydrogens, randic, kirchhoff",
+    [
+        ("", False, 0, 0),
+        ("C", False, 0, 0),
+        ("CCC", False, math.sqrt(2), 4),
+        ("C1CC1", False, 1.5, 2),
+        ("C", True, 2, 16),
+        ("CC", True, 3.25, 58),
+        ("CC.C", False, 1, 1.5),
+    ],
+    ids=["empty", "isolated", "path", "cycle", "methane", "ethane", "disconnected"],
+)
+def test_graph_indices_on_small_topologies(
+    smiles, explicit_hydrogens, randic, kirchhoff
+):
+    mol = Chem.MolFromSmiles(smiles)
+    if explicit_hydrogens:
+        mol = Chem.AddHs(mol)
+
+    # Trees have resistance equal to distance; the triangle has resistance 2/3
+    # per pair. The disconnected case records the existing pseudoinverse result.
+    assert scores.randic_index(mol) == pytest.approx(randic)
+    assert scores.kirchhoff_index(mol) == pytest.approx(kirchhoff)
+
+
+@pytest.mark.parametrize("codec", [zlib, bz2, lzma], ids=lambda codec: codec.__name__)
+def test_smiles_compression_overhead_and_integrity_flags(codec, monkeypatch, capsys):
+    compress = getattr(scores, f"compression_{codec.__name__}_smi")
+    mol = Chem.MolFromSmiles("CCO")
+    raw_size = compress(mol, add_hydrogens=False, rm_overhead=False)
+    net_size = compress(mol, add_hydrogens=False)
+
+    assert raw_size - net_size == len(codec.compress(b""))
+
+    def fail_to_decompress(data):
+        raise ValueError("corrupt compressed payload")
+
+    monkeypatch.setattr(codec, "decompress", fail_to_decompress)
+    assert compress(mol, add_hydrogens=False, check=False) == net_size
+    with pytest.raises(ValueError, match="corrupt compressed payload"):
+        compress(mol, add_hydrogens=False, check=True)
+    assert "Decompression failed: corrupt compressed payload" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("level", [0, 1, 9])
+def test_graph_overhead_uses_default_level_even_for_uncompressed_payloads(level):
+    graph = nx.path_graph(4)
+    raw_size = scores.compression_zlib_graph(graph, level=level, rm_overhead=False)
+    net_size = scores.compression_zlib_graph(graph, level=level, rm_overhead=True)
+
+    assert raw_size == len(scores.compress_zlib_graph(graph, level=level))
+    assert raw_size - net_size == len(scores.compress_zlib_graph(nx.Graph(), level=9))
+
+
+@pytest.mark.parametrize(
+    "graph_type", [nx.Graph, nx.DiGraph, nx.MultiGraph, nx.MultiDiGraph]
+)
+def test_graph_roundtrip_preserves_kind_and_json_attributes(graph_type):
+    graph = graph_type(name="éthanol", provenance={"batches": [1, 2]})
+    graph.add_node(1, color="C", labels=["carbon", "first"])
+    graph.add_node("oxygen", color="O", charge=-1)
+    graph.add_edge(1, "oxygen", color="single", weight=1.5)
+    if graph.is_directed():
+        graph.add_edge("oxygen", 1, color="reverse")
+    if graph.is_multigraph():
+        graph.add_edge(1, "oxygen", key="parallel", color="double")
+    original = copy.deepcopy(graph)
+
+    restored = scores.decompress_zlib_graph(scores.compress_zlib_graph(graph))
+
+    assert type(restored) is graph_type
+    assert nx.utils.graphs_equal(restored, original)
+    assert nx.utils.graphs_equal(graph, original)
+
+
+@pytest.mark.parametrize(
+    "measure", [scores.compression_zlib_graph, scores.compression_ratio_zlib_graph]
+)
+def test_graph_hydrogen_filtering_preserves_input_and_other_attributes(measure):
+    graph = nx.Graph(name="methanol", labels={"source": ["test"]})
+    graph.add_nodes_from([(0, {"color": "C"}), (1, {"color": "O"})])
+    graph.add_nodes_from((node, {"color": "H"}) for node in range(2, 6))
+    graph.add_edges_from([(0, 1), (0, 2), (0, 3), (0, 4), (1, 5)], color="single")
+    original = copy.deepcopy(graph)
+    heavy_graph = graph.subgraph([0, 1]).copy()
+    with_hydrogens = measure(graph)
+
+    assert measure(graph, add_hydrogens=False) == measure(heavy_graph)
+    assert measure(graph, add_hydrogens=True) == with_hydrogens
+    assert nx.utils.graphs_equal(graph, original)
+
+
+@pytest.mark.parametrize(
+    "measure", [scores.compression_zlib_graph, scores.compression_ratio_zlib_graph]
+)
+def test_graph_integrity_check_can_be_disabled(measure, monkeypatch, capsys):
+    graph = nx.path_graph(4)
+    expected = measure(graph)
+
+    def fail_to_decompress(data):
+        raise ValueError("corrupt compressed graph")
+
+    monkeypatch.setattr(scores, "decompress_zlib_graph", fail_to_decompress)
+    assert measure(graph, check=False) == expected
+    with pytest.raises(ValueError, match="corrupt compressed graph"):
+        measure(graph, check=True)
+    assert "Decompression failed: corrupt compressed graph" in capsys.readouterr().out
+
+
+def test_descriptor_failure_uses_sentinel_and_continues(monkeypatch, capsys):
+    sentinel = object()
+
+    def fail(mol):
+        raise ValueError("descriptor unavailable")
+
+    monkeypatch.setattr(
+        scores.Descriptors,
+        "_descList",
+        [
+            ("before", lambda mol: mol.GetNumAtoms()),
+            ("failed", fail),
+            ("after", lambda mol: 7),
+        ],
+    )
+
+    result = scores.get_mol_descriptors(Chem.MolFromSmiles("CCO"), missingval=sentinel)
+
+    assert result == {"before": 3, "failed": sentinel, "after": 7}
+    assert result["failed"] is sentinel
+    assert "ValueError: descriptor unavailable" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "smiles, expected",
+    [
+        ("CC(=O)N", 2),
+        ("O=C(C)N", 2),
+        ("CC(=O)O", 2),
+        ("O=C(C)O", 2),
+        ("CC(=O)C", 4),
+        ("O=C(C)C", 4),
+        ("CC=N", 2),
+        ("O=C=O", 0),
+    ],
+    ids=[
+        "amide",
+        "reversed-amide",
+        "acid",
+        "reversed-acid",
+        "ketone",
+        "reversed-ketone",
+        "imine",
+        "carbon-dioxide",
+    ],
+)
+def test_mc2_carbonyl_exclusions_are_independent_of_bond_orientation(smiles, expected):
+    assert scores.mc2(Chem.MolFromSmiles(smiles)) == expected
+
+
+@pytest.mark.parametrize(
+    "smiles, substituents, shared_atoms, depths",
+    [
+        ("C1CCC1", {1: [1, 2], 3: [3, 2]}, {1: 1, 3: 1, 2: 2}, {1: 2, 3: 2}),
+        (
+            "C1CCCCC1",
+            {1: [1, 2, 3], 5: [5, 4, 3]},
+            {1: 1, 5: 1, 2: 1, 4: 1, 3: 2},
+            {1: 3, 5: 3},
+        ),
+        ("CCCC.CC", {1: [1, 2, 3]}, {1: 1, 2: 1, 3: 1}, {1: 3}),
+    ],
+    ids=["four-membered-ring", "six-membered-ring", "disconnected-fragment"],
+)
+def test_substituent_shells_preserve_order_and_shared_ring_atoms(
+    smiles, substituents, shared_atoms, depths
+):
+    mol = Chem.MolFromSmiles(smiles)
+    distances = Chem.GetDistanceMatrix(mol)
+    if "." in smiles:
+        assert distances[0, -1] > mol.GetNumAtoms()
+
+    actual = scores._determine_atom_substituents(0, mol, distances)
+
+    assert actual == (substituents, shared_atoms, depths)
+    assert list(actual[0]) == list(substituents)
+
+
+def test_chemical_non_equivalence_logs_and_returns_zero_above_four_substituents(capsys):
+    mol = Chem.MolFromSmiles("P(F)(F)(F)(F)F")
+
+    value = scores._get_chemical_non_equivs(mol.GetAtomWithIdx(0), mol)
+
+    assert value == 0.0
+    assert isinstance(value, float)
+    output = capsys.readouterr().out
+    assert "Error calculating chemical non-equivalence for atom 0" in output
+    assert "IndexError" in output
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [("", 0.0), ("AAAA", 0.0), ("🧪é🧪é", 1.0)],
+    ids=["empty", "repeated-character", "unicode"],
+)
+def test_shannon_entropy_boundaries(text, expected):
+    entropy = scores.shannon_entropy(text)
+
+    assert entropy == expected
+    assert isinstance(entropy, float)

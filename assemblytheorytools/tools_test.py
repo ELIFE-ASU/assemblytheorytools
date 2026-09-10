@@ -1,17 +1,18 @@
 """
 Shared test molecules and graph fixtures.
 
-This module exposes the reference molecule set loaded from
-``tests/data/test_molecule_data.csv`` as the ``test_mols`` mapping, together with
-small hand-built NetworkX graphs (water, phosphine, PH2+ and carbon dioxide) and
-helpers for inspecting graph contents in tests.
+This module exposes the reference molecule set loaded from the bundled
+``data/test_molecule_data.csv`` as the ``test_mols`` mapping, together with small
+hand-built NetworkX graphs (water, phosphine, PH2+ and carbon dioxide) and helpers
+for inspecting graph contents in tests.
 """
 
 import csv
-import networkx as nx
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence, TypeVar
+
+import networkx as nx
 
 T = TypeVar("T")
 
@@ -35,9 +36,7 @@ def check_elements(input_list: Sequence[T], reference_list: Sequence[T]) -> bool
         ``True`` if all elements in ``input_list`` are in ``reference_list``,
         ``False`` otherwise.
     """
-    if not input_list:
-        return False
-    return all(item in reference_list for item in input_list)
+    return bool(input_list) and all(item in reference_list for item in input_list)
 
 
 def print_graph_details(graph: nx.Graph) -> None:
@@ -59,13 +58,25 @@ def print_graph_details(graph: nx.Graph) -> None:
         value.
     """
     print("{", flush=True)
-    for node in graph.nodes(data=True):
-        node_index = node[0]
-        node_color = node[1].get('color', 'No color')
-        edge_connections = list(graph.edges(node_index))
-        edge_colors = [graph.get_edge_data(*edge)['color'] for edge in edge_connections]
-        print(f"({node_index}, {node_color}): {edge_connections}, {edge_colors}", flush=True)
+    for node, attributes in graph.nodes(data=True):
+        color = attributes.get("color", "No color")
+        edges = list(graph.edges(node))
+        edge_colors = [graph.get_edge_data(*edge)["color"] for edge in edges]
+        print(f"({node}, {color}): {edges}, {edge_colors}", flush=True)
     print("}", flush=True)
+
+
+def _star_graph(
+    center: str, neighbor: str, n_neighbors: int, bond_order: int
+) -> nx.Graph:
+    """Build a fresh fixture with identically colored neighbors and bonds."""
+    graph = nx.Graph()
+    graph.add_node(0, color=center)
+    graph.add_nodes_from(range(1, n_neighbors + 1), color=neighbor)
+    graph.add_edges_from(
+        ((0, node) for node in range(1, n_neighbors + 1)), color=bond_order
+    )
+    return graph
 
 
 def water_graph() -> nx.Graph:
@@ -81,16 +92,7 @@ def water_graph() -> nx.Graph:
     nx.Graph
         A NetworkX graph object representing the water molecule.
     """
-    graph = nx.Graph()
-    # Add nodes with atom types as attributes
-    graph.add_node(0, color="O")  # Oxygen atom
-    graph.add_node(1, color="H")  # Hydrogen atom
-    graph.add_node(2, color="H")  # Hydrogen atom
-
-    # Add edges with bond type attributes
-    graph.add_edge(0, 1, color=1)  # Bond between oxygen and first hydrogen
-    graph.add_edge(0, 2, color=1)  # Bond between oxygen and second hydrogen
-    return graph
+    return _star_graph("O", "H", 2, 1)
 
 
 def phosphine_graph() -> nx.Graph:
@@ -106,42 +108,23 @@ def phosphine_graph() -> nx.Graph:
     nx.Graph
         A NetworkX graph object representing the phosphine molecule.
     """
-    graph = nx.Graph()
-    # Add nodes with atom types as attributes
-    graph.add_node(0, color="P")  # Phosphorus atom
-    graph.add_node(1, color="H")  # Hydrogen atom
-    graph.add_node(2, color="H")  # Hydrogen atom
-    graph.add_node(3, color="H")  # Hydrogen atom
-
-    # Add edges with bond type attributes
-    graph.add_edge(0, 1, color=1)  # Bond between phosphorus and first hydrogen
-    graph.add_edge(0, 2, color=1)  # Bond between phosphorus and second hydrogen
-    graph.add_edge(0, 3, color=1)  # Bond between phosphorus and third hydrogen
-    return graph
+    return _star_graph("P", "H", 3, 1)
 
 
 def ph_2p_graph() -> nx.Graph:
     """
     Construct a graph representation of a simple phosphine-like molecule.
 
-    The system is +2 charged, with two phosphorus atoms and one hydrogen atom.
     The graph consists of two nodes representing the atoms: one phosphorus (P)
-    and one hydrogen (H). An edge represents the bond between the phosphorus
-    and hydrogen atoms, with the bond type indicated by an edge attribute.
+    and one hydrogen (H), joined by a single bond. Only atom and bond colors
+    are stored; the graph has no charge attributes.
 
     Returns
     -------
     nx.Graph
         A NetworkX graph object representing the phosphine-like molecule.
     """
-    graph = nx.Graph()
-    # Add nodes with atom types as attributes
-    graph.add_node(0, color="P")  # Phosphorus atom
-    graph.add_node(1, color="H")  # Hydrogen atom
-
-    # Add edge with bond type attribute
-    graph.add_edge(0, 1, color=1)  # Bond between phosphorus and hydrogen
-    return graph
+    return _star_graph("P", "H", 1, 1)
 
 
 def co2_graph() -> nx.Graph:
@@ -157,16 +140,7 @@ def co2_graph() -> nx.Graph:
     nx.Graph
         A NetworkX graph object representing the CO2 molecule.
     """
-    graph = nx.Graph()
-    # Add nodes with atom types as attributes
-    graph.add_node(0, color="C")  # Carbon atom
-    graph.add_node(1, color="O")  # Oxygen atom
-    graph.add_node(2, color="O")  # Oxygen atom
-
-    # Add edges with bond type attributes
-    graph.add_edge(0, 1, color=2)  # Double bond between carbon and first oxygen
-    graph.add_edge(0, 2, color=2)  # Double bond between carbon and second oxygen
-    return graph
+    return _star_graph("C", "O", 2, 2)
 
 
 @dataclass(frozen=True)
@@ -227,8 +201,6 @@ def _load_molecules() -> dict[str, Molecule]:
     FileNotFoundError
         If the data file cannot be found at the expected path.
     """
-    mols: dict[str, Molecule] = {}
-
     # Bundled package data, not a sibling of the source tree: this module is
     # imported by __init__.py, so the CSV has to be present in an installed
     # wheel as well as in a checkout.
@@ -236,9 +208,9 @@ def _load_molecules() -> dict[str, Molecule]:
     if not data_path.exists():
         raise FileNotFoundError(f"Data file not found: {data_path}")
 
-    with data_path.open(newline="") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
+    mols: dict[str, Molecule] = {}
+    with data_path.open(newline="") as file:
+        for row in csv.DictReader(file):
             name = row["name"].strip().lower()
             category = row["category"].strip()
             smiles = row["smiles"].strip()
@@ -247,17 +219,13 @@ def _load_molecules() -> dict[str, Molecule]:
             ai_str = (row.get("assembly_index") or "").strip()
             assembly_index = int(ai_str) if ai_str else None
 
-            test_include_str = (row.get("test_include") or "").strip()
-            # CSV stores this column as the literal strings 'True'/'False'
-            test_include = test_include_str.lower() == "true"
-
             mols[name] = Molecule(
                 name=name,
                 category=category,
                 smiles=smiles,
                 inchi=inchi,
                 assembly_index=assembly_index,
-                test_include=test_include,
+                test_include=(row.get("test_include") or "").strip().lower() == "true",
             )
     return mols
 

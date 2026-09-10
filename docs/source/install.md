@@ -6,109 +6,113 @@ Unix-like systems; on Windows, use the Windows Subsystem for Linux.
 ## From PyPI
 
 ```bash
-pip install assemblytheorytools
+python -m pip install assemblytheorytools
 ```
 
-This pulls in every runtime dependency and the Rust `assembly-theory` wheel. On
-Linux x86-64, the package also includes precompiled C++ calculators, which is
-all that is needed for the {doc}`quick start <index>`. Other platforms need a
-source build and must configure `ASS_PATH` for graph/molecule calculations and
-`ASS_STR_PATH` for directed strings (a compatible combined build may serve
-both); see
-[Configuration](configuration.md#bundled-binaries).
+This pulls in every runtime dependency and the Rust `assembly-theory` wheel,
+which is all the {doc}`quick start <index>` needs. The C++ calculator is not
+distributed as a binary: the first calculation that needs it builds
+parallelassemblycpp from source, which takes a few minutes and needs `git` and a C++20
+compiler. Set `ASS_PATH` to use a build you already have, and see
+[Configuration](configuration.md#the-c-calculator) for the details.
 
 ## From source
 
 ```bash
 git clone https://github.com/ELIFE-ASU/assemblytheorytools.git
 cd assemblytheorytools
-pip install -e ".[dev,docs]"
+python -m pip install -e ".[dev,docs]"
 ```
 
 The `dev` extra adds `pytest` and `pytest-cov`; the `docs` extra adds Sphinx,
 MyST-NB and the theme used to build this site; the `notebooks` extra adds
 JupyterLab for running the protocol notebooks. Omit any extra when it is not
-needed.
+needed. Dependency versions are declared in the repository's `pyproject.toml`.
+
+To install the build and lint tools, use pip 25.1 or newer and the dependency
+groups declared in the same file:
+
+```bash
+python -m pip install --upgrade "pip>=25.1"
+python -m pip install --group build --group lint
+python -m build
+python -m twine check --strict dist/*
+```
+
+For documentation build systems that require a requirements file, run
+`python -m pip install -r docs/requirements.txt` from the repository root. This
+installs the package with its `docs` extra. Build the documentation with
+`make -C docs strict`.
 
 ## Conda environment
 
-Starting from a fresh environment avoids dependency conflicts.
+The repository provides Conda environment files with Python, Git, a C++ compiler
+and Cairo. They use only conda-forge and select Python 3.12–3.14, the versions
+tested in CI. Python package dependencies are installed through pip from ATT's
+package metadata.
+
+After cloning the repository, run these commands from its root to install the
+published package in a fresh environment:
 
 ```bash
-conda create -n ass_env python=3.13
-conda activate ass_env
+conda env create -f build_tools/environment.yml
+conda activate att_env
 ```
 
-Add `conda-forge` and make the channel priority strict, otherwise the RDKit and
-ASE builds can be resolved against incompatible channels:
+For an editable development installation with test, documentation and notebook
+extras, use the development environment instead:
 
 ```bash
-conda config --env --add channels conda-forge
-conda config --env --set channel_priority strict
-conda config --show channels
+conda env create -f build_tools/environment_dev.yml
+conda activate att_dev_env
+python -m pip install --group build --group lint
 ```
-
-Install the compiled dependencies through conda, then the rest through pip:
-
-```bash
-conda install numpy scipy matplotlib networkx pydot rdkit pyvis ase -y
-pip install git+https://github.com/ELIFE-ASU/dagviz.git assemblycfg assembly-theory
-pip install assemblytheorytools
-```
-
-For a development environment, add `pytest` to the `conda install` line and
-clone the repository instead of installing from PyPI.
 
 ## HPC (SOL)
 
+On SOL, load Mamba and create the same environment from the repository root.
+Module names and activation commands may differ on other HPC systems.
+
 ```bash
 module load mamba/latest
-mamba create -n ass_env -c conda-forge python=3.13
-source activate ass_env
-mamba install -c conda-forge numpy scipy matplotlib networkx rdkit pyvis ase -y
-pip install assemblytheorytools
+mamba env create -f build_tools/environment.yml
+source activate att_env
 ```
-
-If the dependency install is killed for exceeding memory, split it into several
-smaller `mamba install` commands.
 
 On an HPC scheduler, invoke Python by absolute path so the job lands in the
 right environment:
 
 ```bash
-srun $HOME/.conda/envs/ass_env/bin/python3 my_script.py
+srun "$HOME/.conda/envs/att_env/bin/python3" my_script.py
 ```
 
-## Optional: a faster assemblyCPP with Intel oneAPI
+(optional-a-faster-assemblycpp-build)=
+## Optional: a faster parallelassemblycpp build
 
-The bundled calculator is a generic static build. On Intel hardware, compiling
-`assemblycpp` yourself with the oneAPI compiler is significantly faster.
-
-Install the [oneAPI DPC++/C++ compiler](https://www.intel.com/content/www/us/en/developer/tools/oneapi/dpc-compiler-download.html?operatingsystem=linux&distribution-linux=offline)
-and source its environment:
+ATT's on-demand build is a plain portable release. parallelassemblycpp also ships CMake
+presets for tuned and parallel builds, which are worth using for large
+molecules. It needs only CMake 3.25 or newer, Ninja and a C++20 compiler — no
+Boost.
 
 ```bash
-bash ./intel-dpcpp-cpp-compiler-2025.0.4.20_offline.sh
-source ~/intel/oneapi/setvars.sh
+git clone https://github.com/ELIFE-ASU/parallelassemblycpp.git
+cd parallelassemblycpp
+cmake --preset performance      # tuned for x86-64-v3
+cmake --build --preset performance
+export ASS_PATH=$PWD/build/performance/ParallelAssemblyCpp
 ```
 
-Fetch Boost and the assemblyCPP sources:
+Older upstream revisions use the executable name `AssemblyCpp`; ATT accepts both
+names. Its on-demand cache keeps the historical `AssemblyCpp` name.
 
-```bash
-wget https://archives.boost.io/release/1.89.0/source/boost_1_89_0.tar.gz
-tar -xvzf boost_1_89_0.tar.gz && rm -f boost_1_89_0.tar.gz
-git clone --branch script https://github.com/LouieSlocombe/assemblycpp-v5.git
-```
+`--preset release` builds a portable executable instead, and
+`--preset parallel` adds OpenMP and MPI search. See the
+[parallelassemblycpp README](https://github.com/ELIFE-ASU/parallelassemblycpp) for the
+full list of presets and for its CC BY-NC 4.0 licence, which is more
+restrictive than this package's MIT licence.
 
-Compile, then point ATT at the result:
-
-```bash
-cd assemblycpp-v5/v5/
-icpx main.cpp -o asscpp -I $HOME/boost_1_89_0/ -O3 -ipo -xHost -ffast-math -qopt-zmm-usage=high -fno-alias
-export ASS_PATH=$HOME/assemblycpp-v5/v5/asscpp
-```
-
-See {doc}`configuration` for the full list of environment variables ATT reads.
+The same executable computes molecular, graph and string assembly indices. See
+{doc}`configuration` for the full list of environment variables ATT reads.
 
 ## Optional: ORCA
 

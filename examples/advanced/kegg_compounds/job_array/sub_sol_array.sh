@@ -12,7 +12,7 @@
 
 cd $SLURM_SUBMIT_DIR
 
-: "${ATT_ASS_PATH:?Set ATT_ASS_PATH to your assemblyCPP executable}"
+: "${ATT_ASS_PATH:?Set ATT_ASS_PATH to your parallelassemblycpp executable}"
 : "${ATT_DATA_DIR:?Set ATT_DATA_DIR to the directory containing CBRdb_C.csv.zip}"
 : "${ATT_ENV_NAME:?Set ATT_ENV_NAME to your conda environment name}"
 

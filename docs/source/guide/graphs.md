@@ -1,23 +1,23 @@
 # Arbitrary graphs
 
-The calculator works on any labelled undirected graph, not just molecules. This
-makes assembly index available for networks, lattices and other structures that
-have no chemical interpretation.
+The calculator works on labelled simple undirected graphs. This makes assembly
+index available for networks, lattices and other structures with no chemical
+interpretation.
 
 ## Building a conforming graph
 
-The calculator input requires three rules. The writer type-checks colour
-attributes that are present, but does not reliably reject every missing
-attribute before invoking the calculator, so validate custom graphs explicitly:
-
-{func}`~assemblytheorytools.tools_graph.write_ass_graph_file`:
+{func}`~assemblytheorytools.tools_graph.write_ass_graph_file` validates the
+calculator's input requirements before writing a file:
 
 1. Node indices start at 0 and are contiguous.
-2. Every node carries a `color` attribute — any string label without spaces.
-3. Every edge carries a `color` attribute that is an **integer**, starting at 1.
+2. Every node carries a `color` attribute — a nonempty string without whitespace.
+3. Every edge carries an integer `color` attribute from 1 through 32767.
+4. The graph has at most 32767 vertices and has no directed edges, parallel
+   edges or self loops.
 
-Rule 3 is the one that bites: a string edge colour raises `AssertionError:
-Edge color for edge (0, 1) is not an integer.`
+Missing or invalid attributes raise `ValueError` with the affected node or
+edge. The graph name must fit on one line. NumPy integer colours are accepted;
+strings, floats and booleans are rejected as edge colours.
 
 ```python
 import networkx as nx
@@ -90,22 +90,67 @@ across versions.
 
 ## Crystal structures
 
-{func}`~assemblytheorytools.tools_cell.cif_to_nx` reads a CIF file and produces
-an experimental graph. It reads the cell, expands it with
-{func}`~assemblytheorytools.tools_cell.tile_cell`, and infers connectivity with
-{func}`~assemblytheorytools.tools_cell.get_bonding_config`:
+{func}`~assemblytheorytools.tools_cell.cif_to_nx` reads the primitive cell
+from a CIF file with {func}`~assemblytheorytools.tools_cell.read_cif_file` and
+builds a graph with {func}`~assemblytheorytools.tools_cell.cell_to_nx`, which
+also accepts any periodic ASE `Atoms` object:
 
 ```python
-graph = att.cif_to_nx("structure.cif", reps=(3, 3, 3), cutoff_mult=1.2)
-ai, virt_obj, pathway = att.calculate_assembly_index(graph, strip_hydrogen=True)
+graph = att.cif_to_nx("structure.cif")            # wrap-around supercell graph
+graph.graph["reps"]                                 # e.g. (2, 1, 2)
+ai, virt_obj, pathway = att.calculate_assembly_index(graph)
+
+atoms = att.read_cif_file("structure.cif")
+graph = att.cell_to_nx(atoms, reps=(2, 2, 2), cutoff_mult=1.2)
 ```
 
-Because a crystal is periodic, what gets analysed is the finite tiled cell
-chosen by `reps`; `cutoff_mult` controls the natural-distance bonding cutoff.
-Every inferred edge is currently assigned bond order `1` — `cif_to_nx` does
-not call `guess_bond_orders` or prune the tiled graph. The result and its
-assembly index therefore depend on both parameters, which should be reported
-alongside any result.
+The nodes are the atoms of `reps` copies of the cell and the edges are the
+bonds found under the supercell's periodic boundaries, so every atom keeps its
+full coordination and the graph has no surface. `reps=None` (the default)
+picks the smallest tiling that guarantees a simple graph; an explicit `reps`
+that would need a self-loop (an atom bonded to its own image) or a parallel
+edge (a pair bonded through two images) raises `ValueError`. Each node records
+`cell_index` (the atom in the input cell) and `image` (the integer cell
+shift), and the graph attributes `reps`, `cutoff_mult`, `periodic`, `cell`,
+`pbc` and `source` record the model so that it can be reported with the
+result. `atoms_to_nx` is for molecules: it ignores the cell and warns when
+given a periodic `Atoms` object.
+
+`cif_to_nx(..., periodic=False)` instead returns a finite open cluster: the
+central cell of a `reps` tiling (default `(3, 3, 3)`) plus its first bonded
+shell, with a `shell` node attribute (0 for the central cell, 1 for the
+shell). Surface atoms of that cluster are under-coordinated, which is why the
+periodic graph is the default. {func}`~assemblytheorytools.tools_cell.tile_cell`
+and {func}`~assemblytheorytools.tools_cell.tile_cell_shells` expose the same
+tiling as `Atoms` objects.
+
+Two atoms are bonded when their distance is below `cutoff_mult` times the sum
+of their covalent radii (ASE's natural cutoffs); the same criterion drives
+{func}`~assemblytheorytools.tools_cell.get_bonding_config`,
+{func}`~assemblytheorytools.tools_cell.find_clusters` and the tiling
+functions. Every edge is assigned bond order `1`; `cif_to_nx` does not call
+`guess_bond_orders`, whose molecular valence model does not suit crystals.
+
+Keep the following in mind when interpreting results:
+
+* The graph is the bond graph of a finite torus, so the assembly index is a
+  property of the chosen `reps` and `cutoff_mult`. Report both.
+* Covalent radii are a crude criterion for ionic and metallic contacts and
+  can produce very dense graphs for metal-rich minerals.
+* `read_cif_file` warns when sites have fractional or mixed occupancy. ASE
+  keeps every such site with its majority species, so split sites overlap
+  and inflate coordination numbers.
+* Molecular and ionic crystals give disconnected covalent graphs; with the
+  default `joint_corr=True`, `calculate_assembly_index` subtracts one less
+  than the number of components.
+* The Rust backend refuses graphs with more than 999 atoms or bonds and the
+  C++ calculator more than 32767 vertices; large `reps` reach these limits
+  quickly.
+* `write_graphml` cannot serialise the tuple metadata; drop `image`, `reps`,
+  `cell` and `pbc` before exporting.
+
+The CIF conversion is still experimental and emits a `UserWarning` on every
+call.
 
 ## Plotting
 

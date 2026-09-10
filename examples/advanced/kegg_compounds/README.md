@@ -18,7 +18,7 @@ memory for your cluster, then provide the site-specific values as environment
 variables:
 
 ```bash
-export ATT_ASS_PATH=/path/to/asscpp
+export ATT_ASS_PATH=/path/to/AssemblyCpp
 export ATT_DATA_DIR=/path/to/cbrdb-data
 export ATT_ENV_NAME=ass_env
 # Optional when the environment is not under $HOME/.conda/envs:

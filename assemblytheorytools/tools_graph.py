@@ -8,16 +8,17 @@ extraction, joining and composition, node relabelling and canonicalisation,
 charge assignment, and GraphML serialisation.
 """
 
-import networkx as nx
 import os
 import random
 from functools import reduce
+from numbers import Integral
+from typing import Iterable, List, Set, Tuple, Union
+
+import networkx as nx
 from rdkit.Chem import AllChem as Chem
 from rdkit.Chem.rdchem import GetPeriodicTable
-from typing import Set
-from typing import Tuple, List, Iterable, Union
 
-from .tools_mol import safe_standardize_mol, reset_mol_charge, smi_to_mol, inchi_to_mol
+from .tools_mol import inchi_to_mol, reset_mol_charge, safe_standardize_mol, smi_to_mol
 
 _EDGE_COLOR_TO_BOND_ORDER = {
     "single": 1,
@@ -53,55 +54,38 @@ _BOND_ORDER_TO_RDKIT_TYPE = {
 
 _RDKIT_TYPE_TO_BOND_ORDER = {
     Chem.rdchem.BondType.UNSPECIFIED: 0,
-    Chem.rdchem.BondType.SINGLE: 1,
-    Chem.rdchem.BondType.DOUBLE: 2,
-    Chem.rdchem.BondType.TRIPLE: 3,
-    Chem.rdchem.BondType.QUADRUPLE: 4,
-    Chem.rdchem.BondType.QUINTUPLE: 5,
-    Chem.rdchem.BondType.HEXTUPLE: 6,
-    Chem.rdchem.BondType.ONEANDAHALF: 7,
-    Chem.rdchem.BondType.TWOANDAHALF: 8,
-    Chem.rdchem.BondType.THREEANDAHALF: 9,
-    Chem.rdchem.BondType.FOURANDAHALF: 10,
-    Chem.rdchem.BondType.FIVEANDAHALF: 11,
-    Chem.rdchem.BondType.AROMATIC: 12,
-    Chem.rdchem.BondType.IONIC: 13,
-    Chem.rdchem.BondType.HYDROGEN: 14,
-    Chem.rdchem.BondType.THREECENTER: 15,
-    Chem.rdchem.BondType.DATIVEONE: 16,
-    Chem.rdchem.BondType.DATIVE: 17,
-    Chem.rdchem.BondType.DATIVEL: 18,
-    Chem.rdchem.BondType.DATIVER: 19,
-    Chem.rdchem.BondType.OTHER: 20,
-    Chem.rdchem.BondType.ZERO: 21,
+    **{bond_type: order for order, bond_type in _BOND_ORDER_TO_RDKIT_TYPE.items()},
+}
+
+_BOND_TYPE_TO_SMI_SYMBOL = {
+    Chem.BondType.SINGLE: "-",
+    Chem.BondType.DOUBLE: "=",
+    Chem.BondType.TRIPLE: "#",
 }
 
 
 def bond_order_assout_to_int(edge_color: str | int) -> int:
     """
-    Convert an edge colour to an integer bond order from the Assembly CPP output file.
-
-    This function maps a string representation of a bond order (e.g. "single", "double")
-    to its corresponding integer value. If the input is already an integer, it returns
-    the integer directly.
+    Convert a parallelassemblycpp edge colour to an integer bond order.
 
     Parameters
     ----------
     edge_color : str or int
-        The edge colour representing the bond order. It can be a string
-        ("single", "double", etc.) or an integer.
+        A bond name ("single" through "quintuple") or an integer-like value.
 
     Returns
     -------
     int
-        The integer representation of the bond order. If the input is a string, it returns
-        the corresponding integer value. If the input is already an integer, it returns
-        the integer directly.
+        The named bond order, or the result of ``int(edge_color)``.
+
+    Raises
+    ------
+    ValueError
+        If the value is neither a supported name nor an integer string.
     """
     if edge_color in _EDGE_COLOR_TO_BOND_ORDER:
         return _EDGE_COLOR_TO_BOND_ORDER[edge_color]
-    else:
-        return int(edge_color)
+    return int(edge_color)
 
 
 def bond_order_int_to_rdkit(bond_order: int) -> Chem.BondType:
@@ -162,124 +146,95 @@ def bond_order_rdkit_to_int(bond_type: Chem.BondType) -> int:
     return _RDKIT_TYPE_TO_BOND_ORDER[bond_type]
 
 
-def nx_to_mol(graph: nx.Graph,
-              add_hydrogens: bool = True,
-              sanitize: bool = True,
-              reset_charge: bool = False) -> Chem.Mol:
+def nx_to_mol(
+    graph: nx.Graph,
+    add_hydrogens: bool = True,
+    sanitize: bool = True,
+    reset_charge: bool = False,
+) -> Chem.Mol:
     """
-    Convert a NetworkX graph to an RDKit molecule object.
-
-    This function creates an RDKit molecule (`Chem.Mol`) from a NetworkX graph representation.
-    Nodes in the graph represent atoms, and edges represent bonds. The graph must have specific
-    attributes for nodes and edges to define atomic symbols and bond orders.
+    Convert a molecular graph to an RDKit molecule in node iteration order.
 
     Parameters
     ----------
     graph : nx.Graph
-        A NetworkX graph where nodes represent atoms and edges represent bonds. Each node must
-        have a 'color' attribute indicating the atomic symbol, and each edge must have a 'color'
-        attribute indicating the bond order (as an integer).
+        Nodes require an atomic symbol in ``color``; edges require an
+        integer bond order in ``color``. Node identifiers may be arbitrary.
     add_hydrogens : bool, optional
-        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to True.
+        Add explicit hydrogens during sanitization. Default is True.
     sanitize : bool, optional
-        If True, sanitizes the molecule after creation. Defaults to True.
+        Standardize the molecule after construction. Default is True.
     reset_charge : bool, optional
-        If True, recalculates the formal charges of the atoms in the molecule. Defaults to False.
+        Recalculate formal charges after sanitization. Default is False.
 
     Returns
     -------
     Chem.Mol
-        An RDKit molecule object created from the input graph.
+        The converted molecule. The input graph is unchanged.
 
     Raises
     ------
     KeyError
-        If a node is missing the 'color' attribute or an edge is missing the 'color' attribute.
-
-    Notes
-    -----
-    - The 'color' attribute of nodes is used to determine the atomic symbol.
-    - The 'color' attribute of edges is used to determine the bond order.
-    - The molecule can be sanitized and charges recalculated based on the input parameters.
+        If a node or edge is missing its ``color`` attribute.
+    ValueError
+        If an edge colour is not a supported integer bond order.
     """
-    # Create an editable RDKit molecule
     mol = Chem.RWMol()
-    # Dictionary to map node identifiers to atom indices in the RDKit molecule
     node_to_idx = {}
 
-    # Add atoms to the molecule
     for node, data in graph.nodes(data=True):
-        # Get the atomic symbol from the node's 'color' attribute, raise error if not present
-        if 'color' not in data:
+        if "color" not in data:
             raise KeyError(f"Node {node} is missing the 'color' attribute.")
-        atom_symbol = data['color']
-        atom = Chem.Atom(atom_symbol.strip())
-        node_to_idx[node] = mol.AddAtom(atom)
+        node_to_idx[node] = mol.AddAtom(Chem.Atom(data["color"].strip()))
 
-    # Add bonds to the molecule
     for u, v, data in graph.edges(data=True):
-        # Get the bond order from the edge's 'color' attribute, raise error if not present
-        if 'color' not in data:
+        if "color" not in data:
             raise KeyError(f"Edge ({u}, {v}) is missing the 'color' attribute.")
-        bond_order = int(data['color'])
-        # Map the bond order to RDKit's bond types
-        bond_type = bond_order_int_to_rdkit(bond_order)
-        # Add the bond to the molecule
+        bond_type = bond_order_int_to_rdkit(int(data["color"]))
         mol.AddBond(node_to_idx[u], node_to_idx[v], bond_type)
 
-    # Sanitise the molecule
     if sanitize:
         mol = safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
-    # Re-calculate the charges if requested
     if reset_charge:
         mol = reset_mol_charge(mol)
     return mol
 
 
-def mol_to_nx(mol: Chem.Mol,
-              add_hydrogens: bool = True,
-              sanitize: bool = True) -> nx.Graph:
+def mol_to_nx(
+    mol: Chem.Mol, add_hydrogens: bool = True, sanitize: bool = True
+) -> nx.Graph:
     """
-    Convert an RDKit molecule object to a NetworkX graph.
-
-    This function creates a NetworkX graph representation of a molecule. Nodes in the graph
-    represent atoms, and edges represent bonds. The graph includes attributes for nodes and
-    edges to define atomic symbols and bond types.
+    Convert an RDKit molecule to a graph with consecutive atom indices.
 
     Parameters
     ----------
     mol : Chem.Mol
-        An RDKit molecule object to be converted into a NetworkX graph.
+        The molecule to convert. Standardization may modify it in place.
     add_hydrogens : bool, optional
-        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to True.
+        Add explicit hydrogens during sanitization. Default is True.
     sanitize : bool, optional
-        If True, sanitizes the molecule before conversion. Defaults to True.
+        Standardize the molecule before conversion. Default is True.
 
     Returns
     -------
     nx.Graph
-        A NetworkX graph where nodes represent atoms and edges represent bonds. Node attributes
-        include 'color' for atomic symbols, and edge attributes include 'color' for bond types.
-
-    Notes
-    -----
-    - The 'color' attribute of nodes corresponds to the atomic symbol (e.g., "C" for carbon).
-    - The 'color' attribute of edges corresponds to the bond type as an integer.
-    - The graph's node labels are canonicalized to ensure sequential integer labels.
+        A new graph with node ``color`` attributes holding atomic symbols
+        and edge ``color`` attributes holding integer bond orders. RDKit's
+        atom indices provide consecutive node labels starting at 0.
     """
     if sanitize:
         mol = safe_standardize_mol(mol, add_hydrogens=add_hydrogens)
 
     graph = nx.Graph()
-
     for atom in mol.GetAtoms():
         graph.add_node(atom.GetIdx(), color=atom.GetSymbol())
-
     for bond in mol.GetBonds():
-        bond_type = bond_order_rdkit_to_int(bond.GetBondType())
-        graph.add_edge(bond.GetBeginAtomIdx(), bond.GetEndAtomIdx(), color=bond_type)
-
-    return canonicalize_node_labels(graph)
+        graph.add_edge(
+            bond.GetBeginAtomIdx(),
+            bond.GetEndAtomIdx(),
+            color=bond_order_rdkit_to_int(bond.GetBondType()),
+        )
+    return graph
 
 
 def remove_hydrogen_from_graph(graph: nx.Graph) -> nx.Graph:
@@ -299,10 +254,9 @@ def remove_hydrogen_from_graph(graph: nx.Graph) -> nx.Graph:
 
     Notes
     -----
-    Node identifiers are preserved, so the returned graph is numbered with
-    the surviving indices of the input rather than renumbered from 0. Pass it
-    through :func:`canonicalize_node_labels` if contiguous labels starting at
-    0 are needed, as the assembly calculators require.
+    Surviving nodes keep their original identifiers. Use
+    :func:`canonicalize_node_labels` for consecutive labels starting at 0,
+    as the assembly calculators require.
 
     Examples
     --------
@@ -317,57 +271,89 @@ def remove_hydrogen_from_graph(graph: nx.Graph) -> nx.Graph:
     >>> graph.number_of_nodes()
     9
     """
-    # Operate on a copy: callers routinely reuse the graph they passed (for a
-    # second calculation, or for a complexity score), and stripping it in
-    # place would silently give them the hydrogen-free answer both times.
     stripped = graph.copy()
-    for node in list(stripped.nodes()):
-        if stripped.nodes[node]["color"] == "H":
-            stripped.remove_node(node)
+    stripped.remove_nodes_from(
+        node for node, data in graph.nodes(data=True) if data["color"] == "H"
+    )
     return stripped
 
 
 def write_ass_graph_file(graph: nx.Graph, file_name: str = "graph_info") -> None:
     """
-    Write the graph information to a file for the Assembly CPP calculator.
+    Write a graph in the edge-list format used by parallelassemblycpp.
 
     Parameters
     ----------
     graph : nx.Graph
-        The input NetworkX graph where nodes represent atoms and edges represent bonds.
+        A simple undirected graph with consecutive integer node labels
+        starting at 0, nonempty whitespace-free string node colours, and
+        integer edge colours from 1 through 32767.
     file_name : str, optional
-        The name of the file to write the graph information to. Defaults to "graph_info".
+        Destination path. Default is "graph_info".
 
     Returns
     -------
     None
-        A file containing the graph's name, number of vertices, edges, vertex colours, and edge colours.
+
+    Raises
+    ------
+    ValueError
+        If the graph cannot be represented by the calculator's native format.
+        Validation finishes before the destination is opened.
+
+    Notes
+    -----
+    The five lines contain the name, node count, one-based edge endpoints,
+    node colours and edge colours. Node colours follow numeric node order;
+    endpoints and edge colours follow edge iteration order. Every line is
+    terminated, including the empty bond-colour line of an edgeless graph.
     """
-    # Get the number of vertices
-    num_vertices = graph.number_of_nodes()
-    # Get the edges
-    edges = list(graph.edges())
-    # Get vertex colours
-    vertex_colors = nx.get_node_attributes(graph, 'color')
-    # Get edge colours
-    edge_colors = nx.get_edge_attributes(graph, 'color')
+    if graph.is_directed() or graph.is_multigraph():
+        raise ValueError("AssemblyCpp requires a simple undirected graph.")
+    node_count = graph.number_of_nodes()
+    if node_count > 32767:
+        raise ValueError("AssemblyCpp supports at most 32767 vertices.")
+    if any(
+        not isinstance(node, Integral) or isinstance(node, bool) for node in graph
+    ) or set(graph) != set(range(node_count)):
+        raise ValueError(
+            "AssemblyCpp node labels must be consecutive integers starting at 0; "
+            "use canonicalize_node_labels first."
+        )
+    name = str(graph.name)
+    if "\n" in name or "\r" in name:
+        raise ValueError("The graph name must fit on one line.")
 
-    # Assert that all node colours are strings and do not contain spaces
-    for node, color in vertex_colors.items():
-        assert isinstance(color, str), f"Node color for node {node} is not a string. Not allowed for Assembly CPP."
-        assert ' ' not in color, f"Node color for node {node} contains a space. Not allowed for Assembly CPP."
+    vertex_colors = []
+    for node in range(node_count):
+        color = graph.nodes[node].get("color")
+        if not isinstance(color, str) or not color or any(c.isspace() for c in color):
+            raise ValueError(
+                f"Node color for node {node} must be a nonempty string without whitespace."
+            )
+        vertex_colors.append(color)
 
-    # Assert that all edge colours are integers
-    for edge, color in edge_colors.items():
-        assert isinstance(color, int), f"Edge color for edge {edge} is not an integer. Not allowed for Assembly CPP."
+    endpoints = []
+    edge_colors = []
+    for u, v, data in graph.edges(data=True):
+        if u == v:
+            raise ValueError("AssemblyCpp does not support self-loop edges.")
+        color = data.get("color")
+        if (
+            not isinstance(color, Integral)
+            or isinstance(color, bool)
+            or not 1 <= color <= 32767
+        ):
+            raise ValueError(
+                f"Edge color for edge {(u, v)} must be an integer from 1 through 32767."
+            )
+        endpoints.extend((str(u + 1), str(v + 1)))
+        edge_colors.append(str(color))
 
-    # Write the information to a file
-    with open(file_name, 'w') as f:
-        f.write(f"{graph.name}\n")
-        f.write(f"{num_vertices}\n")
-        f.write(" ".join([f"{e + 1}" for edge in edges for e in edge]) + "\n")
-        f.write(" ".join([f"{color}" for node, color in vertex_colors.items()]) + "\n")
-        f.write(" ".join([f"{color}" for node, color in edge_colors.items()]))
+    lines = [name, str(node_count), " ".join(endpoints),
+             " ".join(vertex_colors), " ".join(edge_colors)]
+    with open(file_name, "w", encoding="utf-8") as file:
+        file.write("\n".join(lines) + "\n")
 
 
 def is_graph_isomorphic(g1: nx.Graph, g2: nx.Graph) -> bool:
@@ -405,117 +391,99 @@ def is_graph_isomorphic(g1: nx.Graph, g2: nx.Graph) -> bool:
 
 def scramble_node_indices(graph: nx.Graph, seed: int | None = None) -> nx.Graph:
     """
-    Return a new graph with randomly scrambled node labels.
+    Return a copy of a graph with its existing node labels shuffled.
 
     Parameters
     ----------
     graph : nx.Graph
-        The input graph to be scrambled.
+        The graph to relabel.
     seed : int, optional
-        Seed for the random number generator for reproducibility. Default is None.
+        Seed Python's global random generator before shuffling. Default
+        is None, which uses its current state.
 
     Returns
     -------
     nx.Graph
-        A new graph with scrambled node labels.
+        A relabelled copy preserving the original set of node identifiers
+        and the graph's attributes.
     """
-    # Set the random seed if provided for reproducibility
     if seed is not None:
         random.seed(seed)
 
-    # Get the list of nodes and create a shuffled copy
-    nodes = list(graph.nodes())
+    nodes = list(graph)
     new_labels = nodes.copy()
     random.shuffle(new_labels)
-
-    # Create a mapping from old labels to new labels
-    mapping = dict(zip(nodes, new_labels))
-
-    # Relabel the nodes using the mapping
-    graph_scrambled = nx.relabel_nodes(graph, mapping, copy=True)
-
-    return graph_scrambled
+    return nx.relabel_nodes(graph, dict(zip(nodes, new_labels)))
 
 
 def get_disconnected_subgraphs(graph: nx.Graph) -> List[nx.Graph]:
     """
-    Return subgraphs of connected components without copying if not necessary.
+    Return a view of each connected component, in discovery order.
 
     Parameters
     ----------
     graph : nx.Graph
-        The input graph.
+        An undirected graph.
 
     Returns
     -------
     List[nx.Graph]
-        A list of subgraphs, each representing a connected component.
+        Subgraph views sharing attributes with the input. Their structure
+        is read-only and reflects changes to the original graph.
     """
-    return [graph.subgraph(c) for c in nx.connected_components(graph)]
+    return [graph.subgraph(nodes) for nodes in nx.connected_components(graph)]
 
 
-def join_graphs(graphs: List[nx.Graph], disjoint: int = True, rename_prefix: str = "G") -> nx.Graph:
+def join_graphs(
+    graphs: List[nx.Graph], disjoint: int = True, rename_prefix: str = "G"
+) -> nx.Graph:
     """
-    Combine multiple NetworkX graphs into a single graph.
-
-    This function merges a list of NetworkX graphs into one. It supports two modes:
-    - Disjoint union: Ensures no node ID clashes by creating separate components for each graph.
-    - Composition: Combines graphs while preserving node IDs, unless conflicts are detected.
+    Combine graphs, separating any clashing node identifiers.
 
     Parameters
     ----------
     graphs : List[nx.Graph]
-        A list of NetworkX graphs to be combined.
+        Graphs of the same concrete NetworkX class; iterables are accepted.
     disjoint : int, optional
-        If True, performs a disjoint union of the graphs.
-        If False, attempts to compose the graphs. Default is True.
+        If True (the default), use a disjoint union with consecutive
+        integer labels. If False, preserve labels unless any overlap.
     rename_prefix : str, optional
-        Prefix used for relabeling nodes in case of conflicts. Default is "G".
+        Prefix for conflicting labels. Default is "G". When any overlap
+        exists, every label becomes "{rename_prefix}{graph_index}_{node}".
 
     Returns
     -------
     nx.Graph
-        The combined graph.
+        The combined graph, with later graphs taking precedence for graph
+        attributes. A disjoint join of one graph returns that graph itself,
+        preserving its labels; other joins return a new graph.
 
     Raises
     ------
     ValueError
-        If the input list of graphs is empty.
+        If no graphs are supplied.
     TypeError
-        If the graphs are not of the same NetworkX type.
-
-    Notes
-    -----
-    When `disjoint` is False, node ID clashes are checked. If clashes exist, nodes are relabeled with a prefix.
+        If the graphs have different concrete NetworkX classes.
     """
-    graphs = list(graphs)  # Convert the input iterable to a list
+    graphs = list(graphs)
     if not graphs:
         raise ValueError("Need at least one graph.")
 
-    # Ensure all inputs have the same concrete class
     first_type = type(graphs[0])
-    if any(type(g) is not first_type for g in graphs[1:]):
+    if any(type(graph) is not first_type for graph in graphs[1:]):
         raise TypeError("All graphs must be of the same NetworkX type.")
 
-    # Perform a disjoint union of the graphs
     if disjoint:
-        return reduce(nx.disjoint_union, graphs)
+        # Preserve the original object and labels for a single graph.
+        return graphs[0] if len(graphs) == 1 else nx.disjoint_union_all(graphs)
 
-    # Check for node ID clashes
-    node_sets = [set(g) for g in graphs]
-    if all(node_sets[i].isdisjoint(node_sets[j])
-           for i in range(len(node_sets)) for j in range(i + 1, len(node_sets))):
-        # Compose graphs directly if no clashes are detected
+    if len(set().union(*graphs)) == sum(map(len, graphs)):
         return nx.compose_all(graphs)
 
-    # Relabel nodes with a prefix to avoid clashes
-    relabelled = []
-    for i, g in enumerate(graphs):
-        # Add prefix to node labels
-        prefix = f"{rename_prefix}{i}_"
-        relabelled.append(nx.relabel_nodes(g, lambda n, p=prefix: f"{p}{n}"))
-    # Compose the relabeled graphs
-    return nx.compose_all(relabelled)
+    return nx.compose_all(
+        nx.relabel_nodes(graph, {node: f"{rename_prefix}{i}_{node}" for node in graph})
+        for i, graph in enumerate(graphs)
+    )
 
 
 def write_graphml(graph: nx.Graph, file_name: str = "graph.graphml") -> None:
@@ -526,8 +494,8 @@ def write_graphml(graph: nx.Graph, file_name: str = "graph.graphml") -> None:
     ----------
     graph : nx.Graph
         The graph to be written to the file.
-    file_name : str
-        The path to the file where the graph will be saved.
+    file_name : str, optional
+        Destination path. Default is "graph.graphml".
 
     Returns
     -------
@@ -542,8 +510,8 @@ def read_graphml(file_name: str = "graph.graphml") -> nx.Graph:
 
     Parameters
     ----------
-    file_name : str
-        The path to the file from which the graph will be read.
+    file_name : str, optional
+        Source path. Default is "graph.graphml".
 
     Returns
     -------
@@ -555,73 +523,50 @@ def read_graphml(file_name: str = "graph.graphml") -> nx.Graph:
 
 def get_bond_smi(mol: Chem.Mol) -> Set[str]:
     """
-    Get the list of bonds of the system in SMILES format.
+    Return the unique atom-pair bond strings in a molecule.
 
     Parameters
     ----------
     mol : Chem.Mol
-        The RDKit molecule object.
+        The molecule whose bonds are inspected.
 
     Returns
     -------
     Set[str]
-        A set of strings representing the bonds in SMILES format.
+        Bond strings with alphabetically ordered atomic symbols. Single,
+        double and triple bonds use ``-``, ``=`` and ``#`` respectively;
+        all other bond types use ``~``.
     """
     bond_smiles = set()
     for bond in mol.GetBonds():
-        atom1 = mol.GetAtomWithIdx(bond.GetBeginAtomIdx())
-        atom2 = mol.GetAtomWithIdx(bond.GetEndAtomIdx())
-        symbol1 = atom1.GetSymbol()
-        symbol2 = atom2.GetSymbol()
-        bond_type = bond.GetBondType()
-
-        if bond_type == Chem.BondType.SINGLE:
-            bond_symbol = '-'
-        elif bond_type == Chem.BondType.DOUBLE:
-            bond_symbol = '='
-        elif bond_type == Chem.BondType.TRIPLE:
-            bond_symbol = '#'
-        else:
-            bond_symbol = '~'  # For other bond types
-
-        # Create bond SMILES in alphabetical order
-        if symbol1 <= symbol2:
-            bond_smiles.add(f"{symbol1}{bond_symbol}{symbol2}")
-        else:
-            bond_smiles.add(f"{symbol2}{bond_symbol}{symbol1}")
-
+        symbol1, symbol2 = sorted(
+            (bond.GetBeginAtom().GetSymbol(), bond.GetEndAtom().GetSymbol())
+        )
+        bond_symbol = _BOND_TYPE_TO_SMI_SYMBOL.get(bond.GetBondType(), "~")
+        bond_smiles.add(f"{symbol1}{bond_symbol}{symbol2}")
     return bond_smiles
 
 
-def nx_to_smi(graph: nx.Graph, add_hydrogens: bool = True, sanitize: bool = True) -> str:
+def nx_to_smi(
+    graph: nx.Graph, add_hydrogens: bool = True, sanitize: bool = True
+) -> str:
     """
-    Convert a NetworkX graph to a SMILES string.
-
-    This function generates a SMILES (Simplified Molecular Input Line Entry System) representation
-    of a molecule from its NetworkX graph representation. The graph is first converted to an RDKit
-    molecule object, and then the SMILES string is generated.
+    Convert a molecular graph to a Kekule SMILES string.
 
     Parameters
     ----------
     graph : nx.Graph
-        A NetworkX graph where nodes represent atoms and edges represent bonds. Each node must
-        have a 'color' attribute indicating the atomic symbol, and each edge must have a 'color'
-        attribute indicating the bond order (as an integer).
+        A molecular graph with atomic symbols in node ``color`` attributes
+        and integer bond orders in edge ``color`` attributes.
     add_hydrogens : bool, optional
-        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to True.
+        Add explicit hydrogens during sanitization. Default is True.
     sanitize : bool, optional
-        If True, sanitizes the molecule before generating the SMILES string. Defaults to True.
+        Standardize the molecule before writing SMILES. Default is True.
 
     Returns
     -------
     str
-        A SMILES string representing the molecule.
-
-    Notes
-    -----
-    - The SMILES string is generated with explicit hydrogens and Kekulé form if specified.
-    - The 'color' attribute of nodes and edges in the graph is used to define atomic symbols
-      and bond orders, respectively.
+        The SMILES representation produced through :func:`nx_to_mol`.
 
     Examples
     --------
@@ -640,39 +585,31 @@ def nx_to_smi(graph: nx.Graph, add_hydrogens: bool = True, sanitize: bool = True
     return Chem.MolToSmiles(mol, allHsExplicit=False, kekuleSmiles=True)
 
 
-def smi_to_nx(smiles: str, add_hydrogens: bool = True, sanitize: bool = True) -> nx.Graph:
+def smi_to_nx(
+    smiles: str, add_hydrogens: bool = True, sanitize: bool = True
+) -> nx.Graph:
     """
-    Convert a SMILES string to a NetworkX graph.
-
-    This function takes a SMILES (Simplified Molecular Input Line Entry System) string,
-    converts it to an RDKit molecule object, and then transforms it into a NetworkX graph
-    representation. The graph includes attributes for nodes and edges to define atomic
-    symbols and bond types.
+    Convert a SMILES string to a molecular graph.
 
     Parameters
     ----------
     smiles : str
-        A SMILES string representing the molecular structure.
+        The molecular structure in SMILES format.
     add_hydrogens : bool, optional
-        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to True.
+        Add explicit hydrogens during sanitization. Default is True.
     sanitize : bool, optional
-        If True, sanitizes the molecule before conversion. Defaults to True.
+        Standardize the molecule during conversion. Default is True.
 
     Returns
     -------
     nx.Graph
-        A NetworkX graph where nodes represent atoms and edges represent bonds. Node attributes
-        include 'color' for atomic symbols, and edge attributes include 'color' for bond types.
+        A graph with consecutive integer node labels. Node ``color`` holds
+        atomic symbols; edge ``color`` holds integer bond orders.
 
     Raises
     ------
     ValueError
-        If the SMILES string is invalid or the conversion to an RDKit molecule fails.
-
-    Notes
-    -----
-    - The 'color' attribute of nodes corresponds to the atomic symbol (e.g., "C" for carbon).
-    - The 'color' attribute of edges corresponds to the bond type as an integer.
+        If the SMILES string is invalid or conversion fails.
 
     Examples
     --------
@@ -702,196 +639,171 @@ def smi_to_nx(smiles: str, add_hydrogens: bool = True, sanitize: bool = True) ->
     return mol_to_nx(mol, add_hydrogens=add_hydrogens, sanitize=sanitize)
 
 
-def nx_to_inchi(graph: nx.Graph, add_hydrogens: bool = True, sanitize: bool = True) -> str:
+def nx_to_inchi(
+    graph: nx.Graph, add_hydrogens: bool = True, sanitize: bool = True
+) -> str:
     """
-    Convert a NetworkX graph to an InChI string.
-
-    This function generates an InChI (International Chemical Identifier) representation
-    of a molecule from its NetworkX graph representation. The graph is first converted
-    to an RDKit molecule object, and then the InChI string is generated.
+    Convert a molecular graph to an InChI string.
 
     Parameters
     ----------
     graph : nx.Graph
-        A NetworkX graph where nodes represent atoms and edges represent bonds. Each node must
-        have a 'color' attribute indicating the atomic symbol, and each edge must have a 'color'
-        attribute indicating the bond order (as an integer).
+        A molecular graph with atomic symbols in node ``color`` attributes
+        and integer bond orders in edge ``color`` attributes.
     add_hydrogens : bool, optional
-        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to True.
+        Add explicit hydrogens during sanitization. Default is True.
     sanitize : bool, optional
-        If True, sanitizes the molecule before generating the InChI string. Defaults to True.
+        Standardize the molecule before writing InChI. Default is True.
 
     Returns
     -------
     str
-        An InChI string representing the molecule.
-
-    Notes
-    -----
-    - The 'color' attribute of nodes and edges in the graph is used to define atomic symbols
-      and bond orders, respectively.
-    - Sanitization ensures the molecule is chemically valid before conversion.
+        The InChI representation produced through :func:`nx_to_mol`.
     """
     mol = nx_to_mol(graph, add_hydrogens=add_hydrogens, sanitize=sanitize)
     return Chem.MolToInchi(mol)
 
 
-def inchi_to_nx(inchi: str, add_hydrogens: bool = False, sanitize: bool = True) -> nx.Graph:
+def inchi_to_nx(
+    inchi: str, add_hydrogens: bool = False, sanitize: bool = True
+) -> nx.Graph:
     """
-    Convert an InChI string to a NetworkX graph.
-
-    This function takes an InChI (International Chemical Identifier) string,
-    converts it to an RDKit molecule object, and then transforms it into a
-    NetworkX graph representation. The graph includes attributes for nodes
-    and edges to define atomic symbols and bond types.
+    Convert an InChI string to a molecular graph.
 
     Parameters
     ----------
     inchi : str
-        An InChI string representing the molecular structure.
+        The molecular structure in InChI format.
     add_hydrogens : bool, optional
-        If True, adds explicit hydrogens to the molecule during sanitization. Defaults to True.
+        Add hydrogens during graph conversion. Default is False.
     sanitize : bool, optional
-        If True, sanitizes the molecule before conversion. Defaults to True.
+        Standardize the molecule during graph conversion. Default is True.
 
     Returns
     -------
     nx.Graph
-        A NetworkX graph where nodes represent atoms and edges represent bonds. Node attributes
-        include 'color' for atomic symbols, and edge attributes include 'color' for bond types.
+        A graph with consecutive integer node labels. Node ``color`` holds
+        atomic symbols; edge ``color`` holds integer bond orders.
 
     Raises
     ------
     ValueError
-        If the InChI string is invalid or the conversion to an RDKit molecule fails.
+        If the InChI string is invalid or conversion fails.
 
     Notes
     -----
-    - The 'color' attribute of nodes corresponds to the atomic symbol (e.g., "C" for carbon).
-    - The 'color' attribute of edges corresponds to the bond type as an integer.
+    The initial InChI parser always uses its own defaults for sanitization
+    and hydrogen addition. These options control the subsequent graph
+    conversion; they do not remove hydrogens already added by the parser.
     """
-    mol = inchi_to_mol(inchi)  # Convert the InChI string to an RDKit molecule object
+    mol = inchi_to_mol(inchi)
     if mol is None:
         raise ValueError("Invalid InChI string or conversion failed.")
     return mol_to_nx(mol, add_hydrogens=add_hydrogens, sanitize=sanitize)
 
 
-def create_ionic_molecule(smiles: str,
-                          add_hydrogens: bool = True,
-                          sanitize: bool = True) -> Tuple[nx.Graph, List[Chem.Mol]]:
+def create_ionic_molecule(
+    smiles: str, add_hydrogens: bool = True, sanitize: bool = True
+) -> Tuple[nx.Graph, List[Chem.Mol]]:
     """
-    Create a combined graph for an ionic molecule from dot-separated SMILES.
+    Combine dot-separated SMILES components and link their charged atoms.
 
     Parameters
     ----------
     smiles : str
-        The SMILES string representing the ionic molecule, with parts separated by dots.
+        Component SMILES separated by dots.
     add_hydrogens : bool, optional
-        If True, adds explicit hydrogens to each component during sanitization. Defaults to True.
+        Add explicit hydrogens during sanitization. Default is True.
     sanitize : bool, optional
-        If True, sanitizes each component before conversion. Defaults to True.
+        Standardize each component during conversion. Default is True.
 
     Returns
     -------
     Tuple[nx.Graph, List[Chem.Mol]]
-        A tuple containing the combined NetworkX graph and a list of RDKit molecule objects.
-    """
-    # Split the SMILES into components
-    smi_list = smiles.split('.')
-    mols = [smi_to_mol(smi, add_hydrogens=add_hydrogens, sanitize=sanitize) for smi in smi_list]
-    graphs = [mol_to_nx(mol, add_hydrogens=add_hydrogens, sanitize=sanitize) for mol in mols]
+        The combined graph and the component molecules, in input order.
 
-    # Find the positively and negatively charged atoms
-    pos_idx, neg_idx = None, None
-    for i, mol in enumerate(mols):
+    Notes
+    -----
+    When both charge signs occur, connect the last positive atom and last
+    negative atom encountered across the components. This helper retains
+    its legacy ionic edge colour of 6, which differs from the RDKit ionic
+    bond code returned by :func:`bond_order_rdkit_to_int`.
+    """
+    mols = [
+        smi_to_mol(smi, add_hydrogens=add_hydrogens, sanitize=sanitize)
+        for smi in smiles.split(".")
+    ]
+    graphs = [
+        mol_to_nx(mol, add_hydrogens=add_hydrogens, sanitize=sanitize) for mol in mols
+    ]
+
+    positive_node = negative_node = None
+    offset = 0
+    for mol, graph in zip(mols, graphs):
         for atom in mol.GetAtoms():
             charge = atom.GetFormalCharge()
             if charge > 0:
-                pos_idx = (i, atom.GetIdx())
+                positive_node = offset + atom.GetIdx()
             elif charge < 0:
-                neg_idx = (i, atom.GetIdx())
+                negative_node = offset + atom.GetIdx()
+        offset += len(graph)
 
-    # Combine the graphs
     combined = nx.disjoint_union_all(graphs)
+    if positive_node is not None and negative_node is not None:
+        # Keep the legacy ionic colour, distinct from RDKit's bond enum.
+        combined.add_edge(positive_node, negative_node, color=6)
 
-    # Map atom indices to combined graph node indices
-    node_offset = [0]
-    for g in graphs[:-1]:
-        node_offset.append(node_offset[-1] + g.number_of_nodes())
-
-    if pos_idx and neg_idx:
-        # Calculate the correct node indices in the combined graph
-        pos_node = node_offset[pos_idx[0]] + pos_idx[1]
-        neg_node = node_offset[neg_idx[0]] + neg_idx[1]
-        # Add the ionic bond (bond order 6 denotes an ionic bond)
-        combined.add_edge(pos_node, neg_node, color=6)
-
-    return combined, mols  # Return the combined graph and both molecules
+    return combined, mols
 
 
 def longest_path_length(digraph: nx.DiGraph) -> int:
     """
-    Calculate the longest path length in a Directed Acyclic Graph (DAG).
+    Return the longest path's edge count in a directed acyclic graph.
 
     Parameters
     ----------
     digraph : nx.DiGraph
-        The input directed acyclic graph.
+        A directed acyclic graph. Edge weights are ignored.
 
     Returns
     -------
     int
-        The length of the longest path in the graph.
+        The maximum number of edges in a path, or 0 for an empty graph.
 
     Raises
     ------
     ValueError
-        If the input graph is not a Directed Acyclic Graph (DAG).
+        If the graph is undirected or contains a cycle.
     """
     if not nx.is_directed_acyclic_graph(digraph):
         raise ValueError("Graph must be a Directed Acyclic Graph (DAG)")
 
-    # Get topological order of nodes
-    topological_order = list(nx.topological_sort(digraph))
-
-    # Dictionary to store the longest path distance to each node
-    longest_dist: dict[int, int] = {node: 0 for node in digraph.nodes()}
-
-    # Process nodes in topological order
-    for node in topological_order:
-        for successor in digraph.successors(node):
-            longest_dist[successor] = max(longest_dist[successor], longest_dist[node] + 1)
-
-    # Return the maximum path length found
-    return max(longest_dist.values(), default=0)
+    # Each generation advances one edge along the longest path from a root.
+    generations = nx.topological_generations(digraph)
+    return max(0, sum(1 for _ in generations) - 1)
 
 
 def relabel_digraph(graph: nx.DiGraph) -> nx.DiGraph:
     """
-    Relabel the nodes of a directed graph with their topological step.
-
-    This function assigns a "label" attribute to each node in the graph,
-    where the label indicates the topological step (generation) of the node
-    in a topological sort of the graph.
+    Set each node's "label" to "Step {generation}" in place.
 
     Parameters
     ----------
     graph : nx.DiGraph
-        A directed graph to be relabeled.
+        A directed acyclic graph.
 
     Returns
     -------
     nx.DiGraph
-        The input graph with nodes relabeled by their topological step.
+        The input graph, with existing ``label`` attributes overwritten.
 
-    Notes
-    -----
-    The graph must be a directed acyclic graph (DAG) for topological sorting to work.
-    The "label" attribute of each node will be overwritten.
+    Raises
+    ------
+    networkx.NetworkXUnfeasible
+        If a cycle prevents topological sorting. Earlier generations may
+        already have been labelled.
     """
-    # Iterate through each topological generation of the graph
     for step, nodes in enumerate(nx.topological_generations(graph)):
-        # Assign a label to each node based on its topological step
         for node in nodes:
             graph.nodes[node]["label"] = f"Step {step}"
     return graph
@@ -899,37 +811,34 @@ def relabel_digraph(graph: nx.DiGraph) -> nx.DiGraph:
 
 def relabel_identifiers(graph: nx.Graph) -> nx.Graph:
     """
-    Relabel the nodes of a NetworkX graph using their "label" attribute.
-
-    This function replaces the current node identifiers in the input graph
-    with the values of their "label" attribute. It is useful for creating
-    a graph with more meaningful or human-readable node identifiers.
+    Return a copy with node identifiers replaced by their "label" values.
 
     Parameters
     ----------
     graph : nx.Graph
-        The input NetworkX graph whose nodes will be relabeled.
+        The graph to relabel.
 
     Returns
     -------
     nx.Graph
-        A new NetworkX graph with nodes relabeled based on their "label" attribute.
+        A relabelled copy. Equal labels merge their corresponding nodes.
 
-    Notes
-    -----
-    The "label" attribute must exist for all nodes in the graph.
-    If the "label" attribute is not unique, the resulting graph may have issues.
+    Raises
+    ------
+    KeyError
+        If any node lacks a ``label`` attribute.
     """
-    return nx.relabel_nodes(graph, {n: graph.nodes[n]["label"] for n in graph})
+    return nx.relabel_nodes(
+        graph, {node: data["label"] for node, data in graph.nodes(data=True)}
+    )
 
 
 def canonicalize_node_labels(graph: nx.Graph) -> nx.Graph:
     """
-    Relabel the nodes of a NetworkX graph to a sequence of integers from 0 to n-1.
+    Relabel nodes with consecutive integers starting at 0.
 
-    This function maps nodes, in their current iteration order, to a contiguous
-    integer sequence starting at 0. It prepares input for the external
-    calculator but does not compute a canonical graph-isomorphism labelling.
+    Labels follow node iteration order. This prepares calculator input;
+    it does not compute a canonical graph-isomorphism labelling.
 
     Parameters
     ----------
@@ -945,8 +854,8 @@ def canonicalize_node_labels(graph: nx.Graph) -> nx.Graph:
     Examples
     --------
     The resulting node identifiers are always contiguous, which is why
-    :func:`~assemblytheorytools.assembly.calculate_assembly_index` applies this
-    normalisation by default:
+    :func:`~assemblytheorytools.assembly.calculate_assembly_index`
+    applies this normalisation by default:
 
     >>> import assemblytheorytools as att
     >>> graph = att.smi_to_nx("CCO")
@@ -954,119 +863,95 @@ def canonicalize_node_labels(graph: nx.Graph) -> nx.Graph:
     >>> sorted(canonical.nodes()) == list(range(graph.number_of_nodes()))
     True
     """
-    # Get the current node labels from the graph
-    current_labels = list(graph.nodes())
-    # Create a mapping from current labels to new sequential labels
-    label_mapping = {current_labels[i]: i for i in range(len(current_labels))}
-    # Relabel the graph using the mapping
-    graph = nx.relabel_nodes(graph, label_mapping)
-    return graph
+    return nx.relabel_nodes(graph, {node: index for index, node in enumerate(graph)})
 
 
-def get_graph_charges(graph: nx.Graph,
-                      pt: Chem.rdchem.PeriodicTable = None) -> List[int]:
+def get_graph_charges(
+    graph: nx.Graph, pt: Chem.rdchem.PeriodicTable = None
+) -> List[int]:
     """
-    Calculate the formal charges of nodes in a NetworkX graph.
-
-    This function computes the formal charge for each node in the graph based on its atomic symbol
-    and the sum of the edge colours (bond orders). The periodic table is used to retrieve atomic
-    properties such as valence.
+    Estimate formal charges from minimum valences and incident bond orders.
 
     Parameters
     ----------
     graph : nx.Graph
-        A NetworkX graph where nodes represent atoms and edges represent bonds. Each node must have
-        a 'color' attribute indicating the atomic symbol, and each edge must have a 'color' attribute
-        indicating the bond order (as an integer).
+        A molecular graph with atomic symbols in node ``color`` attributes.
+        Edge ``color`` attributes give bond orders; missing colours default
+        to 1.
     pt : Chem.rdchem.PeriodicTable, optional
-        The RDKit periodic table object. If not provided, it defaults to the global periodic table.
+        Periodic table supplying atomic numbers and valence lists. Defaults
+        to RDKit's periodic table.
 
     Returns
     -------
     List[int]
-        A list of integers representing the formal charges of the nodes in the graph.
-
-    Notes
-    -----
-    - The 'color' attribute of each node is expected to contain the atomic symbol (e.g., "C" for carbon).
-    - The formal charge is calculated as the difference between the atom's valence and the sum of the
-      edge colours (bond orders) for that node.
+        Minimum allowed valence minus the sum of neighbouring bond orders,
+        for each atom in node iteration order.
     """
     pt = pt or GetPeriodicTable()
     charges = []
-    for node_id, node_data in graph.nodes(data=True):
-        symbol = node_data['color']
-        atomic_number = pt.GetAtomicNumber(symbol)
+    for node, data in graph.nodes(data=True):
+        atomic_number = pt.GetAtomicNumber(data["color"])
         valence = min(pt.GetValenceList(atomic_number))
-        # Sum the edge colours (bond orders) for this node
         bond_order_sum = sum(
-            graph.edges[node_id, neighbor].get('color', 1)
-            for neighbor in graph.neighbors(node_id)
+            graph.edges[node, neighbor].get("color", 1)
+            for neighbor in graph.neighbors(node)
         )
-        charge = valence - bond_order_sum
-        charges.append(charge)
+        charges.append(valence - bond_order_sum)
     return charges
 
 
-def compose_graphs(graphs: Iterable[nx.Graph]) -> Union[nx.Graph, nx.DiGraph, nx.MultiGraph, nx.MultiDiGraph]:
+def compose_graphs(
+    graphs: Iterable[nx.Graph],
+) -> Union[nx.Graph, nx.DiGraph, nx.MultiGraph, nx.MultiDiGraph]:
     """
-    Compose (merge) a list/iterable of NetworkX graphs into a single graph using nx.compose.
-
-    - Nodes/edges from all graphs are included.
-    - If the same node/edge exists in multiple graphs, attributes from later graphs in the
-      iterable will overwrite earlier ones (NetworkX compose behavior).
+    Merge graphs sharing node identifiers, with later attributes winning.
 
     Parameters
     ----------
     graphs : Iterable[nx.Graph]
-        An iterable of NetworkX graph objects (Graph/DiGraph/MultiGraph/MultiDiGraph).
+        NetworkX graphs to compose in iteration order.
 
     Returns
     -------
-    nx.Graph (or subclass)
-        The composed graph.
+    nx.Graph
+        The composed graph. A single input graph is returned unchanged;
+        multiple inputs produce a new graph using NetworkX composition.
 
     Raises
     ------
     ValueError
-        If `graphs` is empty.
-    TypeError
-        If graph types are incompatible (e.g., mixing Graph and DiGraph).
+        If no graphs are supplied.
+    networkx.NetworkXError
+        If directed and undirected graphs, or simple and multigraphs,
+        are mixed.
     """
     graphs = list(graphs)
     if not graphs:
         raise ValueError("compose_graphs() requires at least one graph")
 
-    composed = graphs[0]
-    for g in graphs[1:]:
-        composed = nx.compose(composed, g)
-    return composed
+    return reduce(nx.compose, graphs)
 
 
 def set_graph_layer(digraph: nx.DiGraph) -> nx.DiGraph:
     """
-    Assign a "layer" attribute to each node of a DAG.
-
-    The layer is taken from the node's topological generation.
-
-    This function iterates through the topological generations of the input directed graph
-    and assigns a "layer" attribute to each node. The layer number corresponds to the
-    topological step (generation) of the node, starting from 0 for the first generation.
+    Set each node's integer "layer" to its topological generation in place.
 
     Parameters
     ----------
     digraph : nx.DiGraph
-        A directed acyclic graph (DAG) whose nodes will be assigned a "layer" attribute.
+        A directed acyclic graph.
 
     Returns
     -------
     nx.DiGraph
-        The input graph with the "layer" attribute added to each node.
+        The input graph, with ``layer`` values overwritten starting at 0.
 
-    Notes
-    -----
-    - The graph must be a directed acyclic graph (DAG) for topological sorting to work.
-    - The "layer" attribute is an integer representing the topological generation of the node.
+    Raises
+    ------
+    networkx.NetworkXUnfeasible
+        If a cycle prevents topological sorting. Earlier generations may
+        already have been labelled.
     """
     for layer, nodes in enumerate(nx.topological_generations(digraph)):
         for node in nodes:
@@ -1077,110 +962,96 @@ def set_graph_layer(digraph: nx.DiGraph) -> nx.DiGraph:
 
 def strip_digraph_layer(digraph: nx.DiGraph, layer: int) -> nx.DiGraph:
     """
-    Remove all nodes and edges from a directed graph that belong to a specific layer.
+    Copy a directed acyclic graph and remove one topological generation.
 
     Parameters
     ----------
     digraph : nx.DiGraph
-        The input directed graph from which to remove the specified layer.
+        The graph to copy. Layers are recomputed on the copy before removal.
     layer : int
-        The layer number to be removed. Nodes with a "label" attribute matching "Step {layer}"
-        will be removed along with their associated edges.
+        The topological generation to remove, counting from 0.
 
     Returns
     -------
     nx.DiGraph
-        A new directed graph with the specified layer removed.
-
-    Notes
-    -----
-    - The function assumes that nodes have a "label" attribute in the format "Step {number}".
-    - All nodes and edges connected to the specified layer will be removed from the graph.
+        A mutable copy without the selected nodes and their incident edges.
+        Surviving nodes retain their computed ``layer`` values.
     """
     modified_graph = set_graph_layer(digraph.copy())
-    nodes_to_remove = [node for node, data in modified_graph.nodes(data=True) if data.get("layer") == layer]
+    nodes_to_remove = [
+        node for node, data in modified_graph.nodes(data=True) if data["layer"] == layer
+    ]
     modified_graph.remove_nodes_from(nodes_to_remove)
     return modified_graph
 
 
-def top_n_degree_subgraph(G: nx.DiGraph, n: int, must_keep: List[nx.Graph]) -> nx.DiGraph:
+def top_n_degree_subgraph(
+    G: nx.DiGraph, n: int, must_keep: List[nx.Graph]
+) -> nx.DiGraph:
     """
-    Extract a subgraph of the highest-degree nodes.
-
-    The top ``n`` nodes by degree are kept, while ensuring that specific
-    subgraphs are retained.
-
-    This function creates a subgraph from the input directed graph `G` by
-    selecting the top `n` nodes based on their degree (sum of in-degree and
-    out-degree). Additionally, it ensures that nodes corresponding to the
-    `must_keep` subgraphs are included in the resulting subgraph.
+    Keep the highest-degree nodes and nodes matching required subgraphs.
 
     Parameters
     ----------
     G : nx.DiGraph
-        The input directed graph.
+        A directed graph whose nodes carry molecular graphs in ``vo``.
     n : int
-        The number of top-degree nodes to include in the subgraph.
+        Number of nodes to select by total in-degree plus out-degree.
+        Ties follow node iteration order; selection uses Python slicing.
     must_keep : List[nx.Graph]
-        A list of subgraphs that must be retained in the resulting subgraph.
+        Reference graphs. Nodes whose ``vo`` is topologically isomorphic
+        to any reference are retained regardless of degree.
 
     Returns
     -------
     nx.DiGraph
-        A subgraph of the input graph `G` containing the top `n` nodes by
-        degree and nodes corresponding to the `must_keep` subgraphs.
+        A subgraph view of a copy of the input, containing both selections.
 
     Notes
     -----
-    - If the `must_keep` subgraphs contain hydrogen atoms ('H') but the input graph
-      does not, the comparison is made against hydrogen-free copies of them.
-      The caller's `must_keep` graphs are not modified.
-    - The function ensures that all nodes in the `must_keep` subgraphs are included
-      in the resulting subgraph, even if they are not among the top `n`
-      nodes by degree.
+    If the references contain hydrogen atoms but none of the input's ``vo``
+    graphs do, matching uses hydrogen-free copies of the references. The
+    input and reference graphs are unchanged. Matching ignores colours.
     """
-    # Create a copy of the input graph to avoid modifying the original
     G = G.copy()
 
-    # Collect unique node colors from the input graph
-    symbols_g = {data['color'] for node in G.nodes() for _, data in G.nodes[node].get('vo', {}).nodes(data=True)}
+    symbols_g = {
+        data["color"]
+        for _, node_data in G.nodes(data=True)
+        for _, data in node_data.get("vo", {}).nodes(data=True)
+    }
+    symbols_ref = {
+        data["color"] for graph in must_keep for _, data in graph.nodes(data=True)
+    }
 
-    # Collect unique node colors from the `must_keep` subgraphs
-    symbols_ref = {data['color'] for vo in must_keep for _, data in vo.nodes(data=True)}
+    if "H" in symbols_ref and "H" not in symbols_g:
+        must_keep = [remove_hydrogen_from_graph(graph) for graph in must_keep]
 
-    # Remove hydrogen atoms from `must_keep` if not present in the input graph
-    if 'H' in symbols_ref and 'H' not in symbols_g:
-        must_keep = [remove_hydrogen_from_graph(g) for g in must_keep]
+    ranked_nodes = sorted(G.degree(), key=lambda item: item[1], reverse=True)
+    top_nodes = {node for node, _ in ranked_nodes[:n]}
+    keep_nodes = {
+        node
+        for node, data in G.nodes(data=True)
+        if any(nx.is_isomorphic(data.get("vo"), graph) for graph in must_keep)
+    }
 
-    # Get top `n` nodes by degree
-    top_nodes = {u for u, _ in sorted(G.degree(), key=lambda x: x[1], reverse=True)[:n]}
-
-    # Identify nodes to keep based on `must_keep` subgraphs
-    keep_nodes = {node for node in G.nodes() if any(nx.is_isomorphic(G.nodes[node].get('vo'), g) for g in must_keep)}
-
-    # Return the subgraph containing top nodes and must-keep nodes
     return G.subgraph(top_nodes | keep_nodes)
 
 
 def strip_digraph_zero_indegree(G: nx.DiGraph) -> nx.DiGraph:
     """
-    Create a subgraph by removing the nodes with zero in-degree.
+    Remove nodes with zero in-degree in a single pass.
 
     Parameters
     ----------
     G : nx.DiGraph
-        The input directed graph. It is copied, so the original is left
-        unmodified.
+        The graph to copy and filter.
 
     Returns
     -------
     nx.DiGraph
-        A subgraph containing only the nodes whose in-degree is greater than
-        zero.
+        A subgraph view of a copy, retaining nodes with positive in-degree
+        in the input. Nodes that become roots after removal are kept.
     """
-    # Create a copy of the input graph to avoid modifying the original graph
     G = G.copy()
-    # Identify nodes with in-degree greater than zero
-    nodes = [n for n, indeg in G.in_degree() if indeg > 0]
-    # Return a subgraph containing only the identified nodes
-    return G.subgraph(nodes)
+    return G.subgraph(node for node, degree in G.in_degree() if degree > 0)

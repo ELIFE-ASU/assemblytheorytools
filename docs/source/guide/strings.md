@@ -19,9 +19,9 @@ Building `abracadabra` character by character would take ten joins. Because
 `abra` can be reused once it exists, the index is 7. As with molecules, the
 order of `virt_obj` is not stable between runs.
 
-The string calculator is a separate binary from the molecule one; it is bundled
-with the package and resolved through `ASS_STR_PATH` (see
-{doc}`../configuration`).
+String and molecule calculations use the same `AssemblyCpp` executable,
+resolved through `ASS_PATH`. Set `ASS_STR_PATH` only to point string
+calculations at a different build (see {doc}`../configuration`).
 
 ## Directed and undirected strings
 

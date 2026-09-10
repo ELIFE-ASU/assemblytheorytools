@@ -17,7 +17,7 @@ Rapid computation of the assembly index of molecular graphs. *arXiv preprint*
 arXiv:2410.09100.
 [doi:10.48550/arXiv.2410.09100](https://doi.org/10.48550/arXiv.2410.09100)
 
-This describes the assemblyCPP calculator that ATT drives by default.
+This describes the parallelassemblycpp calculator that ATT drives by default.
 
 ## The Rust calculator
 

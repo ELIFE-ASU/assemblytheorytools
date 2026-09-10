@@ -9,12 +9,13 @@ deduplicated by colour-aware graph isomorphism.
 """
 
 import itertools
+import sys
+from typing import Any, Dict, FrozenSet, Iterable, List, Optional, Set, Tuple, Union
+
 import networkx as nx
 import numpy as np
-import sys
 from networkx.algorithms.graph_hashing import weisfeiler_lehman_graph_hash
 from rdkit import Chem
-from typing import List, Dict, Set, Tuple, Optional, Any, FrozenSet, Union, Iterable
 
 from .tools_graph import canonicalize_node_labels
 
@@ -23,11 +24,13 @@ edge_match = nx.algorithms.isomorphism.categorical_edge_match('color', None)
 ptable = Chem.GetPeriodicTable()
 
 
-def enumerate_neighborhood(graphs: List[nx.Graph],
-                           obey_valence: bool = True,
-                           allow_dots: bool = True,
-                           debug: bool = False,
-                           custom_valence_table: Optional[Dict[str, int]] = None) -> Dict[str, Any]:
+def enumerate_neighborhood(
+    graphs: List[nx.Graph],
+    obey_valence: bool = True,
+    allow_dots: bool = True,
+    debug: bool = False,
+    custom_valence_table: Optional[Dict[str, int]] = None,
+) -> Dict[str, Any]:
     """
     Generate the neighborhood of input graphs in assembly space.
 
@@ -50,7 +53,8 @@ def enumerate_neighborhood(graphs: List[nx.Graph],
     custom_valence_table : dict or None, optional
         Custom valence table mapping atom symbols to valence values.
         Example: custom_valence_table={'P': 3, 'S': 4}
-        If None or atoms not in custom table are encountered, it uses RDKit default valences, by default None.
+        Atoms absent from the custom table use RDKit default valences.
+        Defaults to None.
 
     Returns
     -------
@@ -89,103 +93,77 @@ def enumerate_neighborhood(graphs: List[nx.Graph],
     neighbour. Deduplication is by graph isomorphism rather than node
     numbering, so relabelling the inputs gives an equivalent answer.
 
-    Strip hydrogens first: the neighbourhood grows quickly with graph size,
-    and the isomorphism check is pairwise against everything found so far.
+    Strip hydrogens first: the neighbourhood grows quickly with graph size.
+    Isomorphism checks compare candidates sharing the same graph hash.
     """
 
-    # Canonicalize the input graphs
     graphs = [canonicalize_node_labels(graph) for graph in graphs]
-
-    # Enumerate graphs that can form the input graphs in one joining operation (down join)
-    down_partitions = dict()
-    for s, graph in enumerate(graphs):
-        down_partitions[s] = enumerate_down(graph, allow_dots=allow_dots)
-
-    # Enumerate the graphs that can be formed by joining two input graphs (up join)
-    up_graphs = dict()
-    for i, graph1 in enumerate(graphs):
-        for j, graph2 in enumerate(graphs[i:]):
-            up_graphs[(i, i + j)] = enumerate_up(graph1, graph2, obey_valence=obey_valence, allow_dots=allow_dots,
-                                                 debug=debug, custom_valence_table=custom_valence_table)
-
-    # Mod out the down join operations by isomorphism
-    N_graphs = []
-    # hash_value -> list of indices into N_graphs
+    down_partitions = [enumerate_down(graph, allow_dots=allow_dots) for graph in graphs]
+    up_graphs = {
+        (first, second): enumerate_up(
+            graphs[first], graphs[second],
+            obey_valence=obey_valence,
+            allow_dots=allow_dots,
+            debug=debug,
+            custom_valence_table=custom_valence_table,
+        )
+        for first, second in itertools.combinations_with_replacement(range(len(graphs)), 2)
+    }
+    neighbors = []
     buckets = {}
 
+    def neighbor_index(graph: nx.Graph) -> int:
+        """Find or store a representative, using hashes to narrow comparisons."""
+        graph_hash = weisfeiler_lehman_graph_hash(
+            graph, node_attr="color", edge_attr="color"
+        )
+        candidates = buckets.setdefault(graph_hash, [])
+        for index in candidates:
+            if nx.is_isomorphic(
+                graph, neighbors[index], node_match=node_match, edge_match=edge_match
+            ):
+                return index
+
+        index = len(neighbors)
+        neighbors.append(graph.copy())
+        candidates.append(index)
+        return index
+
     down_jos = set()
-    for s in range(len(graphs)):
-        for down_partition in down_partitions[s]:
-            jo = [-1, -1, s]
-            g1 = graphs[s].edge_subgraph(down_partition[0])
-            g2 = graphs[s].edge_subgraph(down_partition[1])
-
-            # Filter out disconnected graphs if not allowed
-            if not allow_dots and (not nx.is_connected(g1) or not nx.is_connected(g2)):
+    for source, graph in enumerate(graphs):
+        for partition in down_partitions[source]:
+            parts = [graph.edge_subgraph(edges) for edges in partition]
+            if not allow_dots and not all(nx.is_connected(part) for part in parts):
                 print(
-                    "Warning: A disconnected graph was found in a down join operation. This should never happen. Please report this bug.")
+                    "Warning: A disconnected graph was found in a down join operation. "
+                    "This should never happen. Please report this bug."
+                )
                 continue
-
-            for in_idx, g_part in enumerate([g1, g2]):
-                h = weisfeiler_lehman_graph_hash(g_part, node_attr="color", edge_attr="color")
-                candidate_idxs = buckets.get(h, [])
-                found = False
-                # Only compare against graphs that share the same hash
-                for idx in candidate_idxs:
-                    g = N_graphs[idx]
-                    if nx.is_isomorphic(g_part, g, node_match=node_match, edge_match=edge_match):
-                        jo[in_idx] = idx
-                        found = True
-                        break
-
-                if not found:
-                    N_graphs.append(g_part.copy())
-                    jo[in_idx] = len(N_graphs) - 1
-                    buckets.setdefault(h, []).append(jo[in_idx])
-
-            if jo[0] <= jo[1]:
-                down_jos.add(tuple(jo))
-            else:
-                down_jos.add(tuple([jo[1], jo[0], s]))
-
-    # ----- Mod out the up join operations by isomorphism -----
+            first, second = sorted(neighbor_index(part) for part in parts)
+            down_jos.add((first, second, source))
 
     up_jos = set()
-    for (i, j), up_graphs_list in up_graphs.items():
-        for up_graph in up_graphs_list:
-            # Check connectivity
-            if not nx.is_connected(up_graph):
-                print("Warning: A disconnected graph was found in an up join operation. "
-                      "This should never happen. Please report this bug.")
+    for (first, second), joined_graphs in up_graphs.items():
+        for graph in joined_graphs:
+            if not nx.is_connected(graph):
+                print(
+                    "Warning: A disconnected graph was found in an up join operation. "
+                    "This should never happen. Please report this bug."
+                )
                 sys.exit()
+            up_jos.add((first, second, neighbor_index(graph)))
 
-            jo = [i, j, -1]
-
-            h = weisfeiler_lehman_graph_hash(up_graph, node_attr="color", edge_attr="color")
-            candidate_idxs = buckets.get(h, [])
-
-            found = False
-            # Only compare against graphs that share the same hash
-            for idx in candidate_idxs:
-                g = N_graphs[idx]
-                if nx.is_isomorphic(up_graph, g, node_match=node_match, edge_match=edge_match):
-                    jo[2] = idx
-                    found = True
-                    break
-
-            if not found:
-                # new iso class
-                N_graphs.append(up_graph.copy())
-                new_idx = len(N_graphs) - 1
-                jo[2] = new_idx
-                buckets.setdefault(h, []).append(new_idx)
-
-            up_jos.add(tuple(jo))
-
-    return {"input_graphs": graphs, "N_graphs": N_graphs, "down_jos": down_jos, "up_jos": up_jos}
+    return {
+        "input_graphs": graphs,
+        "N_graphs": neighbors,
+        "down_jos": down_jos,
+        "up_jos": up_jos,
+    }
 
 
-def enumerate_down(graph: nx.Graph, allow_dots: bool = True) -> List[List[List[Tuple[Any, Any]]]]:
+def enumerate_down(
+    graph: nx.Graph, allow_dots: bool = True,
+) -> List[List[List[Tuple[Any, Any]]]]:
     """
     Enumerate all edge partitions of a graph into two connected subgraphs.
 
@@ -232,31 +210,34 @@ def enumerate_down(graph: nx.Graph, allow_dots: bool = True) -> List[List[List[T
     edges = list(graph.edges())
     if not edges:
         return partition_pairs
-    anchor_edge = tuple(sorted(edges[0]))  # Pick an arbitrary edge as the anchor
-    iterable_edges = edges[1:]  # Exclude the anchor edge from the combinations
-    for i in range(0, len(edges) - 1):
-        for subset in itertools.combinations(iterable_edges, i):
-            subset = list(subset)
-            subset = [tuple(sorted(edge)) for edge in subset]
-            subset.append(anchor_edge)  # Include the anchor edge in the subset
+
+    # Fix one edge in the first part to avoid enumerating both orientations.
+    anchor_edge = tuple(sorted(edges[0]))
+    for size in range(len(edges) - 1):
+        for selected in itertools.combinations(edges[1:], size):
+            subset = [tuple(sorted(edge)) for edge in selected] + [anchor_edge]
             subgraph = graph.edge_subgraph(subset)
-            if nx.is_connected(subgraph):
-                complement = graph.copy()
-                complement.remove_edges_from(subset)
-                for node in list(complement.nodes):  # Remove degree 0 nodes from the complement
-                    if len(list(complement.neighbors(node))) == 0:
-                        complement.remove_node(node)
-                if nx.is_connected(complement):
-                    # If not allowing dots, skip if the union is disconnected
-                    if not allow_dots and not nx.is_connected(nx.compose(subgraph, complement)):
-                        continue
-                    partition_pairs.append([list(subset), list(complement.edges())])
+            if not nx.is_connected(subgraph):
+                continue
+
+            selected_edges = set(subset)
+            complement = [
+                edge for edge in edges if tuple(sorted(edge)) not in selected_edges
+            ]
+            other = graph.edge_subgraph(complement)
+            if not nx.is_connected(other):
+                continue
+            if not allow_dots and not nx.is_connected(nx.compose(subgraph, other)):
+                continue
+            partition_pairs.append([subset, complement])
     return partition_pairs
 
 
-def get_valence(atom_symbol: str,
-                ptable: Chem.rdchem.PeriodicTable = ptable,
-                custom_valence_table: Optional[Dict[str, int]] = None) -> int:
+def get_valence(
+    atom_symbol: str,
+    ptable: Chem.rdchem.PeriodicTable = ptable,
+    custom_valence_table: Optional[Dict[str, int]] = None,
+) -> int:
     """
     Get the default valence of an atom based on its chemical symbol.
 
@@ -285,17 +266,18 @@ def get_valence(atom_symbol: str,
         If the atom symbol is invalid or not recognized by the periodic table.
     """
     if custom_valence_table and atom_symbol in custom_valence_table:
-        return custom_valence_table[atom_symbol]  # Return the custom valence if provided and available.
-    else:
-        return ptable.GetDefaultValence(atom_symbol)  # Return the default valence for the atomic number.
+        return custom_valence_table[atom_symbol]
+    return ptable.GetDefaultValence(atom_symbol)
 
 
-def enumerate_up(graph1: nx.Graph,
-                 graph2: nx.Graph,
-                 obey_valence: bool = True,
-                 allow_dots: bool = True,
-                 debug: bool = False,
-                 custom_valence_table: Optional[Dict[str, int]] = None) -> List[nx.Graph]:
+def enumerate_up(
+    graph1: nx.Graph,
+    graph2: nx.Graph,
+    obey_valence: bool = True,
+    allow_dots: bool = True,
+    debug: bool = False,
+    custom_valence_table: Optional[Dict[str, int]] = None,
+) -> List[nx.Graph]:
     """
     Enumerate graphs formed by joining two input graphs.
 
@@ -319,7 +301,8 @@ def enumerate_up(graph1: nx.Graph,
     custom_valence_table : dict or None, optional
         Custom valence table mapping atom symbols to valence values.
         Example: custom_valence_table={'P': 3, 'S': 4}
-        If None or atoms not in custom table are encountered, it uses RDKit default valences, by default None.
+        Atoms absent from the custom table use RDKit default valences.
+        Defaults to None.
 
     Returns
     -------
@@ -373,144 +356,138 @@ def enumerate_up(graph1: nx.Graph,
     5
     """
 
-    # Check that we have the information for valence checks
     if obey_valence:
         if debug:
             print("Checking valence budgets...")
-        valence_budgets = [np.zeros(graph1.number_of_nodes()), np.zeros(graph2.number_of_nodes())]
-        for g_idx, graph in enumerate([graph1, graph2]):
-            for node in graph.nodes:
-                if 'color' not in graph.nodes[node]:
+        valence_budgets = [np.zeros(len(graph)) for graph in (graph1, graph2)]
+        for g_idx, graph in enumerate((graph1, graph2)):
+            budget = valence_budgets[g_idx]
+            for node, data in graph.nodes(data=True):
+                if 'color' not in data:
                     raise ValueError(
-                        f"Node {node} does not have a color attribute. Please add a color attribute to the nodes.")
-                valence_budgets[g_idx][node] = get_valence(graph.nodes[node]['color'],
-                                                           custom_valence_table=custom_valence_table)
+                        f"Node {node} does not have a color attribute. "
+                        "Please add a color attribute to the nodes."
+                    )
+                budget[node] = get_valence(
+                    data['color'], custom_valence_table=custom_valence_table
+                )
                 if debug:
                     print(
-                        f"Node {node} in graph {g_idx + 1} has color {graph.nodes[node]['color']} and valence budget {valence_budgets[g_idx][node]}")
+                        f"Node {node} in graph {g_idx + 1} has color {data['color']} "
+                        f"and valence budget {budget[node]}"
+                    )
                 for edge in graph.edges(node):
-                    valence_budgets[g_idx][node] -= graph.edges[edge][
-                        'color']  # This assumes 1=single bond, 2=double bond, etc.
-                if valence_budgets[g_idx][node] < 0:
-                    print(f"Warning: Node {node} in graph {g_idx + 1} is overbonded. Skipping this graph.")
+                    budget[node] -= graph.edges[edge]['color']
+                if budget[node] < 0:
+                    print(
+                        f"Warning: Node {node} in graph {g_idx + 1} is overbonded. "
+                        "Skipping this graph."
+                    )
                     return []
         if debug:
             print(f"Valence budgets for graph1: {valence_budgets[0]}")
             print(f"Valence budgets for graph2: {valence_budgets[1]}")
-        if sum(valence_budgets[0]) == 0 or sum(valence_budgets[1]) == 0:  # No valence budget left
+        if any(sum(budget) == 0 for budget in valence_budgets):
             if debug:
-                print("No valence budget left in (at least) one of the graphs. Returning empty list.")
+                print(
+                    "No valence budget left in (at least) one of the graphs. "
+                    "Returning empty list."
+                )
             return []
 
-    # Get the colors of the nodes in graph1 and graph2
-    colors1 = set([graph1.nodes[node]['color'] for node in graph1.nodes])
-    colors2 = set([graph2.nodes[node]['color'] for node in graph2.nodes])
-    shared_colors = colors1.intersection(colors2)  # Get the shared colors
+    colors1 = {data['color'] for _, data in graph1.nodes(data=True)}
+    colors2 = {data['color'] for _, data in graph2.nodes(data=True)}
 
-    combinations = dict()  # Elements of this dict are formated like {color:[list of valid vertex identification maps within this color]}
-    for color in shared_colors:
-        valid_color_maps = set()  # Elements will be lists of tuples, where each tuple is a pair of nodes to be identified
-        # Get the nodes of the shared color in graph1 and graph2
-        if obey_valence:
-            nodes1 = [node for node in graph1.nodes if
-                      graph1.nodes[node]['color'] == color and 0 < valence_budgets[0][node]]
-            nodes2 = [node for node in graph2.nodes if
-                      graph2.nodes[node]['color'] == color and 0 < valence_budgets[1][node]]
-        else:
-            nodes1 = [node for node in graph1.nodes if graph1.nodes[node]['color'] == color]
-            nodes2 = [node for node in graph2.nodes if graph2.nodes[node]['color'] == color]
-
-        valid_identifications = []  # This will be a list of tuples, where each tuple is a pair of nodes that could be identified
-        # Get all the valid identifications
-        if obey_valence:  # If obey_valence is True, we will only consider identifications that do not exceed the valence budget
-            for node1 in nodes1:
-                for node2 in nodes2:
-                    if get_valence(color, custom_valence_table=custom_valence_table) - valence_budgets[0][node1] <= \
-                            valence_budgets[1][node2]:
-                        # These identification tuples will always be written as (v1,v2) where v1 is from graph1 and v2 is from graph2
-                        valid_identifications.append((node1, node2))
-        else:
-            for node1 in nodes1:
-                for node2 in nodes2:
-                    valid_identifications.append((node1, node2))
+    combinations = {}
+    for color in colors1 & colors2:
+        nodes1 = [
+            node for node in graph1
+            if graph1.nodes[node]['color'] == color
+            and (not obey_valence or valence_budgets[0][node] > 0)
+        ]
+        nodes2 = [
+            node for node in graph2
+            if graph2.nodes[node]['color'] == color
+            and (not obey_valence or valence_budgets[1][node] > 0)
+        ]
+        valid_identifications = {
+            (node1, node2)
+            for node1, node2 in itertools.product(nodes1, nodes2)
+            if not obey_valence
+            or get_valence(color, custom_valence_table=custom_valence_table)
+            - valence_budgets[0][node1] <= valence_budgets[1][node2]
+        }
 
         if debug:
             print(f"Number of valid identifications = {len(valid_identifications)}")
 
-        # We only form multi-edges by identifying a pair of adjacent vertices in graph1 with a pair of adjacent vertices in graph2,
-        # so we will check for this condition
+        # Parallel edges arise when adjacent pairs in both graphs are merged.
+        g1_check_edges = {
+            tuple(sorted(edge)) for edge in itertools.combinations(nodes1, 2)
+            if graph1.has_edge(*edge)
+        }
+        g2_check_edges = {
+            tuple(sorted(edge)) for edge in itertools.combinations(nodes2, 2)
+            if graph2.has_edge(*edge)
+        }
 
-        g1_check_edges = []
-        for u, v in itertools.combinations(nodes1, 2):
-            if graph1.has_edge(u, v):
-                g1_check_edges.append(tuple(sorted((u, v))))
-        g2_check_edges = []
-        for u, v in itertools.combinations(nodes2, 2):
-            if graph2.has_edge(u, v):
-                g2_check_edges.append(tuple(sorted((u, v))))
-
-        g1_check_edges = set(g1_check_edges)  # Sets have faster membership testing than lists
-        g2_check_edges = set(g2_check_edges)
-
-        # Now we will enumerate the combinations of possible valid vertex identifications
-        if valid_identifications:  # Skip this color if there are no valid identifications
-            for k in range(min(len(nodes1), len(nodes2)) + 1):  # k sets how many identification we will perform
-                for node1_perm in itertools.permutations(nodes1, k):
+        valid_color_maps = set()
+        if valid_identifications:
+            for k in range(min(len(nodes1), len(nodes2)) + 1):
+                # Fix the first tuple's order so each matching is visited once.
+                for node1_subset in itertools.combinations(nodes1, k):
                     for node2_perm in itertools.permutations(nodes2, k):
-                        candidate_color_map = frozenset(zip(node1_perm, node2_perm))
+                        candidate = frozenset(zip(node1_subset, node2_perm))
+                        if (
+                            candidate <= valid_identifications
+                            and conditional_check_multi_edge_generation(
+                                candidate, g1_check_edges, g2_check_edges
+                            )
+                        ):
+                            valid_color_maps.add(candidate)
+        combinations[color] = valid_color_maps
 
-                        # Check that every pair is in valid_identifications
-                        valid = False  # This is the default value if the candidate map doesn't make it through the next if statement
-                        if all(pair in valid_identifications for pair in candidate_color_map):
-                            valid = conditional_check_multi_edge_generation(candidate_color_map,
-                                                                            g1_check_edges,
-                                                                            g2_check_edges)  # Check for multi-edges
-                        if valid:  # This candidate color map is valid, so we will add it to the list of valid color maps
-                            valid_color_maps.add(candidate_color_map)
-
-        combinations[color] = valid_color_maps  # Now we have every valid color map restricted to this color
-
-    # Now we will enumerate the outer product of these combinations
     valid_maps = map_outer_product(combinations, graph1, graph2)
 
     if debug:
         print("Combination keys: ", combinations.keys())
-        print("Combination items: ", [combinations[key] for key in combinations.keys()])
-        print(f"Number of valid color-specific maps = {sum(len(combinations[key]) for key in combinations.keys())}")
+        print("Combination items: ", list(combinations.values()))
+        print(f"Number of valid color-specific maps = {sum(map(len, combinations.values()))}")
         print(f"Number of valid maps = {len(valid_maps)}")
 
-    # Now we need to generate the output graphs from the set of valid maps
     output_graphs = []
-    for m in valid_maps:
-        joined = map_application(m, graph1, graph2)
+    for vertex_map in valid_maps:
+        joined = map_application(vertex_map, graph1, graph2)
         if not nx.is_connected(joined):
             print(
-                "Warning: A disconnected graph was formed in an up join operation. This should never happen. Please report this bug.")
-            print(f"Graph1 has {graph1.number_of_nodes()} nodes and {graph1.number_of_edges()} edges.")
-            print(f"Graph1 nodes data: {graph1.nodes(data=True)}")
-            print(f"Graph1 edges data: {graph1.edges(data=True)}")
-            print(f"Graph2 has {graph2.number_of_nodes()} nodes and {graph2.number_of_edges()} edges.")
-            print(f"Graph2 nodes data: {graph2.nodes(data=True)}")
-            print(f"Graph2 edges data: {graph2.edges(data=True)}")
-            print(f"Joined graph has {joined.number_of_nodes()} nodes and {joined.number_of_edges()} edges.")
-            print(f"Joined graph nodes data: {joined.nodes(data=True)}")
-            print(f"Joined graph edges data: {joined.edges(data=True)}")
-            print(f"Vertex identification map: {m}")
+                "Warning: A disconnected graph was formed in an up join operation. "
+                "This should never happen. Please report this bug."
+            )
+            for name, graph in (
+                ("Graph1", graph1), ("Graph2", graph2), ("Joined graph", joined)
+            ):
+                print(
+                    f"{name} has {graph.number_of_nodes()} nodes "
+                    f"and {graph.number_of_edges()} edges."
+                )
+                print(f"{name} nodes data: {graph.nodes(data=True)}")
+                print(f"{name} edges data: {graph.edges(data=True)}")
+            print(f"Vertex identification map: {vertex_map}")
             sys.exit()
-        if not allow_dots and not nx.is_connected(joined):
-            continue
         output_graphs.append(joined)
     return output_graphs
 
 
-def map_outer_product(combinations: Dict[str, Set[FrozenSet[Tuple[int, int]]]],
-                      graph1: nx.Graph,
-                      graph2: nx.Graph) -> List[Set[Tuple[int, int]]]:
+def map_outer_product(
+    combinations: Dict[str, Set[FrozenSet[Tuple[int, int]]]],
+    graph1: nx.Graph,
+    graph2: nx.Graph,
+) -> List[Set[Tuple[int, int]]]:
     """
-    Compute valid vertex identification maps from outer product of color-specific maps.
+    Combine color-specific maps into valid vertex identification maps.
 
-    Enumerates the Cartesian product of valid color-specific vertex identification
-    maps and filters out those that would create multi-edges in the joined graph.
+    Enumerates the Cartesian product of valid color-specific maps and filters
+    out those that would create multi-edges in the joined graph.
 
     Parameters
     ----------
@@ -524,57 +501,52 @@ def map_outer_product(combinations: Dict[str, Set[FrozenSet[Tuple[int, int]]]],
 
     Returns
     -------
-    list of set
+    list of set or set of frozenset
         List of valid complete vertex identification maps, where each map
         is a set of (graph1_node, graph2_node) tuples.
 
     Notes
     -----
     Special case: If only one color exists, returns the valid maps for that
-    color directly without computing the outer product.
+    color directly without computing the outer product. The empty map is
+    removed from that set in place.
     """
 
-    # print("Computing map outer product...")
-
-    # If there is only one color, we can just return the valid maps for that color
+    # Preserve the single-color fast path's in-place removal and set return.
     if len(combinations) == 1:
-        valid_maps = combinations[list(combinations.keys())[0]]
-        valid_maps -= {frozenset()}  # Remove the trivial map
+        valid_maps = next(iter(combinations.values()))
+        valid_maps.discard(frozenset())
         return valid_maps
 
-    valid_maps = []  # This will be the list of valid maps
-    # Remove colors with empty sets
-    filtered_combinations = {color: maps for color, maps in combinations.items() if maps}
-    colors = list(filtered_combinations.keys())
-    lists_of_maps = [filtered_combinations[color] for color in colors]
+    nonempty = {color: maps for color, maps in combinations.items() if maps}
 
-    # We only need to worry about edges that connect two different colors
-    g1_check_edges = []
-    for edge in graph1.edges():
-        if graph1.nodes[edge[0]]['color'] != graph1.nodes[edge[1]]['color']:
-            if graph1.nodes[edge[0]]['color'] in colors and graph1.nodes[edge[1]]['color'] in colors:
-                g1_check_edges.append(tuple(sorted(edge)))
-    g2_check_edges = []
-    for edge in graph2.edges():
-        if graph2.nodes[edge[0]]['color'] != graph2.nodes[edge[1]]['color']:
-            if graph2.nodes[edge[0]]['color'] in colors and graph2.nodes[edge[1]]['color'] in colors:
-                g2_check_edges.append(tuple(sorted(edge)))
+    def cross_color_edges(graph: nx.Graph) -> Set[Tuple[Any, Any]]:
+        """Within-color edges have already been checked for each partial map."""
+        return {
+            tuple(sorted((u, v))) for u, v in graph.edges()
+            if graph.nodes[u]['color'] != graph.nodes[v]['color']
+            and graph.nodes[u]['color'] in nonempty
+            and graph.nodes[v]['color'] in nonempty
+        }
 
-    # Now we will enumerate the outer product of these combinations
-    for candidate_map in itertools.product(*lists_of_maps):
-        candidate_map = set(itertools.chain.from_iterable(
-            candidate_map))  # This flattens the tuple of sets of tuples into a single set of tuples
-        if len(candidate_map) > 0:  # Discard trivial maps
-            valid = conditional_check_multi_edge_generation(candidate_map, g1_check_edges, g2_check_edges)
-            if valid:  # This candidate map is valid and non-trivial, so we will add it to the list of valid maps
-                valid_maps.append(candidate_map)
+    g1_check_edges = cross_color_edges(graph1)
+    g2_check_edges = cross_color_edges(graph2)
+    valid_maps = []
+    for color_maps in itertools.product(*nonempty.values()):
+        candidate = set(itertools.chain.from_iterable(color_maps))
+        if candidate and conditional_check_multi_edge_generation(
+            candidate, g1_check_edges, g2_check_edges
+        ):
+            valid_maps.append(candidate)
 
     return valid_maps
 
 
-def conditional_check_multi_edge_generation(candidate_map: Union[Set, FrozenSet],
-                                            g1_check_edges: Union[List, Set],
-                                            g2_check_edges: Union[List, Set]) -> bool:
+def conditional_check_multi_edge_generation(
+    candidate_map: Union[Set, FrozenSet],
+    g1_check_edges: Union[List, Set],
+    g2_check_edges: Union[List, Set],
+) -> bool:
     """
     Check if a vertex identification map would create multi-edges.
 
@@ -587,10 +559,10 @@ def conditional_check_multi_edge_generation(candidate_map: Union[Set, FrozenSet]
         Set of vertex identification pairs (graph1_node, graph2_node).
     g1_check_edges : list of tuple
         Edges in graph1 to check for potential multi-edge conflicts.
-        Should only include edges connecting different colors.
+        Each edge's endpoints should be in sorted order.
     g2_check_edges : list of tuple
         Edges in graph2 to check for potential multi-edge conflicts.
-        Should only include edges connecting different colors.
+        Each edge's endpoints should be in sorted order.
 
     Returns
     -------
@@ -603,23 +575,28 @@ def conditional_check_multi_edge_generation(candidate_map: Union[Set, FrozenSet]
     get identified with two vertices that are also connected in the other graph.
     """
 
-    g1_vertices = sorted([pair[0] for pair in candidate_map])
-    g2_vertices = sorted([pair[1] for pair in candidate_map])
+    g1_vertices = sorted(u for u, _ in candidate_map)
+    g2_vertices = sorted(v for _, v in candidate_map)
 
-    g1_edges_to_check = [edge for edge in itertools.combinations(g1_vertices, 2) if edge in g1_check_edges]
-    g2_edges_to_check = [edge for edge in itertools.combinations(g2_vertices, 2) if edge in g2_check_edges]
+    g1_edges_to_check = [
+        edge for edge in itertools.combinations(g1_vertices, 2) if edge in g1_check_edges
+    ]
+    g2_edges_to_check = [
+        edge for edge in itertools.combinations(g2_vertices, 2) if edge in g2_check_edges
+    ]
 
-    for g1_edge in g1_edges_to_check:
-        for g2_edge in g2_edges_to_check:
-            if ((g1_edge[0], g2_edge[0]) in candidate_map and (g1_edge[1], g2_edge[1]) in candidate_map) or \
-                    ((g1_edge[0], g2_edge[1]) in candidate_map and (g1_edge[1], g2_edge[0]) in candidate_map):
-                return False
-    return True
+    return not any(
+        ((u1, u2) in candidate_map and (v1, v2) in candidate_map)
+        or ((u1, v2) in candidate_map and (v1, u2) in candidate_map)
+        for (u1, v1), (u2, v2) in itertools.product(g1_edges_to_check, g2_edges_to_check)
+    )
 
 
-def map_application(vertex_map: Iterable[Tuple[int, int]],
-                    graph1: nx.Graph,
-                    graph2: nx.Graph) -> nx.Graph:
+def map_application(
+    vertex_map: Iterable[Tuple[int, int]],
+    graph1: nx.Graph,
+    graph2: nx.Graph,
+) -> nx.Graph:
     """
     Apply vertex identification map to join two graphs.
 
@@ -655,23 +632,21 @@ def map_application(vertex_map: Iterable[Tuple[int, int]],
     """
 
     n1 = graph1.number_of_nodes()
-    g1 = graph1.copy()
-    # We are incrementing the node labels of graph2 by n1 to avoid collisions
-    g2 = nx.relabel_nodes(graph2, lambda x: x + n1, copy=True)
-    joined_graph = nx.compose(g1, g2)
+    shifted_graph2 = nx.relabel_nodes(graph2, lambda node: node + n1, copy=True)
+    joined_graph = nx.compose(graph1, shifted_graph2)
 
     for v1, v2 in vertex_map:
-        joined_graph = nx.contracted_nodes(joined_graph, v1, v2 + n1)  # Vertex identification!
+        nx.contracted_nodes(joined_graph, v1, v2 + n1, copy=False)
 
-    if len(joined_graph.edges()) != len(g1.edges()) + len(g2.edges()):
+    edges1, edges2 = graph1.number_of_edges(), graph2.number_of_edges()
+    if joined_graph.number_of_edges() != edges1 + edges2:
         raise ValueError(
-            f"The joined graph has the wrong number of edges, {len(joined_graph.edges())} =/= {len(g1.edges())} + {len(g2.edges())}. This is probably a bug. Please report it.")
+            f"The joined graph has the wrong number of edges, "
+            f"{joined_graph.number_of_edges()} =/= {edges1} + {edges2}. "
+            "This is probably a bug. Please report it."
+        )
 
-    # Clean up NetworkX contraction metadata and normalize node labels so
-    # the returned graph has stable, contiguous node labels and no
-    # stale 'contraction' dict keys that refer to old labels.
-    for _, data in list(joined_graph.nodes(data=True)):
+    # Contraction metadata refers to labels that will no longer exist.
+    for _, data in joined_graph.nodes(data=True):
         data.pop('contraction', None)
-    joined_graph = nx.convert_node_labels_to_integers(joined_graph, first_label=0)
-
-    return joined_graph
+    return nx.convert_node_labels_to_integers(joined_graph, first_label=0)

@@ -2,87 +2,39 @@
 Sampling of virtual objects found in shortest assembly calculations.
 
 The historical :func:`all_shortest_paths` name is retained for compatibility,
-but the function does not return or exhaustively enumerate pathways. It repeats
-the default calculation after random atom renumberings and collects the unique
+but it does not return or exhaustively enumerate pathways. It repeats the
+default calculation after random atom renumberings and collects the unique
 virtual-object SMILES strings encountered.
 """
+
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 from rdkit.Chem import AllChem as Chem
 from rdkit.Chem.rdchem import Mol
-from typing import List, Optional, Dict, Any
 
 from .assembly import calculate_assembly_index
 
 
 def _get_atom_order(mol: Mol) -> List[int]:
-    """
-    Calculate canonical atom ordering for a molecule.
-
-    Computes the canonical ranks of atoms and returns their indices sorted
-    by rank. This provides a consistent atom ordering based on molecular
-    structure and chirality.
-
-    Parameters
-    ----------
-    mol : rdkit.Chem.rdchem.Mol
-        The input RDKit molecule object.
-
-    Returns
-    -------
-    list of int
-        List of atom indices ordered by their canonical ranks.
-
-    Notes
-    -----
-    The function uses RDKit's CanonicalRankAtoms which considers:
-    1. Atomic connectivity and properties
-    2. Chiral centers
-    3. Graph symmetry
-
-    This ensures consistent atom ordering across isomorphic molecules.
-    """
-    # Calculate the canonical ranks of the atoms
+    """Return atom indices by canonical rank, accounting for chirality."""
     ranks = Chem.CanonicalRankAtoms(mol, includeChirality=True)
-
-    # Pair each atom's canonical rank with its index and sort these pairs
-    ranked_atoms = sorted(enumerate(ranks), key=lambda x: x[1])
-
-    # Extract the atom indices from the sorted list of pairs
-    return [atom_index for atom_index, rank in ranked_atoms]
+    return sorted(range(len(ranks)), key=ranks.__getitem__)
 
 
 def _scramble_list(lst: list) -> list:
-    """
-    Randomly shuffle list elements.
-
-    Creates a copy of the input list and shuffles it in-place using
-    numpy's random shuffle algorithm.
-
-    Parameters
-    ----------
-    lst : list
-        The input list to shuffle.
-
-    Returns
-    -------
-    list
-        A shuffled copy of the input list.
-
-    Notes
-    -----
-    The original list is not modified. Uses numpy.random.shuffle
-    which implements the Fisher-Yates shuffle algorithm.
-    """
-    out = lst.copy()
-    np.random.shuffle(out)
-    return out
+    """Shuffle a copy of ``lst`` using NumPy's global random state."""
+    shuffled = lst.copy()
+    np.random.shuffle(shuffled)
+    return shuffled
 
 
-def all_shortest_paths(mol: Mol,
-                       settings: Optional[Dict[str, Any]] = None,
-                       f_graph_care: bool = False,
-                       max_attempts: int = 3) -> List[str]:
+def all_shortest_paths(
+    mol: Mol,
+    settings: Optional[Dict[str, Any]] = None,
+    f_graph_care: bool = False,
+    max_attempts: int = 3,
+) -> List[str]:
     """
     Sample unique virtual objects by scrambling a molecule's atom indices.
 
@@ -91,7 +43,9 @@ def all_shortest_paths(mol: Mol,
     mol : rdkit.Chem.Mol
         The input RDKit molecule object.
     settings : dict, optional
-        Settings to pass to the assembly index calculation function, by default None.
+        Settings passed to the assembly index calculation, by default None.
+        Canonicalization is disabled; a nonempty dictionary is updated in
+        place.
     f_graph_care : bool, optional
         Whether to kekulize the molecule, by default False.
     max_attempts : int, optional
@@ -101,8 +55,8 @@ def all_shortest_paths(mol: Mol,
     Returns
     -------
     List[str]
-        Unique virtual-object (VO) SMILES strings encountered across the sampled
-        calculations. These strings are not pathway representations.
+        Unique virtual-object (VO) SMILES strings encountered across sampled
+        calculations, in no particular order. These are not pathways.
 
     Raises
     ------
@@ -111,44 +65,32 @@ def all_shortest_paths(mol: Mol,
 
     Notes
     -----
-    This is a stochastic sampler, not an exhaustive pathway enumerator. It uses
-    atom-index scrambling to expose different calculator results and collect
-    their virtual objects. The attempt budget is four times the number of bonds,
-    with early termination after `max_attempts` consecutive iterations find no
-    new VO.
+    This stochastic sampler uses atom-index scrambling to expose different
+    calculator results and collect their virtual objects. The attempt budget
+    is four times the number of bonds, with early termination after
+    ``max_attempts`` consecutive iterations find no new VO.
     """
     if not isinstance(mol, Chem.Mol):
         raise ValueError("Input must be an RDKit molecule object.")
 
     settings = settings or {}
-
-    # Ensure pathway output is requested
     settings["canonicalize"] = False
 
-    m_order = _get_atom_order(mol)
-    out_list = []
-    n_attempts = int(mol.GetNumBonds() * 4)
-    no_new_vo_count = 0
+    atom_order = _get_atom_order(mol)
+    seen: set[str] = set()
+    stale_attempts = 0
 
-    for _ in range(n_attempts):
-        if no_new_vo_count >= max_attempts:
+    for _ in range(4 * mol.GetNumBonds()):
+        if stale_attempts >= max_attempts:
             break
 
-        mol_renum = Chem.RenumberAtoms(mol, _scramble_list(m_order))
+        renumbered_mol = Chem.RenumberAtoms(mol, _scramble_list(atom_order))
         if f_graph_care:
-            Chem.Kekulize(mol_renum)
+            Chem.Kekulize(renumbered_mol)
 
-        _, virt_obj, _ = calculate_assembly_index(mol_renum, **settings)
+        _, virtual_objects, _ = calculate_assembly_index(renumbered_mol, **settings)
+        previous_count = len(seen)
+        seen.update(virtual_objects)
+        stale_attempts = stale_attempts + 1 if len(seen) == previous_count else 0
 
-        new_inchi_found = False
-        for vo in virt_obj:
-            if vo not in out_list:
-                out_list.append(vo)
-                new_inchi_found = True
-
-        if new_inchi_found:
-            no_new_vo_count = 0
-        else:
-            no_new_vo_count += 1
-
-    return list(set(out_list))
+    return list(seen)

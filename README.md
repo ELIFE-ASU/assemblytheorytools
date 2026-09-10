@@ -30,7 +30,7 @@ elementary parts, while allowing previously created intermediates to be reused. 
 structure and repetition rather than size alone.
 
 For molecules, the elementary parts are bonds and the calculation is performed on the molecular graph. ATT exposes the
-[assemblyCPP](https://github.com/LouieSlocombe/assemblycpp-v5) C++ calculator, the
+[parallelassemblycpp](https://github.com/ELIFE-ASU/parallelassemblycpp) C++ calculator, the
 [assembly-theory](https://github.com/DaymudeLab/assembly-theory) Rust calculator, and
 [assemblycfg](https://github.com/ELIFE-ASU/assemblycfg) for fast approximate string calculations through one Python
 package.
@@ -48,8 +48,10 @@ ATT requires **Python 3.12 or newer**. Install the current release from PyPI:
 python -m pip install assemblytheorytools
 ```
 
-> **Platform note:** The bundled C++ calculators target Linux x86-64. On Windows, use WSL; on other platforms, provide
-> a compatible assemblyCPP build as described under **Use a custom assemblyCPP build** below.
+> **Platform note:** The C++ calculator is not distributed as a binary. The first calculation that needs it builds
+> [parallelassemblycpp](https://github.com/ELIFE-ASU/parallelassemblycpp) from source into `~/.cache/assemblytheorytools`, which
+> takes a few minutes and needs a C++20 compiler. To use a build you already have, set `ASS_PATH` instead; see
+> **Use your own parallelassemblycpp build** below.
 
 Calculate and plot the assembly pathway for caffeine:
 
@@ -135,7 +137,7 @@ quantity ATT computes, with its inputs, its outputs, and what it is used for.
 
 | Backend | Main interface | Best suited to | Result |
 | --- | --- | --- | --- |
-| assemblyCPP (C++) | `calculate_assembly_index` | Default molecule and graph calculations | Index, virtual objects, and pathway |
+| parallelassemblycpp (C++) | `calculate_assembly_index` | Default molecule and graph calculations | Index, virtual objects, and pathway |
 | assembly-theory (Rust) | `calculate_assembly_index_rust` | Fast molecular index calculations | Index |
 | assembly-theory search (Rust) | `calculate_assembly_index_rust_search` | Search statistics, options, and supported pathway reconstruction | Structured search result |
 | Graph bounds | `calculate_assembly_index_upper_bound` and `calculate_assembly_index_lower_bound` | Fast size-based estimates | Upper or lower bound |
@@ -144,10 +146,10 @@ quantity ATT computes, with its inputs, its outputs, and what it is used for.
 The Rust backend always strips hydrogens. For a meaningful comparison, compare it with
 `calculate_assembly_index(..., strip_hydrogen=True)`.
 
-The PyPI distribution contains precompiled assemblyCPP executables for **Linux x86-64**. On Windows, use the Windows
-Subsystem for Linux (WSL). On another platform, build assemblyCPP for that platform and set `ASS_PATH` to the full path
-of its executable. See [configuration](https://assemblytheorytools.readthedocs.io/en/latest/configuration.html) for all
-backend options and environment variables.
+The PyPI distribution ships no parallelassemblycpp binary. ATT checks `ASS_PATH`, then looks for `ParallelAssemblyCpp`
+(or the older `AssemblyCpp`) on `PATH`, then in its own cache, and builds one from source if it finds none. A single executable covers molecules,
+graphs and strings. See [configuration](https://assemblytheorytools.readthedocs.io/en/latest/configuration.html) for
+all backend options and environment variables.
 
 </details>
 
@@ -163,7 +165,9 @@ versions live in
 ```bash
 git clone https://github.com/ELIFE-ASU/assemblytheorytools.git
 cd assemblytheorytools
+python -m pip install --upgrade "pip>=25.1"
 python -m pip install -e ".[dev]"
+python -m pip install --group build --group lint
 pytest
 ```
 
@@ -183,60 +187,66 @@ for the full development workflow.
 <details>
 <summary><strong>Use a Conda environment</strong></summary>
 
-Create an isolated environment, then install ATT with pip so the package metadata remains the single source of truth for
-its dependencies:
+From the root of a repository checkout, create an environment with Python, Git, a C++ compiler and Cairo. The environment
+uses only conda-forge and Python 3.12–3.14; pip installs ATT's Python dependencies from its package metadata:
 
 ```bash
-conda create -n att -c conda-forge python=3.13
-conda activate att
-conda config --env --set channel_priority strict
-python -m pip install assemblytheorytools
+conda env create -f build_tools/environment.yml
+conda activate att_env
 ```
 
-For development, clone the repository and replace the final command with `python -m pip install -e ".[dev]"`.
+For an editable development installation, use `build_tools/environment_dev.yml` and activate `att_dev_env` instead.
+See [`build_tools/README.md`](build_tools/README.md) for the build tools and checks.
 
 </details>
 
 <details>
 <summary><strong>Install on an HPC system (including SOL)</strong></summary>
 
-Module names vary between systems. On SOL, a typical setup is:
+Module names vary between systems. On SOL, run these commands from the root of a repository checkout:
 
 ```bash
 module load mamba/latest
-mamba create -n att -c conda-forge python=3.13
-source activate att
-python -m pip install assemblytheorytools
+mamba env create -f build_tools/environment.yml
+source activate att_env
 ```
 
 When submitting a scheduled job, use the environment's Python executable explicitly:
 
 ```bash
-srun "$HOME/.conda/envs/att/bin/python3" my_script.py
+srun "$HOME/.conda/envs/att_env/bin/python3" my_script.py
 ```
 
 </details>
 
 <details>
-<summary><strong>Use a custom assemblyCPP build</strong></summary>
+<summary><strong>Use your own parallelassemblycpp build</strong></summary>
 
-The bundled C++ executables are generic Linux x86-64 builds. A platform-specific build is required elsewhere, and an
-optimised local build can be faster on supported hardware.
-
-Set `ASS_PATH` to the **full path of the executable**, not its containing directory:
+ATT builds parallelassemblycpp on demand, but a build you control is worth having: it skips the wait on first use, and an
+optimised build is faster on supported hardware. Build it once:
 
 ```bash
-export ASS_PATH=/absolute/path/to/asscpp
+git clone https://github.com/ELIFE-ASU/parallelassemblycpp.git
+cmake -S parallelassemblycpp -B parallelassemblycpp/build/release -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+cmake --build parallelassemblycpp/build/release --parallel
 ```
 
-If you also build the dedicated string calculator, set:
+Then set `ASS_PATH` to the **full path of the executable**, not its containing directory:
 
 ```bash
-export ASS_STR_PATH=/absolute/path/to/string-calculator
+export ASS_PATH=$PWD/parallelassemblycpp/build/release/ParallelAssemblyCpp
 ```
 
-For the maintained Intel oneAPI recipe, including the compiler and Boost setup, see the
-[installation guide](https://assemblytheorytools.readthedocs.io/en/latest/install.html#optional-a-faster-assemblycpp-with-intel-oneapi).
+Older upstream revisions name this executable `AssemblyCpp`; ATT accepts both names and keeps the historical name
+for its own cached build. The same executable computes molecular, graph and string assembly indices. `ASS_STR_PATH` is only needed to point
+string calculations at a *different* build; it falls back to `ASS_PATH` when unset.
+
+To build a specific revision on demand instead, set `ATT_ASSEMBLYCPP_REF` to a branch, tag or commit. For the
+optimised and parallel build presets, see the
+[installation guide](https://assemblytheorytools.readthedocs.io/en/latest/install.html#optional-a-faster-parallelassemblycpp-build).
+
+> parallelassemblycpp is licensed CC BY-NC 4.0, which is more restrictive than this package's MIT licence. That is why ATT
+> builds it on demand rather than distributing it.
 
 </details>
 

@@ -1,9 +1,11 @@
 # Run the test suite on every supported interpreter.
 #
-# The default `pytest` run is self-contained: conftest.py skips the
-# `integration` and `slow` groups unless their opt-in flag is passed, so this
-# workflow needs no network services, no external datasets and no ORCA.
-# The opt-in groups are exercised separately by the weekly job below.
+# The default `pytest` run needs no network services, no external datasets and
+# no ORCA: conftest.py skips the `integration` and `slow` groups unless their
+# opt-in flag is passed. It does need the C++ calculator, which is no longer
+# shipped as a binary, so each job builds it first with the local composite
+# action and points ASS_PATH at the result. The opt-in groups are exercised
+# separately by the weekly job below.
 
 name: Tests
 
@@ -42,18 +44,19 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install ruff
-        run: python -m pip install ruff
+      - name: Install the lint tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --group lint
 
       # Deliberately a narrow rule set: syntax errors (E9), undefined names
       # (F82) and always-wrong comparisons (F63, F7). These are bugs rather
       # than style, so the gate is green today without first reformatting the
       # whole codebase; widen the selection once that backlog is cleared.
       - name: Check for syntax errors and undefined names
-        # --isolated ignores any local ruff configuration, so the gate is
-        # exactly the rules named here, and --output-format=github annotates
-        # the offending lines in the pull-request diff.
-        run: ruff check --isolated --select E9,F63,F7,F82 --output-format=github .
+        # Use the shared configuration in pyproject.toml. The GitHub output
+        # format annotates the offending lines in the pull-request diff.
+        run: ruff check --output-format=github .
 
   test:
     name: Python ${{ matrix.python-version }} on ${{ matrix.os }}
@@ -85,6 +88,17 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
 
+      - name: Install the Cairo system library
+        # cairosvg is a pip dependency but binds Cairo through cffi, and pip
+        # does not supply that library. The Linux images already ship it; on
+        # macOS Homebrew installs outside dyld's default search path, so the
+        # fallback path has to name it or the import fails with OSError and the
+        # metro-plot test skips itself.
+        if: runner.os == 'macOS'
+        run: |
+          brew install cairo
+          echo "DYLD_FALLBACK_LIBRARY_PATH=$(brew --prefix)/lib:$HOME/lib:/usr/local/lib:/usr/lib" >> "$GITHUB_ENV"
+
       - name: Install the package and its test dependencies
         # Editable so coverage paths line up with the checkout. The runtime
         # dependency set is large (rdkit, ase, ...); the pip cache above keeps
@@ -92,11 +106,17 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
+          python -m pip check
 
       - name: Report the resolved dependency versions
         # Dependencies are unpinned, so the failing version is the first thing
         # anyone needs when a scheduled run goes red.
         run: python -m pip list
+
+      - name: Build the C++ calculator
+        # After the install step, so it uses the cmake and ninja the package
+        # declares as dependencies.
+        uses: ./.github/actions/parallelassemblycpp
 
       - name: Run the test suite
         run: pytest --cov --cov-report=xml --cov-report=term-missing
@@ -135,6 +155,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
+          python -m pip check
+
+      - name: Build the C++ calculator
+        uses: ./.github/actions/parallelassemblycpp
 
       - name: Run the integration and slow tests
         run: pytest --run-integration --run-slow -m "integration or slow" -ra

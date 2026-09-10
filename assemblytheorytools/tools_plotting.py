@@ -12,38 +12,39 @@ give the figures a consistent appearance.
 """
 
 import math
+import random
+from collections import defaultdict
+from html import escape
+from io import BytesIO
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import networkx as nx
 import numpy as np
 import pandas as pd
-import random
-import tempfile
-from IPython.display import HTML
-from PIL import Image
 from ase import Atoms
 from ase.visualize.plot import plot_atoms
-from collections import defaultdict
-from html import escape
+from IPython.display import HTML
 from matplotlib import colormaps, colors
 from matplotlib.axes import Axes
 from matplotlib.cm import ScalarMappable
 from matplotlib.figure import Figure
-from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+from matplotlib.offsetbox import AnnotationBbox, OffsetImage
 from matplotlib.patches import ArrowStyle, Circle, FancyArrowPatch
+from PIL import Image
 from pyvis.network import Network
 from rdkit import Chem
 from rdkit.Chem import Draw, rdFMCS
 from scipy.stats import gaussian_kde
-from typing import List, Optional, Dict, Tuple, Any, Union, Sequence
 
 from .tools_atoms import mol_to_atoms
-from .tools_data import pubchem_smi_to_name, enumerate_stereoisomers_shortest
-from .tools_graph import relabel_digraph, nx_to_smi, set_graph_layer
+from .tools_data import enumerate_stereoisomers_shortest, pubchem_smi_to_name
+from .tools_graph import nx_to_smi, relabel_digraph, set_graph_layer
 from .tools_mol import smi_to_mol, standardize_mol
 
 # set the plot axis
-plt.rcParams['axes.linewidth'] = 2.0
+plt.rcParams["axes.linewidth"] = 2.0
 
 
 def n_plot(xlab: str, ylab: str, xs: int = 14, ys: int = 14) -> None:
@@ -70,16 +71,12 @@ def n_plot(xlab: str, ylab: str, xs: int = 14, ys: int = 14) -> None:
     None
         Modifies the current matplotlib plot in-place.
     """
-    plt.minorticks_on()
-    plt.tick_params(axis='both', which='major', labelsize=ys - 2, direction='in', length=6, width=2)
-    plt.tick_params(axis='both', which='minor', labelsize=ys - 2, direction='in', length=4, width=2)
-    plt.tick_params(axis='both', which='both', top=True, right=True)
-    plt.xlabel(xlab, fontsize=xs)
-    plt.ylabel(ylab, fontsize=ys)
-    plt.tight_layout()
+    ax_plot(plt.gcf(), plt.gca(), xlab, ylab, xs, ys)
 
 
-def ax_plot(fig: plt.Figure, ax: plt.Axes, xlab: str, ylab: str, xs: int = 14, ys: int = 14) -> None:
+def ax_plot(
+    fig: plt.Figure, ax: plt.Axes, xlab: str, ylab: str, xs: int = 14, ys: int = 14
+) -> None:
     """
     Configure axis aesthetics with labels, ticks, and tight layout.
 
@@ -108,19 +105,29 @@ def ax_plot(fig: plt.Figure, ax: plt.Axes, xlab: str, ylab: str, xs: int = 14, y
         Modifies the figure and axis in-place.
     """
     ax.minorticks_on()
-    ax.tick_params(axis='both', which='major', labelsize=ys - 2, direction='in', length=6, width=2)
-    ax.tick_params(axis='both', which='minor', labelsize=ys - 2, direction='in', length=4, width=2)
-    ax.tick_params(axis='both', which='both', top=True, right=True)
+    ax.tick_params(
+        axis="both",
+        which="both",
+        labelsize=ys - 2,
+        direction="in",
+        width=2,
+        top=True,
+        right=True,
+    )
+    ax.tick_params(axis="both", which="major", length=6)
+    ax.tick_params(axis="both", which="minor", length=4)
     ax.set_xlabel(xlab, fontsize=xs)
     ax.set_ylabel(ylab, fontsize=ys)
     fig.tight_layout()
 
 
-def _auto_fig_size(n_objects: int,
-                   base_size: Tuple[float, float],
-                   reference_n: int = 10,
-                   min_size: Tuple[float, float] = (4.0, 3.0),
-                   max_size: Tuple[float, float] = (30.0, 30.0)) -> Tuple[float, float]:
+def _auto_fig_size(
+    n_objects: int,
+    base_size: Tuple[float, float],
+    reference_n: int = 10,
+    min_size: Tuple[float, float] = (4.0, 3.0),
+    max_size: Tuple[float, float] = (30.0, 30.0),
+) -> Tuple[float, float]:
     """
     Scale a base figure size by a number of plotted objects.
 
@@ -156,17 +163,33 @@ def _auto_fig_size(n_objects: int,
     return width, height
 
 
-def plot_graph(graph: nx.Graph,
-               fig_size: tuple = (12, 7),
-               layout: str = 'kawai',
-               f_labs: bool = False,
-               edge_color: str = 'grey',
-               node_size: int = 300,
-               edgecolors: str = "black",
-               width: int = 2,
-               linewidths: int = 2,
-               seed: int = 42,
-               auto_fig_size: bool = False) -> tuple[Figure, Axes]:
+def _graph_layout(graph: nx.Graph, layout: str, seed: int) -> dict:
+    """Select a graph layout, falling back to Kamada–Kawai."""
+    if layout == "spring":
+        return nx.spring_layout(graph, seed=seed)
+    layouts = {
+        "circular": nx.circular_layout,
+        "shell": nx.shell_layout,
+        "spectral": nx.spectral_layout,
+        "spiral": nx.spiral_layout,
+        "arf": nx.arf_layout,
+    }
+    return layouts.get(layout, nx.kamada_kawai_layout)(graph)
+
+
+def plot_graph(
+    graph: nx.Graph,
+    fig_size: tuple = (12, 7),
+    layout: str = "kawai",
+    f_labs: bool = False,
+    edge_color: str = "grey",
+    node_size: int = 300,
+    edgecolors: str = "black",
+    width: int = 2,
+    linewidths: int = 2,
+    seed: int = 42,
+    auto_fig_size: bool = False,
+) -> tuple[Figure, Axes]:
     """
     Visualize a NetworkX graph with customizable layout and styling options.
 
@@ -206,57 +229,45 @@ def plot_graph(graph: nx.Graph,
     tuple of (matplotlib.figure.Figure, matplotlib.axes.Axes)
         Figure and axis objects containing the graph visualization.
     """
-    graph = graph.copy()  # Avoid modifying the original graph
-    # Get the position of the nodes based on the specified layout
-    if layout == 'kawai':
-        pos = nx.kamada_kawai_layout(graph)
-    elif layout == 'spring':
-        pos = nx.spring_layout(graph, seed=seed)
-    elif layout == 'circular':
-        pos = nx.circular_layout(graph)
-    elif layout == 'shell':
-        pos = nx.shell_layout(graph)
-    elif layout == 'spectral':
-        pos = nx.spectral_layout(graph)
-    elif layout == 'spiral':
-        pos = nx.spiral_layout(graph)
-    elif layout == 'arf':
-        pos = nx.arf_layout(graph)
-    elif layout == 'topological':
+    graph = graph.copy()
+    if layout == "topological":
         graph = set_graph_layer(graph)
         pos = nx.multipartite_layout(graph, subset_key="layer")
     else:
-        pos = nx.kamada_kawai_layout(graph)
+        pos = _graph_layout(graph, layout, seed)
 
     if auto_fig_size:
         fig_size = _auto_fig_size(graph.number_of_nodes(), base_size=fig_size)
 
     fig, ax = plt.subplots(figsize=fig_size)
 
-    # Draw the graph with the specified parameters
-    nx.draw_networkx(graph,
-                     ax=ax,
-                     pos=pos,
-                     with_labels=f_labs,
-                     edge_color=edge_color,
-                     node_size=node_size,
-                     edgecolors=edgecolors,
-                     width=width,
-                     linewidths=linewidths)
+    nx.draw_networkx(
+        graph,
+        ax=ax,
+        pos=pos,
+        with_labels=f_labs,
+        edge_color=edge_color,
+        node_size=node_size,
+        edgecolors=edgecolors,
+        width=width,
+        linewidths=linewidths,
+    )
     fig.tight_layout()
-    ax.axis('off')
+    ax.axis("off")
     return fig, ax
 
 
-def plot_mol_graph(graph: nx.Graph,
-                   fig_size: tuple = (12, 7),
-                   layout: str = 'kawai',
-                   f_labs: bool = False,
-                   node_size: int = 300,
-                   width: int = 2,
-                   linewidths: int = 2,
-                   seed: int = 42,
-                   auto_fig_size: bool = False) -> tuple[Figure, Axes]:
+def plot_mol_graph(
+    graph: nx.Graph,
+    fig_size: tuple = (12, 7),
+    layout: str = "kawai",
+    f_labs: bool = False,
+    node_size: int = 300,
+    width: int = 2,
+    linewidths: int = 2,
+    seed: int = 42,
+    auto_fig_size: bool = False,
+) -> tuple[Figure, Axes]:
     """
     Visualize a molecular graph with atom-specific coloring.
 
@@ -293,81 +304,65 @@ def plot_mol_graph(graph: nx.Graph,
     tuple of (matplotlib.figure.Figure, matplotlib.axes.Axes)
         Figure and axis objects containing the molecular graph visualization.
     """
-    graph = graph.copy()  # Avoid modifying the original graph
-    # Get the position of the nodes based on the specified layout
-    if layout == 'kawai':
-        pos = nx.kamada_kawai_layout(graph)
-    elif layout == 'spring':
-        pos = nx.spring_layout(graph, seed=seed)
-    elif layout == 'circular':
-        pos = nx.circular_layout(graph)
-    elif layout == 'shell':
-        pos = nx.shell_layout(graph)
-    elif layout == 'spectral':
-        pos = nx.spectral_layout(graph)
-    elif layout == 'spiral':
-        pos = nx.spiral_layout(graph)
-    elif layout == 'arf':
-        pos = nx.arf_layout(graph)
-    else:
-        pos = nx.kamada_kawai_layout(graph)
+    graph = graph.copy()
+    pos = _graph_layout(graph, layout, seed)
 
     cols_conv = {
-        'H': 'white',  # Hydrogen
-        'C': 'darkgray',  # Carbon
-        'O': 'red',  # Oxygen
-        'N': 'blue',  # Nitrogen
-        'S': 'yellow',  # Sulfur
-        'P': 'orange',  # Phosphorus
-        'Cl': 'green',  # Chlorine
-        'F': 'lightgreen',  # Fluorine
-        'Br': 'brown',  # Bromine
-        'I': 'purple',  # Iodine
-        'Fe': 'darkorange',  # Iron
-        'Ca': 'gold',  # Calcium
-        'Na': 'lightblue',  # Sodium
-        'K': 'violet',  # Potassium
-        'Mg': 'darkgreen',  # Magnesium
-        'Cu': 'peru',  # Copper
-        'Zn': 'gray',  # Zinc
-        'Au': 'gold',  # Gold
-        'Ag': 'silver',  # Silver
-        'Pt': 'lightgray'  # Platinum
+        "H": "white",  # Hydrogen
+        "C": "darkgray",  # Carbon
+        "O": "red",  # Oxygen
+        "N": "blue",  # Nitrogen
+        "S": "yellow",  # Sulfur
+        "P": "orange",  # Phosphorus
+        "Cl": "green",  # Chlorine
+        "F": "lightgreen",  # Fluorine
+        "Br": "brown",  # Bromine
+        "I": "purple",  # Iodine
+        "Fe": "darkorange",  # Iron
+        "Ca": "gold",  # Calcium
+        "Na": "lightblue",  # Sodium
+        "K": "violet",  # Potassium
+        "Mg": "darkgreen",  # Magnesium
+        "Cu": "peru",  # Copper
+        "Zn": "gray",  # Zinc
+        "Au": "gold",  # Gold
+        "Ag": "silver",  # Silver
+        "Pt": "lightgray",  # Platinum
     }
 
-    color_dict_edge = {1: "black",
-                       2: "green",
-                       3: "red",
-                       4: "orange"}
-    # Get the colors for the nodes
-    graph_colors = [cols_conv.get(graph.nodes[idx]['color'], 'black') for idx in graph.nodes()]
-    # Get the colors for the edges
-    edge_colors = [color_dict_edge.get(graph.edges[idx]['color']) for idx in graph.edges()]
+    color_dict_edge = {1: "black", 2: "green", 3: "red", 4: "orange"}
+    graph_colors = [
+        cols_conv.get(data["color"], "black") for _, data in graph.nodes(data=True)
+    ]
+    edge_colors = [
+        color_dict_edge.get(data["color"]) for *_, data in graph.edges(data=True)
+    ]
 
     if auto_fig_size:
         fig_size = _auto_fig_size(graph.number_of_nodes(), base_size=fig_size)
 
     fig, ax = plt.subplots(figsize=fig_size)
 
-    # Draw the graph
-    nx.draw_networkx(graph,
-                     ax=ax,
-                     pos=pos,
-                     with_labels=f_labs,
-                     node_size=node_size,
-                     edge_color=edge_colors,
-                     node_color=graph_colors,
-                     edgecolors="black",
-                     width=width,
-                     linewidths=linewidths)
+    nx.draw_networkx(
+        graph,
+        ax=ax,
+        pos=pos,
+        with_labels=f_labs,
+        node_size=node_size,
+        edge_color=edge_colors,
+        node_color=graph_colors,
+        edgecolors="black",
+        width=width,
+        linewidths=linewidths,
+    )
     fig.tight_layout()
-    ax.axis('off')
+    ax.axis("off")
     return fig, ax
 
 
-def plot_interactive_graph(graph: nx.Graph,
-                           show: bool = False,
-                           filename: str = "interactive_graph.html") -> Network:
+def plot_interactive_graph(
+    graph: nx.Graph, show: bool = False, filename: str = "interactive_graph.html"
+) -> Network:
     """
     Create an interactive HTML visualization of a NetworkX graph using PyVis.
 
@@ -392,15 +387,11 @@ def plot_interactive_graph(graph: nx.Graph,
     pyvis.network.Network
         PyVis Network object containing the interactive visualization.
     """
-    graph = graph.copy()  # Avoid modifying the original graph
-    # Color each node based on its degree
-    max_nbr = len(max(graph.adj.values(), key=lambda x: len(x)))
+    graph = graph.copy()
+    max_nbr = max(map(len, graph.adj.values()))
     blues = colormaps.get_cmap("Blues")
     for n, d in graph.nodes(data=True):
-        n_neighbors = len(graph.adj[n])
-        # Show the smaller domain in red and the larger one in blue
-        palette = blues
-        d["color"] = colors.to_hex(palette(n_neighbors / max_nbr))
+        d["color"] = colors.to_hex(blues(len(graph.adj[n]) / max_nbr))
 
     # Convert to PyVis network
     width, height = (900, 900)
@@ -410,20 +401,21 @@ def plot_interactive_graph(graph: nx.Graph,
         html_doc = net.generate_html(notebook=True)
         iframe = (
             f'<iframe width="{width + 25}px" height="{height + 25}px" frameborder="0" '
-            'srcdoc="{html_doc}"></iframe>'
+            f'srcdoc="{escape(html_doc)}"></iframe>'
         )
-        HTML(iframe.format(html_doc=escape(html_doc)))
+        HTML(iframe)
     else:
-        # Save the graph
         net.show(filename)
     return net
 
 
-def plot_digraph_metro(digraph: nx.DiGraph,
-                       filename: str = 'metro',
-                       steps: bool = False,
-                       vo_str: bool = True,
-                       vo_names: str | None = None) -> None:
+def plot_digraph_metro(
+    digraph: nx.DiGraph,
+    filename: str = "metro",
+    steps: bool = False,
+    vo_str: bool = True,
+    vo_names: str | None = None,
+) -> None:
     """
     Render a directed acyclic graph (DAG) in a metro-style layout and save as SVG and PNG.
 
@@ -448,14 +440,16 @@ def plot_digraph_metro(digraph: nx.DiGraph,
     Raises
     ------
     ImportError
-        If the required `dagviz` or `cairosvg` libraries are not installed.
+        If the required `dagviz` or `cairosvg` libraries are not installed, or
+        if `cairosvg` cannot load the Cairo system library it binds to.
     ValueError
         If a node's 'vo' attribute is of an unsupported type.
 
     Notes
     -----
     - The `dagviz` library is used for rendering the graph in a metro-style layout.
-    - The `cairosvg` library is used to convert the SVG output to PNG format.
+    - The `cairosvg` library is used to convert the SVG output to PNG format; it
+      binds the Cairo system library, which pip does not install.
     - Node labels are determined based on the 'vo' attribute, which can be a string,
       a NetworkX graph, or an RDKit molecule object.
 
@@ -468,57 +462,67 @@ def plot_digraph_metro(digraph: nx.DiGraph,
     try:
         import cairosvg
         import dagviz
-    except ImportError as e:
-        raise ImportError("The 'dagviz' and 'cairosvg' packages are required for this function.\n"
-                          "Please install them via pip:\n"
-                          "pip install git+https://github.com/ELIFE-ASU/dagviz.git \n"
-                          "pip install cairosvg \n") from e
+    # cairosvg reaches Cairo through cffi rather than bundling it in the wheel,
+    # so a system without that library fails the import with OSError and a list
+    # of dlopen attempts instead of ImportError.
+    except (ImportError, OSError) as e:
+        raise ImportError(
+            "The 'dagviz' and 'cairosvg' packages are required for this function.\n"
+            "Please install them via pip:\n"
+            "pip install git+https://github.com/ELIFE-ASU/dagviz.git \n"
+            "pip install cairosvg \n"
+            "cairosvg also needs the Cairo system library, which pip does not\n"
+            "supply. Install it with a system package manager, for example:\n"
+            "conda install -c conda-forge cairo \n"
+            "brew install cairo \n"
+            "apt-get install libcairo2 \n"
+        ) from e
 
     if steps:
         # Relabel the graph nodes with their topological step if requested
         digraph = relabel_digraph(digraph)
 
     if vo_str:
-        for node in digraph.nodes:
-            d_type = type(digraph.nodes[node]['vo'])
-            if d_type == str:
-                lab = digraph.nodes[node]['vo']
-            elif d_type == nx.Graph:
-                lab = nx_to_smi(digraph.nodes[node]['vo'],
-                                add_hydrogens=False,
-                                sanitize=True)
-            elif d_type == Chem.Mol:
-                lab = Chem.MolToSmiles(digraph.nodes[node]['vo'])
+        for _, data in digraph.nodes(data=True):
+            vo = data["vo"]
+            if type(vo) is str:
+                lab = vo
+            elif type(vo) is nx.Graph:
+                lab = nx_to_smi(vo, add_hydrogens=False, sanitize=True)
+            elif type(vo) is Chem.Mol:
+                lab = Chem.MolToSmiles(vo)
             else:
-                raise ValueError(f"Unsupported virtual object type: {d_type}")
+                raise ValueError(f"Unsupported virtual object type: {type(vo)}")
 
             if vo_names:
-                lab = enumerate_stereoisomers_shortest(Chem.MolFromSmiles(lab), prefer=vo_names)
+                lab = enumerate_stereoisomers_shortest(
+                    Chem.MolFromSmiles(lab), prefer=vo_names
+                )
                 lab = pubchem_smi_to_name(lab, prefer=vo_names)
                 if lab is None:
                     lab = ""
-            digraph.nodes[node]['label'] = lab
+            data["label"] = lab
 
-    # Configure the metro-style rendering backend
-    backend = dagviz.style.metro.svg_renderer(dagviz.style.metro.StyleConfig(node_stroke="black"))
-    # Render the graph as an SVG string
-    r = dagviz.render_svg(digraph, style=backend)
+    backend = dagviz.style.metro.svg_renderer(
+        dagviz.style.metro.StyleConfig(node_stroke="black")
+    )
+    svg = dagviz.render_svg(digraph, style=backend)
 
-    # Save the SVG file
-    with open(f'{filename}.svg', 'w') as file:
-        file.write(r)
+    with open(f"{filename}.svg", "w") as file:
+        file.write(svg)
 
-    # Convert the SVG to a PNG file
-    cairosvg.svg2png(bytestring=r.encode('utf-8'), write_to=f"{filename}.png")
+    cairosvg.svg2png(bytestring=svg.encode("utf-8"), write_to=f"{filename}.png")
 
 
-def _draw_edge_arrowhead(ax: Axes,
-                         edge_patch: FancyArrowPatch,
-                         position: float,
-                         color: str,
-                         plt_arrow_style: Union[str, ArrowStyle],
-                         arrow_size: int,
-                         width: float = 2.5) -> None:
+def _draw_edge_arrowhead(
+    ax: Axes,
+    edge_patch: FancyArrowPatch,
+    position: float,
+    color: str,
+    plt_arrow_style: Union[str, ArrowStyle],
+    arrow_size: int,
+    width: float = 2.5,
+) -> None:
     """
     Draw a single arrowhead part way along an edge that has already been drawn.
 
@@ -550,16 +554,18 @@ def _draw_edge_arrowhead(ax: Axes,
         The arrowhead is added to the axis in place.
     """
     # Poly-line approximation of the drawn edge, in data coordinates
-    verts = np.asarray([v for v, _ in edge_patch.get_path().iter_segments(curves=False)])
+    verts = np.asarray(
+        [v for v, _ in edge_patch.get_path().iter_segments(curves=False)]
+    )
     if len(verts) < 2:
-        return None
+        return
 
     steps = np.diff(verts, axis=0)
     lengths = np.hypot(steps[:, 0], steps[:, 1])
     # Drop repeated vertices, they carry no direction
     keep = lengths > 0.0
     if not keep.any():
-        return None
+        return
     starts, steps, lengths = verts[:-1][keep], steps[keep], lengths[keep]
 
     # Walk along the arc length, so the head sits part way along the curve
@@ -571,31 +577,70 @@ def _draw_edge_arrowhead(ax: Axes,
 
     # Stub pointing along the edge, short enough to hide under the head itself
     stub = 1e-3 * arc[-1] * steps[i] / lengths[i]
-    ax.add_patch(FancyArrowPatch(point - stub,
-                                 point + stub,
-                                 arrowstyle=plt_arrow_style,
-                                 mutation_scale=arrow_size,
-                                 color=color,
-                                 linewidth=width,
-                                 shrinkA=0,
-                                 shrinkB=0,
-                                 zorder=edge_patch.get_zorder()))
+    ax.add_patch(
+        FancyArrowPatch(
+            point - stub,
+            point + stub,
+            arrowstyle=plt_arrow_style,
+            mutation_scale=arrow_size,
+            color=color,
+            linewidth=width,
+            shrinkA=0,
+            shrinkB=0,
+            zorder=edge_patch.get_zorder(),
+        )
+    )
 
 
-def plot_pathway(graph: nx.DiGraph,
-                 fig_size: tuple = (12, 7),
-                 show_icons: bool = True,
-                 node_color: str = '#264f70',
-                 plot_type: str = 'mol',
-                 arrow_style: str = '1',
-                 layout_style: str = 'crossmin_long',
-                 frame_on: bool = True,
-                 font_size: int = 11,
-                 arrow_color: str = '#264f70',
-                 plt_arrow_style: Union[str, ArrowStyle] = '->',
-                 arrow_pos: float = 1.0,
-                 arrow_size: int = 20,
-                 auto_fig_size: bool = False) -> tuple[Figure, Axes]:
+def _figure_image(fig: Figure, dpi: int) -> np.ndarray:
+    """Render a temporary figure to an in-memory PNG and close it."""
+    try:
+        with BytesIO() as buffer:
+            fig.savefig(buffer, format="png", dpi=dpi, bbox_inches="tight")
+            buffer.seek(0)
+            return plt.imread(buffer, format="png")
+    finally:
+        plt.close(fig)
+
+
+def _pathway_icon(vo: Any, plot_type: str) -> OffsetImage:
+    """Render a virtual object at the scale used by pathway nodes."""
+    if plot_type == "mol":
+        smi = vo.replace("[", "").replace("]", "")
+        mol = smi_to_mol(smi, add_hydrogens=False)
+        img = Draw.MolToImage(mol, size=(200, 200), kekulize=False, fitImage=True)
+        return OffsetImage(img, zoom=0.4)
+    if plot_type == "graph":
+        fig, _ = plot_mol_graph(
+            vo, f_labs=False, fig_size=(4, 4), node_size=1000, width=10
+        )
+        return OffsetImage(_figure_image(fig, dpi=400), zoom=0.05)
+
+    mol = smi_to_mol(vo, add_hydrogens=False)
+    atoms = mol_to_atoms(mol, sanitize=False, add_hydrogens=False)
+    fig, ax = plt.subplots()
+    plot_atoms(atoms, ax, show_unit_cell=0, scale=2.0)
+    fig.tight_layout()
+    ax.axis("off")
+    return OffsetImage(_figure_image(fig, dpi=500), zoom=0.02)
+
+
+def plot_pathway(
+    graph: nx.DiGraph,
+    fig_size: tuple = (12, 7),
+    show_icons: bool = True,
+    node_color: str = "#264f70",
+    plot_type: str = "mol",
+    arrow_style: str = "1",
+    layout_style: str = "crossmin_long",
+    frame_on: bool = True,
+    font_size: int = 11,
+    arrow_color: str = "#264f70",
+    plt_arrow_style: Union[str, ArrowStyle] = "->",
+    arrow_pos: float = 1.0,
+    arrow_size: int = 20,
+    auto_fig_size: bool = False,
+) -> tuple[Figure, Axes]:
     """
     Visualize a directed acyclic graph as a pathway with customizable layout.
 
@@ -666,20 +711,19 @@ def plot_pathway(graph: nx.DiGraph,
     diagrams, and ``auto_fig_size=True`` to size the canvas to the pathway
     rather than fixing it in advance.
     """
-    graph = graph.copy()  # Avoid modifying the original graph
-    # If the input is a graph check if it contains molecule graphs and convert to smiles
-    if plot_type == 'mol':
-        for node in graph.nodes:
-            node_graph = graph.nodes[node]['vo']
+    graph = graph.copy()
+    if plot_type == "mol":
+        for _, data in graph.nodes(data=True):
+            node_graph = data["vo"]
             if isinstance(node_graph, nx.Graph):
                 try:
-                    smi = nx_to_smi(node_graph, add_hydrogens=False, sanitize=False)
-                    graph.nodes[node]['vo'] = smi
-                except:
-                    plot_type = 'graph'
-    elif plot_type == "string":
-        if show_icons:
-            node_color = 'white'
+                    data["vo"] = nx_to_smi(
+                        node_graph, add_hydrogens=False, sanitize=False
+                    )
+                except Exception:
+                    plot_type = "graph"
+    elif plot_type == "string" and show_icons:
+        node_color = "white"
 
     if auto_fig_size:
         fig_size = _auto_fig_size(graph.number_of_nodes(), base_size=fig_size)
@@ -687,62 +731,48 @@ def plot_pathway(graph: nx.DiGraph,
     fig, ax = plt.subplots(figsize=fig_size)
     graph = set_graph_layer(graph)
 
-    if layout_style == 'crossmin':
-        pos = multipartite_layout_crossmin(graph, subset_key="layer")
-    elif layout_style == 'crossmin_long':
-        pos = multipartite_layout_crossmin_long(graph, subset_key="layer")
-    elif layout_style == 'sa':
-        pos = multipartite_layout_sa(graph, subset_key="layer")
-    else:
-        pos = nx.multipartite_layout(graph, subset_key="layer")
+    layouts = {
+        "crossmin": multipartite_layout_crossmin,
+        "crossmin_long": multipartite_layout_crossmin_long,
+        "sa": multipartite_layout_sa,
+    }
+    layout = layouts.get(layout_style, nx.multipartite_layout)
+    pos = layout(graph, subset_key="layer")
 
-    if arrow_style == '1':
-        edge_color1 = 'white'
-        edge_color = arrow_color
-    elif arrow_style == '2':
-        edge_color1 = 'grey'
-        edge_color = 'grey'  # Unused
+    if arrow_style == "1":
+        edge_color1 = "white"
+    elif arrow_style == "2":
+        edge_color1 = "grey"
     else:
         raise ValueError("Invalid arrow style. Use '1' or '2'.")
 
-    nx.draw_networkx(graph,
-                     pos=pos,
-                     ax=ax,
-                     with_labels=False,
-                     node_size=1000,
-                     node_color=node_color,
-                     connectionstyle="arc3,rad=0.1",
-                     edge_color=edge_color1,
-                     arrows=True,
-                     arrowstyle="->",
-                     width=2.0)
+    nx.draw_networkx(
+        graph,
+        pos=pos,
+        ax=ax,
+        with_labels=False,
+        node_size=1000,
+        node_color=node_color,
+        connectionstyle="arc3,rad=0.1",
+        edge_color=edge_color1,
+        arrows=True,
+        arrowstyle="->",
+        width=2.0,
+    )
 
     edge_patches = []
-    if arrow_style == '1':
-        if show_icons:
-            arrow_margin = 70
-        else:
-            arrow_margin = 20
+    if arrow_style == "1":
+        arrow_margin = 70 if show_icons else 20
 
         for edge in graph.edges():
             src, dst = edge
-            # If the source node is above the destination node, curve the arrow downward (negative rad)
+            # Bend toward the destination; horizontally aligned edges stay straight.
             if pos[src][1] > pos[dst][1]:
                 rad = -0.15
-            # If the source node is below the destination node, curve the arrow upward (positive rad)
             elif pos[src][1] < pos[dst][1]:
                 rad = 0.15
-            # If the source and destination nodes are horizontally aligned
             else:
-                layer_diff = graph.nodes[dst]["layer"] - graph.nodes[src]["layer"]
-                if layer_diff > 1:
-                    # flip a coin to decide the direction of the curve
-                    if random.random() > 0.5:
-                        rad = 0.  # -0.10 * layer_diff # HARDCODED, don't push this block!
-                    else:
-                        rad = 0.  # 0.10 * layer_diff
-                else:
-                    rad = 0.0
+                rad = 0.0
 
             # A head part way along the edge is added afterwards, so the edge
             # itself is drawn without one
@@ -752,86 +782,42 @@ def plot_pathway(graph: nx.DiGraph,
                 edgelist=[edge],
                 ax=ax,
                 arrows=True,
-                arrowstyle=plt_arrow_style if arrow_pos >= 1.0 else '-',
+                arrowstyle=plt_arrow_style if arrow_pos >= 1.0 else "-",
                 width=2.5,
-                edge_color=edge_color,
+                edge_color=arrow_color,
                 connectionstyle=f"arc3,rad={rad}",
                 min_target_margin=arrow_margin,
             )
 
     if show_icons:
-        if plot_type == 'mol':
-            for i, node in enumerate(graph.nodes):
-                smi = graph.nodes[node]["vo"]
-                smi = smi.replace('[', '').replace(']', '')
-                mol = smi_to_mol(smi, add_hydrogens=False)
-                img = Draw.MolToImage(mol,
-                                      size=(200, 200),
-                                      kekulize=False,
-                                      fitImage=True)
-                imagebox = OffsetImage(img, zoom=0.4)
-                ab = AnnotationBbox(imagebox,
-                                    xy=(pos[node][0], pos[node][1]),
-                                    frameon=frame_on)
-                ax.add_artist(ab)
-        elif plot_type == 'graph':
-            for i, node in enumerate(graph.nodes):
-                atom_graph = graph.nodes[node]["vo"]
-                with tempfile.NamedTemporaryFile(suffix=".png", delete=True) as tmpfile:
-                    _fig, _ax = plot_mol_graph(atom_graph,
-                                               f_labs=False,
-                                               fig_size=(4, 4),
-                                               node_size=1000,
-                                               width=10)
-                    # save the figure to a temporary file
-                    _fig.savefig(tmpfile.name, dpi=400, bbox_inches='tight')
-                    # close the figure
-                    plt.close(_fig)
-
-                    img = plt.imread(tmpfile.name)
-
-                imagebox = OffsetImage(img, zoom=0.05)
-                ab = AnnotationBbox(imagebox, (pos[node][0], pos[node][1]), frameon=frame_on)
-                ax.add_artist(ab)
-        elif plot_type == 'atoms':
-            for i, node in enumerate(graph.nodes):
-                smi = graph.nodes[node]["vo"]
-                mol = smi_to_mol(smi, add_hydrogens=False)
-                atoms = mol_to_atoms(mol, sanitize=False, add_hydrogens=False)
-                with tempfile.NamedTemporaryFile(suffix=".png", delete=True) as tmpfile:
-                    _fig, _ax = plt.subplots()
-                    plot_atoms(atoms, _ax, show_unit_cell=0, scale=2.0)
-                    _fig.tight_layout()
-                    _ax.axis('off')
-                    _fig.savefig(tmpfile.name, dpi=500, bbox_inches='tight')
-
-                    # close the figure
-                    plt.close(_fig)
-                    img = plt.imread(tmpfile.name)
-
-                imagebox = OffsetImage(img, zoom=0.02)
-                ab = AnnotationBbox(imagebox, (pos[node][0], pos[node][1]), frameon=frame_on)
-                ax.add_artist(ab)
-        elif plot_type == "string":
-            for node in graph.nodes:
-                s = graph.nodes[node]["vo"]
-                ax.text(pos[node][0],
-                        pos[node][1],
-                        s,
-                        fontsize=font_size,
-                        ha='center',
-                        va='center',
-                        bbox=dict(boxstyle='round,pad=0.5',
-                                  facecolor='white',
-                                  edgecolor='white',
-                                  linewidth=1))
+        for node, data in graph.nodes(data=True):
+            if plot_type in ("mol", "graph", "atoms"):
+                icon = _pathway_icon(data["vo"], plot_type)
+                ax.add_artist(AnnotationBbox(icon, pos[node], frameon=frame_on))
+            elif plot_type == "string":
+                ax.text(
+                    *pos[node],
+                    data["vo"],
+                    fontsize=font_size,
+                    ha="center",
+                    va="center",
+                    bbox=dict(
+                        boxstyle="round,pad=0.5",
+                        facecolor="white",
+                        edgecolor="white",
+                        linewidth=1,
+                    ),
+                )
 
     fig.tight_layout()
-    ax.axis('off')
+    ax.axis("off")
     # scatter the positions to fix the view
-    ax.scatter([pos[node][0] for node in graph.nodes()],
-               [pos[node][1] for node in graph.nodes()],
-               s=0, color='red')
+    ax.scatter(
+        [pos[node][0] for node in graph.nodes()],
+        [pos[node][1] for node in graph.nodes()],
+        s=0,
+        color="red",
+    )
 
     if edge_patches and arrow_pos < 1.0:
         # The edge paths are built in display space, so the view has to be
@@ -840,25 +826,28 @@ def plot_pathway(graph: nx.DiGraph,
         ax.set_xlim(*ax.get_xlim())
         ax.set_ylim(*ax.get_ylim())
         for edge_patch in edge_patches:
-            _draw_edge_arrowhead(ax, edge_patch, arrow_pos, edge_color,
-                                 plt_arrow_style, arrow_size)
+            _draw_edge_arrowhead(
+                ax, edge_patch, arrow_pos, arrow_color, plt_arrow_style, arrow_size
+            )
 
     return fig, ax
 
 
-def plot_pathway_mid_arrow(graph: nx.DiGraph,
-                           fig_size: tuple = (12, 7),
-                           show_icons: bool = True,
-                           node_color: str = '#264f70',
-                           plot_type: str = 'mol',
-                           layout_style: str = 'crossmin_long',
-                           frame_on: bool = True,
-                           font_size: int = 11,
-                           arrow_color: str = '#264f70',
-                           plt_arrow_style: Union[str, ArrowStyle] = '->',
-                           arrow_pos: float = 0.5,
-                           arrow_size: int = 20,
-                           auto_fig_size: bool = False) -> tuple[Figure, Axes]:
+def plot_pathway_mid_arrow(
+    graph: nx.DiGraph,
+    fig_size: tuple = (12, 7),
+    show_icons: bool = True,
+    node_color: str = "#264f70",
+    plot_type: str = "mol",
+    layout_style: str = "crossmin_long",
+    frame_on: bool = True,
+    font_size: int = 11,
+    arrow_color: str = "#264f70",
+    plt_arrow_style: Union[str, ArrowStyle] = "->",
+    arrow_pos: float = 0.5,
+    arrow_size: int = 20,
+    auto_fig_size: bool = False,
+) -> tuple[Figure, Axes]:
     """
     Visualize a directed acyclic graph as a pathway with mid-edge arrowheads.
 
@@ -904,20 +893,22 @@ def plot_pathway_mid_arrow(graph: nx.DiGraph,
     tuple of (matplotlib.figure.Figure, matplotlib.axes.Axes)
         Figure and axis objects containing the pathway visualization.
     """
-    return plot_pathway(graph,
-                        fig_size=fig_size,
-                        show_icons=show_icons,
-                        node_color=node_color,
-                        plot_type=plot_type,
-                        arrow_style='1',
-                        layout_style=layout_style,
-                        frame_on=frame_on,
-                        font_size=font_size,
-                        arrow_color=arrow_color,
-                        plt_arrow_style=plt_arrow_style,
-                        arrow_pos=arrow_pos,
-                        arrow_size=arrow_size,
-                        auto_fig_size=auto_fig_size)
+    return plot_pathway(
+        graph,
+        fig_size=fig_size,
+        show_icons=show_icons,
+        node_color=node_color,
+        plot_type=plot_type,
+        arrow_style="1",
+        layout_style=layout_style,
+        frame_on=frame_on,
+        font_size=font_size,
+        arrow_color=arrow_color,
+        plt_arrow_style=plt_arrow_style,
+        arrow_pos=arrow_pos,
+        arrow_size=arrow_size,
+        auto_fig_size=auto_fig_size,
+    )
 
 
 def _average_angles(angles: np.ndarray) -> float:
@@ -939,42 +930,47 @@ def _average_angles(angles: np.ndarray) -> float:
         The average angle (in radians), in the range (-pi, pi].
 
     """
-    # Convert angles to unit vectors
-    x_components = np.cos(angles)
-    y_components = np.sin(angles)
-
-    # Sum the components to get the resultant vector
-    resultant_x = np.sum(x_components)
-    resultant_y = np.sum(y_components)
-
-    # Calculate the angle of the resultant vector
-    resultant_angle = np.arctan2(resultant_y, resultant_x)
-
-    return resultant_angle
+    return np.arctan2(np.sin(angles).sum(), np.cos(angles).sum())
 
 
-def _plot_directed_network(nodes: List[str],
-                           adjacency_matrix: np.ndarray,
-                           x: np.ndarray,
-                           y: np.ndarray,
-                           max_ai: int,
-                           labels: bool,  # can be bool or List[str]
-                           node_size: float,
-                           arrow_size: float,
-                           node_color: str,
-                           node_edge_color: str,
-                           node_linewidth: float,
-                           edge_color: str,
-                           arrow_alpha: float,
-                           fig_size: float,
-                           filename: Optional[str] = None,
-                           dpi: int = 300,
-                           fig: Optional[plt.Figure] = None,
-                           ax: Optional[plt.Axes] = None,
-                           save_kwargs: Optional[Dict[str, Any]] = None,
-                           spacing_mode: str = "linear",
-                           spacing_hyperbolic_factor: float = 0.4
-                           ) -> Tuple[plt.Figure, plt.Axes]:
+def _ring_radius(index, spacing_mode: str, factor: float):
+    """Map ring indices to radii for both nodes and their guide circles."""
+    if spacing_mode == "hyperbolic":
+        return index + float(factor) * np.sinh(index)
+    return index
+
+
+def _save_figure(fig: Figure, filename, dpi: int, save_kwargs) -> None:
+    """Save on request, allowing callers to replace the default padding."""
+    if filename is not None:
+        if save_kwargs is None:
+            save_kwargs = {"bbox_inches": "tight", "pad_inches": 0.02}
+        fig.savefig(filename, dpi=dpi, **save_kwargs)
+
+
+def _plot_directed_network(
+    nodes: List[str],
+    adjacency_matrix: np.ndarray,
+    x: np.ndarray,
+    y: np.ndarray,
+    max_ai: int,
+    labels: bool,  # can be bool or List[str]
+    node_size: float,
+    arrow_size: float,
+    node_color: str,
+    node_edge_color: str,
+    node_linewidth: float,
+    edge_color: str,
+    arrow_alpha: float,
+    fig_size: float,
+    filename: Optional[str] = None,
+    dpi: int = 300,
+    fig: Optional[plt.Figure] = None,
+    ax: Optional[plt.Axes] = None,
+    save_kwargs: Optional[Dict[str, Any]] = None,
+    spacing_mode: str = "linear",
+    spacing_hyperbolic_factor: float = 0.4,
+) -> Tuple[plt.Figure, plt.Axes]:
     """
     Draw a directed network on top of concentric circles.
 
@@ -1053,51 +1049,28 @@ def _plot_directed_network(nodes: List[str],
         If ``nodes``, ``adjacency_matrix``, ``x`` and ``y`` do not all have
         the same length.
     """
-    if len(nodes) != len(adjacency_matrix) or len(adjacency_matrix) != len(x) or len(x) != len(y):
+    if (
+        len(nodes) != len(adjacency_matrix)
+        or len(adjacency_matrix) != len(x)
+        or len(x) != len(y)
+    ):
         raise ValueError("Lengths of nodes, adjacency_matrix, x, and y must be equal.")
 
-    # build graph and positions
     graph = nx.DiGraph()
-    positions = {nodes[i]: (float(x[i]), float(y[i])) for i in range(len(nodes))}
+    positions = {node: (float(xi), float(yi)) for node, xi, yi in zip(nodes, x, y)}
     graph.add_nodes_from(nodes)
-
-    n = len(nodes)
-    for i in range(n):
-        for j in range(n):
+    for i, src in enumerate(nodes):
+        for j, dst in enumerate(nodes):
             if adjacency_matrix[i, j] != 0:
-                graph.add_edge(nodes[i], nodes[j], weight=float(adjacency_matrix[i, j]))
+                graph.add_edge(src, dst, weight=float(adjacency_matrix[i, j]))
 
-    # create fig/ax if not provided
     if fig is None or ax is None:
         fig, ax = plt.subplots(figsize=(fig_size, fig_size))
 
-    # helper radius mapping consistent with plot_assembly_circle
-    def _radius(idx: int) -> float:
-        """
-        Map a layer index to a radial distance.
-
-        Parameters
-        ----------
-        idx : int
-            Zero-based layer index.
-
-        Returns
-        -------
-        float
-            The radius for the layer. Under ``"hyperbolic"`` spacing this grows
-            as ``idx + factor * sinh(idx)``; otherwise it equals ``idx``.
-        """
-        base = float(idx)
-        if spacing_mode == "hyperbolic":
-            mapped = float(base + spacing_hyperbolic_factor * np.sinh(base))
-        else:
-            mapped = float(base)
-        return mapped
-
     # 1) draw curved directed edges first (below circles)
-    for src, dst, data in graph.edges(data=True):
-        x_src, y_src = positions[src]
-        x_dst, y_dst = positions[dst]
+    for src, dst in graph.edges():
+        x_src = positions[src][0]
+        x_dst = positions[dst][0]
         if x_src > x_dst:
             rad = -0.25
         elif x_src < x_dst:
@@ -1119,25 +1092,14 @@ def _plot_directed_network(nodes: List[str],
             min_target_margin=10,
             # don't pass zorder into nx.draw (it may validate kwargs); set after if possible
         )
-        # try to set zorder on returned artist(s)
-        try:
-            if coll is None:
-                continue
-            # coll can be a LineCollection or list; handle common cases
-            if hasattr(coll, "set_zorder"):
-                coll.set_zorder(1)
-            elif isinstance(coll, (list, tuple)):
-                for c in coll:
-                    try:
-                        c.set_zorder(1)
-                    except Exception:
-                        pass
-        except Exception:
-            pass
+        if coll is not None:
+            artists = coll if isinstance(coll, (list, tuple)) else [coll]
+            for artist in artists:
+                artist.set_zorder(1)
 
     # 2) draw concentric circles above edges
     for idx in range(1, max_ai + 2):
-        r = _radius(idx)
+        r = _ring_radius(float(idx), spacing_mode, spacing_hyperbolic_factor)
         circle = Circle((0, 0), r, color="black", alpha=1, fill=False, lw=1.5)
         circle.set_zorder(3)
         ax.add_artist(circle)
@@ -1146,67 +1108,126 @@ def _plot_directed_network(nodes: List[str],
     node_xs = [positions[nn][0] for nn in nodes]
     node_ys = [positions[nn][1] for nn in nodes]
     # node_size in matplotlib scatter is in points^2; keep API-consistent
-    scat = ax.scatter(node_xs, node_ys,
-                      s=node_size,
-                      c=node_color,
-                      edgecolors=node_edge_color,
-                      linewidths=node_linewidth,
-                      zorder=4)
-    # optional: draw node outlines if edgecolors requested and backend requires it
-    # draw labels using ax.text for explicit zorder control
+    ax.scatter(
+        node_xs,
+        node_ys,
+        s=node_size,
+        c=node_color,
+        edgecolors=node_edge_color,
+        linewidths=node_linewidth,
+        zorder=4,
+    )
     font_size = max(8, int(node_size / 200))
     if isinstance(labels, (list, tuple, np.ndarray)):
-        for i, node in enumerate(nodes):
-            lab = labels[i] if i < len(labels) else ""
-            if lab:
-                ax.text(positions[node][0], positions[node][1], str(lab),
-                        ha='center', va='center', fontsize=font_size, zorder=5)
-    elif bool(labels):
-        for node in nodes:
-            ax.text(positions[node][0], positions[node][1], str(node),
-                    ha='center', va='center', fontsize=font_size, zorder=5)
+        node_labels = ((node, label) for node, label in zip(nodes, labels) if label)
+    else:
+        node_labels = ((node, str(node)) for node in nodes) if labels else ()
+    for node, label in node_labels:
+        ax.text(
+            *positions[node],
+            str(label),
+            ha="center",
+            va="center",
+            fontsize=font_size,
+            zorder=5,
+        )
 
     # set limits based on mapped outermost radius
-    max_radius = _radius(max_ai + 1)
+    max_radius = _ring_radius(
+        float(max_ai + 1), spacing_mode, spacing_hyperbolic_factor
+    )
     margin = max(1.5, 0.1 * max_radius)
     ax.set_xlim(-max_radius - margin, max_radius + margin)
     ax.set_ylim(-max_radius - margin, max_radius + margin)
     ax.set_aspect("equal", adjustable="datalim")
     fig.tight_layout()
 
-    # Save if requested
-    if filename is not None:
-        if save_kwargs is None:
-            save_kwargs = {"bbox_inches": "tight", "pad_inches": 0.02}
-        fig.savefig(filename, dpi=dpi, **save_kwargs)
+    _save_figure(fig, filename, dpi, save_kwargs)
 
     return fig, ax
 
 
-def plot_assembly_circle(nodes: Sequence[Any],
-                         adj_matrix: np.ndarray,
-                         assembly_indices: Sequence[int],
-                         labels: Optional[Union[bool, Sequence[str]]] = None,
-                         node_size: float = 1000,
-                         arrow_size: float = 80,
-                         node_color: Union[str, Sequence[str]] = '#264f70',
-                         node_edge_color: str = "black",
-                         node_linewidth: float = 2.5,
-                         edge_color: Union[str, Sequence[str]] = 'Grey',
-                         arrow_alpha: float = 1.0,
-                         fig_size: Union[float, Tuple[float, float]] = 10,
-                         filename: Optional[str] = None,
-                         dpi: int = 300,
-                         fig: Optional[plt.Figure] = None,
-                         ax: Optional[plt.Axes] = None,
-                         cmap: Optional[Any] = None,
-                         norm: Optional[Any] = None,
-                         colorbar_label: Optional[str] = None,
-                         save_kwargs: Optional[Dict[str, Any]] = None,
-                         spacing_mode: str = "linear",
-                         spacing_hyperbolic_factor: float = 0.4,
-                         auto_fig_size: bool = False
-                         ) -> Tuple[Figure, Axes]:
+def _spread_overlapping_angles(angles: np.ndarray) -> None:
+    """Separate coincident node angles while retaining deterministic order."""
+    finite = np.flatnonzero(~np.isnan(angles))
+    processed = set()
+    for index in finite:
+        if index in processed:
+            continue
+        distances = np.abs(
+            (angles[finite] - angles[index] + np.pi) % (2 * np.pi) - np.pi
+        )
+        coincident = finite[distances <= 1e-12]
+        if coincident.size > 1:
+            center = _average_angles(angles[coincident])
+            spread = min(0.08, 0.03 * coincident.size)
+            offsets = np.linspace(-spread, spread, coincident.size)
+            angles[coincident] = (center + offsets) % (2 * np.pi)
+        processed.update(coincident)
+
+
+def _assembly_circle_angles(
+    n_nodes: int, adjacency: np.ndarray, assembly_indices: Sequence[int]
+) -> np.ndarray:
+    """Propagate building-block angles through parents, then neighbors."""
+    angles = np.full(n_nodes, np.nan)
+    min_ai = int(min(assembly_indices))
+    building_blocks = [i for i, ai in enumerate(assembly_indices) if ai == min_ai]
+    for k, index in enumerate(building_blocks):
+        angles[index] = 2 * np.pi * (k / len(building_blocks))
+
+    while np.isnan(angles).any():
+        changed = False
+        for include_children in (False, True):
+            for index in range(n_nodes):
+                if not np.isnan(angles[index]):
+                    continue
+                neighbors = adjacency[:, index] != 0
+                if include_children:
+                    neighbors |= adjacency[index, :] != 0
+                neighbor_angles = angles[np.flatnonzero(neighbors)]
+                known = neighbor_angles[~np.isnan(neighbor_angles)]
+                if known.size:
+                    angles[index] = _average_angles(known)
+                    changed = True
+            if changed:
+                break
+
+        if not changed:
+            remaining = np.flatnonzero(np.isnan(angles))
+            for k, index in enumerate(remaining):
+                angles[index] = 2 * np.pi * (k / len(remaining))
+            break
+        _spread_overlapping_angles(angles)
+
+    return angles
+
+
+def plot_assembly_circle(
+    nodes: Sequence[Any],
+    adj_matrix: np.ndarray,
+    assembly_indices: Sequence[int],
+    labels: Optional[Union[bool, Sequence[str]]] = None,
+    node_size: float = 1000,
+    arrow_size: float = 80,
+    node_color: Union[str, Sequence[str]] = "#264f70",
+    node_edge_color: str = "black",
+    node_linewidth: float = 2.5,
+    edge_color: Union[str, Sequence[str]] = "Grey",
+    arrow_alpha: float = 1.0,
+    fig_size: Union[float, Tuple[float, float]] = 10,
+    filename: Optional[str] = None,
+    dpi: int = 300,
+    fig: Optional[plt.Figure] = None,
+    ax: Optional[plt.Axes] = None,
+    cmap: Optional[Any] = None,
+    norm: Optional[Any] = None,
+    colorbar_label: Optional[str] = None,
+    save_kwargs: Optional[Dict[str, Any]] = None,
+    spacing_mode: str = "linear",
+    spacing_hyperbolic_factor: float = 0.4,
+    auto_fig_size: bool = False,
+) -> Tuple[Figure, Axes]:
     """
     Plot an assembly pathway as a set of concentric rings.
 
@@ -1315,102 +1336,24 @@ def plot_assembly_circle(nodes: Sequence[Any],
     """
 
     n_nodes = len(nodes)
-
-    angles = np.full(n_nodes, np.nan)
     max_ai = int(max(assembly_indices))
-    min_ai = int(min(assembly_indices))
-
-    # compute building blocks (minimum ai)
-    n_building_blocks = sum(1 for ai in assembly_indices if ai == min_ai)
-    # assign equispaced angles to building blocks
-    idxs_bb = [i for i, ai in enumerate(assembly_indices) if ai == min_ai]
-    for k, i in enumerate(idxs_bb):
-        angles[i] = 2 * np.pi * (k / max(1, n_building_blocks))
-
-    # assign angles to others by averaging parents' angles via adjacency (simple propagation)
-    # iterative fill: for remaining nodes, average angles of neighbors that have angles
     adj = np.array(adj_matrix)
-    # adjacency_matrix[i, j] != 0 means edge i -> j (i points to j)
-    # parents of node j are nodes p with adj[p, j] != 0
-    remaining_attempts = 0
-    while np.any(np.isnan(angles)):
-        changed = False
-        for i in range(n_nodes):
-            if np.isnan(angles[i]):
-                parent_idxs = np.where(adj[:, i] != 0)[0]
-                if parent_idxs.size > 0:
-                    parent_angles = angles[parent_idxs]
-                    known = parent_angles[~np.isnan(parent_angles)]
-                    if known.size > 0:
-                        # circular average
-                        angles[i] = _average_angles(known)
-                        changed = True
-        if not changed:
-            # Try averaging any known neighbor angles (parents OR children)
-            for i in range(n_nodes):
-                if np.isnan(angles[i]):
-                    neighbor_idxs = np.where((adj[:, i] != 0) | (adj[i, :] != 0))[0]
-                    if neighbor_idxs.size > 0:
-                        neighbor_angles = angles[neighbor_idxs]
-                        known = neighbor_angles[~np.isnan(neighbor_angles)]
-                        if known.size > 0:
-                            angles[i] = _average_angles(known)
-                            changed = True
-        if not changed:
-            # final fallback: assign evenly spaced angles to remaining nodes
-            remaining = np.where(np.isnan(angles))[0]
-            nrem = len(remaining)
-            if nrem == 0:
-                break
-            for k, idx in enumerate(remaining):
-                angles[idx] = 2 * np.pi * (k / max(1, nrem))
-            break
-        remaining_attempts += 1
-        if remaining_attempts > n_nodes + 5:
-            # safety net to avoid infinite loops; fill any remaining randomly
-            remaining = np.where(np.isnan(angles))[0]
-            for idx in remaining:
-                angles[idx] = 2 * np.pi * random.random()
-            break
-
-        # Resolve exact-angle overlaps: if multiple nodes share the same angle (within tol),
-        # spread them slightly around that central angle so they don't plot exactly on top.
-        tol = 1e-12
-        finite_idxs = np.where(~np.isnan(angles))[0]
-        processed = np.zeros(n_nodes, dtype=bool)
-        for idx in finite_idxs:
-            if processed[idx]:
-                continue
-            # find indices with angles close on the circle
-            diffs = np.abs((angles[finite_idxs] - angles[idx] + np.pi) % (2 * np.pi) - np.pi)
-            same_mask = diffs <= tol
-            same_idxs = finite_idxs[same_mask]
-            if same_idxs.size > 1:
-                # compute circular center
-                center = _average_angles(angles[same_idxs])
-                # small angular spread proportional to count
-                spread = min(0.08, 0.03 * same_idxs.size)
-                offsets = np.linspace(-spread, spread, same_idxs.size)
-                # sort by current radius (index) for deterministic ordering
-                for k, j in enumerate(sorted(same_idxs)):
-                    angles[j] = (center + offsets[k]) % (2 * np.pi)
-                    processed[j] = True
-            else:
-                processed[idx] = True
-
-    # compute radii according to spacing_mode
-    ai_plus = np.array(assembly_indices, dtype=float) + 1.0
-    if spacing_mode == "hyperbolic":
-        # combined linear + mild sinh term so inner rings remain reasonable while outer rings expand
-        radii = ai_plus + float(spacing_hyperbolic_factor) * np.sinh(ai_plus)
-    else:
-        radii = ai_plus
+    angles = _assembly_circle_angles(n_nodes, adj, assembly_indices)
+    radii = _ring_radius(
+        np.array(assembly_indices, dtype=float) + 1.0,
+        spacing_mode,
+        spacing_hyperbolic_factor,
+    )
 
     x_positions = radii * np.cos(angles)
     y_positions = radii * np.sin(angles)
 
     if auto_fig_size:
-        base = (fig_size, fig_size) if isinstance(fig_size, (int, float)) else tuple(fig_size)
+        base = (
+            (fig_size, fig_size)
+            if isinstance(fig_size, (int, float))
+            else tuple(fig_size)
+        )
         fig_size = _auto_fig_size(n_nodes, base_size=base)[0]
 
     # If fig/ax not provided, create them (no fallbacks beyond this)
@@ -1420,7 +1363,7 @@ def plot_assembly_circle(nodes: Sequence[Any],
     # call the underlying plotting routine drawing onto our fig/ax
     fig, ax = _plot_directed_network(
         nodes=nodes,
-        adjacency_matrix=np.array(adj_matrix),
+        adjacency_matrix=adj,
         x=x_positions,
         y=y_positions,
         max_ai=max_ai,
@@ -1445,15 +1388,18 @@ def plot_assembly_circle(nodes: Sequence[Any],
     # Add colorbar inline if user passed cmap and norm
     if cmap is not None and norm is not None:
         sm = ScalarMappable(norm=norm, cmap=cmap)
-        sm.set_array(np.linspace(getattr(norm, "vmin", 0), getattr(norm, "vmax", 1), 256))
+        sm.set_array(
+            np.linspace(getattr(norm, "vmin", 0), getattr(norm, "vmax", 1), 256)
+        )
         cbar = fig.colorbar(sm, ax=ax, orientation="vertical", fraction=0.046, pad=0.02)
 
         vmin = float(getattr(norm, "vmin", 0.0))
         vmax = float(getattr(norm, "vmax", 1.0))
 
         # Decide whether ticks should be integer-only: both endpoints near integers and range reasonable
-        endpoints_integer_like = math.isclose(vmin, round(vmin), abs_tol=1e-8) and math.isclose(vmax, round(vmax),
-                                                                                                abs_tol=1e-8)
+        endpoints_integer_like = math.isclose(
+            vmin, round(vmin), abs_tol=1e-8
+        ) and math.isclose(vmax, round(vmax), abs_tol=1e-8)
         reasonable_range_for_integers = (vmax - vmin) <= 100
         integer_ticks = endpoints_integer_like and reasonable_range_for_integers
 
@@ -1464,29 +1410,26 @@ def plot_assembly_circle(nodes: Sequence[Any],
 
         # Format ticks: use integer formatter when integer ticks requested
         if integer_ticks:
-            cbar.formatter = mticker.FormatStrFormatter('%d')
+            cbar.formatter = mticker.FormatStrFormatter("%d")
             cbar.update_ticks()
 
         if colorbar_label:
             cbar.set_label(colorbar_label, fontsize=12)
 
-    # finally save if requested (after colorbar added)
-    if filename is not None:
-        if save_kwargs is None:
-            save_kwargs = {"bbox_inches": "tight", "pad_inches": 0.02}
-        fig.savefig(filename, dpi=dpi, **save_kwargs)
+    _save_figure(fig, filename, dpi, save_kwargs)
 
     return fig, ax
 
 
-def scatter_plot(x: Union[np.ndarray, List],
-                 y: Union[np.ndarray, List],
-                 xlab: str = 'x',
-                 ylab: str = 'y',
-                 figsize: Tuple[float, float] = (8, 5),
-                 fontsize: int = 16,
-                 alpha: float = 0.5,
-                 ) -> Tuple[Figure, Axes]:
+def scatter_plot(
+    x: Union[np.ndarray, List],
+    y: Union[np.ndarray, List],
+    xlab: str = "x",
+    ylab: str = "y",
+    figsize: Tuple[float, float] = (8, 5),
+    fontsize: int = 16,
+    alpha: float = 0.5,
+) -> Tuple[Figure, Axes]:
     """
     Create a simple scatter plot with customizable styling.
 
@@ -1515,25 +1458,23 @@ def scatter_plot(x: Union[np.ndarray, List],
     tuple of (matplotlib.figure.Figure, matplotlib.axes.Axes)
         Figure and axis objects containing the scatter plot.
     """
-    # Convert to numpy arrays if they aren't already
     x = np.asarray(x)
     y = np.asarray(y)
-
-    # Create a figure and axis
     fig, ax = plt.subplots(figsize=figsize)
-    ax.scatter(x, y, color='black', alpha=alpha, s=50)
+    ax.scatter(x, y, color="black", alpha=alpha, s=50)
     ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
     return fig, ax
 
 
-def scatter_plot_with_colorbar(x: Union[np.ndarray, List],
-                               y: Union[np.ndarray, List],
-                               xlab: str = 'x',
-                               ylab: str = 'y',
-                               cmap: str = 'viridis',
-                               figsize: Tuple[float, float] = (8, 5),
-                               fontsize: int = 16,
-                               ) -> Tuple[Figure, Axes]:
+def scatter_plot_with_colorbar(
+    x: Union[np.ndarray, List],
+    y: Union[np.ndarray, List],
+    xlab: str = "x",
+    ylab: str = "y",
+    cmap: str = "viridis",
+    figsize: Tuple[float, float] = (8, 5),
+    fontsize: int = 16,
+) -> Tuple[Figure, Axes]:
     """
     Create a density-colored scatter plot using kernel density estimation.
 
@@ -1563,41 +1504,30 @@ def scatter_plot_with_colorbar(x: Union[np.ndarray, List],
     tuple of (matplotlib.figure.Figure, matplotlib.axes.Axes)
         Figure and axis objects containing the density-colored scatter plot.
     """
-    # Convert to numpy arrays if they aren't already
     x = np.asarray(x)
     y = np.asarray(y)
-
-    # Create a figure and axis
     fig, ax = plt.subplots(figsize=figsize)
 
-    # Stack the data and calculate the point density
     xy = np.vstack([x, y])
-    z = gaussian_kde(xy)(xy)
+    density = gaussian_kde(xy)(xy)
 
-    # Sort the points by density so that high-density points are plotted last
-    idx = z.argsort()
-    x_sorted, y_sorted, z_sorted = x[idx], y[idx], z[idx]
+    # Draw the densest points last so they remain visible.
+    order = density.argsort()
+    ax.scatter(x[order], y[order], c=density[order], cmap=cmap, s=50, alpha=0.8)
 
-    # Create the scatter plot with colour determined by point density
-    scatter = ax.scatter(x_sorted,
-                         y_sorted,
-                         c=z_sorted,
-                         cmap=cmap,
-                         s=50,
-                         alpha=0.8)
-
-    # Configure the plot
     ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
     return fig, ax
 
 
-def plot_contourf_full(x: Union[np.ndarray, List],
-                       y: Union[np.ndarray, List],
-                       xlab: str,
-                       ylab: str,
-                       c_map: str = "Purples",
-                       figsize: Tuple[float, float] = (8, 5),
-                       fontsize: int = 16) -> Tuple[Figure, Axes]:
+def plot_contourf_full(
+    x: Union[np.ndarray, List],
+    y: Union[np.ndarray, List],
+    xlab: str,
+    ylab: str,
+    c_map: str = "Purples",
+    figsize: Tuple[float, float] = (8, 5),
+    fontsize: int = 16,
+) -> Tuple[Figure, Axes]:
     """
     Create a filled contour plot of the joint density estimated from paired data.
 
@@ -1631,33 +1561,35 @@ def plot_contourf_full(x: Union[np.ndarray, List],
     ax : matplotlib.axes.Axes
         Matplotlib Axes object containing the contour plot.
     """
-    # Convert to numpy arrays if they aren't already
     x = np.asarray(x)
     y = np.asarray(y)
 
     fig, ax = plt.subplots(figsize=figsize)
     lims = [min(x), max(x)]
 
-    k = gaussian_kde(np.vstack([x, y]))
-    xi, yi = np.mgrid[lims[0]:lims[1]:x.size ** 0.6 * 1j, lims[0]:lims[1]:y.size ** 0.6 * 1j]
-    zi = k(np.vstack([xi.flatten(), yi.flatten()]))
+    kde = gaussian_kde(np.vstack([x, y]))
+    xi, yi = np.mgrid[
+        lims[0] : lims[1] : x.size**0.6 * 1j, lims[0] : lims[1] : y.size**0.6 * 1j
+    ]
+    zi = kde(np.vstack([xi.ravel(), yi.ravel()]))
     ax.contourf(xi, yi, zi.reshape(xi.shape), alpha=0.9, cmap=c_map)
 
-    ax.set_xlim(lims)
-    ax.set_ylim(lims)
+    ax.set(xlim=lims, ylim=lims)
 
     ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
     return fig, ax
 
 
-def plot_heatmap(x: Union[np.ndarray, List],
-                 y: Union[np.ndarray, List],
-                 xlab: str,
-                 ylab: str,
-                 c_map: str = 'viridis',
-                 nbins: int | Tuple[int, int] | Tuple[np.ndarray, np.ndarray] = 50,
-                 figsize: Tuple[float, float] = (8, 5),
-                 fontsize: int = 16) -> Tuple[Figure, Axes]:
+def plot_heatmap(
+    x: Union[np.ndarray, List],
+    y: Union[np.ndarray, List],
+    xlab: str,
+    ylab: str,
+    c_map: str = "viridis",
+    nbins: int | Tuple[int, int] | Tuple[np.ndarray, np.ndarray] = 50,
+    figsize: Tuple[float, float] = (8, 5),
+    fontsize: int = 16,
+) -> Tuple[Figure, Axes]:
     """
     Plot a 2D heatmap (binned density) of paired x, y data using a histogram and imshow.
 
@@ -1698,40 +1630,41 @@ def plot_heatmap(x: Union[np.ndarray, List],
     ax : matplotlib.axes.Axes
         The Matplotlib Axes containing the heatmap.
     """
-    # Convert to numpy arrays if they aren't already
     x = np.asarray(x)
     y = np.asarray(y)
 
     fig, ax = plt.subplots(figsize=figsize)
-    # Create a 2D histogram of the data
     heatmap_data, xedges, yedges = np.histogram2d(x, y, bins=nbins)
-    im = ax.imshow(heatmap_data.T,
-                   origin='lower',
-                   cmap=c_map,
-                   aspect='auto',
-                   extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]])
-    # Add colour bar
-    cbar = plt.colorbar(im, ax=ax)
+    im = ax.imshow(
+        heatmap_data.T,
+        origin="lower",
+        cmap=c_map,
+        aspect="auto",
+        extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]],
+    )
+    cbar = fig.colorbar(im, ax=ax)
     cbar.locator = mticker.MaxNLocator(integer=True)
     cbar.update_ticks()
-    cbar.set_label('Count', fontsize=fontsize)
+    cbar.set_label("Count", fontsize=fontsize)
     ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
     return fig, ax
 
 
-def scatter_plot_3d_with_colorbar(x: Union[np.ndarray, List],
-                                  y: Union[np.ndarray, List],
-                                  z: Union[np.ndarray, List],
-                                  c: Optional[Union[np.ndarray, List]] = None,
-                                  xlab: str = 'x',
-                                  ylab: str = 'y',
-                                  zlab: str = 'z',
-                                  cmap: str = 'viridis',
-                                  figsize: Tuple[float, float] = (10, 8),
-                                  fontsize: int = 20,
-                                  alpha: float = 0.8,
-                                  s: Union[float, np.ndarray] = 50,
-                                  labelpad: float = 20) -> Tuple[Figure, Axes]:
+def scatter_plot_3d_with_colorbar(
+    x: Union[np.ndarray, List],
+    y: Union[np.ndarray, List],
+    z: Union[np.ndarray, List],
+    c: Optional[Union[np.ndarray, List]] = None,
+    xlab: str = "x",
+    ylab: str = "y",
+    zlab: str = "z",
+    cmap: str = "viridis",
+    figsize: Tuple[float, float] = (10, 8),
+    fontsize: int = 20,
+    alpha: float = 0.8,
+    s: Union[float, np.ndarray] = 50,
+    labelpad: float = 20,
+) -> Tuple[Figure, Axes]:
     """
     Create a 3D scatter plot with an optional colorbar driven by provided values or KDE-based density.
 
@@ -1777,63 +1710,54 @@ def scatter_plot_3d_with_colorbar(x: Union[np.ndarray, List],
     ax : mpl_toolkits.mplot3d.axes3d.Axes3D
         Matplotlib 3D Axes containing the scatter plot.
     """
-    # Create a figure and 3D axis
     fig = plt.figure(figsize=figsize)
-    ax = fig.add_subplot(111, projection='3d')
+    ax = fig.add_subplot(111, projection="3d")
 
-    # Convert to numpy arrays if they aren't already
     x = np.asarray(x)
     y = np.asarray(y)
     z = np.asarray(z)
-    if c is not None:
-        c = np.asarray(c)
 
-    # If no color values provided, calculate point density
     if c is None:
-        # Stack the data and calculate the point density
         xyz = np.vstack([x, y, z])
         c = gaussian_kde(xyz)(xyz)
 
-        # Sort the points by density so that high-density points are plotted last
-        idx = c.argsort()
-        x, y, z, c = x[idx], y[idx], z[idx], c[idx]
+        # Draw the densest points last so they remain visible.
+        order = c.argsort()
+        x, y, z, c = x[order], y[order], z[order], c[order]
+    else:
+        c = np.asarray(c)
 
-    # Create the 3D scatter plot
     scatter = ax.scatter(x, y, z, c=c, cmap=cmap, s=s, alpha=alpha)
+    cbar = fig.colorbar(scatter, ax=ax)
+    cbar.set_label("Point Density", fontsize=fontsize - 4)
 
-    # Add color bar
-    cbar = plt.colorbar(scatter, ax=ax)
-    cbar.set_label('Point Density', fontsize=fontsize - 4)
-
-    # Set labels
     ax.set_xlabel(xlab, fontsize=fontsize, labelpad=labelpad)
     ax.set_ylabel(ylab, fontsize=fontsize, labelpad=labelpad)
     ax.set_zlabel(zlab, fontsize=fontsize, labelpad=labelpad)
 
-    # Set tick font sizes
-    ax.tick_params(axis='x', labelsize=fontsize - 4)
-    ax.tick_params(axis='y', labelsize=fontsize - 4)
-    ax.tick_params(axis='z', labelsize=fontsize - 4)
+    for axis_name in ("x", "y", "z"):
+        ax.tick_params(axis=axis_name, labelsize=fontsize - 4)
 
-    # Set line width for axes
-    for axis in [ax.xaxis, ax.yaxis, ax.zaxis]:
+    for axis in (ax.xaxis, ax.yaxis, ax.zaxis):
         try:
             axis.line.set_linewidth(2.0)
-        except:
+        except Exception:
             pass
     fig.tight_layout()
     return fig, ax
 
 
-def plot_hexbin_scatter(x: Union[np.ndarray, List],
-                        y: Union[np.ndarray, List],
-                        xlab: str = 'x',
-                        ylab: str = 'y',
-                        guide_line: bool = True,
-                        cmap: str = 'viridis',
-                        figsize: Tuple[float, float] = (8, 5),
-                        fontsize: int = 16,
-                        bins_scale: Optional[str] = None) -> Tuple[Figure, Axes]:
+def plot_hexbin_scatter(
+    x: Union[np.ndarray, List],
+    y: Union[np.ndarray, List],
+    xlab: str = "x",
+    ylab: str = "y",
+    guide_line: bool = True,
+    cmap: str = "viridis",
+    figsize: Tuple[float, float] = (8, 5),
+    fontsize: int = 16,
+    bins_scale: Optional[str] = None,
+) -> Tuple[Figure, Axes]:
     """
     Create a hexbin scatter plot with optional y=x guideline and colorbar.
 
@@ -1890,43 +1814,35 @@ def plot_hexbin_scatter(x: Union[np.ndarray, List],
     - The optional guideline is drawn across the data range and helps to visually
       assess deviations from the identity relationship.
     """
-    # Convert to numpy arrays if they aren't already
     x = np.asarray(x)
     y = np.asarray(y)
-
-    # Create a figure and axis
     fig, ax = plt.subplots(figsize=figsize)
 
-    # Determine x and y-axis limits
     xlim = x.min(), x.max()
     ylim = y.min(), y.max()
 
-    # Create the hexbin plot
     hb = ax.hexbin(x, y, gridsize=30, cmap=cmap, bins=bins_scale)
     ax.set(xlim=xlim, ylim=ylim)
 
-    # Add a colorbar to the plot
     cbar = fig.colorbar(hb, ax=ax)
-    cbar.set_label('counts', fontsize=fontsize)
+    cbar.set_label("counts", fontsize=fontsize)
 
     if guide_line:
-        # Plot the y = x guide line
-        x_line = np.linspace(min(x), max(x), 2)
-        ax.plot(x_line, x_line, color='red', linestyle='--', linewidth=2)
+        x_line = np.linspace(*xlim, 2)
+        ax.plot(x_line, x_line, color="red", linestyle="--", linewidth=2)
 
-    # Configure the plot with custom labels and layout
     ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
-
     return fig, ax
 
 
-def plot_histogram(data: Union[np.ndarray, List],
-                   bins: Union[int, Sequence[float]] = 30,
-                   xlab: str = 'Values',
-                   ylab: str = 'Frequency',
-                   figsize: Tuple[float, float] = (8, 5),
-                   fontsize: int = 16,
-                   ) -> Tuple[Figure, Axes]:
+def plot_histogram(
+    data: Union[np.ndarray, List],
+    bins: Union[int, Sequence[float]] = 30,
+    xlab: str = "Values",
+    ylab: str = "Frequency",
+    figsize: Tuple[float, float] = (8, 5),
+    fontsize: int = 16,
+) -> Tuple[Figure, Axes]:
     """
     Plot a histogram for a one-dimensional dataset with configurable styling.
 
@@ -1967,34 +1883,26 @@ def plot_histogram(data: Union[np.ndarray, List],
     Notes
     -----
     - The function delegates styling (ticks, labels, layout) to the module's
-      helper routines and calls ``plt.hist`` for the rendering.
+      helper routines and calls ``ax.hist`` for the rendering.
     - When ``bins`` is provided as an integer, Matplotlib's default binning rules
       are used; pass explicit bin edges to control bin placement precisely.
     - For publication-quality figures, modify ``figsize`` and ``fontsize`` and
       save the returned ``fig`` with appropriate ``dpi`` and ``bbox_inches`` settings.
     """
-    # Convert to numpy array if it isn't already
     data = np.asarray(data)
-
     fig, ax = plt.subplots(figsize=figsize)
-    plt.hist(data,
-             bins=bins,
-             color='blue',
-             edgecolor='black',
-             alpha=0.8)
-    ax_plot(fig, ax,
-            xlab=xlab,
-            ylab=ylab,
-            xs=fontsize,
-            ys=fontsize)
+    ax.hist(data, bins=bins, color="blue", edgecolor="black", alpha=0.8)
+    ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
     return fig, ax
 
 
-def plot_histogram_all_x(data: Union[np.ndarray, List],
-                         xlab: str = 'Number of Bonds',
-                         ylab: str = 'Frequency',
-                         figsize: Tuple[float, float] = (8, 5),
-                         fontsize: int = 16) -> Tuple[Figure, Axes]:
+def plot_histogram_all_x(
+    data: Union[np.ndarray, List],
+    xlab: str = "Number of Bonds",
+    ylab: str = "Frequency",
+    figsize: Tuple[float, float] = (8, 5),
+    fontsize: int = 16,
+) -> Tuple[Figure, Axes]:
     """
     Plot a histogram using integer bins spanning the full range of the input data.
 
@@ -2039,29 +1947,24 @@ def plot_histogram_all_x(data: Union[np.ndarray, List],
     - The function delegates plotting to Matplotlib and applies shared styling
       from ``ax_plot``.
     """
-    # Convert to numpy array if it isn't already
     data = np.asarray(data)
-
     bins = range(int(data.min()), int(data.max()) + 2)
-    fig, ax = plot_histogram(data,
-                             bins=bins,
-                             xlab=xlab,
-                             ylab=ylab,
-                             figsize=figsize,
-                             fontsize=fontsize)
-    return fig, ax
+    return plot_histogram(
+        data, bins=bins, xlab=xlab, ylab=ylab, figsize=figsize, fontsize=fontsize
+    )
 
 
-def plot_histogram_compare(data1: Union[np.ndarray, List],
-                           data2: Union[np.ndarray, List],
-                           labels: Sequence[str],
-                           bins: Union[int, Sequence[float]] = 30,
-                           xlab: str = 'Values',
-                           ylab: str = 'Frequency',
-                           y_scale: Optional[str] = 'log',
-                           figsize: Tuple[float, float] = (8, 5),
-                           fontsize: int = 16,
-                           ) -> Tuple[Figure, Axes]:
+def plot_histogram_compare(
+    data1: Union[np.ndarray, List],
+    data2: Union[np.ndarray, List],
+    labels: Sequence[str],
+    bins: Union[int, Sequence[float]] = 30,
+    xlab: str = "Values",
+    ylab: str = "Frequency",
+    y_scale: Optional[str] = "log",
+    figsize: Tuple[float, float] = (8, 5),
+    fontsize: int = 16,
+) -> Tuple[Figure, Axes]:
     """
     Plot comparative histograms for two datasets with optional logarithmic y-scale.
 
@@ -2112,14 +2015,13 @@ def plot_histogram_compare(data1: Union[np.ndarray, List],
       ensure a direct comparison.
     - For reproducible styling, pass fully defined parameters (bins, figsize, fontsize).
     """
-    # Convert to numpy arrays if they aren't already
     data1 = np.asarray(data1)
     data2 = np.asarray(data2)
 
     fig, ax = plt.subplots(figsize=figsize)
-    plt.hist(data1, bins=bins, alpha=0.8, label=labels[0])
-    plt.hist(data2, bins=bins, alpha=0.8, label=labels[1])
-    plt.legend()
+    for i, data in enumerate((data1, data2)):
+        ax.hist(data, bins=bins, alpha=0.8, label=labels[i])
+    ax.legend()
 
     if y_scale is not None:
         ax.set_yscale(y_scale)
@@ -2128,17 +2030,18 @@ def plot_histogram_compare(data1: Union[np.ndarray, List],
     return fig, ax
 
 
-def plot_kde(data: Union[np.ndarray, List],
-             bandwidth: Optional[float] = None,
-             grid_size: int = 1000,
-             y_scale: Optional[str] = 'log',
-             xlab: str = "Value",
-             ylab: str = "Frequency",
-             fig: Optional[plt.Figure] = None,
-             ax: Optional[plt.Axes] = None,
-             fig_size: Tuple[float, float] = (8, 5),
-             fontsize: int = 16,
-             ) -> Tuple[Figure, Axes]:
+def plot_kde(
+    data: Union[np.ndarray, List],
+    bandwidth: Optional[float] = None,
+    grid_size: int = 1000,
+    y_scale: Optional[str] = "log",
+    xlab: str = "Value",
+    ylab: str = "Frequency",
+    fig: Optional[plt.Figure] = None,
+    ax: Optional[plt.Axes] = None,
+    fig_size: Tuple[float, float] = (8, 5),
+    fontsize: int = 16,
+) -> Tuple[Figure, Axes]:
     """
     Plot a Kernel Density Estimate (KDE) and convert density to expected counts.
 
@@ -2196,1240 +2099,610 @@ def plot_kde(data: Union[np.ndarray, List],
     if fig is None or ax is None:
         fig, ax = plt.subplots(figsize=fig_size)
     data = np.asarray(data)
-    n = len(data)
-
-    # Fit KDE
     kde = gaussian_kde(data, bw_method=bandwidth)
 
-    # Evaluate KDE on a grid
     x_min, x_max = data.min(), data.max()
     xs = np.linspace(x_min, x_max, grid_size)
-    ys = kde(xs)
 
-    # Convert density to expected counts
+    # Scale the density by sample count and grid spacing to get expected counts.
     dx = xs[1] - xs[0]
-    counts = ys * n * dx
+    counts = kde(xs) * len(data) * dx
 
     ax.set_xlim(x_min, x_max)
     if y_scale is not None:
         ax.set_yscale(y_scale)
 
-    # Overlay KDE scaled to counts
-    ax.plot(xs, counts, color='red', lw=2)
+    ax.plot(xs, counts, color="red", lw=2)
     ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
-
     return fig, ax
 
 
-def multipartite_layout_crossmin(G: nx.Graph,
-                                 subset_key: str = "subset",
-                                 align: str = "vertical",
-                                 method: str = "barycenter",
-                                 iterations: int = 100,
-                                 layer_spacing: float = 1.0,
-                                 node_spacing: float = 1.0,
-                                 scale: float = 1.0,
-                                 seed: Optional[int] = None,
-                                 weight: Optional[str] = None,
-                                 return_order: bool = False,
-                                 ) -> Union[
-    Dict[Any, Tuple[float, float]], Tuple[Dict[Any, Tuple[float, float]], Dict[Any, List[Any]]]]:
-    """
-    Compute a multipartite layout for a graph minimizing inter-layer edge crossings.
+def _layout_layers(G, subset_key, *, allow_mixed=False):
+    """Return sorted layer keys, stable node orders, and node-to-layer indices."""
+    groups = defaultdict(list)
+    for node, data in G.nodes(data=True):
+        groups[data.get(subset_key, 0)].append(node)
 
-    This function computes positions for nodes arranged in discrete layers (a
-    multipartite layout) and attempts to reduce edge crossings between adjacent
-    layers using iterative heuristics (barycenter or median). The algorithm first
-    constructs per-layer node lists from a node attribute (``subset_key``), applies
-    an initial stable ordering, then performs a number of top-down and bottom-up
-    sweeps to refine ordering. The returned positions follow the chosen
-    ``align`` convention with configurable spacing and scaling. Optionally the final
-    per-layer node order can be returned.
+    keys = set(groups) if allow_mixed else groups
+    try:
+        layer_keys = sorted(keys)
+    except TypeError:
+        if not allow_mixed:
+            raise
+        layer_keys = sorted(keys, key=str)
+
+    layers = [
+        sorted(groups[key], key=lambda node: (G.degree(node), str(node)))
+        for key in layer_keys
+    ]
+    node_layer = {node: i for i, layer in enumerate(layers) for node in layer}
+    return layer_keys, layers, node_layer
+
+
+def _order_layout_layer(target_nodes, neighbor_nodes, neighbor_weights, method):
+    """Order a layer by weighted barycenter or median, retaining stable ties."""
+    neighbor_index = {node: i for i, node in enumerate(neighbor_nodes)}
+    current_index = {node: i for i, node in enumerate(target_nodes)}
+    scores = []
+    for node in target_nodes:
+        score = current_index[node]
+        if method == "barycenter":
+            total = weight_sum = 0.0
+            for neighbor, edge_weight in neighbor_weights(node):
+                if neighbor in neighbor_index:
+                    total += edge_weight * neighbor_index[neighbor]
+                    weight_sum += edge_weight
+            if weight_sum > 0:
+                score = total / weight_sum
+        else:
+            positions = []
+            for neighbor, edge_weight in neighbor_weights(node):
+                if neighbor in neighbor_index:
+                    repeats = int(round(edge_weight)) if edge_weight != 1.0 else 1
+                    positions.extend([neighbor_index[neighbor]] * max(1, repeats))
+            if positions:
+                positions.sort()
+                middle = len(positions) // 2
+                score = (
+                    positions[middle]
+                    if len(positions) % 2
+                    else 0.5 * (positions[middle - 1] + positions[middle])
+                )
+        scores.append((score, current_index[node], node))
+
+    scores.sort()
+    return [node for _, _, node in scores]
+
+
+def _sweep_layout_layers(layers, neighbor_weights, method, iterations):
+    """Refine layer orders with alternating forward and backward sweeps."""
+    for _ in range(max(1, int(iterations))):
+        for indices, offset in (
+            (range(1, len(layers)), -1),
+            (range(len(layers) - 2, -1, -1), 1),
+        ):
+            for i in indices:
+                layers[i] = _order_layout_layer(
+                    layers[i], layers[i + offset], neighbor_weights, method
+                )
+
+
+def _layout_positions(layers, align, layer_spacing, node_spacing, scale):
+    """Place each layer on its fixed axis and center its nodes on the free axis."""
+    positions = {}
+    for i, nodes in enumerate(layers):
+        start = -0.5 * (len(nodes) - 1) * node_spacing
+        fixed = i * layer_spacing
+        for j, node in enumerate(nodes):
+            free = start + j * node_spacing
+            positions[node] = (fixed, free) if align == "vertical" else (free, fixed)
+    if scale != 1.0:
+        positions = {node: (scale * x, scale * y) for node, (x, y) in positions.items()}
+    return positions
+
+
+def _layout_result(
+    positions,
+    layer_keys,
+    layers,
+    routes,
+    dummy_prefix,
+    return_order,
+    return_dummies,
+    return_routes,
+):
+    """Filter dummy positions and append the requested orders and polylines."""
+    pos = (
+        dict(positions)
+        if return_dummies
+        else {
+            node: xy
+            for node, xy in positions.items()
+            if not (isinstance(node, str) and node.startswith(dummy_prefix))
+        }
+    )
+    result = [pos]
+    if return_order:
+        result.append({key: list(layer) for key, layer in zip(layer_keys, layers)})
+    if return_routes:
+        result.append(
+            [
+                {
+                    "endpoints": route["endpoints"],
+                    "nodes": list(route["nodes"]),
+                    "points": [
+                        positions[node] for node in route["nodes"] if node in positions
+                    ],
+                }
+                for route in routes
+            ]
+        )
+    return tuple(result) if len(result) > 1 else pos
+
+
+def multipartite_layout_crossmin(
+    G: nx.Graph,
+    subset_key: str = "subset",
+    align: str = "vertical",
+    method: str = "barycenter",
+    iterations: int = 100,
+    layer_spacing: float = 1.0,
+    node_spacing: float = 1.0,
+    scale: float = 1.0,
+    seed: Optional[int] = None,
+    weight: Optional[str] = None,
+    return_order: bool = False,
+) -> Union[
+    Dict[Any, Tuple[float, float]],
+    Tuple[Dict[Any, Tuple[float, float]], Dict[Any, List[Any]]],
+]:
+    """Minimize crossings between adjacent layers using stable ordering sweeps.
+
+    Nodes start in degree/name order within each layer. Alternating forward and
+    backward sweeps order each layer by its neighbors in the adjacent layer;
+    ties retain the current order. The graph is not modified.
 
     Parameters
     ----------
     G : networkx.Graph
-        Input graph. Nodes must supply the layer membership via the node attribute
-        named by ``subset_key`` (an integer or sortable value). If missing, nodes
-        default to layer 0.
+        Graph whose nodes provide the layer attribute; missing values use 0.
     subset_key : str, optional
-        Node attribute key used to determine layer membership. Default is ``"subset"``.
+        Layer attribute name. Layer values must be mutually sortable.
     align : {'vertical', 'horizontal'}, optional
-        Whether layers are arranged vertically (columns) or horizontally (rows).
-        Default is ``"vertical"``.
+        Arrange layers in columns or rows, respectively.
     method : {'barycenter', 'median'}, optional
-        Heuristic used to compute the preferred order of nodes in a layer from the
-        neighbour positions in adjacent layers. ``'barycenter'`` uses a (weighted)
-        average neighbour index, ``'median'`` uses the median neighbour index.
-        Default is ``'barycenter'``.
+        Order nodes by their weighted mean or unweighted median neighbor index.
     iterations : int, optional
-        Number of top-down and bottom-up sweeps to refine node ordering. Must be
-        >= 1. Larger values increase runtime and may reduce crossings. Default is 100.
-    layer_spacing : float, optional
-        Distance between consecutive layers on the fixed axis. Must be > 0.
-        Default is 1.0.
-    node_spacing : float, optional
-        Spacing between adjacent nodes within a layer on the free axis. Must be > 0.
-        Default is 1.0.
+        Number of forward/backward sweep pairs; at least one pair is performed.
+    layer_spacing, node_spacing : float, optional
+        Spacing between layers and between nodes within each centered layer.
     scale : float, optional
-        Global scaling factor applied to final coordinates. Default is 1.0.
+        Multiply final coordinates by this factor.
     seed : int or None, optional
-        Random seed for deterministic tie-breaking. If None, behaviour may be
-        non-deterministic. Default is None.
+        Reset Python's random seed when supplied. Ordering itself uses stable ties.
     weight : str or None, optional
-        Edge attribute name to use as a numeric weight when computing barycenters.
-        If None, unit weights are assumed. Default is None.
+        Edge attribute for barycenter weights; missing weights default to 1.
+        Median ordering ignores edge weights.
     return_order : bool, optional
-        If True, also return the per-layer node ordering (dictionary mapping layer
-        value -> ordered list of nodes). Default is False.
+        Also return the final node ordering for each layer.
 
     Returns
     -------
     pos : dict
-        Mapping node -> (x, y) float coordinates. Coordinates follow the chosen
-        ``align`` convention (layers along the fixed axis).
+        Node-to-(x, y) coordinates, with layers on the fixed axis and centered
+        node positions on the free axis.
     orders : dict, optional
-        When ``return_order`` is True, a dictionary mapping each layer value to the
-        final ordered list of nodes is returned as the second element of a tuple:
-        ``(pos, orders)``.
-
-    Raises
-    ------
-    ValueError
-        If parameters are invalid (for example nonpositive spacings, nonpositive
-        iterations, or unsupported ``method`` or ``align`` values).
-    TypeError
-        If node layer attributes are of an unexpected type that cannot be sorted,
-        or if specified edge weights are non-numeric.
+        Layer-to-node-list mapping, returned as ``(pos, orders)`` when requested.
 
     Notes
     -----
-    - The algorithm is primarily heuristic and aims to reduce pairwise crossings
-      between adjacent layers; it does not guarantee a global minimum.
-    - Initial layer orders are chosen deterministically (degree/name) to improve
-      reproducibility; tie-breaking uses ``seed`` when provided.
-    - For performance, barycenter computations may accumulate neighbour indices
-      weighted by edge attribute (if ``weight`` provided) and stable tie-breaking
-      is recommended for deterministic output.
-    - The produced positions use integer layer coordinates multiplied by
-      ``layer_spacing`` on the fixed axis and evenly spaced node positions within
-      each layer (centered) multiplied by ``node_spacing`` and ``scale``.
+    The heuristic does not guarantee a global minimum of edge crossings.
     """
+
     if seed is not None:
         random.seed(seed)
+    layer_keys, layers, _ = _layout_layers(G, subset_key)
 
-    # Build layers based on the subset_key attribute
-    layers = defaultdict(list)
-    for n in G.nodes():
-        layer = G.nodes[n].get(subset_key, 0)
-        layers[layer].append(n)
+    def neighbor_weights(node):
+        for neighbor in G[node]:
+            edge_weight = (
+                G[node][neighbor].get(weight, 1.0)
+                if method == "barycenter" and weight is not None
+                else 1.0
+            )
+            yield neighbor, edge_weight
 
-    layer_keys = sorted(layers.keys())
-
-    # Initial order within each layer (sorted by degree and name for stability)
-    for k in layer_keys:
-        nodes = layers[k]
-        nodes.sort(key=lambda n: (G.degree(n), str(n)))
-
-    # Helper function to create a mapping of node indices within a layer
-    def index_map(nodes: List[Any]) -> Dict[Any, int]:
-        """
-        Map each node to its position within a layer.
-
-        Parameters
-        ----------
-        nodes : list
-            Nodes of a layer, in their current order.
-
-        Returns
-        -------
-        dict
-            Mapping from node to its zero-based index.
-        """
-        return {u: i for i, u in enumerate(nodes)}
-
-    # Helper function to calculate edge weights
-    def edge_w(u: Any, v: Any) -> float:
-        """
-        Return the weight of the edge between two nodes.
-
-        Parameters
-        ----------
-        u : node
-            Source node.
-        v : node
-            Target node.
-
-        Returns
-        -------
-        float
-            The edge weight, or 1.0 when no weight attribute is in use.
-        """
-        if weight is None:
-            return 1.0
-        return G[u][v].get(weight, 1.0)
-
-    # Order nodes in a layer based on the barycenter heuristic
-    def ordered_by_barycenter(target_nodes: List[Any], neighbor_nodes: List[Any]) -> List[Any]:
-        """
-        Order a layer by the barycenter heuristic.
-
-        Each node is scored by the weighted mean position of its neighbours in
-        the adjacent layer; nodes without neighbours keep their current
-        position, and ties are broken by the existing order.
-
-        Parameters
-        ----------
-        target_nodes : list
-            Nodes of the layer being reordered.
-        neighbor_nodes : list
-            Nodes of the adjacent layer, in their fixed order.
-
-        Returns
-        -------
-        list
-            ``target_nodes`` sorted by increasing barycenter score.
-        """
-        neigh_idx = index_map(neighbor_nodes)
-        current_idx = index_map(target_nodes)
-
-        scores = []
-        for u in target_nodes:
-            s = 0.0
-            wsum = 0.0
-            for v in G[u]:
-                if v in neigh_idx:
-                    w = edge_w(u, v)
-                    s += w * neigh_idx[v]
-                    wsum += w
-            if wsum > 0:
-                score = s / wsum
-            else:
-                score = current_idx[u]  # Keep original position if no neighbors
-            scores.append((score, current_idx[u], u))  # Tie-break by old index
-
-        scores.sort()
-        return [u for _, __, u in scores]
-
-    # Order nodes in a layer based on the median heuristic
-    def ordered_by_median(target_nodes: List[Any], neighbor_nodes: List[Any]) -> List[Any]:
-        """
-        Order a layer by the median heuristic.
-
-        Each node is scored by the median position of its neighbours in the
-        adjacent layer; nodes without neighbours keep their current position,
-        and ties are broken by the existing order.
-
-        Parameters
-        ----------
-        target_nodes : list
-            Nodes of the layer being reordered.
-        neighbor_nodes : list
-            Nodes of the adjacent layer, in their fixed order.
-
-        Returns
-        -------
-        list
-            ``target_nodes`` sorted by increasing median score.
-        """
-        neigh_idx = index_map(neighbor_nodes)
-        current_idx = index_map(target_nodes)
-
-        scores = []
-        for u in target_nodes:
-            seq = [neigh_idx[v] for v in G[u] if v in neigh_idx]
-            if seq:
-                seq.sort()
-                m = seq[len(seq) // 2] if len(seq) % 2 == 1 else 0.5 * (seq[len(seq) // 2 - 1] + seq[len(seq) // 2])
-                score = m
-            else:
-                score = current_idx[u]
-            scores.append((score, current_idx[u], u))
-
-        scores.sort()
-        return [u for _, __, u in scores]
-
-    # Select the ordering method
-    orderer = ordered_by_barycenter if method == "barycenter" else ordered_by_median
-
-    # Perform top-down and bottom-up sweeps to refine node order
-    for _ in range(max(1, int(iterations))):
-        # Top-down sweep
-        for i in range(1, len(layer_keys)):
-            k_prev, k_cur = layer_keys[i - 1], layer_keys[i]
-            layers[k_cur] = orderer(layers[k_cur], layers[k_prev])
-
-        # Bottom-up sweep
-        for i in range(len(layer_keys) - 2, -1, -1):
-            k_next, k_cur = layer_keys[i + 1], layer_keys[i]
-            layers[k_cur] = orderer(layers[k_cur], layers[k_next])
-
-    # Assign coordinates to nodes
-    coords_by_layer = {}
-    for idx, k in enumerate(layer_keys):
-        nodes = layers[k]
-        n = len(nodes)
-        if n == 0:
-            coords_by_layer[k] = {}
-            continue
-        # Calculate positions along the free axis
-        start = -0.5 * (n - 1) * node_spacing
-        free_axis_positions = {nodes[i]: start + i * node_spacing for i in range(n)}
-
-        fixed = idx * layer_spacing  # Fixed axis value for the layer
-        if align == "vertical":
-            coords_by_layer[k] = {u: (fixed, free_axis_positions[u]) for u in nodes}
-        else:
-            coords_by_layer[k] = {u: (free_axis_positions[u], fixed) for u in nodes}
-
-    # Combine coordinates from all layers
-    pos = {}
-    for k in layer_keys:
-        pos.update(coords_by_layer[k])
-
-    # Scale the layout if a scaling factor is provided
-    if scale != 1.0:
-        pos = {u: (scale * x, scale * y) for u, (x, y) in pos.items()}
-
+    _sweep_layout_layers(layers, neighbor_weights, method, iterations)
+    pos = _layout_positions(layers, align, layer_spacing, node_spacing, scale)
     if return_order:
-        # Return positions and the final node order per layer
-        return pos, {k: list(layers[k]) for k in layer_keys}
+        return pos, {key: list(layer) for key, layer in zip(layer_keys, layers)}
     return pos
 
 
-def multipartite_layout_crossmin_long(G: nx.Graph,
-                                      subset_key: str = "subset",
-                                      align: str = "vertical",
-                                      method: str = "barycenter",
-                                      iterations: int = 100,
-                                      layer_spacing: float = 1.0,
-                                      node_spacing: float = 1.0,
-                                      scale: float = 1.0,
-                                      seed: Optional[int] = None,
-                                      weight: Optional[str] = None,
-                                      insert_dummies: bool = True,
-                                      dummy_prefix: str = "__dummy__",
-                                      return_order: bool = False,
-                                      return_dummies: bool = False,
-                                      return_routes: bool = False,
-                                      ) -> Union[Dict[Any, Tuple[float, float]], Tuple[Any, ...]]:
-    """
-    Compute a multipartite layout minimizing crossings with optional dummy-node routing for long edges.
+def multipartite_layout_crossmin_long(
+    G: nx.Graph,
+    subset_key: str = "subset",
+    align: str = "vertical",
+    method: str = "barycenter",
+    iterations: int = 100,
+    layer_spacing: float = 1.0,
+    node_spacing: float = 1.0,
+    scale: float = 1.0,
+    seed: Optional[int] = None,
+    weight: Optional[str] = None,
+    insert_dummies: bool = True,
+    dummy_prefix: str = "__dummy__",
+    return_order: bool = False,
+    return_dummies: bool = False,
+    return_routes: bool = False,
+) -> Union[Dict[Any, Tuple[float, float]], Tuple[Any, ...]]:
+    """Minimize layer crossings, optionally routing long edges through dummy nodes.
 
-    This function computes positions for nodes arranged in discrete layers (multipartite layout)
-    and attempts to minimise edge crossings using iterative barycenter/median heuristics.
-    Edges that span more than one intermediate layer may be replaced by synthetic dummy nodes
-    to allow polyline routing and improved crossing reduction. The function is deterministic
-    when a seed is provided and can optionally return auxiliary information such as per-layer
-    orders, inserted dummy node identifiers and routing descriptors for long edges.
+    Stable barycenter/median sweeps use an undirected adjacency map, with
+    parallel-edge weights accumulated. Dummy nodes occupy intermediate layers
+    along long edges. The input graph is not modified.
 
     Parameters
     ----------
     G : networkx.Graph
-        Input graph. Nodes must expose a layer attribute indicated by ``subset_key`` (or the
-        attribute is inferred/treated uniformly). Graph may be directed or undirected.
+        Graph whose nodes provide the layer attribute; missing values use 0.
     subset_key : str, optional
-        Node attribute key used to determine layer membership. Defaults to ``"subset"``.
+        Layer attribute name. Mixed layer types are sorted by string if needed.
     align : {'vertical', 'horizontal'}, optional
-        Whether layers are arranged vertically (columns) or horizontally (rows).
-        Defaults to ``"vertical"``.
+        Arrange layers in columns or rows, respectively.
     method : {'barycenter', 'median'}, optional
-        Heuristic used to compute orderings within layers. ``'barycenter'`` computes a
-        weighted average position of neighbours; ``'median'`` uses the median neighbour
-        index. Defaults to ``'barycenter'``.
+        Order nodes by weighted mean or median neighbor index. Median ordering
+        repeats each neighbor index by its rounded weight, with a minimum of one.
     iterations : int, optional
-        Number of top-down and bottom-up sweeps to refine node ordering. Must be >= 1.
-        Larger values increase runtime and may reduce crossings. Defaults to 100.
-    layer_spacing : float, optional
-        Spacing between consecutive layers on the fixed axis. Must be > 0. Defaults to 1.0.
-    node_spacing : float, optional
-        Spacing between adjacent nodes within a layer on the free axis. Must be > 0.
-        Defaults to 1.0.
+        Number of forward/backward sweep pairs; at least one pair is performed.
+    layer_spacing, node_spacing : float, optional
+        Spacing between layers and between nodes within each centered layer.
     scale : float, optional
-        Global scaling factor applied to final coordinates. Defaults to 1.0.
+        Multiply final coordinates by this factor.
     seed : int or None, optional
-        Random seed for reproducible tie-breaking and stochastic choices. Defaults to None.
+        Reset Python's random seed when supplied. Ordering itself uses stable ties.
     weight : str or None, optional
-        Edge attribute name used as a numeric weight for ordering and crossing computations.
-        If None, unit weights are assumed. Defaults to None.
+        Edge weight attribute; missing weights default to 1.
     insert_dummies : bool, optional
-        If True, insert synthetic dummy nodes for edges spanning multiple intermediate layers
-        so those edges are represented as sequences of unit hops. Defaults to True.
+        Split long edges into adjacent-layer hops. Disabling insertion uses the
+        multigraph edge iterator with ``keys=False``.
     dummy_prefix : str, optional
-        Prefix used for synthetic dummy node identifiers when ``insert_dummies`` is True.
-        Defaults to ``"__dummy__"``.
+        Prefix for sequential dummy node names and for filtering dummy positions.
     return_order : bool, optional
-        If True, return a dictionary mapping each layer value to the final ordered list
-        of nodes (excluding or including dummies according to ``return_dummies``). Defaults to False.
+        Append the final layer-to-node-list mapping, including dummy nodes.
     return_dummies : bool, optional
-        If True, include dummy node identifiers and their positions in the returned layout.
-        Defaults to False.
+        Include dummy positions in ``pos``; does not add a separate return value.
     return_routes : bool, optional
-        If True, return routing descriptors for edges that were split into dummy chains.
-        Each routing descriptor describes the node chain or intermediate coordinates for
-        drawing a polyline representing the original edge. Defaults to False.
+        Append routes with ``endpoints``, ``nodes``, and coordinate ``points``.
 
     Returns
     -------
     pos : dict
-        Mapping node -> (x, y) coordinate positions (float). Coordinates follow the chosen
-        ``align`` convention (layers along the fixed axis). By default dummy nodes are not
-        included unless ``return_dummies`` is True.
+        Node-to-(x, y) coordinates, omitting dummy-prefixed nodes unless requested.
     tuple, optional
-        When one or more of ``return_order``, ``return_dummies`` or ``return_routes`` is True,
-        a tuple is returned with the primary ``pos`` as the first element followed by the
-        requested auxiliary structures in this order: ``orders``, ``dummies``, ``routes``.
-
-        - orders : dict mapping layer value -> list of nodes in final order (may include dummies
-          if ``return_dummies`` is True).
-        - dummies : set or list of dummy node identifiers and their positions (present when
-          ``return_dummies`` is True).
-        - routes : list of routing descriptors for edges spanning layers (present when
-          ``return_routes`` is True).
-
-    Raises
-    ------
-    ValueError
-        If parameters are invalid (for example nonpositive spacings, nonpositive iterations,
-        or inconsistent layer assignments).
-    TypeError
-        If node layer attributes are of an unexpected type or edge weights (when specified)
-        are non-numeric.
-
-    Notes
-    -----
-    - The algorithm first constructs per-layer node lists from ``subset_key`` and applies
-      repeated top-down and bottom-up sweeps using the chosen heuristic to reduce crossings.
-    - Dummy nodes are purely layout artefacts used to represent long edges as chains of
-      single-layer hops; they can be filtered from outputs unless explicitly requested.
-    - For performance, weighted barycenter computations accumulate neighbour indices weighted
-      by the configured edge attribute (if ``weight`` is provided) and use stable tie-breaking.
-    - When ``insert_dummies`` is True, the function preserves a mapping from original edges
-      to their dummy-node chains so that routed polylines can be reconstructed for drawing.
-    - The algorithm is stochastic only in tie-breaking and optional proposals; provide
-      ``seed`` for deterministic behaviour.
+        ``(pos, orders)``, ``(pos, routes)``, or ``(pos, orders, routes)`` when
+        the corresponding flags are enabled. Orders and routes include dummies
+        even when their positions are omitted from ``pos``.
     """
+
     if seed is not None:
         random.seed(seed)
-
-    # Collect layers and normalize to contiguous indices
-    # Accept mixed types by sorting with str if necessary.
-    unique_layers = set()
-    node_layer_val = {}
-    for n in G.nodes():
-        layer_val = G.nodes[n].get(subset_key, 0)
-        node_layer_val[n] = layer_val
-        unique_layers.add(layer_val)
-    try:
-        layer_keys = sorted(unique_layers)
-    except TypeError:
-        layer_keys = sorted(unique_layers, key=str)
-
-    L = len(layer_keys)
-    layer_to_idx = {lv: i for i, lv in enumerate(layer_keys)}
-    node_layer_idx = {n: layer_to_idx[node_layer_val[n]] for n in G.nodes()}
-
-    # Prepare per-layer buckets (will also hold dummies if we insert them)
-    layers_list = [[] for _ in range(L)]
-    for n in G.nodes():
-        layers_list[node_layer_idx[n]].append(n)
-
-    # Stable initial order: degree then name (helps determinism)
-    for i in range(L):
-        layers_list[i].sort(key=lambda n: (G.degree(n), str(n)))
-
-    # Build an augmented (adjacent-only) structure
-    # We'll keep a light-weight adjacency dict + a list of edges for routing.
-    neighbors = defaultdict(lambda: defaultdict(float))  # neighbors[u][v] = weight_sum
-    # For routing back to original edges
+    layer_keys, layers, node_layer = _layout_layers(G, subset_key, allow_mixed=True)
+    neighbors = defaultdict(lambda: defaultdict(float))
     routes = []
-    dummy_id_counter = 0
+    dummy_count = 0
 
-    def edge_w(u: Any, v: Any, data: Optional[Dict[str, Any]] = None) -> float:
-        """
-        Calculate the weight of an edge.
-
-        Parameters
-        ----------
-        u : node
-            Source node.
-        v : node
-            Target node.
-        data : dict, optional
-            Edge data dictionary. Defaults to None.
-
-        Returns
-        -------
-        float
-            Weight of the edge.
-        """
+    def edge_weight(u, v, data):
         if weight is None:
             return 1.0
-        if data is not None and weight in data:
+        if weight in data:
             return data[weight]
-        # For simple Graphs without data passed in:
         try:
             return G[u][v].get(weight, 1.0)
         except Exception:
             return 1.0
 
-    # Helper to add an (undirected) edge into neighbors with weight accumulation
-    def add_edge(u: Any, v: Any, w: float) -> None:
-        """
-        Add an undirected edge to the neighbors dictionary, accumulating
-        weights.
-
-        Parameters
-        ----------
-        u : node
-            Source node.
-        v : node
-            Target node.
-        w : float
-            Weight of the edge.
-
-        Returns
-        -------
-        None
-        """
-        neighbors[u][v] += w
-        neighbors[v][u] += w
-
-    # Ensure all nodes exist in neighbors (even isolates)
-    for n in G.nodes():
-        _ = neighbors[n]  # touch
+    def add_edge(u, v, value):
+        neighbors[u][v] += value
+        neighbors[v][u] += value
 
     if insert_dummies:
-        # Split every edge that spans more than one layer
-        for (u, v, *rest) in G.edges(data=True):
-            data = rest[0] if rest else {}
-            w = edge_w(u, v, data)
-            lu, lv = node_layer_idx[u], node_layer_idx[v]
-            if lu == lv:
-                # Same-layer edge: keep it as-is (won't affect sweeps)
-                add_edge(u, v, w)
-                routes.append({"endpoints": (u, v), "nodes": [u, v]})
+        for u, v, data in G.edges(data=True):
+            value = edge_weight(u, v, data)
+            left, right = node_layer[u], node_layer[v]
+            endpoints = (u, v)
+            if left == right:
+                add_edge(u, v, value)
+                routes.append({"endpoints": endpoints, "nodes": [u, v]})
                 continue
-            # Orient so lu < lv
-            rev = False
-            if lu > lv:
+
+            reverse = left > right
+            if reverse:
                 u, v = v, u
-                lu, lv = lv, lu
-                rev = True
-
-            if lv - lu == 1:
-                add_edge(u, v, w)
-                routes.append({"endpoints": (u, v) if not rev else (v, u), "nodes": [u, v]})
+                left, right = right, left
+            if right - left == 1:
+                add_edge(u, v, value)
+                routes.append({"endpoints": endpoints, "nodes": [u, v]})
                 continue
 
-            # Need to insert dummies across intermediate layers lu+1 .. lv-1
             chain = [u]
-            prev = u
-            for k in range(lu + 1, lv):
-                dummy_id_counter += 1
-                d = f"{dummy_prefix}{dummy_id_counter}"
-                # remember its layer
-                node_layer_idx[d] = k
-                # mark it's a dummy (attribute for reference)
-                # (we don't modify the original G; this is layout-only)
-                layers_list[k].append(d)
-                # touch neighbors so it exists
-                _ = neighbors[d]
-                # connect prev -> d
-                add_edge(prev, d, w)
-                chain.append(d)
-                prev = d
-            # connect last dummy -> v
-            add_edge(prev, v, w)
+            for i in range(left + 1, right):
+                dummy_count += 1
+                dummy = f"{dummy_prefix}{dummy_count}"
+                node_layer[dummy] = i
+                layers[i].append(dummy)
+                add_edge(chain[-1], dummy, value)
+                chain.append(dummy)
+            add_edge(chain[-1], v, value)
             chain.append(v)
-            if rev:
-                chain = list(reversed(chain))
-                endpoints = (chain[0], chain[-1])  # original orientation (u,v) as in G
-            else:
-                endpoints = (chain[0], chain[-1])
-            routes.append({"endpoints": endpoints, "nodes": chain})
+            if reverse:
+                chain.reverse()
+            routes.append({"endpoints": (chain[0], chain[-1]), "nodes": chain})
     else:
-        # No dummies: just accumulate all edges
-        for (u, v, *rest) in G.edges(data=True, keys=False):
-            data = rest[0] if rest else {}
-            w = edge_w(u, v, data)
-            add_edge(u, v, w)
+        for u, v, data in G.edges(data=True, keys=False):
+            add_edge(u, v, edge_weight(u, v, data))
             routes.append({"endpoints": (u, v), "nodes": [u, v]})
 
-    # Ordering heuristics on adjacent layers only
-    def index_map(nodes: List[Any]) -> Dict[Any, int]:
-        """
-        Create a mapping of node indices within a layer.
-
-        Parameters
-        ----------
-        nodes : list
-            List of nodes in the layer.
-
-        Returns
-        -------
-        dict
-            Mapping of nodes to their indices.
-        """
-        return {u: i for i, u in enumerate(nodes)}
-
-    def ordered_by_barycenter(target_nodes: List[Any], neighbor_nodes: List[Any]) -> List[Any]:
-        """
-        Order nodes in a layer based on the barycenter heuristic.
-
-        Parameters
-        ----------
-        target_nodes : list
-            Nodes in the target layer.
-        neighbor_nodes : list
-            Nodes in the neighboring layer.
-
-        Returns
-        -------
-        list
-            Ordered list of nodes in the target layer.
-        """
-        neigh_idx = index_map(neighbor_nodes)
-        cur_idx = index_map(target_nodes)
-        scores = []
-        for u in target_nodes:
-            s = 0.0
-            wsum = 0.0
-            for v, w in neighbors[u].items():
-                if v in neigh_idx:
-                    s += w * neigh_idx[v]
-                    wsum += w
-            score = (s / wsum) if wsum > 0 else cur_idx[u]
-            scores.append((score, cur_idx[u], u))
-        scores.sort()
-        return [u for _, __, u in scores]
-
-    def ordered_by_median(target_nodes: List[Any], neighbor_nodes: List[Any]) -> List[Any]:
-        """
-        Order nodes in a layer based on the median heuristic.
-
-        Parameters
-        ----------
-        target_nodes : list
-            Nodes in the target layer.
-        neighbor_nodes : list
-            Nodes in the neighboring layer.
-
-        Returns
-        -------
-        list
-            Ordered list of nodes in the target layer.
-        """
-        neigh_idx = index_map(neighbor_nodes)
-        cur_idx = index_map(target_nodes)
-        scores = []
-        for u in target_nodes:
-            seq = []
-            for v, w in neighbors[u].items():
-                if v in neigh_idx:
-                    # push neighbor index 'w' times (weighted median)
-                    repeats = int(round(w)) if w != 1.0 else 1
-                    if repeats <= 1:
-                        seq.append(neigh_idx[v])
-                    else:
-                        seq.extend([neigh_idx[v]] * repeats)
-            if seq:
-                seq.sort()
-                m = seq[len(seq) // 2] if len(seq) % 2 else 0.5 * (seq[len(seq) // 2 - 1] + seq[len(seq) // 2])
-                score = m
-            else:
-                score = cur_idx[u]
-            scores.append((score, cur_idx[u], u))
-        scores.sort()
-        return [u for _, __, u in scores]
-
-    orderer = ordered_by_barycenter if method == "barycenter" else ordered_by_median
-
-    iterations = max(1, int(iterations))
-    for _ in range(iterations):
-        # top-down (left->right): order each layer by the previous layer
-        for i in range(1, L):
-            layers_list[i] = orderer(layers_list[i], layers_list[i - 1])
-        # bottom-up (right->left): order by the next layer
-        for i in range(L - 2, -1, -1):
-            layers_list[i] = orderer(layers_list[i], layers_list[i + 1])
-
-    # Coordinates
-    # Place nodes in each layer centered around 0 on the free axis
-    pos_all = {}
-    for i in range(L):
-        nodes = layers_list[i]
-        n = len(nodes)
-        if n == 0:
-            continue
-        start = -0.5 * (n - 1) * node_spacing
-        for j, u in enumerate(nodes):
-            free = start + j * node_spacing
-            fixed = i * layer_spacing
-            if align == "vertical":
-                pos_all[u] = (fixed, free)  # columns
-            else:
-                pos_all[u] = (free, fixed)  # rows
-
-    if scale != 1.0:
-        pos_all = {u: (scale * x, scale * y) for u, (x, y) in pos_all.items()}
-
-    # Filter dummy nodes unless requested
-    is_dummy = lambda n: isinstance(n, str) and n.startswith(dummy_prefix)
-    if return_dummies:
-        pos = dict(pos_all)
-    else:
-        pos = {u: xy for u, xy in pos_all.items() if not is_dummy(u)}
-
-    # Build per-layer orders keyed by original layer values (for reference)
-    if return_order:
-        order_by_layer = {layer_keys[i]: list(layers_list[i]) for i in range(L)}
-
-    # If routes requested, translate chain nodes to polylines of points
-    if return_routes:
-        routed = []
-        for item in routes:
-            chain = item["nodes"]
-            pts = [pos_all[n] for n in chain if n in pos_all]
-            routed.append({
-                "endpoints": item["endpoints"],
-                "nodes": list(chain),
-                "points": pts,
-            })
-
-    # Final return(s)
-    if return_order and return_routes:
-        return pos, order_by_layer, routed
-    if return_order:
-        return pos, order_by_layer
-    if return_routes:
-        return pos, routed
-    return pos
+    _sweep_layout_layers(
+        layers, lambda node: neighbors[node].items(), method, iterations
+    )
+    positions = _layout_positions(layers, align, layer_spacing, node_spacing, scale)
+    return _layout_result(
+        positions,
+        layer_keys,
+        layers,
+        routes,
+        dummy_prefix,
+        return_order,
+        return_dummies,
+        return_routes,
+    )
 
 
 class _BIT:
-    """
-    Fenwick tree (binary indexed tree) over float weights.
-
-    Supports point updates and prefix-sum queries in logarithmic time, which
-    is used to count weighted edge crossings while sweeping a layered
-    layout.
-
-    Attributes
-    ----------
-    n : int
-        Number of elements the tree holds.
-    t : list of float
-        Internal one-based tree array of length ``n + 1``.
-    """
+    """Fenwick tree of float weights, with logarithmic updates and prefix sums."""
 
     def __init__(self, n: int) -> None:
-        """
-        Create an empty Fenwick tree.
-
-        Parameters
-        ----------
-        n : int
-            Number of elements the tree must hold.
-        """
+        """Create an empty tree with ``n`` elements."""
         self.n = n
         self.t = [0.0] * (n + 1)
 
     def add(self, i: int, delta: float) -> None:
-        """
-        Add a value to the element at a given index.
-
-        Parameters
-        ----------
-        i : int
-            The zero-based index to which the value will be added.
-        delta : float
-            The value to add.
-
-        Returns
-        -------
-        None
-        """
+        """Add ``delta`` to the element at zero-based index ``i``."""
         i += 1
         while i <= self.n:
             self.t[i] += delta
             i += i & -i
 
     def sum_prefix(self, i: int) -> float:
-        """
-        Compute the prefix sum from index 0 to `i` (inclusive).
-
-        Parameters
-        ----------
-        i : int
-            The index (0-based) up to which the prefix sum is calculated.
-
-        Returns
-        -------
-        float
-            The sum of elements from index 0 to `i`. Returns 0.0 if `i` is negative.
-        """
+        """Sum elements through zero-based index ``i`` (zero for negative indices)."""
         if i < 0:
             return 0.0
-        s = 0.0
+        total = 0.0
         i += 1
         while i > 0:
-            s += self.t[i]
+            total += self.t[i]
             i -= i & -i
-        return s
+        return total
 
 
-def _pair_crossings_weighted(order_left: List[Any],
-                             order_right: List[Any],
-                             edges: List[Tuple[Any, Any, float]]) -> float:
-    """
-    Count weighted crossings between two adjacent layers given their node orders.
+def _pair_crossings_weighted(
+    order_left: List[Any], order_right: List[Any], edges: List[Tuple[Any, Any, float]]
+) -> float:
+    """Count weighted crossings between two ordered, adjacent layers.
 
-    Computes the total weighted crossing value for a bipartite set of edges
-    connecting nodes in a left layer to nodes in a right layer. Each edge
-    contributes proportionally to its weight and crossings are counted as the
-    product of weights of two edges that geometrically cross given the layer
-    orderings.
+    Each crossing contributes the product of its two edge weights. Edges with
+    a shared endpoint do not cross; edges whose endpoints are missing from the
+    corresponding order are ignored. A Fenwick tree counts weighted inversions
+    after sorting edges by left position, then right position.
 
     Parameters
     ----------
-    order_left : list
-        Ordered list of nodes in the left layer. Elements should be hashable and
-        unique within this list.
-    order_right : list
-        Ordered list of nodes in the right layer. Elements should be hashable and
-        unique within this list.
+    order_left, order_right : list
+        Ordered, unique, hashable nodes in the two layers.
     edges : list of tuple
-        Iterable of edges connecting the two layers. Each item should be a
-        tuple ``(u, v, w)`` where ``u`` is a node in ``order_left``, ``v`` is a
-        node in ``order_right`` and ``w`` is a numeric edge weight (float or int).
-        Edges referencing nodes not present in the corresponding order are
-        ignored or may trigger an error depending on the caller's expectations.
+        ``(left_node, right_node, weight)`` triples with numeric weights.
 
     Returns
     -------
     float
-        Total weighted crossing measure. For every pair of edges ``(u1, v1, w1)``
-        and ``(u2, v2, w2)`` that cross given the two orders (i.e. left positions
-        satisfy pos_left(u1) < pos_left(u2) but pos_right(v1) > pos_right(v2)),
-        the contribution ``w1 * w2`` is added. The returned value is the sum
-        of these contributions.
-
-    Raises
-    ------
-    TypeError
-        If inputs are of incorrect types (for example ``order_left``/``order_right``
-        not indexable or ``edges`` not iterable of triples).
-    ValueError
-        If an edge references a node not found in the provided orders and the
-        implementation chooses to treat that as an error.
-
-    Notes
-    -----
-    - A common efficient implementation sorts edges by left-layer index and
-      counts inversions on the right-layer indices using a Fenwick tree
-      (binary indexed tree) or similar prefix-sum structure to achieve
-      near-linearithmic runtime.
-    - The function returns a floating point sum to accommodate non-integer
-      edge weights and large accumulation.
+        Sum of the products of weights for crossing edge pairs.
     """
-    # Map nodes in the left layer to their positions
-    posL = {u: i for i, u in enumerate(order_left)}
-    # Map nodes in the right layer to their positions
-    posR = {v: i for i, v in enumerate(order_right)}
 
-    # Create a list of triples (position in left, position in right, weight) for valid edges
-    triples = [(posL[u], posR[v], float(w)) for (u, v, w) in edges
-               if u in posL and v in posR]
-
-    # If there are no valid triples, return 0.0 as there are no crossings
+    left_index = {node: i for i, node in enumerate(order_left)}
+    right_index = {node: i for i, node in enumerate(order_right)}
+    triples = [
+        (left_index[u], right_index[v], float(value))
+        for u, v, value in edges
+        if u in left_index and v in right_index
+    ]
     if not triples:
         return 0.0
+    triples.sort(key=lambda item: (item[0], item[1]))
 
-    # Sort triples by the left position, then by the right position
-    triples.sort(key=lambda t: (t[0], t[1]))
-
-    # Initialize a Fenwick tree for the right layer
-    bit = _BIT(len(order_right))
-    inv = 0.0  # Total weighted crossings
-    total = 0.0  # Total weight processed so far
-
-    # Iterate through the sorted triples
-    for _, j, w in triples:
-        # Calculate the weighted crossings for edges with positions greater than j
-        inv += w * (total - bit.sum_prefix(j))
-        # Add the current weight to the Fenwick tree
-        bit.add(j, w)
-        # Update the total weight
-        total += w
-
-    return inv
+    # Sorting ties by right position prevents edges with a shared endpoint
+    # from contributing crossings to the weighted inversion count.
+    tree = _BIT(len(order_right))
+    crossings = total = 0.0
+    for _, right, value in triples:
+        crossings += value * (total - tree.sum_prefix(right))
+        tree.add(right, value)
+        total += value
+    return crossings
 
 
-def multipartite_layout_sa(G: nx.Graph,
-                           subset_key: str = "subset",
-                           align: str = "vertical",
-                           insert_dummies: bool = True,
-                           dummy_prefix: str = "__dummy__",
-                           node_spacing: float = 1.0,
-                           layer_spacing: float = 1.5,
-                           scale: float = 1.0,
-                           weight: Optional[str] = None,
-                           max_proposals: int = 8000,
-                           cooling_rate: float = 0.95,
-                           cooling_interval: int = 200,
-                           adjacent_swap_prob: float = 0.7,
-                           stop_after_no_improve: int = 2000,
-                           T0: Optional[float] = None,
-                           seed: Optional[int] = None,
-                           return_order: bool = False,
-                           return_dummies: bool = False,
-                           return_routes: bool = False,
-                           ) -> Union[Dict[Any, Tuple[float, float]], Tuple[Any, ...]]:
-    """
-    Compute a multipartite layout for a graph using simulated annealing to minimize edge crossings.
+def multipartite_layout_sa(
+    G: nx.Graph,
+    subset_key: str = "subset",
+    align: str = "vertical",
+    insert_dummies: bool = True,
+    dummy_prefix: str = "__dummy__",
+    node_spacing: float = 1.0,
+    layer_spacing: float = 1.5,
+    scale: float = 1.0,
+    weight: Optional[str] = None,
+    max_proposals: int = 8000,
+    cooling_rate: float = 0.95,
+    cooling_interval: int = 200,
+    adjacent_swap_prob: float = 0.7,
+    stop_after_no_improve: int = 2000,
+    T0: Optional[float] = None,
+    seed: Optional[int] = None,
+    return_order: bool = False,
+    return_dummies: bool = False,
+    return_routes: bool = False,
+) -> Union[Dict[Any, Tuple[float, float]], Tuple[Any, ...]]:
+    """Minimize weighted inter-layer crossings using simulated annealing.
 
-    This function produces coordinates for nodes arranged in discrete layers (multipartite layout)
-    while attempting to minimise edge crossings via a simulated-annealing-based reordering
-    procedure. Optionally inserts dummy nodes for edges that span multiple layers, supports
-    weighted edges for ordering, and can return auxiliary information such as per-layer
-    orders, dummy-node inclusion and routing information for long edges.
+    Nodes start in degree/name order. Annealing explores adjacent and arbitrary
+    within-layer swaps, accepting some uphill moves as the temperature falls,
+    and returns the best ordering found. The input graph is not modified.
 
     Parameters
     ----------
     G : networkx.Graph
-        Input graph. Nodes must have a layer attribute indicated by *subset_key* (or the
-        attribute is inferred/treated uniformly). Graph may be directed or undirected.
+        Graph whose nodes provide the layer attribute; missing values use 0.
     subset_key : str, optional
-        Node attribute key used to determine layer membership. Defaults to ``"subset"``.
+        Layer attribute name. Mixed layer types are sorted by string if needed.
     align : {'vertical', 'horizontal'}, optional
-        Whether layers are arranged vertically (columns) or horizontally (rows). Defaults
-        to ``"vertical"``.
+        Arrange layers in columns or rows, respectively.
     insert_dummies : bool, optional
-        If True, insert dummy nodes for edges that span more than one layer to allow
-        routing as poly-lines and improve crossing minimisation. Defaults to True.
+        Split long edges into adjacent-layer hops. Disabling insertion uses the
+        multigraph edge iterator with ``keys=False``; only adjacent-layer edges
+        then contribute to crossing costs.
     dummy_prefix : str, optional
-        Prefix used for synthetic dummy node names when *insert_dummies* is True.
-        Defaults to ``"__dummy__"``.
-    node_spacing : float, optional
-        Distance between adjacent nodes within a layer on the free axis. Defaults to 1.0.
-    layer_spacing : float, optional
-        Spacing between consecutive layers on the fixed axis. Defaults to 1.5.
+        Prefix for sequential dummy node names and for filtering dummy positions.
+    node_spacing, layer_spacing : float, optional
+        Spacing between nodes within a centered layer and between layers.
     scale : float, optional
-        Scaling factor applied to final coordinates. Defaults to 1.0.
+        Multiply final coordinates by this factor.
     weight : str or None, optional
-        Edge attribute name used as a weight for ordering and crossing computations.
-        If None, unit weights are assumed. Defaults to None.
+        Edge weight attribute; missing weights default to 1.
     max_proposals : int, optional
-        Maximum number of proposals (moves) evaluated during simulated annealing.
-        Larger values increase optimisation time and may yield fewer crossings. Defaults
-        to 8000.
+        Maximum number of swaps considered during annealing.
     cooling_rate : float, optional
-        Multiplicative cooling factor applied to the temperature when scheduled. Must be
-        in (0, 1). Defaults to 0.95.
+        Temperature multiplier applied at each cooling interval.
     cooling_interval : int, optional
-        Number of proposals between temperature reductions. Defaults to 200.
+        Number of proposals between temperature reductions, with a minimum of 1.
     adjacent_swap_prob : float, optional
-        Probability of proposing an adjacent node swap vs. a broader move when creating
-        candidates. Value in [0.0, 1.0]. Defaults to 0.7.
-    stop_after_no_improve : int or None, optional
-        If provided, stop optimisation after this many proposals without improvement.
-        Set to None to disable early stopping. Defaults to 2000.
+        Probability of choosing an adjacent swap instead of an arbitrary swap.
+    stop_after_no_improve : int, optional
+        Stop after this many proposals without improving the best crossing cost.
     T0 : float or None, optional
-        Initial temperature for simulated annealing. If None, an automatic initial
-        temperature is estimated from initial crossing costs. Defaults to None.
+        Initial temperature; estimated from trial swaps when omitted.
     seed : int or None, optional
-        Random seed to ensure reproducible layouts. Defaults to None.
+        Python random seed for reproducible swaps and acceptance decisions.
     return_order : bool, optional
-        If True return a dictionary mapping layer values to the final ordered node lists.
-        Defaults to False.
+        Append the final layer-to-node-list mapping, including dummy nodes.
     return_dummies : bool, optional
-        If True include dummy nodes in the returned positioning and ordering results.
-        Defaults to False.
+        Include dummy positions in ``pos``; does not add a separate return value.
     return_routes : bool, optional
-        If True return routing information for edges (lists of intermediate coordinates
-        or node chains) useful for drawing multi-segment edges. Defaults to False.
+        Append routes with ``endpoints``, ``nodes``, and coordinate ``points``.
 
     Returns
     -------
     pos : dict
-        Mapping of node -> (x, y) coordinate positions (float). Coordinates follow the
-        chosen *align* convention (layers along the fixed axis).
+        Node-to-(x, y) coordinates, omitting dummy-prefixed nodes unless requested.
     tuple, optional
-        When one or more of ``return_order``, ``return_dummies`` or ``return_routes`` is
-        True, a tuple containing additional results is returned. The ordering of
-        additional return values is:
-        (pos, orders, dummies, routes) where any of ``orders``, ``dummies`` or ``routes``
-        is included only if requested via the corresponding flag:
-        - orders : dict mapping original layer values -> list of nodes in final order.
-        - dummies : set or list of dummy node identifiers (present when ``return_dummies``).
-        - routes : list of routing descriptors for edges spanning layers (present when ``return_routes``).
-
-    Raises
-    ------
-    ValueError
-        If provided parameters are invalid (for example nonsensical spacings, nonpositive
-        *max_proposals*, or cooling parameters outside valid ranges).
-    TypeError
-        If graph nodes do not expose the expected layer attribute type and cannot be
-        interpreted or if edge weights are non-numeric when *weight* is specified.
-
-    Notes
-    -----
-    - The algorithm is stochastic; supply *seed* to obtain deterministic behaviour.
-    - Dummy nodes are purely layout artefacts to represent long edges as chains of unit
-      hops; they may be filtered from the returned position map unless explicitly
-      requested via ``return_dummies``.
-    - Simulated annealing balances local adjacent swaps and larger perturbations controlled
-      by *adjacent_swap_prob*; tuning *max_proposals*, *cooling_rate* and *cooling_interval*
-      affects runtime and solution quality.
-    - The function attempts to minimise weighted pairwise edge crossings using standard
-      barycenter/median heuristics supplemented by the annealing phase.
-    - When *return_routes* is True, edge routing information describes the polyline
-      coordinates or dummy-node chain that should be used to draw multi-layer edges
-      without large visual overlaps.
+        ``(pos, orders)``, ``(pos, routes)``, or ``(pos, orders, routes)`` when
+        the corresponding flags are enabled. Orders and routes include dummies
+        even when their positions are omitted from ``pos``.
     """
+
     if seed is not None:
         random.seed(seed)
+    layer_keys, layers, node_layer = _layout_layers(G, subset_key, allow_mixed=True)
+    layer_count = len(layers)
+    edges_by_pair = [[] for _ in range(max(0, layer_count - 1))]
+    routes = []
+    dummy_count = 0
 
-    # Layers from subset_key (keep original values but index them 0..L-1)
-    node_layer_val = {}
-    unique_layers = set()
-    for n in G.nodes():
-        lv = G.nodes[n].get(subset_key, 0)
-        node_layer_val[n] = lv
-        unique_layers.add(lv)
-    try:
-        layer_keys = sorted(unique_layers)
-    except TypeError:
-        layer_keys = sorted(unique_layers, key=str)
-
-    layer_to_idx = {lv: i for i, lv in enumerate(layer_keys)}
-    L = len(layer_keys)
-    # per-layer node lists (will later include dummies)
-    layers = [[] for _ in range(L)]
-    for n in G.nodes():
-        layers[layer_to_idx[node_layer_val[n]]].append(n)
-
-    # stable initial order: degree then name
-    for i in range(L):
-        layers[i].sort(key=lambda n: (G.degree(n), str(n)))
-
-    # Build adjacent-only edges (insert dummies if requested)
-    def _edge_w(u: Any, v: Any, data: Optional[Dict[str, Any]] = None) -> float:
-        """
-        Calculate the weight of an edge.
-
-        Parameters
-        ----------
-        u : node
-            Source node.
-        v : node
-            Target node.
-        data : dict, optional
-            Edge data dictionary. Defaults to None.
-
-        Returns
-        -------
-        float
-            Weight of the edge.
-        """
+    def edge_weight(u, v, data):
         if weight is None:
             return 1.0
-        if data is not None and weight in data:
+        if weight in data:
             return float(data[weight])
         try:
             return float(G[u][v].get(weight, 1.0))
         except Exception:
             return 1.0
 
-    # Mapping node -> layer index (will grow with dummies)
-    node_layer_idx = {n: layer_to_idx[node_layer_val[n]] for n in G.nodes()}
-    # edges_by_pair[i] holds edges between layer i and i+1 as list of (u, v, w)
-    edges_by_pair = [[] for _ in range(max(0, L - 1))]
-    routes = []  # for returning polylines
-
-    dummy_counter = 0
-
-    def _add_edge_pair(i_left: int, u: Any, v: Any, w: float) -> None:
-        """
-        Add an edge between two nodes in adjacent layers.
-
-        Parameters
-        ----------
-        i_left : int
-            Index of the left layer.
-        u : node
-            Source node in the left layer.
-        v : node
-            Target node in the right layer.
-        w : float
-            Weight of the edge.
-
-        Returns
-        -------
-        None
-        """
-        if i_left < 0 or i_left >= L - 1:
-            return
-        edges_by_pair[i_left].append((u, v, w))
-
     if insert_dummies:
-        # accumulate edges; handle MultiGraph by iterating .edges(data=True, keys=False)
-        for (uu, vv, *rest) in G.edges(data=True):
-            data = rest[0] if rest else {}
-            w = _edge_w(uu, vv, data)
-            lu, lv = node_layer_idx[uu], node_layer_idx[vv]
-            if lu == lv:
-                # keep same-layer as a "route" but it won't affect crossings
-                routes.append({"endpoints": (uu, vv), "nodes": [uu, vv]})
+        for u, v, data in G.edges(data=True):
+            value = edge_weight(u, v, data)
+            left, right = node_layer[u], node_layer[v]
+            if left == right:
+                routes.append({"endpoints": (u, v), "nodes": [u, v]})
                 continue
-            # orient lu < lv
-            rev = False
-            if lu > lv:
-                uu, vv = vv, uu
-                lu, lv = lv, lu
-                rev = True
 
-            chain = [uu]
-            prev = uu
-            for k in range(lu + 1, lv):
-                dummy_counter += 1
-                d = f"{dummy_prefix}{dummy_counter}"
-                node_layer_idx[d] = k
-                layers[k].append(d)
-                prev, cur = prev, d
-                _add_edge_pair(k - 1, prev, cur, w)
-                chain.append(cur)
-                prev = cur
-            # last hop
-            _add_edge_pair(lv - 1, prev, vv, w)
-            chain.append(vv)
-            if rev:
+            reverse = left > right
+            if reverse:
+                u, v = v, u
+                left, right = right, left
+            chain = [u]
+            for i in range(left + 1, right):
+                dummy_count += 1
+                dummy = f"{dummy_prefix}{dummy_count}"
+                node_layer[dummy] = i
+                layers[i].append(dummy)
+                edges_by_pair[i - 1].append((chain[-1], dummy, value))
+                chain.append(dummy)
+            edges_by_pair[right - 1].append((chain[-1], v, value))
+            chain.append(v)
+            if reverse:
                 chain.reverse()
             routes.append({"endpoints": (chain[0], chain[-1]), "nodes": chain})
     else:
-        for (uu, vv, *rest) in G.edges(data=True, keys=False):
-            data = rest[0] if rest else {}
-            w = _edge_w(uu, vv, data)
-            lu, lv = node_layer_idx[uu], node_layer_idx[vv]
-            if abs(lu - lv) == 1:
-                i_left = min(lu, lv)
-                # direct adjacent edge; orient left->right
-                if lu <= lv:
-                    _add_edge_pair(i_left, uu, vv, w)
-                    routes.append({"endpoints": (uu, vv), "nodes": [uu, vv]})
-                else:
-                    _add_edge_pair(i_left, vv, uu, w)
-                    routes.append({"endpoints": (vv, uu), "nodes": [vv, uu]})
-            else:
-                # non-adjacent edges are ignored for crossing count if dummies off
-                routes.append({"endpoints": (uu, vv), "nodes": [uu, vv]})
+        for u, v, data in G.edges(data=True, keys=False):
+            value = edge_weight(u, v, data)
+            left, right = node_layer[u], node_layer[v]
+            if abs(left - right) == 1:
+                if left > right:
+                    u, v = v, u
+                edges_by_pair[min(left, right)].append((u, v, value))
+            routes.append({"endpoints": (u, v), "nodes": [u, v]})
 
-    # Crossing objective: sum over adjacent layer pairs
-    def pair_cross(i: int) -> float:
-        """
-        Calculate the weighted crossings between two adjacent layers.
-
-        Parameters
-        ----------
-        i : int
-            Index of the layer pair.
-
-        Returns
-        -------
-        float
-            Total weighted crossings for the layer pair.
-        """
-        if i < 0 or i >= L - 1:
+    def pair_cross(i):
+        """Return the crossing cost for one adjacent pair, or zero at the ends."""
+        if i < 0 or i >= layer_count - 1:
             return 0.0
-        left = layers[i]
-        right = layers[i + 1]
-        if not left or not right or not edges_by_pair[i]:
+        if not layers[i] or not layers[i + 1] or not edges_by_pair[i]:
             return 0.0
-        return _pair_crossings_weighted(left, right, edges_by_pair[i])
+        return _pair_crossings_weighted(layers[i], layers[i + 1], edges_by_pair[i])
 
-    def total_cross() -> float:
-        """
-        Calculate the total weighted crossings for all layer pairs.
+    # Swaps preserve layer sizes, so the eligible layers never change.
+    candidates = [i for i, layer in enumerate(layers) if len(layer) >= 2]
 
-        Returns
-        -------
-        float
-            Total weighted crossings.
-        """
-        return sum(pair_cross(i) for i in range(L - 1))
-
-    # Initial temperature (optional estimation)
-    def estimate_T0(samples: int = 64) -> float:
-        """
-        Estimate the initial temperature for simulated annealing.
-
-        Parameters
-        ----------
-        samples : int, optional
-            Number of random swaps to sample. Defaults to 64.
-
-        Returns
-        -------
-        float
-            Estimated initial temperature.
-        """
-        if L == 0:
-            return 1.0
+    def estimate_temperature(samples=64):
+        """Estimate an initial temperature from reversible trial swaps."""
         deltas = []
         for _ in range(samples):
-            # pick a layer with >=2 nodes and that participates in crossings
-            candidates = [i for i in range(L) if len(layers[i]) >= 2]
             if not candidates:
                 break
             i = random.choice(candidates)
-            before = pair_cross(i - 1) + pair_cross(i)  # pairs touching layer i
+            before = pair_cross(i - 1) + pair_cross(i)
             n = len(layers[i])
             a, b = random.randrange(n), random.randrange(n)
             if a == b:
                 continue
             layers[i][a], layers[i][b] = layers[i][b], layers[i][a]
-            after = pair_cross(i - 1) + pair_cross(i)
-            d = after - before
-            # revert
+            delta = pair_cross(i - 1) + pair_cross(i) - before
             layers[i][a], layers[i][b] = layers[i][b], layers[i][a]
-            if d > 0:
-                deltas.append(d)
-        if not deltas:
-            return 1.0
-        return max(1e-6, sum(deltas) / len(deltas))
+            if delta > 0:
+                deltas.append(delta)
+        return max(1e-6, sum(deltas) / len(deltas)) if deltas else 1.0
 
-    if T0 is None:
-        T = estimate_T0()
-    else:
-        T = float(T0)
-
-    # SA loop over within-layer swaps
-    current_total = total_cross()
-    best_layers = [list(lst) for lst in layers]
+    temperature = estimate_temperature() if T0 is None else float(T0)
+    current_total = sum(pair_cross(i) for i in range(layer_count - 1))
     best_total = current_total
+    best_layers = [list(layer) for layer in layers]
     last_improve_at = 0
 
-    def propose_swap(i: int) -> Optional[Tuple[int, int, int]]:
-        """
-        Propose a swap of two nodes in a layer.
-
-        Parameters
-        ----------
-        i : int
-            Index of the layer.
-
-        Returns
-        -------
-        tuple or None
-            A tuple ``(i, a, b)`` of the layer index and the indices of the
-            two nodes to swap, or ``None`` when the layer holds fewer than
-            two nodes.
-        """
+    for step in range(int(max_proposals)):
+        if not candidates:
+            break
+        i = random.choice(candidates)
         n = len(layers[i])
-        if n < 2:
-            return None
         if random.random() < adjacent_swap_prob:
             a = random.randrange(n - 1)
             b = a + 1
@@ -3437,128 +2710,54 @@ def multipartite_layout_sa(G: nx.Graph,
             a, b = random.randrange(n), random.randrange(n)
             while b == a:
                 b = random.randrange(n)
-        return i, a, b
-
-    for step in range(int(max_proposals)):
-        # pick a layer that has at least 2 nodes
-        cand_layers = [i for i in range(L) if len(layers[i]) >= 2]
-        if not cand_layers:
-            break
-        i = random.choice(cand_layers)
-        swap = propose_swap(i)
-        if swap is None:
-            continue
-        _, a, b = swap
 
         before = pair_cross(i - 1) + pair_cross(i)
-        # apply
         layers[i][a], layers[i][b] = layers[i][b], layers[i][a]
-        after = pair_cross(i - 1) + pair_cross(i)
-        delta = after - before
-
-        accept = False
-        if delta <= 0:
-            accept = True
-        else:
-            # accept uphill with Boltzmann probability
-            p = math.exp(-delta / max(T, 1e-12))
-            if random.random() < p:
-                accept = True
+        delta = pair_cross(i - 1) + pair_cross(i) - before
+        accept = delta <= 0
+        if not accept:
+            probability = math.exp(-delta / max(temperature, 1e-12))
+            accept = random.random() < probability
 
         if accept:
             current_total += delta
             if current_total + 1e-12 < best_total:
                 best_total = current_total
-                best_layers = [list(lst) for lst in layers]
+                best_layers = [list(layer) for layer in layers]
                 last_improve_at = step
         else:
-            # revert
             layers[i][a], layers[i][b] = layers[i][b], layers[i][a]
 
-        # Cooling
         if (step + 1) % int(max(1, cooling_interval)) == 0:
-            T *= float(cooling_rate)
-
-        # Early stop if stuck
+            temperature *= float(cooling_rate)
         if step - last_improve_at >= int(stop_after_no_improve):
             break
 
-    # Use best found ordering
-    layers = best_layers
-
-    # Coordinates
-    pos_all = {}
-    for i in range(L):
-        n = len(layers[i])
-        if n == 0:
-            continue
-        start = -0.5 * (n - 1) * node_spacing
-        for j, u in enumerate(layers[i]):
-            free = start + j * node_spacing
-            fixed = i * layer_spacing
-            if align == "vertical":  # columns
-                pos_all[u] = (fixed, free)
-            else:  # rows
-                pos_all[u] = (free, fixed)
-
-    if scale != 1.0:
-        pos_all = {u: (scale * x, scale * y) for u, (x, y) in pos_all.items()}
-
-    # Only original nodes unless requested
-    def _is_dummy(n: Any) -> bool:
-        """
-        Check if a node is a dummy node.
-
-        Parameters
-        ----------
-        n : node
-            The node to check.
-
-        Returns
-        -------
-        bool
-            True if the node is a dummy node, False otherwise.
-        """
-        return isinstance(n, str) and n.startswith(dummy_prefix)
-
-    if return_dummies:
-        pos = dict(pos_all)
-    else:
-        pos = {u: xy for u, xy in pos_all.items() if not _is_dummy(u)}
-
-    # Optional: return final order per original layer key (includes dummies)
-    order_by_layer = None
-    if return_order:
-        order_by_layer = {layer_keys[i]: list(layers[i]) for i in range(L)}
-
-    # Optional: routes with points
-    routed = None
-    if return_routes:
-        routed = []
-        for r in routes:
-            chain = r["nodes"]
-            pts = [pos_all[n] for n in chain if n in pos_all]
-            routed.append({"endpoints": r["endpoints"], "nodes": list(chain), "points": pts})
-
-    if return_order and return_routes:
-        return pos, order_by_layer, routed
-    if return_order:
-        return pos, order_by_layer
-    if return_routes:
-        return pos, routed
-    return pos
+    positions = _layout_positions(
+        best_layers, align, layer_spacing, node_spacing, scale
+    )
+    return _layout_result(
+        positions,
+        layer_keys,
+        best_layers,
+        routes,
+        dummy_prefix,
+        return_order,
+        return_dummies,
+        return_routes,
+    )
 
 
 def show_common_bonds(
-        smiles_a: str,
-        smiles_b: str,
-        legends: List[str] | None = None,
-        common_bond_color: Tuple[float, float, float] = (0.1, 0.8, 0.1),
-        common_atom_color: Tuple[float, float, float] = (0.1, 0.8, 0.1),
-        size: Tuple[int, int] = (700, 350),
-        timeout_s: int = 5,
-        ring_matches_ring_only: bool = True,
-        complete_rings_only: bool = True,
+    smiles_a: str,
+    smiles_b: str,
+    legends: List[str] | None = None,
+    common_bond_color: Tuple[float, float, float] = (0.1, 0.8, 0.1),
+    common_atom_color: Tuple[float, float, float] = (0.1, 0.8, 0.1),
+    size: Tuple[int, int] = (700, 350),
+    timeout_s: int = 5,
+    ring_matches_ring_only: bool = True,
+    complete_rings_only: bool = True,
 ) -> Image.Image:
     """
     Visualize the maximum common substructure (MCS) between two molecules.
@@ -3605,120 +2804,93 @@ def show_common_bonds(
     - If no MCS is found, the molecules are displayed without any highlights.
     - The function supports customization of colors, image size, and MCS parameters.
     """
-    if legends is None:
-        legends = ["A", "B"]
-    mol_a = Chem.MolFromSmiles(smiles_a)
-    mol_b = Chem.MolFromSmiles(smiles_b)
-    if mol_a is None or mol_b is None:
+    molecules = [Chem.MolFromSmiles(smiles_a), Chem.MolFromSmiles(smiles_b)]
+    if any(mol is None for mol in molecules):
         raise ValueError("One or both SMILES strings could not be parsed by RDKit.")
+    molecules = [standardize_mol(mol, add_hydrogens=False) for mol in molecules]
+    drawing_options = {
+        "molsPerRow": 2,
+        "subImgSize": (size[0] // 2, size[1]),
+        "legends": ["A", "B"] if legends is None else legends,
+    }
 
-    # Standardize molecule layouts for better visualization
-    mol_a = standardize_mol(mol_a, add_hydrogens=False)
-    mol_b = standardize_mol(mol_b, add_hydrogens=False)
-
-    # Compute MCS (Maximum Common Substructure). Uses the keyword-argument
-    # form of FindMCS rather than an MCSParameters object, since the
-    # equivalent flat attributes on MCSParameters (AtomCompare, BondCompare,
-    # RingMatchesRingOnly, CompleteRingsOnly) were renamed/restructured
-    # across RDKit versions.
-    mcs_res = rdFMCS.FindMCS(
-        [mol_a, mol_b],
+    # Keyword arguments remain compatible across RDKit MCSParameters versions.
+    mcs = rdFMCS.FindMCS(
+        molecules,
         timeout=int(timeout_s),
         atomCompare=rdFMCS.AtomCompare.CompareElements,
         bondCompare=rdFMCS.BondCompare.CompareOrderExact,
         ringMatchesRingOnly=bool(ring_matches_ring_only),
         completeRingsOnly=bool(complete_rings_only),
     )
-    if not mcs_res.smartsString:
-        # No overlap found; draw without highlights.
-        return Draw.MolsToGridImage(
-            [mol_a, mol_b],
-            molsPerRow=2,
-            subImgSize=(size[0] // 2, size[1]),
-            legends=legends,
-        )
-
-    mcs_mol = Chem.MolFromSmarts(mcs_res.smartsString)
-    if mcs_mol is None:
-        return Draw.MolsToGridImage(
-            [mol_a, mol_b],
-            molsPerRow=2,
-            subImgSize=(size[0] // 2, size[1]),
-            legends=legends,
-        )
-
-    match_a = mol_a.GetSubstructMatch(mcs_mol)
-    match_b = mol_b.GetSubstructMatch(mcs_mol)
-
-    if not match_a or not match_b:
-        # If MCS SMARTS can't be matched back (rare), draw without highlights.
-        return Draw.MolsToGridImage(
-            [mol_a, mol_b],
-            molsPerRow=2,
-            subImgSize=(size[0] // 2, size[1]),
-            legends=legends,
-        )
-
-    # Map MCS bonds to bond indices in each molecule
-    def _mcs_bond_indices(parent_mol: Chem.Mol, match: Tuple[int, ...]) -> List[int]:
-        """
-        Map the bonds in the MCS to their indices in the parent molecule.
-
-        Parameters
-        ----------
-        parent_mol : rdkit.Chem.Mol
-            The parent molecule.
-        match : Tuple[int, ...]
-            Atom indices in the parent molecule that match the MCS.
-
-        Returns
-        -------
-        List[int]
-            List of bond indices in the parent molecule that are part of the MCS.
-        """
-        bond_idxs = []
-        for b in mcs_mol.GetBonds():
-            a1 = match[b.GetBeginAtomIdx()]
-            a2 = match[b.GetEndAtomIdx()]
-            pb = parent_mol.GetBondBetweenAtoms(a1, a2)
-            if pb is not None:
-                bond_idxs.append(pb.GetIdx())
-        return bond_idxs
-
-    common_bonds_a = _mcs_bond_indices(mol_a, match_a)
-    common_bonds_b = _mcs_bond_indices(mol_b, match_b)
-
-    common_atoms_a = list(match_a)
-    common_atoms_b = list(match_b)
-
-    # Color dictionaries for RDKit drawing
-    bond_colors_a: Dict[int, Tuple[float, float, float]] = {i: common_bond_color for i in common_bonds_a}
-    bond_colors_b: Dict[int, Tuple[float, float, float]] = {i: common_bond_color for i in common_bonds_b}
-    atom_colors_a: Dict[int, Tuple[float, float, float]] = {i: common_atom_color for i in common_atoms_a}
-    atom_colors_b: Dict[int, Tuple[float, float, float]] = {i: common_atom_color for i in common_atoms_b}
-
-    # Generate the image with highlighted atoms and bonds
-    img = Draw.MolsToGridImage(
-        [mol_a, mol_b],
-        molsPerRow=2,
-        subImgSize=(size[0] // 2, size[1]),
-        legends=legends,
-        highlightBondLists=[common_bonds_a, common_bonds_b],
-        highlightBondColors=[bond_colors_a, bond_colors_b],
-        highlightAtomLists=[common_atoms_a, common_atoms_b],
-        highlightAtomColors=[atom_colors_a, atom_colors_b],
-        useSVG=False,  # Set True if you prefer SVG output
+    query = Chem.MolFromSmarts(mcs.smartsString) if mcs.smartsString else None
+    matches = (
+        [mol.GetSubstructMatch(query) for mol in molecules] if query is not None else []
     )
-    return img
+
+    def _mcs_bond_indices(mol: Chem.Mol, match: Tuple[int, ...]) -> List[int]:
+        """Map query bonds to their indices in a matched molecule."""
+        indices = []
+        for bond in query.GetBonds():
+            parent_bond = mol.GetBondBetweenAtoms(
+                match[bond.GetBeginAtomIdx()], match[bond.GetEndAtomIdx()]
+            )
+            if parent_bond is not None:
+                indices.append(parent_bond.GetIdx())
+        return indices
+
+    # An empty or unmatchable MCS is rendered without highlights.
+    if matches and all(matches):
+        atom_lists = [list(match) for match in matches]
+        bond_lists = [
+            _mcs_bond_indices(mol, match) for mol, match in zip(molecules, matches)
+        ]
+        drawing_options.update(
+            highlightBondLists=bond_lists,
+            highlightBondColors=[
+                dict.fromkeys(bonds, common_bond_color) for bonds in bond_lists
+            ],
+            highlightAtomLists=atom_lists,
+            highlightAtomColors=[
+                dict.fromkeys(atoms, common_atom_color) for atoms in atom_lists
+            ],
+            useSVG=False,
+        )
+    return Draw.MolsToGridImage(molecules, **drawing_options)
+
+
+def _prepare_mol_grid(
+    mols: Sequence[Union[Chem.Mol, str]],
+    legends: Optional[Sequence[str]],
+    max_mols: Optional[int],
+) -> Tuple[List[Chem.Mol], List[str]]:
+    """Normalize molecules and validate legends after applying the display limit."""
+    rdkit_mols = []
+    for index, mol in enumerate(mols):
+        if isinstance(mol, str):
+            mol = Chem.MolFromSmiles(mol)
+        elif not isinstance(mol, Chem.Mol):
+            raise TypeError(
+                f"Item {index} is neither an RDKit Mol nor a SMILES string: {type(mol)}"
+            )
+        rdkit_mols.append(Chem.MolFromSmiles("") if mol is None else mol)
+
+    if max_mols is not None:
+        rdkit_mols = rdkit_mols[: int(max_mols)]
+    if legends is None:
+        return rdkit_mols, [""] * len(rdkit_mols)
+    if len(legends) != len(rdkit_mols):
+        raise ValueError("legends must be the same length as mols")
+    return rdkit_mols, list(legends)
 
 
 def draw_mol_grid(
-        mols: Sequence[Union[Chem.Mol, str]],
-        legends: Optional[Sequence[str]] = None,
-        n_cols: int = 4,
-        sub_img_size: tuple = (200, 200),
-        max_mols: Optional[int] = None,
-        use_svg: bool = False,
+    mols: Sequence[Union[Chem.Mol, str]],
+    legends: Optional[Sequence[str]] = None,
+    n_cols: int = 4,
+    sub_img_size: tuple = (200, 200),
+    max_mols: Optional[int] = None,
+    use_svg: bool = False,
 ) -> Union[Image.Image, str]:
     """
     Generate a grid image of molecular structures.
@@ -3763,53 +2935,27 @@ def draw_mol_grid(
     if n_cols <= 0:
         raise ValueError("n_cols must be a positive integer")
 
-        # Convert inputs to RDKit Mol objects
-    rdkit_mols: List[Chem.Mol] = []
-    for i, m in enumerate(mols):
-        if isinstance(m, Chem.Mol):
-            mol_obj = m
-        elif isinstance(m, str):
-            mol_obj = Chem.MolFromSmiles(m)
-        else:
-            raise TypeError(f"Item {i} is neither an RDKit Mol nor a SMILES string: {type(m)}")
-
-        if mol_obj is None:
-            mol_obj = Chem.MolFromSmiles("")
-        rdkit_mols.append(mol_obj)
-
-    if max_mols is not None:
-        rdkit_mols = rdkit_mols[: int(max_mols)]
-
-        # Legends
-    if legends is None:
-        legends_list = [""] * len(rdkit_mols)
-    else:
-        if len(legends) != len(rdkit_mols):
-            raise ValueError("legends must be the same length as mols")
-        legends_list = list(legends)
-
-        # Draw
-    img = Draw.MolsToGridImage(
+    rdkit_mols, legends_list = _prepare_mol_grid(mols, legends, max_mols)
+    return Draw.MolsToGridImage(
         mols=rdkit_mols,
         molsPerRow=n_cols,
         subImgSize=sub_img_size,
         legends=legends_list,
         useSVG=use_svg,
     )
-    return img
 
 
 def draw_mol_grid_box(
-        mols: Sequence[Union[Chem.Mol, str]],
-        legends: Optional[Sequence[str]] = None,
-        sort_by: Optional[Sequence] = None,
-        n_cols: int = 4,
-        sub_img_size: Tuple[int, int] = (200, 200),
-        max_mols: Optional[int] = None,
-        box_bg: str = "#E6E6E6",
-        gap: int = 12,
-        outer_margin: int = 12,
-        inner_pad: int = 10,
+    mols: Sequence[Union[Chem.Mol, str]],
+    legends: Optional[Sequence[str]] = None,
+    sort_by: Optional[Sequence] = None,
+    n_cols: int = 4,
+    sub_img_size: Tuple[int, int] = (200, 200),
+    max_mols: Optional[int] = None,
+    box_bg: str = "#E6E6E6",
+    gap: int = 12,
+    outer_margin: int = 12,
+    inner_pad: int = 10,
 ) -> Image.Image:
     """
     Draw a grid of molecules, each on its own shaded tile.
@@ -3869,80 +3015,47 @@ def draw_mol_grid_box(
         raise ValueError("gap/outer_margin/inner_pad must be >= 0")
 
     if sort_by is not None:
-        sorted_indices = sorted(range(len(mols)), key=lambda i: sort_by[i], reverse=False)
-        mols = [mols[i] for i in sorted_indices]
+        order = sorted(range(len(mols)), key=lambda i: sort_by[i])
+        mols = [mols[i] for i in order]
         if legends is not None:
-            legends = [legends[i] for i in sorted_indices]
+            legends = [legends[i] for i in order]
 
-    # Convert inputs to RDKit Mol objects
-    rdkit_mols: List[Chem.Mol] = []
-    for i, m in enumerate(mols):
-        if isinstance(m, Chem.Mol):
-            mol_obj = m
-        elif isinstance(m, str):
-            mol_obj = Chem.MolFromSmiles(m)
-        else:
-            raise TypeError(f"Item {i} is neither an RDKit Mol nor a SMILES string: {type(m)}")
-
-        if mol_obj is None:
-            mol_obj = Chem.MolFromSmiles("")
-        rdkit_mols.append(mol_obj)
-
-    if max_mols is not None:
-        rdkit_mols = rdkit_mols[: int(max_mols)]
-
-    # Legends
-    if legends is None:
-        legends_list = [""] * len(rdkit_mols)
-    else:
-        if len(legends) != len(rdkit_mols):
-            raise ValueError("legends must be the same length as mols")
-        legends_list = list(legends)
-
-    n_mols = len(rdkit_mols)
-    if n_mols == 0:
-        # Return a tiny blank image rather than erroring
+    rdkit_mols, legends_list = _prepare_mol_grid(mols, legends, max_mols)
+    if not rdkit_mols:
         return Image.new("RGB", (outer_margin * 2 + 1, outer_margin * 2 + 1), "white")
 
-    n_rows = math.ceil(n_mols / n_cols)
+    n_rows = math.ceil(len(rdkit_mols) / n_cols)
     box_w, box_h = sub_img_size
+    inner_size = (max(1, box_w - 2 * inner_pad), max(1, box_h - 2 * inner_pad))
+    canvas_size = (
+        outer_margin * 2 + n_cols * box_w + (n_cols - 1) * gap,
+        outer_margin * 2 + n_rows * box_h + (n_rows - 1) * gap,
+    )
+    canvas = Image.new("RGB", canvas_size, "white")
 
-    # Size available for the RDKit drawing inside the grey tile
-    inner_w = max(1, box_w - 2 * inner_pad)
-    inner_h = max(1, box_h - 2 * inner_pad)
-
-    # Final canvas (white background = the "whitespace" between tiles)
-    canvas_w = outer_margin * 2 + n_cols * box_w + (n_cols - 1) * gap
-    canvas_h = outer_margin * 2 + n_rows * box_h + (n_rows - 1) * gap
-    canvas = Image.new("RGB", (canvas_w, canvas_h), "white")
-
-    # Render each molecule into its own grey tile, then paste into canvas
-    for idx, (mol, legend) in enumerate(zip(rdkit_mols, legends_list)):
-        r = idx // n_cols
-        c = idx % n_cols
-
-        # RDKit per-mol image (PIL). Legend is drawn within this image.
-        mol_img = Draw.MolToImage(mol, size=(inner_w, inner_h), legend=legend)
-
-        # Make the grey box and paste the mol drawing with padding
-        tile = Image.new("RGB", (box_w, box_h), box_bg)
-        tile.paste(mol_img, (inner_pad, inner_pad))
-
-        x = outer_margin + c * (box_w + gap)
-        y = outer_margin + r * (box_h + gap)
-        canvas.paste(tile, (x, y))
-
+    for index, (mol, legend) in enumerate(zip(rdkit_mols, legends_list)):
+        row, column = divmod(index, n_cols)
+        mol_image = Draw.MolToImage(mol, size=inner_size, legend=legend)
+        tile = Image.new("RGB", sub_img_size, box_bg)
+        tile.paste(mol_image, (inner_pad, inner_pad))
+        position = (
+            outer_margin + column * (box_w + gap),
+            outer_margin + row * (box_h + gap),
+        )
+        canvas.paste(tile, position)
     return canvas
 
 
-def plot_ir_spectrum(spectrum: np.ndarray,
-                     peaks: np.ndarray | None = None,
-                     highlight_range: Optional[Tuple[float, float]] = (400.0, 1500.0),
-                     xlab: str = 'Wavenumber (cm⁻¹)',
-                     ylab: str = 'Intensity',
-                     flip_x: bool = True,
-                     figsize: Tuple[float, float] = (8, 5),
-                     fontsize: int = 16) -> Tuple[Figure, Axes]:
+def plot_ir_spectrum(
+    spectrum: np.ndarray,
+    peaks: np.ndarray | None = None,
+    highlight_range: Optional[Tuple[float, float]] = (400.0, 1500.0),
+    xlab: str = "Wavenumber (cm⁻¹)",
+    ylab: str = "Intensity",
+    flip_x: bool = True,
+    figsize: Tuple[float, float] = (8, 5),
+    fontsize: int = 16,
+) -> Tuple[Figure, Axes]:
     """
     Plot an infrared spectrum, optionally marking detected peaks.
 
@@ -3981,38 +3094,29 @@ def plot_ir_spectrum(spectrum: np.ndarray,
     assemblytheorytools.tools_data.load_ir_jcamp_data : Load spectra from JCAMP files.
     assemblytheorytools.tools_data.find_peak_indices_in_range : Locate peak indices.
     """
-    freq = spectrum.T[0]
-    intensity = spectrum.T[1]
-    # Create a figure and axis
+    freq, intensity = spectrum.T[:2]
     fig, ax = plt.subplots(figsize=figsize)
-    ax.plot(freq, intensity, linewidth=2, color='black')
-
+    ax.plot(freq, intensity, linewidth=2, color="black")
     if peaks is not None:
-        plt.scatter(freq[peaks], intensity[peaks], color='red')
+        ax.scatter(freq[peaks], intensity[peaks], color="red")
 
-    # Apply standard styling
     ax_plot(fig, ax, xlab=xlab, ylab=ylab, xs=fontsize, ys=fontsize)
-
-    # Add highlighted background region
     if highlight_range:
-        ax.axvspan(highlight_range[0], highlight_range[1], color='lightgrey', alpha=0.5, zorder=0)
-
-    # Invert x-axis if requested (standard for IR)
+        ax.axvspan(*highlight_range, color="lightgrey", alpha=0.5, zorder=0)
     if flip_x:
         ax.invert_xaxis()
-
     return fig, ax
 
 
 def plot_ase_atoms(
-        atoms: Atoms,
-        outfile: Optional[str] = None,
-        *,
-        rotation: str = "0x,0y,0z",
-        show_unit_cell: int = 0,
-        fig_size: Tuple[float, float] = (6, 6),
-        dpi: int = 300,
-        transparent: bool = False,
+    atoms: Atoms,
+    outfile: Optional[str] = None,
+    *,
+    rotation: str = "0x,0y,0z",
+    show_unit_cell: int = 0,
+    fig_size: Tuple[float, float] = (6, 6),
+    dpi: int = 300,
+    transparent: bool = False,
 ) -> Tuple[Figure, Axes]:
     """
     Visualize an ASE Atoms object using Matplotlib.
@@ -4050,31 +3154,22 @@ def plot_ase_atoms(
     - The axis is turned off for a cleaner visualization.
     - If `outfile` is provided, the figure is saved with tight bounding and no padding.
     """
-    # Create a Matplotlib figure and axis with the specified size
     fig, ax = plt.subplots(figsize=fig_size)
-
-    # Plot the ASE Atoms object with the specified parameters
     plot_atoms(atoms, ax=ax, rotation=rotation, show_unit_cell=show_unit_cell)
-
-    # Turn off the axis for a cleaner visualization
     ax.axis("off")
-
-    # Save the figure to the specified file if `outfile` is provided
     if outfile:
-        fig.savefig(outfile,
-                    dpi=dpi,
-                    transparent=transparent,
-                    bbox_inches="tight",
-                    pad_inches=0)
-
-    # Return the Matplotlib figure and axis
+        fig.savefig(
+            outfile, dpi=dpi, transparent=transparent, bbox_inches="tight", pad_inches=0
+        )
     return fig, ax
 
 
-def plot_ms2_spectrum(ms2_processed: pd.DataFrame,
-                      parent_mz: float,
-                      tree: Dict[float, Any],
-                      figsize: Tuple[float, float] = (8, 5)) -> None:
+def plot_ms2_spectrum(
+    ms2_processed: pd.DataFrame,
+    parent_mz: float,
+    tree: Dict[float, Any],
+    figsize: Tuple[float, float] = (8, 5),
+) -> None:
     """
     Plot the MS2 spectrum for a given parent m/z value, using processed MS2 data or a fragmentation tree.
 
@@ -4105,21 +3200,26 @@ def plot_ms2_spectrum(ms2_processed: pd.DataFrame,
     - If no processed data is found, fragment m/z values from the tree are plotted with intensity 1.
     - The function applies standard axis styling and layout for publication-quality figures.
     """
-    parent_data = ms2_processed[ms2_processed['parent'].between(parent_mz - 0.01, parent_mz + 0.01)]
-    plt.figure(figsize=figsize)
+    parent_data = ms2_processed[
+        ms2_processed["parent"].between(parent_mz - 0.01, parent_mz + 0.01)
+    ]
+    fig, ax = plt.subplots(figsize=figsize)
     plot_df = None
     if len(parent_data) > 0:
-        plot_df = parent_data.sort_values('mz')
-        plt.vlines(plot_df['mz'], 0, plot_df['intensity'], color='black', linewidth=1.5)
+        plot_df = parent_data.sort_values("mz")
+        ax.vlines(plot_df["mz"], 0, plot_df["intensity"], color="black", linewidth=1.5)
         print(f"Plotting all {len(plot_df)} processed MS2 fragments", flush=True)
     else:
-        fragments = sorted(tree[parent_mz].keys())
-        plt.vlines(fragments, 0, 1, color='black', linewidth=1.5)
+        fragments = sorted(tree[parent_mz])
+        ax.vlines(fragments, 0, 1, color="black", linewidth=1.5)
         print(f"Plotting {len(fragments)} MS2 fragments from tree", flush=True)
-    plt.axhline(y=0, color='gray', linewidth=1)
-    plt.title(f'Processed Fragments (parent m/z {parent_mz:.2f})', fontsize=12,
-              fontweight='bold')
-    plt.xlim(0, max(plot_df['mz']) + 20 if len(plot_df) > 0 else 300)
-    plt.grid(alpha=0.3)
-    n_plot('MS2 m/z', 'Intensity')
-    plt.tight_layout()
+    ax.axhline(y=0, color="gray", linewidth=1)
+    ax.set_title(
+        f"Processed Fragments (parent m/z {parent_mz:.2f})",
+        fontsize=12,
+        fontweight="bold",
+    )
+    ax.set_xlim(0, max(plot_df["mz"]) + 20 if len(plot_df) > 0 else 300)
+    ax.grid(alpha=0.3)
+    ax_plot(fig, ax, "MS2 m/z", "Intensity")
+    fig.tight_layout()
