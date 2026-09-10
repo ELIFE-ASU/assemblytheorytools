@@ -88,3 +88,15 @@ test, and figures are closed automatically in headless runs.
 multiprocessing suite verifies real process and thread pools. Integration tests
 that need ORCA use `orca_path`, resolved from `ORCA_PATH` or the executable search
 path, and skip when it is unavailable.
+
+`orca_path` also runs the candidate once per session and requires it to print an
+ORCA version banner before handing it to a test. Finding a program called `orca`
+is not enough: Ubuntu's `orca` package is GNOME Orca, the accessibility screen
+reader, installed at `/usr/bin/orca` and unrelated to the quantum-chemistry
+ORCA. Without the check it reached ASE, which spent minutes on it and failed
+with a bare non-zero exit status — a misconfigured environment that reads like a
+flaky test. Prefer setting `ORCA_PATH` explicitly:
+
+```bash
+ORCA_PATH=$HOME/orca_6_1_1/orca pytest --run-integration
+```
