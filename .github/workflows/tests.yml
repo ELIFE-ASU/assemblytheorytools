@@ -88,6 +88,17 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
 
+      - name: Install the Cairo system library
+        # cairosvg is a pip dependency but binds Cairo through cffi, and pip
+        # does not supply that library. The Linux images already ship it; on
+        # macOS Homebrew installs outside dyld's default search path, so the
+        # fallback path has to name it or the import fails with OSError and the
+        # metro-plot test skips itself.
+        if: runner.os == 'macOS'
+        run: |
+          brew install cairo
+          echo "DYLD_FALLBACK_LIBRARY_PATH=$(brew --prefix)/lib:$HOME/lib:/usr/local/lib:/usr/lib" >> "$GITHUB_ENV"
+
       - name: Install the package and its test dependencies
         # Editable so coverage paths line up with the checkout. The runtime
         # dependency set is large (rdkit, ase, ...); the pip cache above keeps

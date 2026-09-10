@@ -440,14 +440,16 @@ def plot_digraph_metro(
     Raises
     ------
     ImportError
-        If the required `dagviz` or `cairosvg` libraries are not installed.
+        If the required `dagviz` or `cairosvg` libraries are not installed, or
+        if `cairosvg` cannot load the Cairo system library it binds to.
     ValueError
         If a node's 'vo' attribute is of an unsupported type.
 
     Notes
     -----
     - The `dagviz` library is used for rendering the graph in a metro-style layout.
-    - The `cairosvg` library is used to convert the SVG output to PNG format.
+    - The `cairosvg` library is used to convert the SVG output to PNG format; it
+      binds the Cairo system library, which pip does not install.
     - Node labels are determined based on the 'vo' attribute, which can be a string,
       a NetworkX graph, or an RDKit molecule object.
 
@@ -460,12 +462,20 @@ def plot_digraph_metro(
     try:
         import cairosvg
         import dagviz
-    except ImportError as e:
+    # cairosvg reaches Cairo through cffi rather than bundling it in the wheel,
+    # so a system without that library fails the import with OSError and a list
+    # of dlopen attempts instead of ImportError.
+    except (ImportError, OSError) as e:
         raise ImportError(
             "The 'dagviz' and 'cairosvg' packages are required for this function.\n"
             "Please install them via pip:\n"
             "pip install git+https://github.com/ELIFE-ASU/dagviz.git \n"
             "pip install cairosvg \n"
+            "cairosvg also needs the Cairo system library, which pip does not\n"
+            "supply. Install it with a system package manager, for example:\n"
+            "conda install -c conda-forge cairo \n"
+            "brew install cairo \n"
+            "apt-get install libcairo2 \n"
         ) from e
 
     if steps:

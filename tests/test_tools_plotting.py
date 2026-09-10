@@ -1,6 +1,8 @@
 """Behavioral contracts for plotting styles, data, and layout metadata."""
 
+import builtins
 import copy
+import importlib
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -17,6 +19,25 @@ from scipy.stats import gaussian_kde
 
 import assemblytheorytools as att
 import assemblytheorytools.tools_plotting as plotting
+
+
+def _cairo_is_available():
+    """Report whether cairosvg can load the Cairo system library it binds to.
+
+    cairosvg is a declared dependency, but the Cairo library it wraps through
+    cffi is a system package that pip cannot supply; where it is absent the
+    import raises OSError. The Conda environment files install it, and the
+    Linux CI images ship it, so this only skips on a pip-only macOS or bare
+    Linux environment.
+    """
+    try:
+        importlib.import_module("cairosvg")
+    except (ImportError, OSError):
+        return False
+    return True
+
+
+CAIRO_AVAILABLE = _cairo_is_available()
 
 
 @pytest.mark.parametrize("plot", [plotting.plot_graph, plotting.plot_mol_graph])
@@ -97,6 +118,10 @@ def test_interactive_graph_writes_html_in_requested_directory(monkeypatch, tmp_p
     assert len(network.edges) == graph.number_of_edges()
 
 
+@pytest.mark.skipif(
+    not CAIRO_AVAILABLE,
+    reason="cairosvg cannot load the Cairo system library",
+)
 @pytest.mark.parametrize("representation", ["string", "mol", "graph"])
 def test_metro_pathway_writes_svg_and_png_without_mutating_graph(
     representation, tmp_path
@@ -121,6 +146,25 @@ def test_metro_pathway_writes_svg_and_png_without_mutating_graph(
         assert image.format == "PNG"
         assert min(image.size) > 0
         image.verify()
+
+
+def test_metro_pathway_reports_a_missing_cairo_system_library(monkeypatch, tmp_path):
+    """A pip-only environment fails the cairosvg import with OSError, not ImportError."""
+    real_import = builtins.__import__
+
+    def failing_import(name, *args, **kwargs):
+        if name == "cairosvg":
+            raise OSError('no library called "cairo" was found')
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", failing_import)
+    graph = nx.DiGraph()
+    graph.add_node(0, vo="C")
+
+    with pytest.raises(ImportError, match="Cairo system library"):
+        plotting.plot_digraph_metro(graph, filename=tmp_path / "metro")
+
+    assert not list(tmp_path.iterdir())
 
 
 @pytest.mark.parametrize("plot_kind", ["graph", "pathway", "circle"])
