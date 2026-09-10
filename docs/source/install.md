@@ -12,7 +12,7 @@ pip install assemblytheorytools
 This pulls in every runtime dependency and the Rust `assembly-theory` wheel,
 which is all the {doc}`quick start <index>` needs. The C++ calculator is not
 distributed as a binary: the first calculation that needs it builds
-assemblyCPP from source, which takes a few minutes and needs `git` and a C++20
+parallelassemblycpp from source, which takes a few minutes and needs `git` and a C++20
 compiler. Set `ASS_PATH` to use a build you already have, and see
 [Configuration](configuration.md#the-c-calculator) for the details.
 
@@ -78,16 +78,17 @@ right environment:
 srun $HOME/.conda/envs/ass_env/bin/python3 my_script.py
 ```
 
-## Optional: a faster assemblyCPP build
+(optional-a-faster-assemblycpp-build)=
+## Optional: a faster parallelassemblycpp build
 
-ATT's on-demand build is a plain portable release. assemblyCPP also ships CMake
+ATT's on-demand build is a plain portable release. parallelassemblycpp also ships CMake
 presets for tuned and parallel builds, which are worth using for large
 molecules. It needs only CMake 3.25 or newer, Ninja and a C++20 compiler — no
 Boost.
 
 ```bash
-git clone https://github.com/ELIFE-ASU/assemblycpp-v5.git
-cd assemblycpp-v5
+git clone https://github.com/ELIFE-ASU/parallelassemblycpp.git
+cd parallelassemblycpp
 cmake --preset performance      # tuned for x86-64-v3
 cmake --build --preset performance
 export ASS_PATH=$PWD/build/performance/AssemblyCpp
@@ -95,7 +96,7 @@ export ASS_PATH=$PWD/build/performance/AssemblyCpp
 
 `--preset release` builds a portable executable instead, and
 `--preset parallel` adds OpenMP and MPI search. See the
-[assemblycpp-v5 README](https://github.com/ELIFE-ASU/assemblycpp-v5) for the
+[parallelassemblycpp README](https://github.com/ELIFE-ASU/parallelassemblycpp) for the
 full list of presets and for its CC BY-NC 4.0 licence, which is more
 restrictive than this package's MIT licence.
 

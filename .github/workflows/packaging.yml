@@ -60,7 +60,7 @@ jobs:
         # An editable install, which every other job uses, does not exercise
         # the shipped layout, so this is the only place it is verified. The
         # C++ calculator is deliberately not distributed: it is built from
-        # assemblycpp-v5 on demand, and its CC BY-NC licence is incompatible
+        # parallelassemblycpp on demand, and its CC BY-NC licence is incompatible
         # with shipping it inside this MIT package.
         run: |
           python - <<'PY'
@@ -151,7 +151,7 @@ jobs:
         # The calculation uses the Rust backend, which arrives as a declared
         # dependency, so this job proves the wheel installs and computes
         # without needing a C++ toolchain. The C++ backend is covered by
-        # tests.yml, which builds it from assemblycpp-v5.
+        # tests.yml, which builds it from parallelassemblycpp.
         env:
           MPLBACKEND: Agg
           EXPECTED_VERSION: ${{ needs.build.outputs.version }}

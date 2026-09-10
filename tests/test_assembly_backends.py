@@ -1,6 +1,7 @@
 """External calculator process, timeout, logging and build contracts."""
 
 import os
+import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -119,7 +120,7 @@ def assemblycpp_cache(tmp_path, monkeypatch):
 
 
 def test_build_assembly_cpp_orchestration(assemblycpp_cache, monkeypatch):
-    """The builder clones assemblycpp-v5, configures it safely, and installs it."""
+    """The builder clones parallelassemblycpp, configures it safely, and installs it."""
     calls = []
     monkeypatch.setattr(assembly.shutil, "which", lambda name: f"/usr/bin/{name}")
     monkeypatch.setattr(assembly.subprocess, "run",
@@ -134,14 +135,14 @@ def test_build_assembly_cpp_orchestration(assemblycpp_cache, monkeypatch):
 
     clone = next(argv for argv in calls if argv[:2] == ["git", "clone"])
     assert clone[-2:] == [
-        "https://github.com/ELIFE-ASU/assemblycpp-v5.git",
+        "https://github.com/ELIFE-ASU/parallelassemblycpp.git",
         source,
     ]
     assert ["git", "-C", source, "fetch", "--quiet", "origin", "main"] in calls
 
     configure = next(argv for argv in calls if "-S" in argv)
     assert configure[:5] == ["/usr/bin/cmake", "-S", source, "-B", build]
-    # A newer compiler than assemblycpp-v5 tests against must not fail the
+    # A newer compiler than parallelassemblycpp tests against must not fail the
     # build, and its test executables are not wanted here.
     assert "-DASSEMBLYCPP_STRICT_WARNINGS=OFF" in configure
     assert "-DBUILD_TESTING=OFF" in configure
@@ -171,6 +172,39 @@ def test_build_assembly_cpp_honours_the_ref_override(assemblycpp_cache, monkeypa
     assert att.build_assembly_cpp() == built
     fetches = len([argv for argv in calls if "fetch" in argv])
     assert fetches == 1
+
+
+def test_fetch_assembly_cpp_updates_cached_checkout_origin(tmp_path, monkeypatch):
+    """A cached checkout still rebuilds after its original remote disappears."""
+    upstream = tmp_path / "upstream"
+    source = tmp_path / "cached-source"
+
+    def git(*args):
+        return subprocess.run(
+            ["git", *map(str, args)], check=True, capture_output=True, text=True
+        ).stdout.strip()
+
+    def commit(message):
+        git("-C", upstream, "add", "revision.txt")
+        git("-C", upstream, "-c", "user.name=Test", "-c",
+            "user.email=test@example.com", "-c", "commit.gpgsign=false",
+            "commit", "-m", message)
+
+    git("init", "--initial-branch=main", upstream)
+    revision = upstream / "revision.txt"
+    revision.write_text("initial")
+    commit("Initial revision")
+    git("clone", upstream, source)
+    git("-C", source, "remote", "set-url", "origin", tmp_path / "removed-origin")
+    revision.write_text("updated")
+    commit("Updated revision")
+    monkeypatch.setattr(assembly, "_ASSEMBLYCPP_REPOSITORY", str(upstream))
+
+    assembly._fetch_assembly_cpp(source, "main")
+
+    assert git("-C", source, "remote", "get-url", "origin") == str(upstream)
+    assert (source / "revision.txt").read_text() == "updated"
+    assert git("-C", source, "rev-parse", "HEAD") == git("-C", upstream, "rev-parse", "HEAD")
 
 
 def test_build_assembly_cpp_reports_missing_build_tools(assemblycpp_cache, monkeypatch):

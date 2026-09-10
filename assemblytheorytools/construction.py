@@ -1285,7 +1285,7 @@ def immediate_predecessors(
     Parameters
     ----------
     data : dict
-        The pathway data from assemblycpp (JSON format).
+        The pathway data from parallelassemblycpp (JSON format).
     interval : tuple
         A tuple of the form (start, length) indicating the interval.
 
@@ -1337,7 +1337,7 @@ def build_str(
     interval : tuple
         A tuple of the form (start, end) indicating the interval to build.
     data : dict
-        The pathway data from assemblycpp (JSON format).
+        The pathway data from parallelassemblycpp (JSON format).
     path : nx.DiGraph
         The current pathway graph.
 

@@ -1,4 +1,4 @@
-# Build the C++ calculator the assemblyCPP backend shells out to.
+# Build the C++ calculator the parallelassemblycpp backend shells out to.
 #
 # The package no longer ships a precompiled executable, so anything that
 # exercises `calculate_assembly_index` needs one built from source. This mirrors
@@ -9,42 +9,42 @@
 # package, so installing it is enough, and running this afterwards doubles as a
 # check that those declarations are correct.
 
-name: Build AssemblyCpp
-description: Build assemblycpp-v5 and export its executable as ASS_PATH.
+name: Build parallelassemblycpp
+description: Build parallelassemblycpp and export its executable as ASS_PATH.
 
 runs:
   using: composite
 
   steps:
-    - name: Resolve the assemblycpp-v5 revision
+    - name: Resolve the parallelassemblycpp revision
       id: revision
       shell: bash
       # ATT tracks the calculator's default branch rather than a pinned commit,
       # so the cache is keyed on whatever that branch currently points at.
       run: |
-        sha=$(git ls-remote https://github.com/ELIFE-ASU/assemblycpp-v5.git HEAD | cut -f1)
-        [ -n "$sha" ] || { echo "::error::could not resolve assemblycpp-v5 HEAD"; exit 1; }
+        sha=$(git ls-remote https://github.com/ELIFE-ASU/parallelassemblycpp.git HEAD | cut -f1)
+        [ -n "$sha" ] || { echo "::error::could not resolve parallelassemblycpp HEAD"; exit 1; }
         echo "sha=$sha" >> "$GITHUB_OUTPUT"
-        echo "assemblycpp-v5 is at $sha"
+        echo "parallelassemblycpp is at $sha"
 
     - name: Restore the cached build
       id: cache
       uses: actions/cache@v6
       with:
-        path: ${{ runner.temp }}/assemblycpp
-        key: assemblycpp-${{ runner.os }}-${{ runner.arch }}-${{ steps.revision.outputs.sha }}
+        path: ${{ runner.temp }}/parallelassemblycpp
+        key: parallelassemblycpp-${{ runner.os }}-${{ runner.arch }}-${{ steps.revision.outputs.sha }}
 
-    - name: Build and install AssemblyCpp
+    - name: Build and install parallelassemblycpp
       if: steps.cache.outputs.cache-hit != 'true'
       shell: bash
       # Deliberately not `cmake --preset release`: the preset turns warnings
-      # into errors, so a compiler newer than the one assemblycpp-v5 tests
+      # into errors, so a compiler newer than the one parallelassemblycpp tests
       # against would fail the build. BUILD_TESTING has to be set explicitly
       # because include(CTest) otherwise turns it on.
       run: |
-        source="${{ runner.temp }}/assemblycpp-src"
+        source="${{ runner.temp }}/parallelassemblycpp-src"
         git clone --quiet --filter=blob:none \
-          https://github.com/ELIFE-ASU/assemblycpp-v5.git "$source"
+          https://github.com/ELIFE-ASU/parallelassemblycpp.git "$source"
         git -C "$source" checkout --quiet --detach ${{ steps.revision.outputs.sha }}
         cmake -S "$source" -B "$source/build" -G Ninja \
           -DCMAKE_BUILD_TYPE=Release \
@@ -52,13 +52,13 @@ runs:
           -DASSEMBLYCPP_STRICT_WARNINGS=OFF \
           -DASSEMBLYCPP_BUILD_TELEMETRY=OFF
         cmake --build "$source/build" --parallel
-        cmake --install "$source/build" --prefix "${{ runner.temp }}/assemblycpp"
+        cmake --install "$source/build" --prefix "${{ runner.temp }}/parallelassemblycpp"
 
     - name: Export the executable path
       shell: bash
       # Setting ASS_PATH means the suite never triggers the on-demand build, so
       # a failure here is a build failure rather than a mysterious test timeout.
       run: |
-        executable="${{ runner.temp }}/assemblycpp/bin/AssemblyCpp"
+        executable="${{ runner.temp }}/parallelassemblycpp/bin/AssemblyCpp"
         "$executable" --help > /dev/null
         echo "ASS_PATH=$executable" >> "$GITHUB_ENV"

@@ -3,7 +3,7 @@ Assembly index calculation for molecules, strings and graphs.
 
 This module wraps the external assembly calculators and exposes them through a
 uniform interface. Three backends are supported: the ``AssemblyCpp``
-executable from assemblycpp-v5, the ``assembly_theory`` Rust extension, and
+executable from parallelassemblycpp, the ``assembly_theory`` Rust extension, and
 ``assemblycfg`` for context-free-grammar upper bounds. Helpers are provided for
 locating and building the C++ executable, parsing its output, correcting joint
 assembly indices, and deriving bounds, ratios and similarity measures.
@@ -56,7 +56,7 @@ from .tools_string import (prep_joint_string_ai,
 
 # Patterns emitted by the C++ assembler, on its output file and log respectively
 _AI_PATTERN = re.compile(r"assembly index:\s*(\d+)")
-# assemblycpp-v5 logs "Best assembly index: N (T clock ticks)"; the executables
+# parallelassemblycpp logs "Best assembly index: N (T clock ticks)"; the executables
 # this package used to bundle logged "min AI found so far: N". Accept both, so an
 # older binary on ASS_PATH still reports a bound after a timeout.
 _MIN_AI_PATTERN = re.compile(r"(?:min AI found so far|Best assembly index):\s*(\d+)")
@@ -66,7 +66,7 @@ _STATUS_PATTERN = re.compile(r"^status:[ \t]*(.+?)[ \t]*$", re.MULTILINE)
 # The source of the C++ calculator. Tracking a branch rather than a pinned
 # commit keeps ATT current with the calculator it drives; the weekly scheduled
 # test run is what catches a breaking change there.
-_ASSEMBLYCPP_REPOSITORY = "https://github.com/ELIFE-ASU/assemblycpp-v5.git"
+_ASSEMBLYCPP_REPOSITORY = "https://github.com/ELIFE-ASU/parallelassemblycpp.git"
 _ASSEMBLYCPP_MINIMUM_CMAKE = (3, 25)
 _ASSEMBLYCPP_EXECUTABLE = (
     "AssemblyCpp.exe" if platform.system() == "Windows" else "AssemblyCpp"
@@ -311,7 +311,7 @@ def _require_cmake() -> str:
     Returns
     -------
     str
-        Absolute path to a cmake new enough to configure assemblycpp-v5.
+        Absolute path to a cmake new enough to configure parallelassemblycpp.
 
     Raises
     ------
@@ -347,7 +347,7 @@ def _require_cmake() -> str:
 
 def _fetch_assembly_cpp(source: Path, ref: str) -> None:
     """
-    Clone or update the assemblycpp-v5 checkout at *source* and check out *ref*.
+    Clone or update the parallelassemblycpp checkout at *source* and check out *ref*.
 
     Parameters
     ----------
@@ -374,6 +374,14 @@ def _fetch_assembly_cpp(source: Path, ref: str) -> None:
              _ASSEMBLYCPP_REPOSITORY, str(source)],
             check=True,
         )
+    else:
+        # Cached checkouts can predate an upstream repository rename. Use the
+        # current URL on rebuild instead of depending on a hosting redirect.
+        subprocess.run(
+            ["git", "-C", str(source), "remote", "set-url", "origin",
+             _ASSEMBLYCPP_REPOSITORY],
+            check=True,
+        )
 
     subprocess.run(["git", "-C", str(source), "fetch", "--quiet", "origin", ref],
                    check=True)
@@ -385,7 +393,7 @@ def build_assembly_cpp(ref: Optional[str] = None, force: bool = False) -> str:
     """
     Build AssemblyCpp from source and install it into the ATT cache directory.
 
-    Clone or update `assemblycpp-v5 <https://github.com/ELIFE-ASU/assemblycpp-v5>`_,
+    Clone or update `parallelassemblycpp <https://github.com/ELIFE-ASU/parallelassemblycpp>`_,
     configure and build it with CMake, and install the executable under
     ``$XDG_CACHE_HOME/assemblytheorytools/assemblycpp`` (``~/.cache`` by
     default).
@@ -418,9 +426,9 @@ def build_assembly_cpp(ref: Optional[str] = None, force: bool = False) -> str:
       yourself.
     - The build deliberately does not use the repository's ``release`` CMake
       preset. The preset requires Ninja and turns warnings into errors, so a
-      compiler newer than the one assemblycpp-v5 tests against can fail the
+      compiler newer than the one parallelassemblycpp tests against can fail the
       build; configuring explicitly avoids both.
-    - assemblycpp-v5 is licensed CC BY-NC 4.0, which is more restrictive than
+    - parallelassemblycpp is licensed CC BY-NC 4.0, which is more restrictive than
       this package's MIT licence. That is why the executable is built on demand
       rather than distributed with ATT.
     - On success the build tree is removed and the source checkout is kept, so

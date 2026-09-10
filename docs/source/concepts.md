@@ -91,7 +91,7 @@ value returned by the calculator.
 ATT does not implement the search itself; it prepares input, drives an external
 calculator and parses the result. Three backends are available.
 
-assemblyCPP
+parallelassemblycpp
 : The default. A C++ branch-and-bound calculator, invoked by
   {func}`~assemblytheorytools.assembly.calculate_assembly_index`. The
   executable is not distributed with ATT: it is found through `ASS_PATH` or

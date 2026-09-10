@@ -8,7 +8,7 @@ pytest
 
 The default run needs no live service and no external dataset, but it does need
 the C++ calculator. That is not shipped as a binary, so the first test that uses
-it builds assemblycpp-v5 from source, which takes a few minutes and needs `git`
+it builds parallelassemblycpp from source, which takes a few minutes and needs `git`
 and a C++20 compiler. Point `ASS_PATH` at an executable you already have to skip
 that:
 

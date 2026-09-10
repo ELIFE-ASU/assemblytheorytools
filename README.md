@@ -30,7 +30,7 @@ elementary parts, while allowing previously created intermediates to be reused. 
 structure and repetition rather than size alone.
 
 For molecules, the elementary parts are bonds and the calculation is performed on the molecular graph. ATT exposes the
-[assemblyCPP](https://github.com/ELIFE-ASU/assemblycpp-v5) C++ calculator, the
+[parallelassemblycpp](https://github.com/ELIFE-ASU/parallelassemblycpp) C++ calculator, the
 [assembly-theory](https://github.com/DaymudeLab/assembly-theory) Rust calculator, and
 [assemblycfg](https://github.com/ELIFE-ASU/assemblycfg) for fast approximate string calculations through one Python
 package.
@@ -49,9 +49,9 @@ python -m pip install assemblytheorytools
 ```
 
 > **Platform note:** The C++ calculator is not distributed as a binary. The first calculation that needs it builds
-> [assemblyCPP](https://github.com/ELIFE-ASU/assemblycpp-v5) from source into `~/.cache/assemblytheorytools`, which
+> [parallelassemblycpp](https://github.com/ELIFE-ASU/parallelassemblycpp) from source into `~/.cache/assemblytheorytools`, which
 > takes a few minutes and needs a C++20 compiler. To use a build you already have, set `ASS_PATH` instead; see
-> **Use your own assemblyCPP build** below.
+> **Use your own parallelassemblycpp build** below.
 
 Calculate and plot the assembly pathway for caffeine:
 
@@ -137,7 +137,7 @@ quantity ATT computes, with its inputs, its outputs, and what it is used for.
 
 | Backend | Main interface | Best suited to | Result |
 | --- | --- | --- | --- |
-| assemblyCPP (C++) | `calculate_assembly_index` | Default molecule and graph calculations | Index, virtual objects, and pathway |
+| parallelassemblycpp (C++) | `calculate_assembly_index` | Default molecule and graph calculations | Index, virtual objects, and pathway |
 | assembly-theory (Rust) | `calculate_assembly_index_rust` | Fast molecular index calculations | Index |
 | assembly-theory search (Rust) | `calculate_assembly_index_rust_search` | Search statistics, options, and supported pathway reconstruction | Structured search result |
 | Graph bounds | `calculate_assembly_index_upper_bound` and `calculate_assembly_index_lower_bound` | Fast size-based estimates | Upper or lower bound |
@@ -146,7 +146,7 @@ quantity ATT computes, with its inputs, its outputs, and what it is used for.
 The Rust backend always strips hydrogens. For a meaningful comparison, compare it with
 `calculate_assembly_index(..., strip_hydrogen=True)`.
 
-The PyPI distribution ships no assemblyCPP binary. ATT looks for an `AssemblyCpp` executable in `ASS_PATH`, then on
+The PyPI distribution ships no parallelassemblycpp binary. ATT looks for an `AssemblyCpp` executable in `ASS_PATH`, then on
 `PATH`, then in its own cache, and builds one from source if it finds none. A single executable covers molecules,
 graphs and strings. See [configuration](https://assemblytheorytools.readthedocs.io/en/latest/configuration.html) for
 all backend options and environment variables.
@@ -220,21 +220,21 @@ srun "$HOME/.conda/envs/att/bin/python3" my_script.py
 </details>
 
 <details>
-<summary><strong>Use your own assemblyCPP build</strong></summary>
+<summary><strong>Use your own parallelassemblycpp build</strong></summary>
 
-ATT builds assemblyCPP on demand, but a build you control is worth having: it skips the wait on first use, and an
+ATT builds parallelassemblycpp on demand, but a build you control is worth having: it skips the wait on first use, and an
 optimised build is faster on supported hardware. Build it once:
 
 ```bash
-git clone https://github.com/ELIFE-ASU/assemblycpp-v5.git
-cmake -S assemblycpp-v5 -B assemblycpp-v5/build/release -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
-cmake --build assemblycpp-v5/build/release --parallel
+git clone https://github.com/ELIFE-ASU/parallelassemblycpp.git
+cmake -S parallelassemblycpp -B parallelassemblycpp/build/release -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+cmake --build parallelassemblycpp/build/release --parallel
 ```
 
 Then set `ASS_PATH` to the **full path of the executable**, not its containing directory:
 
 ```bash
-export ASS_PATH=$PWD/assemblycpp-v5/build/release/AssemblyCpp
+export ASS_PATH=$PWD/parallelassemblycpp/build/release/AssemblyCpp
 ```
 
 The same executable computes molecular, graph and string assembly indices. `ASS_STR_PATH` is only needed to point
@@ -242,9 +242,9 @@ string calculations at a *different* build; it falls back to `ASS_PATH` when uns
 
 To build a specific revision on demand instead, set `ATT_ASSEMBLYCPP_REF` to a branch, tag or commit. For the
 optimised and parallel build presets, see the
-[installation guide](https://assemblytheorytools.readthedocs.io/en/latest/install.html#optional-a-faster-assemblycpp-build).
+[installation guide](https://assemblytheorytools.readthedocs.io/en/latest/install.html#optional-a-faster-parallelassemblycpp-build).
 
-> assemblyCPP is licensed CC BY-NC 4.0, which is more restrictive than this package's MIT licence. That is why ATT
+> parallelassemblycpp is licensed CC BY-NC 4.0, which is more restrictive than this package's MIT licence. That is why ATT
 > builds it on demand rather than distributing it.
 
 </details>

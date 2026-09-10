@@ -12,10 +12,10 @@ avoids the on-demand build of the C++ calculator described below.
   then ATT's cache directory, and finally builds the calculator with
   {func}`~assemblytheorytools.assembly.build_assembly_cpp`. Whatever it finds
   is stored in this variable for the current Python process. Set it to use your
-  own build — for example an [optimised build](install.md#optional-a-faster-assemblycpp-build):
+  own build — for example an [optimised build](install.md#optional-a-faster-parallelassemblycpp-build):
 
   ```bash
-  export ASS_PATH=$HOME/assemblycpp-v5/build/release/AssemblyCpp
+  export ASS_PATH=$HOME/parallelassemblycpp/build/release/AssemblyCpp
   ```
 
 `ASS_STR_PATH`
@@ -25,7 +25,7 @@ avoids the on-demand build of the C++ calculator described below.
 
 `ATT_ASSEMBLYCPP_REF`
 : Branch, tag or commit of
-  [assemblycpp-v5](https://github.com/ELIFE-ASU/assemblycpp-v5) that
+  [parallelassemblycpp](https://github.com/ELIFE-ASU/parallelassemblycpp) that
   {func}`~assemblytheorytools.assembly.build_assembly_cpp` builds. Defaults to
   `main`.
 
@@ -62,19 +62,19 @@ setting should persist.
 
 ## The C++ calculator
 
-The distribution ships no assemblyCPP binary. assemblyCPP is licensed
+The distribution ships no parallelassemblycpp binary. parallelassemblycpp is licensed
 CC BY-NC 4.0, which is more restrictive than this package's MIT licence, and a
 prebuilt binary would in any case only serve one platform. Instead, the first
 calculation that needs it runs
 {func}`~assemblytheorytools.assembly.build_assembly_cpp`, which clones
-[assemblycpp-v5](https://github.com/ELIFE-ASU/assemblycpp-v5), builds it and
+[parallelassemblycpp](https://github.com/ELIFE-ASU/parallelassemblycpp), builds it and
 installs the executable into ATT's cache directory. That takes a few minutes and
 needs `git`, CMake 3.25 or newer, and a C++20 compiler; CMake and Ninja are
 installed as dependencies of this package.
 
 The build is deliberate about two settings. It does not use the repository's
 `release` CMake preset, which turns warnings into errors and would fail on a
-compiler newer than the one assemblycpp-v5 tests against, and it sets
+compiler newer than the one parallelassemblycpp tests against, and it sets
 `BUILD_TESTING=OFF`, which CMake otherwise turns on. Set `ASS_PATH` to skip the
 build entirely.
 

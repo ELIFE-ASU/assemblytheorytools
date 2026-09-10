@@ -65,7 +65,7 @@ _BOND_TYPE_TO_SMI_SYMBOL = {
 
 def bond_order_assout_to_int(edge_color: str | int) -> int:
     """
-    Convert an Assembly CPP edge colour to an integer bond order.
+    Convert a parallelassemblycpp edge colour to an integer bond order.
 
     Parameters
     ----------
@@ -279,7 +279,7 @@ def remove_hydrogen_from_graph(graph: nx.Graph) -> nx.Graph:
 
 def write_ass_graph_file(graph: nx.Graph, file_name: str = "graph_info") -> None:
     """
-    Write a graph in the edge-list format used by Assembly CPP.
+    Write a graph in the edge-list format used by parallelassemblycpp.
 
     Parameters
     ----------
@@ -310,15 +310,15 @@ def write_ass_graph_file(graph: nx.Graph, file_name: str = "graph_info") -> None
 
     for node, color in vertex_colors.items():
         assert isinstance(color, str), (
-            f"Node color for node {node} is not a string. Not allowed for Assembly CPP."
+            f"Node color for node {node} is not a string. Not allowed for parallelassemblycpp."
         )
         assert " " not in color, (
-            f"Node color for node {node} contains a space. Not allowed for Assembly CPP."
+            f"Node color for node {node} contains a space. Not allowed for parallelassemblycpp."
         )
 
     for edge, color in edge_colors.items():
         assert isinstance(color, int), (
-            f"Edge color for edge {edge} is not an integer. Not allowed for Assembly CPP."
+            f"Edge color for edge {edge} is not an integer. Not allowed for parallelassemblycpp."
         )
 
     with open(file_name, "w") as file:
