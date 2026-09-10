@@ -44,18 +44,19 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install ruff
-        run: python -m pip install ruff
+      - name: Install the lint tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --group lint
 
       # Deliberately a narrow rule set: syntax errors (E9), undefined names
       # (F82) and always-wrong comparisons (F63, F7). These are bugs rather
       # than style, so the gate is green today without first reformatting the
       # whole codebase; widen the selection once that backlog is cleared.
       - name: Check for syntax errors and undefined names
-        # --isolated ignores any local ruff configuration, so the gate is
-        # exactly the rules named here, and --output-format=github annotates
-        # the offending lines in the pull-request diff.
-        run: ruff check --isolated --select E9,F63,F7,F82 --output-format=github .
+        # Use the shared configuration in pyproject.toml. The GitHub output
+        # format annotates the offending lines in the pull-request diff.
+        run: ruff check --output-format=github .
 
   test:
     name: Python ${{ matrix.python-version }} on ${{ matrix.os }}
@@ -94,6 +95,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
+          python -m pip check
 
       - name: Report the resolved dependency versions
         # Dependencies are unpinned, so the failing version is the first thing
@@ -142,6 +144,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
+          python -m pip check
 
       - name: Build the C++ calculator
         uses: ./.github/actions/parallelassemblycpp

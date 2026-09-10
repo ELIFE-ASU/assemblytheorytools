@@ -82,7 +82,7 @@ jobs:
 
     environment:
       name: ${{ github.event_name == 'release' && 'pypi' || inputs.target }}
-      url: ${{ github.event_name == 'release' && 'https://pypi.org/p/assemblytheorytools' || 'https://test.pypi.org/p/assemblytheorytools' }}
+      url: ${{ (github.event_name == 'release' || inputs.target == 'pypi') && 'https://pypi.org/p/assemblytheorytools' || 'https://test.pypi.org/p/assemblytheorytools' }}
 
     steps:
       - name: Retrieve the built distributions

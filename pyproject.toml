@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=77"]
+requires = ["setuptools>=77.0.3"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -9,6 +9,7 @@ description = "A centralised set of tools for doing assembly theory calculations
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
+license-files = ["LICENSE"]
 
 authors = [
     { name = "Louie Slocombe", email = "louies@hotmail.co.uk" },
@@ -34,30 +35,28 @@ classifiers = [
 
 dependencies = [
     "ase>=3.23.0",
-    "numpy>=2.1.3",
-    "scipy>=1.15.1",
-    "pandas>=2.2.3",
-    "matplotlib>=3.9.2",
-    "networkx>=3.4.2",
-    "pydot>=3.0.1",
-    "rdkit>=2024.03.5",
-    "ipython>=8.30.0",
-    "pyvis>=0.3.2",
-    "pubchempy>=1.0.5",
-    "cairosvg>=2.8.2",
-    "pillow>=10.1.0",
-    "dagviz>=0.5.0",
-    # Pinned exactly: the search API gains keyword arguments between releases
-    # (0.6.0 rejects `timeout`, 0.6.1 rejects `max_pathways`), so the floor and
-    # the ceiling are the same version. Bump deliberately, with the tests.
+    # The Rust search API is version-sensitive (timeout and max_pathways).
+    # Upgrade this pin only after exercising the backend tests.
     "assembly-theory==0.7.0",
     "assemblycfg>=1.2.2",
-    # Build tools for the C++ calculator, which is compiled on first use from
-    # https://github.com/ELIFE-ASU/parallelassemblycpp rather than shipped as a
-    # binary. parallelassemblycpp needs CMake 3.25 or newer.
+    "cairosvg>=2.8.2",
+    "dagviz>=0.5.0",
+    "filelock>=3.16",
+    "ipython>=8.30.0",
+    "matplotlib>=3.9.2",
+    "networkx>=3.4.2",
+    "numpy>=2.1.3",
+    "pandas>=2.2.3",
+    "pillow>=10.1.0",
+    "pubchempy>=1.0.5",
+    "pydot>=3.0.1",
+    "pyvis>=0.3.2",
+    "rdkit>=2024.03.5",
+    "scipy>=1.15.1",
+    # Required for the C++ calculator's on-demand build, not the Python wheel.
+    # Git and a C++20 compiler are supplied by the host (or Conda environment).
     "cmake>=3.25",
     "ninja",
-    "filelock>=3.16",
 ]
 
 [project.optional-dependencies]
@@ -81,11 +80,30 @@ Repository = "https://github.com/ELIFE-ASU/assemblytheorytools"
 Issues = "https://github.com/ELIFE-ASU/assemblytheorytools/issues"
 Changelog = "https://github.com/ELIFE-ASU/assemblytheorytools/releases"
 
+# Install repository tooling with pip >=25.1: pip install --group build --group lint.
+# These groups are not runtime requirements or published package extras.
+[dependency-groups]
+build = [
+    "build>=1.2.2",
+    "twine>=6.1",
+]
+lint = [
+    "ruff>=0.9",
+]
+
 [tool.setuptools.packages.find]
-include = ["assemblytheorytools*"]
+include = ["assemblytheorytools", "assemblytheorytools.*"]
+namespaces = false
 
 [tool.setuptools.package-data]
-"assemblytheorytools" = ["data/*"]
+"assemblytheorytools" = ["data/integer_chain_9999.txt", "data/test_molecule_data.csv"]
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
+# Syntax errors, undefined names and invalid comparisons; match the CI gate.
+select = ["E9", "F63", "F7", "F82"]
 
 [tool.pytest.ini_options]
 minversion = "8.4"

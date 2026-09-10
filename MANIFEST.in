@@ -1,7 +1,10 @@
-graft assemblytheorytools/data
-
 # The test suite ships in the sdist only; it is not packaged into the wheel.
 graft tests
 
+# Keep the local packaging instructions and environment definitions in the sdist.
+include CONTRIBUTING.md
+graft build_tools
+
 global-exclude *.py[cod]
 prune tests/__pycache__
+prune assemblytheorytools/precompiled

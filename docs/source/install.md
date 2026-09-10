@@ -6,7 +6,7 @@ Unix-like systems; on Windows, use the Windows Subsystem for Linux.
 ## From PyPI
 
 ```bash
-pip install assemblytheorytools
+python -m pip install assemblytheorytools
 ```
 
 This pulls in every runtime dependency and the Rust `assembly-theory` wheel,
@@ -21,61 +21,69 @@ compiler. Set `ASS_PATH` to use a build you already have, and see
 ```bash
 git clone https://github.com/ELIFE-ASU/assemblytheorytools.git
 cd assemblytheorytools
-pip install -e ".[dev,docs]"
+python -m pip install -e ".[dev,docs]"
 ```
 
 The `dev` extra adds `pytest` and `pytest-cov`; the `docs` extra adds Sphinx,
 MyST-NB and the theme used to build this site; the `notebooks` extra adds
 JupyterLab for running the protocol notebooks. Omit any extra when it is not
-needed.
+needed. Dependency versions are declared in the repository's `pyproject.toml`.
+
+To install the build and lint tools, use pip 25.1 or newer and the dependency
+groups declared in the same file:
+
+```bash
+python -m pip install --upgrade "pip>=25.1"
+python -m pip install --group build --group lint
+python -m build
+python -m twine check --strict dist/*
+```
+
+For documentation build systems that require a requirements file, run
+`python -m pip install -r docs/requirements.txt` from the repository root. This
+installs the package with its `docs` extra. Build the documentation with
+`make -C docs strict`.
 
 ## Conda environment
 
-Starting from a fresh environment avoids dependency conflicts.
+The repository provides Conda environment files with Python, Git, a C++ compiler
+and Cairo. They use only conda-forge and select Python 3.12–3.14, the versions
+tested in CI. Python package dependencies are installed through pip from ATT's
+package metadata.
+
+After cloning the repository, run these commands from its root to install the
+published package in a fresh environment:
 
 ```bash
-conda create -n ass_env python=3.13
-conda activate ass_env
+conda env create -f build_tools/environment.yml
+conda activate att_env
 ```
 
-Add `conda-forge` and make the channel priority strict, otherwise the RDKit and
-ASE builds can be resolved against incompatible channels:
+For an editable development installation with test, documentation and notebook
+extras, use the development environment instead:
 
 ```bash
-conda config --env --add channels conda-forge
-conda config --env --set channel_priority strict
-conda config --show channels
+conda env create -f build_tools/environment_dev.yml
+conda activate att_dev_env
+python -m pip install --group build --group lint
 ```
-
-Install the compiled dependencies through conda, then the rest through pip:
-
-```bash
-conda install numpy scipy matplotlib networkx pydot rdkit pyvis ase -y
-pip install git+https://github.com/ELIFE-ASU/dagviz.git assemblycfg assembly-theory
-pip install assemblytheorytools
-```
-
-For a development environment, add `pytest` to the `conda install` line and
-clone the repository instead of installing from PyPI.
 
 ## HPC (SOL)
 
+On SOL, load Mamba and create the same environment from the repository root.
+Module names and activation commands may differ on other HPC systems.
+
 ```bash
 module load mamba/latest
-mamba create -n ass_env -c conda-forge python=3.13
-source activate ass_env
-mamba install -c conda-forge numpy scipy matplotlib networkx rdkit pyvis ase -y
-pip install assemblytheorytools
+mamba env create -f build_tools/environment.yml
+source activate att_env
 ```
-
-If the dependency install is killed for exceeding memory, split it into several
-smaller `mamba install` commands.
 
 On an HPC scheduler, invoke Python by absolute path so the job lands in the
 right environment:
 
 ```bash
-srun $HOME/.conda/envs/ass_env/bin/python3 my_script.py
+srun "$HOME/.conda/envs/att_env/bin/python3" my_script.py
 ```
 
 (optional-a-faster-assemblycpp-build)=

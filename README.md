@@ -165,7 +165,9 @@ versions live in
 ```bash
 git clone https://github.com/ELIFE-ASU/assemblytheorytools.git
 cd assemblytheorytools
+python -m pip install --upgrade "pip>=25.1"
 python -m pip install -e ".[dev]"
+python -m pip install --group build --group lint
 pytest
 ```
 
@@ -185,36 +187,34 @@ for the full development workflow.
 <details>
 <summary><strong>Use a Conda environment</strong></summary>
 
-Create an isolated environment, then install ATT with pip so the package metadata remains the single source of truth for
-its dependencies:
+From the root of a repository checkout, create an environment with Python, Git, a C++ compiler and Cairo. The environment
+uses only conda-forge and Python 3.12–3.14; pip installs ATT's Python dependencies from its package metadata:
 
 ```bash
-conda create -n att -c conda-forge python=3.13
-conda activate att
-conda config --env --set channel_priority strict
-python -m pip install assemblytheorytools
+conda env create -f build_tools/environment.yml
+conda activate att_env
 ```
 
-For development, clone the repository and replace the final command with `python -m pip install -e ".[dev]"`.
+For an editable development installation, use `build_tools/environment_dev.yml` and activate `att_dev_env` instead.
+See [`build_tools/README.md`](build_tools/README.md) for the build tools and checks.
 
 </details>
 
 <details>
 <summary><strong>Install on an HPC system (including SOL)</strong></summary>
 
-Module names vary between systems. On SOL, a typical setup is:
+Module names vary between systems. On SOL, run these commands from the root of a repository checkout:
 
 ```bash
 module load mamba/latest
-mamba create -n att -c conda-forge python=3.13
-source activate att
-python -m pip install assemblytheorytools
+mamba env create -f build_tools/environment.yml
+source activate att_env
 ```
 
 When submitting a scheduled job, use the environment's Python executable explicitly:
 
 ```bash
-srun "$HOME/.conda/envs/att/bin/python3" my_script.py
+srun "$HOME/.conda/envs/att_env/bin/python3" my_script.py
 ```
 
 </details>

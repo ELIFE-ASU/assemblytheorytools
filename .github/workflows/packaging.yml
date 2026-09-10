@@ -25,6 +25,7 @@ jobs:
   build:
     name: Build and inspect distributions
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -39,7 +40,9 @@ jobs:
           python-version: "3.12"
 
       - name: Install the build tooling
-        run: python -m pip install --upgrade pip build twine
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --group build
 
       - name: Read the declared version
         id: version
@@ -89,13 +92,20 @@ jobs:
 
           (wheel,) = Path("dist").glob("*.whl")
           with zipfile.ZipFile(wheel) as archive:
-              check(wheel.name, set(archive.namelist()))
+              names = set(archive.namelist())
+          check(wheel.name, names)
+          if any(n.startswith("tests/") for n in names):
+              failures.append(f"{wheel.name} ships the test suite")
+          if not any(n.endswith(".dist-info/licenses/LICENSE") for n in names):
+              failures.append(f"{wheel.name} is missing LICENSE")
 
           (sdist,) = Path("dist").glob("*.tar.gz")
           with tarfile.open(sdist) as archive:
               names = set(archive.getnames())
           root = f"{sdist.name.removesuffix('.tar.gz')}/"
           check(sdist.name, names, root)
+          if root + "LICENSE" not in names:
+              failures.append(f"{sdist.name} is missing LICENSE")
           # The suite ships in the sdist only (see MANIFEST.in).
           if not any(n.startswith(root + "tests/") for n in names):
               failures.append(f"{sdist.name} is missing the test suite")
@@ -144,6 +154,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install dist/*.whl
+          python -m pip check
 
       - name: Smoke-test the installed package
         # There is deliberately no checkout, so the import below can only
