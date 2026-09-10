@@ -69,12 +69,13 @@ def test_string_timeout_returns_a_bound_only_when_one_was_logged(
 ):
     calculation_dir = tmp_path / "calculation"
 
-    def timed_out(executable, input_file, log_file, timeout, debug):
+    def timed_out(executable, input_file, log_file, timeout, debug, **kwargs):
         Path(log_file).write_text(log)
         return True
 
-    monkeypatch.setattr(assembly.tempfile, "mkdtemp", lambda: str(calculation_dir))
-    monkeypatch.setattr(assembly, "_run_string_assembler", timed_out)
+    calculation_dir.mkdir()
+    monkeypatch.setattr(assembly.tempfile, "mkdtemp", lambda **kwargs: str(calculation_dir))
+    monkeypatch.setattr(assembly, "_run_assembler", timed_out)
 
     result = att.calculate_string_assembly_index("abab", dir_code="assembler")
 
@@ -150,67 +151,61 @@ def test_directed_str_data():
 
 
 @pytest.mark.parametrize("debug", [False, True])
+@pytest.mark.parametrize("return_log_file", [False, True])
 @pytest.mark.parametrize("timeouts", [0, 1, 2])
-@pytest.mark.parametrize("mode", ["str", "mol"])
 def test_string_backend_timeout_and_file_lifecycle(
-    tmp_path, monkeypatch, debug, timeouts, mode
+    tmp_path, monkeypatch, debug, return_log_file, timeouts
 ):
-    """String runs retain debug files and recover bounds after interrupt or kill."""
+    """Both interrupt and kill are bounded, and returned logs remain readable."""
     calculation_dir = tmp_path / "calculation"
+    calculation_dir.mkdir()
     events = []
-    output = b"min AI found so far: 9\nmin AI found so far: 7\ninvalid: \xff\n"
+    output = "min AI found so far: 9\nmin AI found so far: 7\n"
 
     class Process:
         attempts = 0
+        returncode = 0
 
-        def communicate(self, timeout=None):
+        def wait(self, timeout=None):
             self.attempts += 1
             if self.attempts <= timeouts:
+                assert timeout in (1, 2)
                 raise assembly.subprocess.TimeoutExpired("assembler", timeout)
-            return output, None
 
         def send_signal(self, signal):
             events.append(signal)
 
-        def wait(self):
-            pass
-
         def kill(self):
             events.append("kill")
 
-    def start_process(command, *, stdout, stderr, cwd):
-        assert command == [
-            "assembler",
-            str(calculation_dir / "string_in"),
-            "-runStrings=1",
-        ]
+        def poll(self):
+            return self.returncode
+
+    def start_process(command, *, stdout, stderr, stdin, cwd):
+        assert command[:2] == ["assembler", str(calculation_dir / "string_in")]
+        assert "-runStrings=1" in command
+        assert "-runTime=1000000" in command
+        assert stdout is stderr
         assert cwd == str(calculation_dir)
         assert Path(command[1]).read_text() == "abab0baba"
         Path(command[1] + "Out").write_text("assembly index: 5\n")
+        stdout.write(output)
         return Process()
 
-    monkeypatch.setattr(assembly.tempfile, "mkdtemp", lambda: str(calculation_dir))
+    monkeypatch.setattr(assembly.tempfile, "mkdtemp", lambda **kwargs: str(calculation_dir))
     monkeypatch.setattr(assembly.subprocess, "Popen", start_process)
 
     result = assembly.calculate_string_assembly_index(
-        ["abab", "baba"],
-        dir_code="assembler",
-        timeout=1,
-        debug=debug,
-        mode=mode,
-        return_log_file=True,
+        ["abab", "baba"], dir_code="assembler", timeout=1, debug=debug,
+        return_log_file=return_log_file,
     )
 
     assert result[:3] == (5 if timeouts else 3, None, None)
-    assert isinstance(result[0], int)
-    assert result[3] == str(calculation_dir / "assembly_output.log")
-    assert calculation_dir.exists() is debug
-    if debug:
-        assert Path(result[3]).read_text() == output.decode(errors="replace")
+    assert calculation_dir.exists() is (debug or return_log_file)
+    if return_log_file:
+        assert Path(result[3]).read_text() == output
     assert events == (
-        []
-        if not timeouts
-        else [assembly.signal.SIGINT] + (["kill"] if timeouts == 2 else [])
+        [] if not timeouts else [assembly.signal.SIGINT] + (["kill"] if timeouts == 2 else [])
     )
 
 

@@ -11,6 +11,7 @@ charge assignment, and GraphML serialisation.
 import os
 import random
 from functools import reduce
+from numbers import Integral
 from typing import Iterable, List, Set, Tuple, Union
 
 import networkx as nx
@@ -284,8 +285,9 @@ def write_ass_graph_file(graph: nx.Graph, file_name: str = "graph_info") -> None
     Parameters
     ----------
     graph : nx.Graph
-        The graph to write. Node identifiers must support adding 1;
-        calculators expect consecutive integer labels starting at 0.
+        A simple undirected graph with consecutive integer node labels
+        starting at 0, nonempty whitespace-free string node colours, and
+        integer edge colours from 1 through 32767.
     file_name : str, optional
         Destination path. Default is "graph_info".
 
@@ -295,39 +297,63 @@ def write_ass_graph_file(graph: nx.Graph, file_name: str = "graph_info") -> None
 
     Raises
     ------
-    AssertionError
-        If a supplied node colour is not a string without spaces, or a
-        supplied edge colour is not an integer.
+    ValueError
+        If the graph cannot be represented by the calculator's native format.
+        Validation finishes before the destination is opened.
 
     Notes
     -----
     The five lines contain the name, node count, one-based edge endpoints,
-    node colours and edge colours, in graph iteration order. No extra
-    newline is appended after the final line.
+    node colours and edge colours. Node colours follow numeric node order;
+    endpoints and edge colours follow edge iteration order. Every line is
+    terminated, including the empty bond-colour line of an edgeless graph.
     """
-    vertex_colors = nx.get_node_attributes(graph, "color")
-    edge_colors = nx.get_edge_attributes(graph, "color")
+    if graph.is_directed() or graph.is_multigraph():
+        raise ValueError("AssemblyCpp requires a simple undirected graph.")
+    node_count = graph.number_of_nodes()
+    if node_count > 32767:
+        raise ValueError("AssemblyCpp supports at most 32767 vertices.")
+    if any(
+        not isinstance(node, Integral) or isinstance(node, bool) for node in graph
+    ) or set(graph) != set(range(node_count)):
+        raise ValueError(
+            "AssemblyCpp node labels must be consecutive integers starting at 0; "
+            "use canonicalize_node_labels first."
+        )
+    name = str(graph.name)
+    if "\n" in name or "\r" in name:
+        raise ValueError("The graph name must fit on one line.")
 
-    for node, color in vertex_colors.items():
-        assert isinstance(color, str), (
-            f"Node color for node {node} is not a string. Not allowed for parallelassemblycpp."
-        )
-        assert " " not in color, (
-            f"Node color for node {node} contains a space. Not allowed for parallelassemblycpp."
-        )
+    vertex_colors = []
+    for node in range(node_count):
+        color = graph.nodes[node].get("color")
+        if not isinstance(color, str) or not color or any(c.isspace() for c in color):
+            raise ValueError(
+                f"Node color for node {node} must be a nonempty string without whitespace."
+            )
+        vertex_colors.append(color)
 
-    for edge, color in edge_colors.items():
-        assert isinstance(color, int), (
-            f"Edge color for edge {edge} is not an integer. Not allowed for parallelassemblycpp."
-        )
+    endpoints = []
+    edge_colors = []
+    for u, v, data in graph.edges(data=True):
+        if u == v:
+            raise ValueError("AssemblyCpp does not support self-loop edges.")
+        color = data.get("color")
+        if (
+            not isinstance(color, Integral)
+            or isinstance(color, bool)
+            or not 1 <= color <= 32767
+        ):
+            raise ValueError(
+                f"Edge color for edge {(u, v)} must be an integer from 1 through 32767."
+            )
+        endpoints.extend((str(u + 1), str(v + 1)))
+        edge_colors.append(str(color))
 
-    with open(file_name, "w") as file:
-        file.write(f"{graph.name}\n{graph.number_of_nodes()}\n")
-        file.write(
-            " ".join(f"{node + 1}" for edge in graph.edges() for node in edge) + "\n"
-        )
-        file.write(" ".join(f"{color}" for color in vertex_colors.values()) + "\n")
-        file.write(" ".join(f"{color}" for color in edge_colors.values()))
+    lines = [name, str(node_count), " ".join(endpoints),
+             " ".join(vertex_colors), " ".join(edge_colors)]
+    with open(file_name, "w", encoding="utf-8") as file:
+        file.write("\n".join(lines) + "\n")
 
 
 def is_graph_isomorphic(g1: nx.Graph, g2: nx.Graph) -> bool:

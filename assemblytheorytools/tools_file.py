@@ -176,6 +176,24 @@ def prep_json(json_path: str) -> None:
         json.dump(data, stream, indent=4)
 
 
+def _read_assembly_json(json_path: str) -> dict:
+    """Read current or legacy AssemblyCpp pathway JSON without rewriting it."""
+    with open(json_path, encoding="utf-8") as stream:
+        raw = stream.read()
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        # Older executables emitted unquoted bond names and empty entries for
+        # colours above five. Current output is valid JSON and needs no repair.
+        repaired = re.sub(
+            r'"EdgeColours"\s*:\s*\[(.*?)\]',
+            _edge_colours_replacer,
+            raw,
+            flags=re.DOTALL,
+        )
+        return json.loads(repaired)
+
+
 def _edge_colours_replacer(match: Match[str]) -> str:
     """Fill empty entries and quote bare values in an ``EdgeColours`` match."""
     fixed_items = []

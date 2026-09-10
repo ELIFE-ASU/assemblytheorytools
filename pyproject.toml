@@ -57,6 +57,7 @@ dependencies = [
     # binary. parallelassemblycpp needs CMake 3.25 or newer.
     "cmake>=3.25",
     "ninja",
+    "filelock>=3.16",
 ]
 
 [project.optional-dependencies]

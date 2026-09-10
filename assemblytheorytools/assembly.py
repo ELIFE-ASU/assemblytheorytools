@@ -20,16 +20,17 @@ import sys
 import tempfile
 import time
 import traceback
-from datetime import datetime
+from contextlib import contextmanager
 from functools import cache, partial
 from importlib.metadata import PackageNotFoundError, version
-from math import ceil
+from math import ceil, isfinite
 from pathlib import Path
 from typing import (Union, List, Optional, Sequence, Tuple, Dict, Any,
                     NamedTuple, Callable, Hashable, Iterable)
 
 import assembly_theory as at_rust
 import assemblycfg
+from filelock import FileLock
 import networkx as nx
 import numpy as np
 from rdkit.Chem import AllChem as Chem
@@ -41,7 +42,7 @@ from .construction import (_VO_TYPES,
                            parse_string_pathway_file,
                            molstr_to_str,
                            convert_digraph_vo_to_target)
-from .tools_file import prep_json, safe_folder_remove
+from .tools_file import _read_assembly_json, safe_folder_remove
 from .tools_graph import (write_ass_graph_file,
                           remove_hydrogen_from_graph,
                           nx_to_mol,
@@ -71,6 +72,9 @@ _ASSEMBLYCPP_MINIMUM_CMAKE = (3, 25)
 _ASSEMBLYCPP_EXECUTABLE = (
     "AssemblyCpp.exe" if platform.system() == "Windows" else "AssemblyCpp"
 )
+_ASSEMBLYCPP_EXECUTABLE_NAMES = (
+    "Parallel" + _ASSEMBLYCPP_EXECUTABLE, _ASSEMBLYCPP_EXECUTABLE
+)
 
 
 def _read_ai_from_output(file_path: str) -> int:
@@ -81,21 +85,16 @@ def _read_ai_from_output(file_path: str) -> int:
 
 
 def _scan_log_for_min_ai(log_file: str, debug: bool = False) -> int:
-    """Return the last logged minimum, or -1 when no bound was reported.
-
-    Scan in reverse to recover the best bound from a run that timed out.
-    """
-    with open(log_file, "r") as log:
-        log_lines = log.readlines()
-
-    if debug:
-        print(f"log_lines: {log_lines}")
-
-    for line in reversed(log_lines):
-        match = _MIN_AI_PATTERN.search(line)
-        if match:
-            return int(match.group(1))
-    return -1
+    """Recover the last logged bound without loading the whole log into memory."""
+    bound = -1
+    with open(log_file, encoding="utf-8", errors="replace") as log:
+        for line in log:
+            if debug:
+                print(line, end="")
+            match = _MIN_AI_PATTERN.search(line)
+            if match:
+                bound = int(match.group(1))
+    return bound
 
 
 def _read_status_from_output(file_path: str) -> Optional[str]:
@@ -222,7 +221,7 @@ def add_assembly_to_path(str_mode: bool = False) -> str:
     """
     Return the path to the AssemblyCpp executable, building it if necessary.
 
-    A single AssemblyCpp executable computes molecular, graph and string
+    A single ParallelAssemblyCpp executable computes molecular, graph and string
     assembly indices; string mode is selected per call with ``-runStrings=1``
     rather than by a separate binary. ``ASS_STR_PATH`` is therefore only an
     override for pointing string calculations at a different build.
@@ -249,7 +248,8 @@ def add_assembly_to_path(str_mode: bool = False) -> str:
     Notes
     -----
     Resolution order is ``ASS_STR_PATH`` (only when *str_mode*), ``ASS_PATH``,
-    the executable on ``PATH``, the cached build under
+    ``ParallelAssemblyCpp`` (or the older ``AssemblyCpp``) on ``PATH``, the
+    cached build under
     ``$XDG_CACHE_HOME/assemblytheorytools/assemblycpp``, and finally a fresh
     :func:`build_assembly_cpp`. A resolved path is cached in ``ASS_PATH``, so
     the search and any build happen once per process. A value taken from
@@ -260,14 +260,10 @@ def add_assembly_to_path(str_mode: bool = False) -> str:
     if os.environ.get("ASS_PATH"):
         return os.environ["ASS_PATH"]
 
-    executable = shutil.which(_ASSEMBLYCPP_EXECUTABLE)
+    executable = next((found for name in _ASSEMBLYCPP_EXECUTABLE_NAMES
+                       if (found := shutil.which(name))), None)
     if executable is None:
-        cached = _assemblycpp_cache_dir() / "bin" / _ASSEMBLYCPP_EXECUTABLE
-        if cached.is_file():
-            executable = str(cached)
-        else:
-            print("AssemblyCpp not found.", flush=True)
-            executable = build_assembly_cpp()
+        executable = build_assembly_cpp()
 
     os.environ["ASS_PATH"] = executable
     return executable
@@ -298,7 +294,8 @@ def _which_build_tool(name: str) -> Optional[str]:
     if found is not None:
         return found
 
-    candidate = Path(sys.executable).parent / name
+    suffix = ".exe" if platform.system() == "Windows" else ""
+    candidate = Path(sys.executable).parent / (name + suffix)
     if candidate.is_file() and os.access(candidate, os.X_OK):
         return str(candidate)
     return None
@@ -335,12 +332,18 @@ def _require_cmake() -> str:
     if cmake is None:
         raise OSError(f"Cannot build AssemblyCpp: cmake was not found on PATH. {advice}")
 
-    report = subprocess.run([cmake, "--version"], capture_output=True, text=True).stdout
-    found = re.search(r"(\d+)\.(\d+)", report)
-    if found and tuple(int(part) for part in found.groups()) < _ASSEMBLYCPP_MINIMUM_CMAKE:
+    try:
+        report = subprocess.run([cmake, "--version"], check=True,
+                                capture_output=True, text=True).stdout
+    except (OSError, subprocess.CalledProcessError) as error:
+        raise OSError(f"Cannot build AssemblyCpp: {cmake} --version failed. {advice}") from error
+    found = re.search(r"cmake version (\d+)\.(\d+)", report)
+    if found is None:
+        raise OSError(f"Cannot build AssemblyCpp: {cmake} reported no CMake version. {advice}")
+    if tuple(int(part) for part in found.groups()) < _ASSEMBLYCPP_MINIMUM_CMAKE:
         raise OSError(
             f"Cannot build AssemblyCpp: it needs cmake {minimum} or newer, but "
-            f"{cmake} reports {found.group(0)}. {advice}"
+            f"{cmake} reports {'.'.join(found.groups())}. {advice}"
         )
     return cmake
 
@@ -389,28 +392,48 @@ def _fetch_assembly_cpp(source: Path, ref: str) -> None:
                     "FETCH_HEAD"], check=True)
 
 
+def _cached_assembly_cpp(prefix: Path, ref: Optional[str]) -> Optional[str]:
+    """Reuse an executable only when its recorded source matches the request.
+
+    Older caches have no build record. They remain usable without an explicit
+    ref, but cannot satisfy a request for a particular branch, tag or commit.
+    """
+    executable = prefix / "bin" / _ASSEMBLYCPP_EXECUTABLE
+    if not executable.is_file() or not os.access(executable, os.X_OK):
+        return None
+    try:
+        record = json.loads((prefix / "build.json").read_text())
+    except FileNotFoundError:
+        return str(executable) if ref is None else None
+    except (OSError, ValueError):
+        return None
+    if record == {"repository": _ASSEMBLYCPP_REPOSITORY, "ref": ref or "main"}:
+        return str(executable)
+    return None
+
+
 def build_assembly_cpp(ref: Optional[str] = None, force: bool = False) -> str:
     """
-    Build AssemblyCpp from source and install it into the ATT cache directory.
+    Build parallelassemblycpp and install its executable into the ATT cache.
 
     Clone or update `parallelassemblycpp <https://github.com/ELIFE-ASU/parallelassemblycpp>`_,
     configure and build it with CMake, and install the executable under
     ``$XDG_CACHE_HOME/assemblytheorytools/assemblycpp`` (``~/.cache`` by
-    default).
+    default). The cache retains the historical executable name ``AssemblyCpp``.
 
     Parameters
     ----------
     ref : str, optional
         Branch, tag or commit to build. Defaults to ``ATT_ASSEMBLYCPP_REF`` if
-        set, otherwise ``main``.
+        set, otherwise ``main``. Changing the ref rebuilds a cached executable.
     force : bool, optional
-        If True, rebuild even when a cached executable is already present.
-        Default is False.
+        Rebuild even when the cache already holds the requested ref. Use this
+        to fetch updates to a branch or tag. Default is False.
 
     Returns
     -------
     str
-        Path to the installed AssemblyCpp executable.
+        Path to the installed executable.
 
     Raises
     ------
@@ -421,77 +444,88 @@ def build_assembly_cpp(ref: Optional[str] = None, force: bool = False) -> str:
 
     Notes
     -----
-    - This clones over the network and runs a compiler; use it only in trusted
-      environments. Set ``ASS_PATH`` instead to use an executable you built
-      yourself.
-    - The build deliberately does not use the repository's ``release`` CMake
-      preset. The preset requires Ninja and turns warnings into errors, so a
-      compiler newer than the one parallelassemblycpp tests against can fail the
-      build; configuring explicitly avoids both.
+    - This clones over the network and runs a compiler. Set ``ASS_PATH`` to use
+      an executable you built yourself.
+    - CMake is configured explicitly instead of using the upstream ``release``
+      preset: warnings are not errors, and tests and telemetry are disabled.
     - parallelassemblycpp is licensed CC BY-NC 4.0, which is more restrictive than
-      this package's MIT licence. That is why the executable is built on demand
-      rather than distributed with ATT.
-    - On success the build tree is removed and the source checkout is kept, so
-      that a rebuild is cheap. On failure both are left in place.
+      this package's MIT licence. The executable is built on demand rather than
+      distributed with ATT.
+    - A file lock serializes builds across processes. Installation is staged
+      before replacing the cached executable, so a failed build preserves it.
+    - On success the build tree is removed and the source checkout is kept.
+      On failure both are left in place for inspection.
     """
     prefix = _assemblycpp_cache_dir()
-    executable = prefix / "bin" / _ASSEMBLYCPP_EXECUTABLE
-    if executable.is_file() and not force:
-        return str(executable)
+    prefix.mkdir(parents=True, exist_ok=True)
+    ref = ref or os.environ.get("ATT_ASSEMBLYCPP_REF") or None
+    with FileLock(str(prefix / "build.lock")):
+        cached = _cached_assembly_cpp(prefix, ref)
+        if cached is not None and not force:
+            return cached
+        return _build_assembly_cpp(prefix, ref or "main")
 
+
+def _build_assembly_cpp(prefix: Path, ref: str) -> str:
+    """Build and publish one executable while the caller holds the cache lock."""
     cmake = _require_cmake()
-    ref = ref or os.environ.get("ATT_ASSEMBLYCPP_REF") or "main"
     source = prefix / "src"
     build = prefix / "build"
+    install = build / "install"
+    executable = prefix / "bin" / _ASSEMBLYCPP_EXECUTABLE
 
-    print(f"Building AssemblyCpp ({ref}) in {build}", flush=True)
-    start_time = time.time()
-
+    print(f"Building parallelassemblycpp ({ref}) in {build}", flush=True)
+    start_time = time.monotonic()
     configure = [
         cmake, "-S", str(source), "-B", str(build),
         "-DCMAKE_BUILD_TYPE=Release",
-        # include(CTest) turns BUILD_TESTING on unless it is set explicitly,
-        # which would compile a dozen unwanted test executables.
+        "-DCMAKE_INSTALL_BINDIR=bin",
         "-DBUILD_TESTING=OFF",
-        # The project treats warnings as errors by default; a newer compiler
-        # emitting a new warning must not break the build for a consumer.
+        "-DPARALLELASSEMBLYCPP_STRICT_WARNINGS=OFF",
+        "-DPARALLELASSEMBLYCPP_BUILD_TELEMETRY=OFF",
+        # Keep explicit older refs buildable across upstream's project rename.
         "-DASSEMBLYCPP_STRICT_WARNINGS=OFF",
         "-DASSEMBLYCPP_BUILD_TELEMETRY=OFF",
     ]
-    # Ninja is a dependency of this package, but the build must still work when
-    # only a default generator is available. Naming the executable explicitly
-    # matters: cmake looks for it on PATH, where a pip-installed ninja beside
-    # the interpreter does not appear unless the environment is activated.
+    # A pip-installed ninja can sit beside the interpreter, outside PATH.
     ninja = _which_build_tool("ninja")
     if ninja is not None:
         configure += ["-G", "Ninja", f"-DCMAKE_MAKE_PROGRAM={ninja}"]
 
-    # A tree left behind by a failed attempt records the generator it was
-    # configured with, so reconfiguring in place can fail on a mismatch.
+    # A failed build can retain an incompatible CMake generator or revision.
     shutil.rmtree(build, ignore_errors=True)
-
     try:
         _fetch_assembly_cpp(source, ref)
         subprocess.run(configure, check=True)
-        subprocess.run([cmake, "--build", str(build), "--parallel"], check=True)
-        subprocess.run([cmake, "--install", str(build), "--prefix", str(prefix)],
-                       check=True)
+        subprocess.run([cmake, "--build", str(build), "--config", "Release",
+                        "--parallel"], check=True)
+        subprocess.run([cmake, "--install", str(build), "--config", "Release",
+                        "--prefix", str(install)], check=True)
     except subprocess.CalledProcessError as error:
         raise OSError(
-            f"Building AssemblyCpp failed: {' '.join(str(part) for part in error.cmd)} "
+            f"Building parallelassemblycpp failed: {' '.join(str(part) for part in error.cmd)} "
             f"exited with {error.returncode}. The source and build trees are left "
             f"under {prefix} for inspection; see {_ASSEMBLYCPP_REPOSITORY} for the "
             f"build instructions."
         ) from error
 
-    print(f"Build time: {time.time() - start_time:.2f} seconds", flush=True)
-    shutil.rmtree(build, ignore_errors=True)
-
-    if not executable.is_file():
+    installed = next((install / "bin" / name for name in _ASSEMBLYCPP_EXECUTABLE_NAMES
+                      if (install / "bin" / name).is_file()), None)
+    if installed is None:
         raise FileNotFoundError(
-            f"AssemblyCpp built successfully but was not installed to {executable}"
+            f"parallelassemblycpp built successfully but installed no executable "
+            f"under {install}. The source and build trees are left under {prefix} "
+            "for inspection."
         )
-    executable.chmod(0o755)
+
+    installed.chmod(0o755)
+    record = build / "build.json"
+    record.write_text(json.dumps({"repository": _ASSEMBLYCPP_REPOSITORY, "ref": ref}) + "\n")
+    executable.parent.mkdir(parents=True, exist_ok=True)
+    installed.replace(executable)
+    record.replace(prefix / "build.json")
+    shutil.rmtree(build, ignore_errors=True)
+    print(f"Build time: {time.monotonic() - start_time:.2f} seconds", flush=True)
     return str(executable)
 
 
@@ -517,13 +551,13 @@ def joint_assembly_index_correction(mol: Union[nx.Graph, Chem.Mol], ass_index: i
         If the input type is not supported.
     """
     if isinstance(mol, nx.Graph):
-        num_components = nx.number_connected_components(mol)
+        num_components = sum(len(component) > 1 for component in nx.connected_components(mol))
     elif isinstance(mol, Chem.Mol):
-        num_components = len(Chem.rdmolops.GetMolFrags(mol=Chem.Mol(mol)))
+        num_components = sum(len(fragment) > 1 for fragment in Chem.rdmolops.GetMolFrags(mol))
     else:
         raise ValueError("Input not supported")
 
-    # Each additional component costs one joining operation
+    # The calculator assembles bonds; isolated atoms add no joining operations.
     return ass_index - max(0, num_components - 1)
 
 
@@ -539,6 +573,117 @@ def _convert_timeout_for_platform(seconds: float) -> int:
     if "linux" in system or "darwin" in system:
         return int(seconds * 1_000_000)
     return int(seconds)
+
+
+def _validate_cpp_timeout(timeout: float) -> None:
+    """Reject unusable budgets before creating files or resolving a calculator."""
+    if not isinstance(timeout, (int, float)) or not isfinite(timeout) or timeout < 0:
+        raise ValueError("timeout must be a finite, non-negative number of seconds")
+
+
+@contextmanager
+def _calculation_directory(*, save: bool = False, debug: bool = False,
+                           return_log_file: bool = False):
+    """Own all run files, retaining them only when the caller requests them."""
+    directory = Path(
+        tempfile.mkdtemp(prefix="ai_calc_", dir=".")
+        if save or debug else tempfile.mkdtemp()
+    ).resolve()
+    if debug:
+        print(f"Calculation directory: {directory}", flush=True)
+    try:
+        yield directory
+    finally:
+        if not (save or debug or return_log_file):
+            shutil.rmtree(directory)
+
+
+def _calculator_error(message: str, log_file: str) -> OSError:
+    """Include the end of the log even when temporary files will be removed."""
+    with open(log_file, "rb") as log:
+        log.seek(0, os.SEEK_END)
+        log.seek(max(0, log.tell() - 4096))
+        detail = log.read().decode(errors="replace").strip()
+    return OSError(f"{message}. AssemblyCpp log: {log_file}" +
+                   (f"\n{detail}" if detail else ""))
+
+
+def _run_assembler(dir_code: str, file_path_in: str, log_file: str,
+                   timeout: float, debug: bool, *, str_mode: bool = False) -> bool:
+    """Run either C++ mode with a bounded wait and a log streamed to disk.
+
+    SIGINT gives the calculator two seconds to save its best result. A process
+    that ignores the interrupt is killed and reaped before its files are read.
+    """
+    executable = os.path.expanduser(os.fspath(dir_code))
+    if os.path.dirname(executable):
+        executable = os.path.abspath(executable)
+    command = [executable, file_path_in, "-memTest=0", "-removeHydrogens=0",
+               "-compensateDisjoint=0", f"-runTime={_convert_timeout_for_platform(timeout)}"]
+    if str_mode:
+        command.append("-runStrings=1")
+    if debug:
+        print(f"Calling: {command}", flush=True)
+
+    timed_out = False
+    with open(log_file, "w") as log:
+        process = subprocess.Popen(
+            command, stdin=subprocess.DEVNULL, stdout=log, stderr=log,
+            cwd=os.path.dirname(file_path_in),
+        )
+        try:
+            try:
+                process.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                print("Warning: Assembly calculation timed out.", flush=True)
+                # The package supports POSIX. On Windows, terminate instead:
+                # Popen cannot deliver SIGINT to an ordinary child process.
+                if os.name == "nt":
+                    process.terminate()
+                else:
+                    process.send_signal(signal.SIGINT)
+                try:
+                    process.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait()
+        finally:
+            # Also reap children if the caller interrupts Python or an error
+            # occurs while requesting the calculator's cooperative shutdown.
+            if process.poll() is None:
+                process.kill()
+                process.wait()
+
+    if process.returncode and not timed_out:
+        raise _calculator_error(
+            f"AssemblyCpp exited with status {process.returncode}", log_file)
+    return timed_out
+
+
+def _read_calculation_index(file_path_out: str, log_file: str, timed_out: bool,
+                            *, exact: bool = False, debug: bool = False) -> int:
+    """Interpret completion and bounds identically for molecules and strings."""
+    status = _read_status_from_output(file_path_out)
+    if status is not None:
+        print(f"Warning: the assembly search stopped early ({status}).", flush=True)
+    if timed_out or status is not None:
+        bound = _read_bound_after_early_stop(file_path_out, log_file, status, debug)
+        if bound == -1:
+            print("No assembly index found before the search stopped.", flush=True)
+        elif exact:
+            print(f"Discarding the inexact bound AI <= {bound}.", flush=True)
+        else:
+            print(f"Upper bound to AI found: AI <= {bound}", flush=True)
+        return -1 if exact else bound
+
+    try:
+        ai = _read_ai_from_output(file_path_out)
+    except FileNotFoundError:
+        ai = -1
+    if ai == -1:
+        raise _calculator_error("AssemblyCpp produced no assembly index", log_file)
+    return ai
 
 
 def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
@@ -564,11 +709,12 @@ def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
     graph : Union[nx.Graph, Chem.Mol]
         The input molecular graph or RDKit molecule.
     dir_code : str, optional
-        Path to the assembly executable; if None, the bundled/compiled binary
-        is located via add_assembly_to_path or equivalent.
+        Path to the assembly executable. If None, locate or build it via
+        :func:`add_assembly_to_path`.
     timeout : float, optional
-        Maximum time in seconds to allow the external calculator to run.
-        Default is 100.0.
+        Maximum search time in seconds; must be finite and non-negative.
+        A timed-out calculator gets up to two more seconds to save its result
+        before it is killed. Default is 100.0.
     save_dir : bool, optional
         If True, save the temporary files and directories used for the calculation.
         Default is False.
@@ -583,7 +729,8 @@ def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
         Default is False.
     return_log_file : bool, optional
         If True, return the path to the log file produced by the external run as
-        the fourth element of the returned tuple. Default is False.
+        the fourth element of the returned tuple, retaining its directory.
+        No log is produced for a trivial input. Default is False.
     canonicalize : bool, optional
         If True, canonicalize the node labels in the graph.
         Default is True.
@@ -613,9 +760,10 @@ def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
     -----
     - When the calculator times out, the best bound logged so far is returned
       instead, unless ``exact`` is True in which case ``-1`` is returned.
-    - Temporary working directories named like ``ai_calc_<timestamp>`` are created
+    - Temporary working directories named like ``ai_calc_<unique suffix>`` are created
       in the working directory when ``save_dir`` (or ``debug``) is True; otherwise
-      a system temporary directory is used.
+      a system temporary directory is used. Files are removed on completion
+      or failure unless ``save_dir``, ``debug`` or ``return_log_file`` is True.
     - For reproducible behaviour consider using ``debug=True`` to preserve the
       temporary folder and log files.
     - ``strip_hydrogen=True`` strips a copy, so ``graph`` is left unchanged
@@ -646,109 +794,54 @@ def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
     >>> ethanol.number_of_nodes()
     9
     """
-    ai = -1
-    virtual_objects = None
-    pathway = None
-    timed_out = False
-
-    if dir_code is None:
-        dir_code = add_assembly_to_path()
-
-    temp_dir = (
-        f"ai_calc_{datetime.now().strftime('%H_%M_%f')}"
-        if save_dir or debug else tempfile.mkdtemp()
-    )
-    os.makedirs(temp_dir, exist_ok=True)
-
-    molecule_input = type(graph) is Chem.Mol
+    _validate_cpp_timeout(timeout)
+    molecule_input = isinstance(graph, Chem.Mol)
     if molecule_input:
         graph = mol_to_nx(graph)
-
+    elif not isinstance(graph, nx.Graph):
+        raise ValueError("Input must be a NetworkX graph or RDKit molecule")
     if strip_hydrogen:
         graph = remove_hydrogen_from_graph(graph)
     if canonicalize:
         graph = canonicalize_node_labels(graph)
-    file_path_in = os.path.join(temp_dir, "graph_in")
-    write_ass_graph_file(graph, file_name=file_path_in)
 
-    file_path_out = file_path_in + "Out"
-    file_path_pathway = file_path_in + "Pathway"
-    log_file = os.path.join(temp_dir, "assembly_output.log")
+    has_edges = graph.number_of_edges() > 0
+    with _calculation_directory(save=save_dir, debug=debug,
+                                return_log_file=return_log_file and has_edges) as directory:
+        file_path_in = str(directory / "graph_in")
+        file_path_out = file_path_in + "Out"
+        file_path_pathway = file_path_in + "Pathway"
+        log_file = str(directory / "assembly_output.log")
+        # Validate and serialize before resolving a possibly missing executable.
+        write_ass_graph_file(graph, file_name=file_path_in)
+        if not has_edges:
+            return (0, None, None, None) if return_log_file else (0, None, None)
+        if dir_code is None:
+            dir_code = add_assembly_to_path()
+        timed_out = _run_assembler(dir_code, file_path_in, log_file, timeout, debug)
+        ai = _read_calculation_index(file_path_out, log_file, timed_out,
+                                     exact=exact, debug=debug)
+        virtual_objects = pathway = None
+        if os.path.isfile(file_path_pathway):
+            try:
+                pathway, virtual_objects = parse_pathway_file(
+                    file_path_pathway, vo_type="graph", debug=debug, input_graph=graph)
+                if molecule_input:
+                    virtual_objects = [nx_to_smi(v, add_hydrogens=False)
+                                       for v in virtual_objects]
+                    pathway = convert_digraph_vo_to_target(pathway, target="smi")
+            except Exception as error:
+                print(f"Failed to load pathway data: {error}", flush=True)
+                if debug:
+                    traceback.print_exc()
 
-    timeout_flag = _convert_timeout_for_platform(timeout)
-
-    try:
-        with open(log_file, "w") as log:
-            start_time = time.time()
-            process = subprocess.Popen(
-                [dir_code,
-                 file_path_in,
-                 '-memTest=0',
-                 '-removeHydrogens=0',
-                 '-compensateDisjoint=0',
-                 f'-runTime={timeout_flag}'],
-                stdout=log,
-                stderr=log
-            )
-            process.wait()
-            if time.time() - start_time > timeout:
-                timed_out = True
-                print("Warning: Assembly calculation timed out.", flush=True)
-
-    except Exception as e:
-        print(f"Error: {e}", flush=True)
-        if debug:
-            traceback.print_exc()
-
-    # The assembler exits normally when its own runtime or enumeration limit
-    # trips, so the wall-clock check above can miss a run that only found a
-    # bound. Its status line is the authoritative signal.
-    status = _read_status_from_output(file_path_out)
-    if status is not None:
-        timed_out = True
-        print(f"Warning: the assembly search stopped early ({status}).", flush=True)
-
-    if not timed_out:
-        ai = _read_ai_from_output(file_path_out)
-    else:
-        try:
-            bound = _read_bound_after_early_stop(file_path_out, log_file, status)
-            if not exact:
-                ai = bound
-            if bound == -1:
-                print("No minimum AI found before timeout.", flush=True)
-            elif exact:
-                print(f"Discarding the inexact bound AI =< {bound}.", flush=True)
-            else:
-                print(f"Upper Bound to AI Found: AI =< {bound}", flush=True)
-        except Exception as e:
-            print(f"Failed to read AI from log file: {e}", flush=True)
-
-    if os.path.isfile(file_path_pathway):
-        try:
-            prep_json(file_path_pathway)
-            pathway, virtual_objects = parse_pathway_file(file_path_pathway,
-                                                          vo_type='graph',
-                                                          debug=debug,
-                                                          input_graph=graph)
-
-            if molecule_input:
-                virtual_objects = [nx_to_smi(v, add_hydrogens=False) for v in virtual_objects]
-                pathway = convert_digraph_vo_to_target(pathway, target='smi')
-
-        except Exception as e:
-            print(f"Failed to load pathway data: {e}", flush=True)
-            if debug:
-                traceback.print_exc()
-
-    if joint_corr and ai > 0:
-        ai = joint_assembly_index_correction(graph, ai)
-
-    result = (ai, virtual_objects, pathway)
-    if return_log_file:
-        print(f"Log file printed to: {log_file}", flush=True)
-        return (*result, log_file)
-    return result
+        if joint_corr and ai > 0:
+            ai = joint_assembly_index_correction(graph, ai)
+        result = (ai, virtual_objects, pathway)
+        if return_log_file:
+            print(f"Log file printed to: {log_file}", flush=True)
+            return (*result, log_file)
+        return result
 
 
 def _calculate_assembly_indices(graphs: List[Union[nx.Graph, Chem.Mol]],
@@ -1180,7 +1273,10 @@ def _calculate_string_assembly_molecular(
     graph_ai, graph_virtual_obj, graph_path = graph_result[:3]
 
     # Each delimiter adds two joins to the encoded joint input.
-    ai = graph_ai - 2 * len(delimiters)
+    ai = graph_ai - 2 * len(delimiters) if graph_ai >= 0 else graph_ai
+    if graph_virtual_obj is None or graph_path is None:
+        result = (ai, None, None)
+        return (*result, graph_result[3]) if return_log_file else result
 
     if debug:
         print(f"Assembly Index: {ai}", flush=True)
@@ -1199,140 +1295,41 @@ def _calculate_string_assembly_molecular(
     return (*result, graph_result[3]) if return_log_file else result
 
 
-def _run_string_assembler(dir_code: str, file_path_in: str, log_file: str,
-                          timeout: float, debug: bool) -> bool:
-    """Run the string executable, capture its log, and report whether it timed out."""
-    timed_out = False
-    try:
-        with open(log_file, "w") as log:
-            if debug:
-                print(f"Calling\n {dir_code} {file_path_in} 0 1", flush=True)
-
-            process = subprocess.Popen(
-                [dir_code, file_path_in, "-runStrings=1"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                cwd=os.path.dirname(file_path_in)
-            )
-
-            try:
-                stdout_data, _ = process.communicate(timeout=timeout)
-
-            except subprocess.TimeoutExpired:
-                print("Warning: Assembly calculation timed out. Terminating...")
-
-                # SIGINT asks the assembler to finish writing its best pathway.
-                process.send_signal(signal.SIGINT)
-                process.wait()
-                try:
-                    stdout_data, _ = process.communicate(timeout=2)
-                except subprocess.TimeoutExpired:
-                    print("Process did not terminate, killing it.")
-                    process.kill()
-                    stdout_data, _ = process.communicate()
-                    if debug:
-                        traceback.print_exc()
-
-                timed_out = True
-
-            if stdout_data:
-                log.write(stdout_data.decode(errors="replace"))
-                log.flush()
-
-    except Exception as e:
-        print(f"Error: {e}")
-        if debug:
-            traceback.print_exc()
-    return timed_out
-
-
 def _calculate_string_assembly_cpp(
     string: str, delimiters: Sequence[str], *, dir_code: Optional[str],
     timeout: float, debug: bool, return_log_file: bool,
 ) -> tuple:
-    """Calculate string assembly using the C++ string backend."""
-    ai = -1
-    virt_obj = None
-    path = None
+    """Calculate string assembly using the shared C++ execution lifecycle."""
+    _validate_cpp_timeout(timeout)
+    if not string.isascii() or "\n" in string or "\r" in string:
+        raise ValueError("C++ string assembly requires a single line of ASCII text")
+    with _calculation_directory(debug=debug, return_log_file=return_log_file) as directory:
+        file_path_in = str(directory / "string_in")
+        Path(file_path_in).write_text(string, encoding="ascii")
+        log_file = str(directory / "assembly_output.log")
+        if dir_code is None:
+            dir_code = add_assembly_to_path(str_mode=True)
+        timed_out = _run_assembler(dir_code, file_path_in, log_file, timeout, debug,
+                                   str_mode=True)
+        ai = _read_calculation_index(file_path_in + "Out", log_file, timed_out, debug=debug)
+        if ai >= 0:
+            ai -= 2 * len(delimiters)
 
-    if dir_code is None:
-        dir_code = add_assembly_to_path(str_mode=True)
-
-    temp_dir = os.path.abspath(tempfile.mkdtemp())
-    os.makedirs(temp_dir, exist_ok=True)
-
-    file_path_in = os.path.join(temp_dir, "string_in")
-    with open(file_path_in, "w") as f:
-        f.write(string)
-
-    file_path_out = file_path_in + "Out"
-    log_file = os.path.join(temp_dir, "assembly_output.log")
-
-    if debug:
-        print(f"Temporary directory created: {temp_dir}", flush=True)
-
-    timed_out = _run_string_assembler(dir_code, file_path_in, log_file, timeout, debug)
-
-    status = _read_status_from_output(file_path_out)
-    if status is not None:
-        timed_out = True
-        print(f"Warning: the assembly search stopped early ({status}).", flush=True)
-
-    if not timed_out:
-        if debug:
-            print("Assembly calculation completed successfully.", flush=True)
-
-        ai = _read_ai_from_output(file_path_out)
-
-    else:
-        # Fall back on the best bound the assembler recorded before it stopped
-        if debug:
-            print(f"log_file: {log_file}")
-        try:
-            ai = _read_bound_after_early_stop(file_path_out, log_file, status,
-                                              debug=debug)
-
-            if ai == -1:
-                print("No assembly paths found before timeout.")
-            else:
-                print(f"Upper Bound to AI Found: AI =< {ai - 2 * len(delimiters)}")
-
-        except Exception as e:
-            print(f"Failed to read AI from log file: {e}")
-
-    ai -= 2 * len(delimiters)  # Convert to (joint) assembly index of strings
-
-    pathway_files = [f for f in os.listdir(temp_dir) if f.endswith("Pathway")]
-    if pathway_files:
-        file_path_pathway = os.path.join(temp_dir, pathway_files[0])
-        if os.path.isfile(file_path_pathway):
-            if debug:
-                print(f"Parsing pathway data from: {file_path_pathway}", flush=True)
+        virt_obj = path = None
+        # The CLI writes one pathway per input line; this API supplies one line.
+        file_path_pathway = directory / "string_in_0_Pathway"
+        if file_path_pathway.is_file():
             try:
-                virt_obj, path = parse_string_pathway_file(file_path_pathway)
-            except Exception as e:
-                print(f"Failed to load pathway data: {e}", flush=True)
+                virt_obj, path = parse_string_pathway_file(str(file_path_pathway))
+            except Exception as error:
+                print(f"Failed to load pathway data: {error}", flush=True)
                 if debug:
                     traceback.print_exc()
-    elif debug:
-        print(f"No pathway file found in: {temp_dir}", flush=True)
-
-    if return_log_file:
-        print(f"Log file printed to: {log_file}", flush=True)
-
-    if not debug:
-        if os.path.exists(file_path_in):
-            os.remove(file_path_in)
-        shutil.rmtree(temp_dir)
-    else:
-        print(f"Temporary directory retained for debugging: {temp_dir}", flush=True)
-        print(f'File path in: {file_path_in}', flush=True)
-        for _, _, files in os.walk(temp_dir):
-            for file in files:
-                print(f' - {file}', flush=True)
-
-    result = (ai, virt_obj, path)
-    return (*result, log_file) if return_log_file else result
+        result = (ai, virt_obj, path)
+        if return_log_file:
+            print(f"Log file printed to: {log_file}", flush=True)
+            return (*result, log_file)
+        return result
 
 
 def calculate_string_assembly_index(input_data: Union[str, List[str]],
@@ -1359,13 +1356,14 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         A single string or a list of strings to analyse. Lists are treated as joint
         inputs (limited to 95 items for joint calculations).
     dir_code : str, optional
-        Path to the assembly executable; when ``None`` the bundled/compiled binary
-        is located via ``add_assembly_to_path`` or equivalent.
+        Path to the assembly executable. If None, locate or build it via
+        :func:`add_assembly_to_path`.
     timeout : float, optional
-        Maximum time in seconds to allow the external calculator to run. Default is
-        100.0.
+        Maximum search time in seconds; must be finite and non-negative.
+        A timed-out calculator gets up to two more seconds to save its result
+        before it is killed. Default is 100.0.
     debug : bool, optional
-        If True, create a timestamped temporary directory and print debug output.
+        If True, retain a temporary directory and print debug output.
         Default is False.
     directed : bool, optional
         If True, treat strings as directed; affects encoding and post-processing.
@@ -1378,7 +1376,8 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         Default is ``'str'``.
     return_log_file : bool, optional
         If True, return the path to the log file produced by the external run as
-        the fourth element of the returned tuple. Default is False.
+        the fourth element of the returned tuple, retaining its directory.
+        No log is produced for a trivial input. Default is False.
 
     Returns
     -------
@@ -1403,8 +1402,12 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
     -----
     - Joint inputs (lists) are encoded with delimiters; the final returned AI is
       corrected by subtracting delimiter and directedness offsets.
-    - In 'str' mode the function expects the string-assembly binary (set via
-      environment variable ``ASS_STR_PATH`` or found by ``add_assembly_to_path``).
+    - In 'str' mode the shared C++ executable runs in string mode. Its input
+      must be a single line of ASCII text because it indexes bytes and treats
+      newlines as separate calculations.
+    - ``return_log_file=True`` also retains the directory so the returned log
+      remains readable. Otherwise temporary files are removed on success or
+      failure, unless ``debug`` is True.
     - In 'cfg' mode the function delegates to ``assemblycfg.repair_with_pathways`` and
       returns an upper bound; no external binary is invoked.
     - For reproducible behaviour consider using ``debug=True`` to preserve the
@@ -1443,7 +1446,7 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
     if isinstance(input_data, str):
         string = input_data
         delimiters = []
-        if len(string) == 1:
+        if len(string) <= 1:
             return (0, None, None) if not return_log_file else (0, None, None, None)
 
     elif isinstance(input_data, list):
@@ -1958,8 +1961,7 @@ def _calculate_jo_from_pathway(json_file: str) -> int:
     Their overlap with the remnant and changes in connected components supply
     the joint-object correction to the raw assembly index.
     """
-    with open(json_file, 'r', encoding='utf-8') as f:
-        data = _parse_pathway_file(json.load(f))
+    data = _parse_pathway_file(_read_assembly_json(json_file))
 
     edges = [tuple(edge) for edge in data["file_graph"][0]["edges"]]
     original_graph = nx.Graph()

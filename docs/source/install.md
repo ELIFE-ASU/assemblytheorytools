@@ -91,8 +91,11 @@ git clone https://github.com/ELIFE-ASU/parallelassemblycpp.git
 cd parallelassemblycpp
 cmake --preset performance      # tuned for x86-64-v3
 cmake --build --preset performance
-export ASS_PATH=$PWD/build/performance/AssemblyCpp
+export ASS_PATH=$PWD/build/performance/ParallelAssemblyCpp
 ```
+
+Older upstream revisions use the executable name `AssemblyCpp`; ATT accepts both
+names. Its on-demand cache keeps the historical `AssemblyCpp` name.
 
 `--preset release` builds a portable executable instead, and
 `--preset parallel` adds OpenMP and MPI search. See the

@@ -42,21 +42,35 @@ def test_molecular_timeout_uses_latest_bound_and_preserves_log(
     are recognised, so an older executable on ``ASS_PATH`` still reports a bound.
     """
     calculation_dir = tmp_path / "calculation"
-    clock = SimpleNamespace(now=0.0)
     commands = []
 
-    def start_process(command, *, stdout, stderr):
+    class Process:
+        returncode = 0
+        attempts = 0
+
+        def wait(self, timeout=None):
+            self.attempts += 1
+            if self.attempts == 1:
+                raise subprocess.TimeoutExpired("assembler", timeout)
+
+        def send_signal(self, signal):
+            pass
+
+        def poll(self):
+            return self.returncode
+
+    def start_process(command, *, stdout, stderr, stdin, cwd):
         commands.append(command)
         assert stdout is stderr
         stdout.write(log_text)
         Path(command[1] + "Out").write_text(out_text)
-        return SimpleNamespace(wait=lambda: setattr(clock, "now", 2.0))
+        return Process()
 
     graph = nx.disjoint_union(nx.path_graph(2), nx.path_graph(2))
     nx.set_node_attributes(graph, "C", "color")
     nx.set_edge_attributes(graph, 1, "color")
+    calculation_dir.mkdir()
     monkeypatch.setattr(assembly.tempfile, "mkdtemp", lambda: str(calculation_dir))
-    monkeypatch.setattr(assembly.time, "time", lambda: clock.now)
     monkeypatch.setattr(assembly.platform, "system", lambda: "Linux")
     monkeypatch.setattr(assembly.subprocess, "Popen", start_process)
 
@@ -67,7 +81,7 @@ def test_molecular_timeout_uses_latest_bound_and_preserves_log(
     assert result[:3] == (expected, None, None)
     assert isinstance(result[0], int)
     assert Path(result[3]).read_text() == log_text
-    assert commands[0][-1] == "-runTime=1000000"
+    assert "-runTime=1000000" in commands[0]
     assert graph.number_of_nodes() == 4
 
 
@@ -90,8 +104,9 @@ def _fake_cmake_run(calls, prefix):
         if "-B" in argv:
             Path(argv[argv.index("-B") + 1]).mkdir(parents=True)
         if "--install" in argv:
-            executable = prefix / "bin" / "AssemblyCpp"
-            executable.parent.mkdir(parents=True)
+            install = Path(argv[argv.index("--prefix") + 1])
+            executable = install / "bin" / assembly._ASSEMBLYCPP_EXECUTABLE_NAMES[0]
+            executable.parent.mkdir(parents=True, exist_ok=True)
             executable.write_text("compiled executable")
         return SimpleNamespace(returncode=0)
 
@@ -144,15 +159,16 @@ def test_build_assembly_cpp_orchestration(assemblycpp_cache, monkeypatch):
     assert configure[:5] == ["/usr/bin/cmake", "-S", source, "-B", build]
     # A newer compiler than parallelassemblycpp tests against must not fail the
     # build, and its test executables are not wanted here.
+    assert "-DPARALLELASSEMBLYCPP_STRICT_WARNINGS=OFF" in configure
     assert "-DASSEMBLYCPP_STRICT_WARNINGS=OFF" in configure
     assert "-DBUILD_TESTING=OFF" in configure
     # cmake must be told where ninja is: a pip-installed one is not on PATH.
     assert configure[-3:-1] == ["-G", "Ninja"]
     assert configure[-1] == "-DCMAKE_MAKE_PROGRAM=/usr/bin/ninja"
 
-    assert ["/usr/bin/cmake", "--build", build, "--parallel"] in calls
-    assert ["/usr/bin/cmake", "--install", build, "--prefix",
-            str(assemblycpp_cache)] in calls
+    assert ["/usr/bin/cmake", "--build", build, "--config", "Release", "--parallel"] in calls
+    assert ["/usr/bin/cmake", "--install", build, "--config", "Release", "--prefix",
+            str(assemblycpp_cache / "build" / "install")] in calls
     # The build tree is transient; the source checkout is kept for rebuilds.
     assert not Path(build).exists()
 
@@ -255,6 +271,9 @@ def test_add_assembly_to_path_finds_an_executable_before_building(
     cached = assemblycpp_cache / "bin" / "AssemblyCpp"
     cached.parent.mkdir(parents=True)
     cached.write_text("cached executable")
+    cached.chmod(0o755)
+    monkeypatch.setattr(assembly, "build_assembly_cpp", att.build_assembly_cpp)
+    monkeypatch.setattr(assembly, "_require_cmake", unreachable)
 
     assert att.add_assembly_to_path() == str(cached)
 
@@ -277,10 +296,11 @@ def test_molecular_debug_retains_calculation_files(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("return_log_file", [False, True])
-def test_molecular_log_option_preserves_calculation(
+def test_molecular_log_option_controls_retention(
     tmp_path, monkeypatch, return_log_file
 ):
     calculation_dir = tmp_path / "calculation"
+    calculation_dir.mkdir()
     monkeypatch.setattr(assembly.tempfile, "mkdtemp", lambda: str(calculation_dir))
     mol = att.smi_to_mol("c1ccccc1")
 
@@ -292,3 +312,5 @@ def test_molecular_log_option_preserves_calculation(
     if return_log_file:
         assert Path(result[3]).is_file()
         assert Path(result[3]).read_text()
+
+    assert calculation_dir.exists() is return_log_file

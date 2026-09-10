@@ -250,6 +250,91 @@ def pathway_data(edges, vertex_colours, *, duplicates=(), remnant=None):
     }
 
 
+@pytest.mark.parametrize("legacy", [False, True])
+def test_pathway_reader_preserves_current_and_legacy_json(tmp_path, legacy):
+    data = pathway_data([[0, 1], [1, 2]], ["C", "O", "C"])
+    raw = json.dumps(data)
+    if legacy:
+        raw = raw.replace('"EdgeColours": [1, 1]', '"EdgeColours": [single, single]')
+    path = tmp_path / "pathway.json"
+    path.write_text(raw)
+
+    graph, virtual_objects = construction.parse_pathway_file(path, vo_type="graph")
+
+    assert len(graph) == 2
+    assert sorted(vo.number_of_edges() for vo in virtual_objects) == [1, 2]
+    assert path.read_text() == raw
+
+
+def test_pathway_reader_recovers_omitted_legacy_colors_from_input(tmp_path):
+    data = pathway_data([[0, 1], [1, 2]], ["C", "C", "C"])
+    raw = json.dumps(data).replace('"EdgeColours": [1, 1]', '"EdgeColours": [, ]')
+    path = tmp_path / "pathway.json"
+    path.write_text(raw)
+    original = nx.path_graph(3)
+    nx.set_node_attributes(original, "C", "color")
+    nx.set_edge_attributes(original, 12, "color")
+
+    _, virtual_objects = construction.parse_pathway_file(path, vo_type="graph", input_graph=original)
+
+    assert all(color == 12 for vo in virtual_objects for *_, color in vo.edges(data="color"))
+    assert path.read_text() == raw
+
+
+@pytest.mark.parametrize(
+    "edges, colors, expected_nodes, expected_degrees",
+    [
+        ([[0, 1]], ["C", "O"], ["virtual_object_0"], [0]),
+        ([[0, 1], [1, 2], [3, 4]], ["C", "C", "C", "C", "O"],
+         ["virtual_object_0", "step_1", "virtual_object_1"], [1, 1, 0]),
+    ],
+    ids=["single-bond", "disconnected-bond"],
+)
+def test_assembly_pathway_retains_components_that_need_no_joins(
+    edges, colors, expected_nodes, expected_degrees
+):
+    obj = construction.AssemblyConstruction(pathway_data(edges, colors))
+
+    graph, virtual_objects = obj.get_assembly_digraph()
+
+    assert list(graph) == expected_nodes
+    assert [graph.degree(node) for node in graph] == expected_degrees
+    assert {data["vo"] for _, data in graph.nodes(data=True)} == set(virtual_objects)
+    assert all("label" in data and "type" in data for _, data in graph.nodes(data=True))
+
+
+def test_string_pathway_builds_a_duplicate_starting_after_zero(tmp_path):
+    data = {"file_graph": [{"Fragments": ["xabab"]}],
+            "duplicates": [{"Left": [1, 2], "Right": [3, 2]}]}
+    path = tmp_path / "pathway.json"
+    path.write_text(json.dumps(data))
+
+    virtual_objects, graph = construction.parse_string_pathway_file(path)
+
+    assert virtual_objects == ["x", "a", "b", "ab", "xab", "xabab"]
+    assert nx.is_directed_acyclic_graph(graph)
+    assert set(graph.edges()) == {("a", "ab"), ("b", "ab"), ("x", "xab"),
+                                  ("ab", "xab"), ("xab", "xabab"), ("ab", "xabab")}
+
+
+def test_string_pathway_only_reuses_copies_starting_at_the_cursor():
+    data = {"file_graph": [{"Fragments": ["zababab"]}],
+            "duplicates": [{"Left": [1, 2], "Right": [3, 2]}]}
+
+    assert construction.immediate_predecessors(data, (2, 5)) == ["b", "ab", "a", "b"]
+
+
+@pytest.mark.parametrize("string", ["", "a"])
+def test_string_pathway_handles_no_joins(tmp_path, string):
+    path = tmp_path / "pathway.json"
+    path.write_text(json.dumps({"file_graph": [{"Fragments": [string]}], "duplicates": []}))
+
+    virtual_objects, graph = construction.parse_string_pathway_file(path)
+
+    assert virtual_objects == list(string)
+    assert graph.number_of_edges() == 0
+
+
 def test_transform_array_uses_comparison_edges_and_mutates_only_matches():
     target = [[10, 11], [12, 13], [14, 15]]
     comparison = [[8, 4], [5, 8], [8, 6]]

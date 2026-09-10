@@ -8,14 +8,15 @@ avoids the on-demand build of the C++ calculator described below.
 `ASS_PATH`
 : Full path to the `AssemblyCpp` executable, which computes molecule, graph and
   string assembly indices. If unset,
-  {func}`~assemblytheorytools.assembly.add_assembly_to_path` searches `PATH`,
+  {func}`~assemblytheorytools.assembly.add_assembly_to_path` searches `PATH`
+  for `ParallelAssemblyCpp` (or the older `AssemblyCpp`),
   then ATT's cache directory, and finally builds the calculator with
   {func}`~assemblytheorytools.assembly.build_assembly_cpp`. Whatever it finds
   is stored in this variable for the current Python process. Set it to use your
   own build — for example an [optimised build](install.md#optional-a-faster-parallelassemblycpp-build):
 
   ```bash
-  export ASS_PATH=$HOME/parallelassemblycpp/build/release/AssemblyCpp
+  export ASS_PATH=$HOME/parallelassemblycpp/build/release/ParallelAssemblyCpp
   ```
 
 `ASS_STR_PATH`
@@ -27,7 +28,10 @@ avoids the on-demand build of the C++ calculator described below.
 : Branch, tag or commit of
   [parallelassemblycpp](https://github.com/ELIFE-ASU/parallelassemblycpp) that
   {func}`~assemblytheorytools.assembly.build_assembly_cpp` builds. Defaults to
-  `main`.
+  `main`. A cached build is reused only for the same ref. To fetch new commits
+  on that ref, call `build_assembly_cpp(force=True)`. Explicit executable paths
+  and executables on `PATH` take precedence; unset `ASS_PATH` before changing
+  this variable in an existing Python process.
 
 `XDG_CACHE_HOME`
 : Standard cache location, honoured when choosing where to build and look for
@@ -78,6 +82,13 @@ compiler newer than the one parallelassemblycpp tests against, and it sets
 `BUILD_TESTING=OFF`, which CMake otherwise turns on. Set `ASS_PATH` to skip the
 build entirely.
 
+Concurrent first calculations share one build under a file lock. Installation is
+staged before replacing the cached executable, so an unsuccessful rebuild keeps
+the previous executable usable. The source checkout is retained for updates; a
+failed build also retains its build tree for inspection. The cache records its
+repository and requested ref in `build.json`. Older caches without this record
+remain usable until an explicit ref is requested or a rebuild is forced.
+
 `assemblytheorytools/data/integer_chain_9999.txt` is a lookup table of
 precomputed integer-chain assembly indices used by
 {func}`~assemblytheorytools.assembly.calculate_integer_chain`.
@@ -94,8 +105,10 @@ functions built on it.
   stripping is applied to a copy, so the graph you pass is left unchanged.
 
 `timeout` (default `100.0` seconds)
-: Limit for the external calculator, checked by ATT and also handed to the
-  calculator as its own runtime budget. The search is exponential in the worst
+: A finite, non-negative limit for the external calculator, enforced by ATT
+  and also handed to the calculator as its own CPU-time budget. On a timeout,
+  ATT interrupts the calculator and allows up to two seconds to write its best
+  result before killing it. The search is exponential in the worst
   case, so a large molecule can exceed any limit. When the search stops early —
   its budget ran out, it hit its enumeration cap, or it was interrupted — ATT
   returns the best upper bound the calculator reached, or `-1` if it reached
@@ -105,7 +118,8 @@ functions built on it.
   when the edge-count bound is sufficient.
 
 `joint_corr` (default `True`)
-: Apply the component-count correction for disconnected inputs. See
+: Apply the component-count correction for disconnected inputs. Isolated
+  vertices add no bonds or joining operations and are excluded. See
   [Joint assembly](concepts.md#joint-assembly).
 
 `exact` (default `False`)
@@ -124,6 +138,17 @@ functions built on it.
   diagnostics. Useful when a calculation fails or returns a surprising index;
   the directory holds the generated input file and the calculator's standard
   output/error in `assembly_output.log`.
+
+`return_log_file` (default `False`)
+: Return the log path as a fourth result field and retain the calculation
+  directory. This applies to both graph and string calculations. Without
+  `return_log_file`, `debug` or `save_dir`, ATT removes temporary files on
+  success and failure. Failed launches and nonzero exits raise `OSError`;
+  calculator failures include the end of the log in the exception.
+
+C++ string mode accepts one line of ASCII text: the calculator indexes bytes
+and reads each line as a separate input. Empty strings and edgeless graphs
+need no joining operations and return index zero without launching a calculator.
 
 `dir_code`
 : Explicit path to the calculator executable, overriding `ASS_PATH`.
@@ -183,11 +208,15 @@ when calling {func}`~assemblytheorytools.tools_graph.write_ass_graph_file`
 directly or disabling canonicalisation.
 
 * Node indices must start at 0 and be contiguous.
-* Every node needs a string `color` attribute without spaces — the element
+* Every node needs a nonempty string `color` attribute without whitespace — the element
   symbol for molecules, any label for arbitrary graphs.
-* Every edge needs a `color` attribute that is an **integer** (bond order for
-  molecules, starting at 1). A string here raises an `AssertionError` from
-  {func}`~assemblytheorytools.tools_graph.write_ass_graph_file`.
+* Every edge needs an integer `color` attribute from 1 through 32767 (bond order
+  for molecules). NumPy integers are accepted; strings, floats and booleans
+  are rejected.
+* Graphs must be simple and undirected, with no self loops and at most 32767
+  vertices. The graph name must fit on one line.
+
+Invalid graphs raise `ValueError` before the calculator is invoked.
 
 {func}`~assemblytheorytools.tools_graph.smi_to_nx` and
 {func}`~assemblytheorytools.tools_cell.cif_to_nx` produce conforming graphs. See

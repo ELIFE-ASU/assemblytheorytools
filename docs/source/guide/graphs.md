@@ -1,23 +1,23 @@
 # Arbitrary graphs
 
-The calculator works on any labelled undirected graph, not just molecules. This
-makes assembly index available for networks, lattices and other structures that
-have no chemical interpretation.
+The calculator works on labelled simple undirected graphs. This makes assembly
+index available for networks, lattices and other structures with no chemical
+interpretation.
 
 ## Building a conforming graph
 
-The calculator input requires three rules. The writer type-checks colour
-attributes that are present, but does not reliably reject every missing
-attribute before invoking the calculator, so validate custom graphs explicitly:
-
-{func}`~assemblytheorytools.tools_graph.write_ass_graph_file`:
+{func}`~assemblytheorytools.tools_graph.write_ass_graph_file` validates the
+calculator's input requirements before writing a file:
 
 1. Node indices start at 0 and are contiguous.
-2. Every node carries a `color` attribute — any string label without spaces.
-3. Every edge carries a `color` attribute that is an **integer**, starting at 1.
+2. Every node carries a `color` attribute — a nonempty string without whitespace.
+3. Every edge carries an integer `color` attribute from 1 through 32767.
+4. The graph has at most 32767 vertices and has no directed edges, parallel
+   edges or self loops.
 
-Rule 3 is the one that bites: a string edge colour raises `AssertionError:
-Edge color for edge (0, 1) is not an integer.`
+Missing or invalid attributes raise `ValueError` with the affected node or
+edge. The graph name must fit on one line. NumPy integer colours are accepted;
+strings, floats and booleans are rejected as edge colours.
 
 ```python
 import networkx as nx

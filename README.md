@@ -146,8 +146,8 @@ quantity ATT computes, with its inputs, its outputs, and what it is used for.
 The Rust backend always strips hydrogens. For a meaningful comparison, compare it with
 `calculate_assembly_index(..., strip_hydrogen=True)`.
 
-The PyPI distribution ships no parallelassemblycpp binary. ATT looks for an `AssemblyCpp` executable in `ASS_PATH`, then on
-`PATH`, then in its own cache, and builds one from source if it finds none. A single executable covers molecules,
+The PyPI distribution ships no parallelassemblycpp binary. ATT checks `ASS_PATH`, then looks for `ParallelAssemblyCpp`
+(or the older `AssemblyCpp`) on `PATH`, then in its own cache, and builds one from source if it finds none. A single executable covers molecules,
 graphs and strings. See [configuration](https://assemblytheorytools.readthedocs.io/en/latest/configuration.html) for
 all backend options and environment variables.
 
@@ -234,10 +234,11 @@ cmake --build parallelassemblycpp/build/release --parallel
 Then set `ASS_PATH` to the **full path of the executable**, not its containing directory:
 
 ```bash
-export ASS_PATH=$PWD/parallelassemblycpp/build/release/AssemblyCpp
+export ASS_PATH=$PWD/parallelassemblycpp/build/release/ParallelAssemblyCpp
 ```
 
-The same executable computes molecular, graph and string assembly indices. `ASS_STR_PATH` is only needed to point
+Older upstream revisions name this executable `AssemblyCpp`; ATT accepts both names and keeps the historical name
+for its own cached build. The same executable computes molecular, graph and string assembly indices. `ASS_STR_PATH` is only needed to point
 string calculations at a *different* build; it falls back to `ASS_PATH` when unset.
 
 To build a specific revision on demand instead, set `ATT_ASSEMBLYCPP_REF` to a branch, tag or commit. For the

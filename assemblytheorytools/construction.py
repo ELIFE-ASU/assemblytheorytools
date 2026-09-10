@@ -23,6 +23,7 @@ import pydot
 from rdkit import Chem
 from rdkit.Chem.rdchem import RWMol
 
+from .tools_file import _read_assembly_json
 from .tools_graph import (
     bond_order_assout_to_int,
     bond_order_int_to_rdkit,
@@ -484,14 +485,14 @@ class AssemblyConstruction:
             "inchi". Default is "graph".
         input_graph : nx.Graph, optional
             Original target graph, used to recover edge colours omitted by
-            AssemblyCpp beyond index 5. Default is None.
+            legacy AssemblyCpp executables beyond index 5. Default is None.
         """
         graph_data = data["file_graph"][0]
         self.v = graph_data["Vertices"]
         self.e = graph_data["Edges"]
         self.v_l = graph_data["VertexColours"]
-        # Recover omitted colours from the input, assuming AssemblyCpp has
-        # preserved its vertex labels.
+        # Legacy executables omitted some colours. The input graph is a
+        # lossless source because the calculator preserves vertex labels.
         self.e_l = (
             graph_data["EdgeColours"]
             if input_graph is None
@@ -817,6 +818,10 @@ class AssemblyConstruction:
             self._add_pathway_node(graph, source)
             self._add_pathway_node(graph, target)
         graph.add_edges_from(self.digraph)
+        # An elementary component needs no joins, but still belongs in the
+        # pathway. Append it without changing the order of existing steps.
+        for index in range(len(self.molecules_vo)):
+            self._add_pathway_node(graph, f"virtual_object_{index}")
 
         for name, data in graph.nodes(data=True):
             if self.vo_type == "graph":
@@ -882,8 +887,8 @@ def parse_pathway_file(
         by default False.
     input_graph : nx.Graph, optional
         Input graph to read edge colors from. If None, edge colors are read
-        from the pathway file, by default None. AssemblyCpp drops colour
-        output after index 5, so a general graph must supply its own colours.
+        from the pathway file, by default None. Older AssemblyCpp executables
+        omitted colours above 5, so their output may need the original graph.
 
     Returns
     -------
@@ -910,9 +915,7 @@ def parse_pathway_file(
     ``vo_type="graph"`` to get the virtual objects as graphs rather than
     SMILES.
     """
-    with open(file) as f:
-        data = json.load(f)
-
+    data = _read_assembly_json(file)
     construction = AssemblyConstruction(data, vo_type=vo_type, input_graph=input_graph)
     graph, vo_list = construction.get_assembly_digraph()
 
@@ -1302,23 +1305,15 @@ def immediate_predecessors(
     while c_idx < end:
         parent = ""
         for dup in data["duplicates"]:
-            left = dup["Left"]
-            if left[1] >= interval[1]:  # The duplicate cannot fit in the interval
-                continue
-            if c_idx in range(left[0], sum(left)):
-                candidate = left
-            else:
-                candidate = dup["Right"]
-                if c_idx not in range(candidate[0], sum(candidate)):
-                    continue
-
-            # Prefer the longest contained copy; the left copy takes precedence.
-            if (
-                candidate[1] > len(parent)
-                and candidate[0] >= interval[0]
-                and sum(candidate) <= end
-            ):
-                parent = fragment[candidate[0] : sum(candidate)]
+            for start, length in (dup["Left"], dup["Right"]):
+                # Each piece must start at the cursor and be smaller than the
+                # interval being built, so recursive construction makes progress.
+                if (
+                    start == c_idx
+                    and len(parent) < length < interval[1]
+                    and start + length <= end
+                ):
+                    parent = fragment[start : start + length]
 
         output.append(parent or fragment[c_idx])
         c_idx += len(parent) or 1
@@ -1335,7 +1330,7 @@ def build_str(
     Parameters
     ----------
     interval : tuple
-        A tuple of the form (start, end) indicating the interval to build.
+        A tuple of the form (start, length) indicating the interval to build.
     data : dict
         The pathway data from parallelassemblycpp (JSON format).
     path : nx.DiGraph
@@ -1347,11 +1342,13 @@ def build_str(
         Updated pathway with the string added.
     """
     ledger = immediate_predecessors(data, interval)
+    if not ledger:
+        return path
     c_idx = interval[0]
     for sub_str in ledger:
         if sub_str not in path.nodes:
             # Recursively build the duplicate strings if not already in the path
-            path = build_str([c_idx, c_idx + len(sub_str)], data, path)
+            path = build_str([c_idx, len(sub_str)], data, path)
         c_idx += len(sub_str)
 
     # Builds string from left to right. The membership checks below are only
@@ -1397,7 +1394,7 @@ def parse_string_pathway_file(file_path_pathway: str) -> Tuple[List[str], nx.DiG
 
     file_string = data["file_graph"][0]["Fragments"][0]
     path = nx.DiGraph()
-    path.add_nodes_from(set(file_string))
+    path.add_nodes_from(dict.fromkeys(file_string))
 
     path = build_str([0, len(file_string)], data, path)
     return list(path.nodes), path

@@ -4,6 +4,7 @@ import random
 from copy import deepcopy
 
 import networkx as nx
+import numpy as np
 import pytest
 from rdkit import Chem
 
@@ -385,13 +386,8 @@ def test_scrambling_preserves_labels_and_seeded_global_random_behavior():
         random.setstate(random_state)
 
 
-@pytest.mark.parametrize(
-    "graph_type", [nx.Graph, nx.DiGraph, nx.MultiGraph, nx.MultiDiGraph]
-)
-def test_assembly_file_preserves_insertion_order_and_exact_line_format(
-    tmp_path, graph_type
-):
-    graph = graph_type(name="example")
+def test_assembly_file_aligns_node_colors_with_endpoint_indices(tmp_path):
+    graph = nx.Graph(name="example")
     graph.add_node(2, color="O")
     graph.add_node(0, color="C")
     graph.add_node(1, color="N")
@@ -400,18 +396,87 @@ def test_assembly_file_preserves_insertion_order_and_exact_line_format(
     path = tmp_path / "graph_info"
 
     assert tg.write_ass_graph_file(graph, path) is None
-    assert path.read_text() == "example\n3\n3 2 1 2\nO C N\n2 1"
+    assert path.read_text() == "example\n3\n3 2 1 2\nC N O\n2 1\n"
+    assert list(graph) == [2, 0, 1]
 
 
-def test_assembly_file_validates_colors_before_overwriting(tmp_path):
+@pytest.mark.parametrize("node_count", [0, 1, 2])
+def test_assembly_file_includes_empty_fifth_line_for_edgeless_graphs(tmp_path, node_count):
+    graph = nx.empty_graph(node_count)
+    nx.set_node_attributes(graph, "C", "color")
+    path = tmp_path / "graph_info"
+
+    tg.write_ass_graph_file(graph, path)
+
+    assert path.read_text().splitlines() == ["", str(node_count), "", " ".join(["C"] * node_count), ""]
+
+
+@pytest.mark.parametrize("color", [None, "", "C H", "C\tH", "C\nH", 1])
+def test_assembly_file_validates_node_colors_before_overwriting(tmp_path, color):
     graph = colored_path("C", "O")
-    graph.nodes[0]["color"] = "C H"
+    graph.nodes[0]["color"] = color
     path = tmp_path / "graph_info"
     path.write_text("keep me")
 
-    with pytest.raises(AssertionError, match="Node color for node 0 contains a space"):
+    with pytest.raises(ValueError, match="Node color for node 0"):
         tg.write_ass_graph_file(graph, path)
     assert path.read_text() == "keep me"
+
+
+@pytest.mark.parametrize("color", [None, "1", 1.0, True, 0, -1, 32768])
+def test_assembly_file_validates_edge_colors_before_overwriting(tmp_path, color):
+    graph = colored_path("C", "O")
+    graph.edges[0, 1]["color"] = color
+    path = tmp_path / "graph_info"
+    path.write_text("keep me")
+
+    with pytest.raises(ValueError, match=r"Edge color for edge \(0, 1\)"):
+        tg.write_ass_graph_file(graph, path)
+    assert path.read_text() == "keep me"
+
+
+@pytest.mark.parametrize("missing", ["node", "edge"])
+def test_assembly_file_rejects_missing_colors(tmp_path, missing):
+    graph = colored_path("C", "O")
+    attributes = graph.nodes[0] if missing == "node" else graph.edges[0, 1]
+    del attributes["color"]
+
+    with pytest.raises(ValueError, match="color"):
+        tg.write_ass_graph_file(graph, tmp_path / "graph_info")
+
+
+def test_assembly_file_accepts_numpy_integer_colors(tmp_path):
+    graph = colored_path("C", "O")
+    graph.edges[0, 1]["color"] = np.int64(32767)
+    path = tmp_path / "graph_info"
+
+    tg.write_ass_graph_file(graph, path)
+
+    assert path.read_text().splitlines()[-1] == "32767"
+
+
+@pytest.mark.parametrize("graph_type", [nx.DiGraph, nx.MultiGraph, nx.MultiDiGraph])
+def test_assembly_file_rejects_unsupported_graph_types(tmp_path, graph_type):
+    with pytest.raises(ValueError, match="simple undirected"):
+        tg.write_ass_graph_file(graph_type(), tmp_path / "graph_info")
+
+
+@pytest.mark.parametrize("labels", [[1, 2], [0, 2], ["a", "b"], [0.0, 1.0], [False, True]])
+def test_assembly_file_rejects_nonconsecutive_integer_labels(tmp_path, labels):
+    graph = nx.path_graph(labels)
+    with pytest.raises(ValueError, match="consecutive integers"):
+        tg.write_ass_graph_file(graph, tmp_path / "graph_info")
+
+
+def test_assembly_file_rejects_self_loops_and_multiline_names(tmp_path):
+    graph = colored_path("C", "O")
+    graph.add_edge(0, 0, color=1)
+    with pytest.raises(ValueError, match="self-loop"):
+        tg.write_ass_graph_file(graph, tmp_path / "graph_info")
+    graph.remove_edge(0, 0)
+    graph.name = "name\nextra line"
+    with pytest.raises(ValueError, match="one line"):
+        tg.write_ass_graph_file(graph, tmp_path / "graph_info")
 
 
 def test_graphml_roundtrip_uses_string_node_ids_and_retains_attributes(
