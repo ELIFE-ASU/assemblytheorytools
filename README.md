@@ -115,7 +115,7 @@ quantity ATT computes, with its inputs, its outputs, and what it is used for.
 | String assembly index | `calculate_string_assembly_index` | String or list of strings | Index, virtual objects, pathway |
 | Joint assembly index | `calculate_assembly_index` on a joined graph | Graphs merged with `join_graphs` | Index for the whole set |
 | Shared-assembly score | `calculate_assembly_index_similarity` | List of graphs | Score; 0 to 1 for a pair |
-| Semi-metric distance | `calculate_assembly_index_semi_metric` | Two graphs | Distance; negative means cheaper together |
+| Semi-metric distance | `calculate_assembly_index_semi_metric` | Two graphs | Distance; larger means less shared motifs |
 | Assembly `A` | `calculate_assembly` | Graphs and their copy numbers | Ensemble assembly value |
 | Assembly depth | `calculate_assembly_depth_rust` | NetworkX graph or RDKit `Mol` | Minimum depth under concurrent joins |
 | Bounds | `calculate_assembly_index_upper_bound`, `calculate_assembly_index_lower_bound` | NetworkX graph or RDKit `Mol` | Instant bounds for screening |
