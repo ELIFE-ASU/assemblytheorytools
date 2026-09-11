@@ -70,6 +70,13 @@ stripped. The test requires a completed exact search, so a timeout bound cannot
 pass as an exact result. Taxol is excluded by the CSV flag and covered
 separately by the opt-in slow test.
 
+`test_assembly_rust.py::test_rust_matches_default_calculator_on_random_molecules`
+is the cross-backend survey: it samples 100 random PubChem compounds of at
+most 50 bonds, hydrogens included, and requires the Rust index to equal a completed, exact,
+hydrogen-stripped search by the C++ calculator. It is marked both `integration`
+(it queries PubChem) and `slow` (a hundred exact searches), and the sampling
+seed is fixed so a disagreement can be reproduced.
+
 Avoid separate `*_refactor` or `*_regressions` files. A regression's name or a
 short comment should explain the behavior it protects.
 

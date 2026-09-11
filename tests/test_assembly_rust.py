@@ -15,6 +15,48 @@ def test_calculate_rust_ai():
     assert ai_v5 == ai_r, f"Expected AI to be {ai_v5}, but got {ai_r}"
 
 
+@pytest.mark.integration
+@pytest.mark.slow
+def test_rust_matches_default_calculator_on_random_molecules():
+    """Survey the two backends over a random sample, not just known molecules.
+
+    Both calculators implement the same definition, so a disagreement is a bug
+    in one of them. Random PubChem compounds cover shapes no hand-picked
+    fixture would, the bond limit keeps a hundred exact searches affordable,
+    and the seed makes any failure reproducible.
+
+    The sampler counts bonds on the molecule with hydrogens added, so a limit
+    of 50 bonds leaves a smaller heavy-atom graph to search: this draw spans
+    11 to 33 bonds once hydrogens are stripped, and indices 5 to 19.
+    """
+    _, smiles = att.sample_random_pubchem(100, seed=0, max_bonds=50)
+    mols = [att.smi_to_mol(smi) for smi in smiles]
+
+    assert len(mols) == 100
+    assert max(mol.GetNumBonds() for mol in mols) <= 50
+
+    rust = [att.calculate_assembly_index_rust(mol) for mol in mols]
+    # The Rust backend always strips hydrogens, so the default calculator has
+    # to search the same hydrogen-free graph, and it has to prove its minimum:
+    # the bound it returns on a timeout is not a result worth comparing.
+    default, _, _ = att.calculate_assembly_index_parallel(
+        mols, dict(strip_hydrogen=True, exact=True)
+    )
+
+    unfinished = [smi for smi, ai in zip(smiles, default) if ai < 0]
+    assert unfinished == [], f"The default calculator did not finish: {unfinished}"
+
+    disagreements = {
+        smi: (expected, found)
+        for smi, expected, found in zip(smiles, default, rust)
+        if expected != found
+    }
+    assert disagreements == {}, (
+        f"Expected the Rust indices to match the default calculator, but "
+        f"{len(disagreements)} differ (smiles: default, rust): {disagreements}"
+    )
+
+
 @pytest.mark.parametrize(
     "graph_type",
     [nx.Graph, nx.DiGraph, nx.MultiGraph, nx.MultiDiGraph],
