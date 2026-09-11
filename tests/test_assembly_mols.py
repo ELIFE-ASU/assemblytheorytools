@@ -10,6 +10,21 @@ import assemblytheorytools as att
 from assemblytheorytools import assembly
 
 
+@pytest.mark.parametrize(
+    "molecule",
+    [molecule for molecule in att.test_mols.values() if molecule.test_include],
+    ids=lambda molecule: molecule.name,
+)
+def test_reference_molecule_assembly_index(molecule):
+    """Check the bundled references against completed, hydrogen-stripped searches."""
+    assert molecule.assembly_index is not None and molecule.assembly_index >= 0
+    mol = att.smi_to_mol(molecule.smiles)
+
+    ai, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True, exact=True)
+
+    assert ai == molecule.assembly_index
+
+
 def test_readme_example():
     smi = "CN1C=NC2=C1C(=O)N(C(=O)N2C)C"
     graph = att.smi_to_nx(smi)

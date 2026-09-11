@@ -61,6 +61,15 @@ Keep tests beside the behavior they exercise, including regressions. Use
 | Ensemble quantities | `test_assembly_ensemble.py` |
 | Data utilities | `test_tools_data.py`, `test_tools_data_pubchem.py`, `test_tools_data_spectra.py` |
 
+`test_assembly_mols.py::test_reference_molecule_assembly_index` checks every
+compound marked `test_include=True` in the bundled
+`assemblytheorytools/data/test_molecule_data.csv` against its reference assembly
+index. Each compound has a named test case. References apply to the stored
+SMILES after the package's normalization and Kekulization, with hydrogens
+stripped. The test requires a completed exact search, so a timeout bound cannot
+pass as an exact result. Taxol is excluded by the CSV flag and covered
+separately by the opt-in slow test.
+
 Avoid separate `*_refactor` or `*_regressions` files. A regression's name or a
 short comment should explain the behavior it protects.
 
