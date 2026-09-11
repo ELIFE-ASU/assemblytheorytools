@@ -126,23 +126,54 @@ jobs:
           retention-days: 7
 
   install:
-    name: Install the wheel on Python ${{ matrix.python-version }}
+    name: Install the wheel on Python ${{ matrix.python-version }} (${{ matrix.os }})
     needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    runs-on: ${{ matrix.os }}
+    # Windows has no assembly-theory wheel to download, so pip builds it from
+    # the Rust sdist; the others only download.
+    timeout-minutes: 40
+
+    defaults:
+      run:
+        # The steps below glob a wheel path and use a heredoc, neither of which
+        # PowerShell provides. Git Bash is on every runner image.
+        shell: bash
+
+    env:
+      # A fixed, platform-independent location for the cache step below to
+      # restore into. pip's own default differs per operating system.
+      PIP_CACHE_DIR: ${{ github.workspace }}/.pip-cache
 
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         # Oldest and newest supported interpreters. A dependency with no wheel
         # yet on the newest one fails here rather than on a user's
         # `pip install assemblytheorytools`.
         python-version: ["3.12", "3.14"]
+        include:
+          # The published wheel is pure Python, so what a second platform
+          # checks is the dependency set: that every runtime import resolves
+          # off PyPI alone, without a compiler or a system library.
+          - os: windows-latest
+            python-version: "3.13"
 
     steps:
       - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
+
+      - name: Restore pip's wheel store
+        # Windows has no assembly-theory wheel to download and compiles it from
+        # the Rust sdist instead, which is minutes. pip keeps what it builds, so
+        # this reduces that to the first run on a new dependency set. There is
+        # no checkout here to hash, so the key names the distributions instead.
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.PIP_CACHE_DIR }}
+          key: pip-${{ runner.os }}-${{ matrix.python-version }}-${{ needs.build.outputs.version }}
+          restore-keys: pip-${{ runner.os }}-${{ matrix.python-version }}-
 
       - name: Retrieve the built distributions
         uses: actions/download-artifact@v8

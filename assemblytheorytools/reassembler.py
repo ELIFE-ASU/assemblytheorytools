@@ -2279,7 +2279,13 @@ class Molecule:
         try:
             proc.wait(timeout=self.timeout)
         except subprocess.TimeoutExpired:
-            proc.send_signal(signal.SIGINT)
+            # SIGINT asks the calculator to save its best result. On Windows,
+            # Popen cannot deliver it to an ordinary child process, so the only
+            # option is to terminate; see _run_assembler in assembly.py.
+            if os.name == "nt":
+                proc.terminate()
+            else:
+                proc.send_signal(signal.SIGINT)
 
         self.assembly_output_path = f"{output_base}Pathway"
 

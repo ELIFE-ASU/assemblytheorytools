@@ -140,18 +140,22 @@ def test_build_tools_use_the_python_environment_before_system_path(tmp_path, mon
     """An absolute Python path must still use its pip-installed CMake and Ninja."""
     monkeypatch.setattr(assembly.sys, "executable", str(tmp_path / "python"))
     monkeypatch.setattr(assembly.shutil, "which", lambda name: f"/system/{name}")
+    # Mirror the suffix the resolver appends, rather than assuming POSIX names.
+    suffix = ".exe" if assembly.platform.system() == "Windows" else ""
     for name in ("cmake", "ninja"):
-        tool = tmp_path / name
+        tool = tmp_path / (name + suffix)
         tool.write_text("environment tool")
         tool.chmod(0o755)
         assert assembly._which_build_tool(name) == str(tool)
 
+    cmake = str(tmp_path / ("cmake" + suffix))
+
     def version(command, **kwargs):
-        assert command == [str(tmp_path / "cmake"), "--version"]
+        assert command == [cmake, "--version"]
         return SimpleNamespace(stdout="cmake version 3.31.0\n")
 
     monkeypatch.setattr(assembly.subprocess, "run", version)
-    assert assembly._require_cmake() == str(tmp_path / "cmake")
+    assert assembly._require_cmake() == cmake
 
 
 @pytest.mark.parametrize("present", [False, True])
@@ -161,8 +165,22 @@ def test_build_tools_fall_back_when_python_environment_tool_is_unusable(
     monkeypatch.setattr(assembly.sys, "executable", str(tmp_path / "python"))
     monkeypatch.setattr(assembly.shutil, "which", lambda name: f"/system/{name}")
     if present:
+        # Deliberately unsuffixed: Windows has no execute bit to withhold, so
+        # there the resolver skips this for looking up cmake.exe instead.
         (tmp_path / "cmake").write_text("not executable")
     assert assembly._which_build_tool("cmake") == "/system/cmake"
+
+
+@pytest.mark.parametrize("compiler", [None, "C:/msvc/cl.exe"])
+def test_windows_only_generates_ninja_inside_a_developer_environment(monkeypatch, compiler):
+    """Without cl.exe on PATH, CMake must be left to pick the Visual Studio generator."""
+    monkeypatch.setattr(assembly.os, "name", "nt")
+    monkeypatch.setattr(assembly.shutil, "which", lambda name: compiler)
+    assert assembly._ninja_can_find_a_compiler() is (compiler is not None)
+
+    # POSIX has no such constraint: Ninja drives whatever cc the project finds.
+    monkeypatch.setattr(assembly.os, "name", "posix")
+    assert assembly._ninja_can_find_a_compiler() is True
 
 
 @pytest.fixture
@@ -183,8 +201,8 @@ def test_build_assembly_cpp_orchestration(assemblycpp_cache, builder):
 
     source = str(assemblycpp_cache / "src")
     build = str(assemblycpp_cache / "build")
-    assert result == str(assemblycpp_cache / "bin" / "AssemblyCpp")
-    assert Path(result).stat().st_mode & 0o111
+    assert result == str(assemblycpp_cache / "bin" / assembly._ASSEMBLYCPP_EXECUTABLE)
+    assert os.access(result, os.X_OK)
 
     clone = next(argv for argv in calls if argv[:2] == ["git", "clone"])
     assert "--no-checkout" in clone
@@ -296,7 +314,7 @@ def test_add_assembly_to_path_finds_an_executable_before_building(
 
     monkeypatch.delenv("ASS_PATH")
     monkeypatch.setattr(assembly.shutil, "which", lambda name: None)
-    cached = assemblycpp_cache / "bin" / "AssemblyCpp"
+    cached = assemblycpp_cache / "bin" / assembly._ASSEMBLYCPP_EXECUTABLE
     cached.parent.mkdir(parents=True)
     cached.write_text("cached executable")
     cached.chmod(0o755)

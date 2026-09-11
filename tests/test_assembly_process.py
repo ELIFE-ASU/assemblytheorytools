@@ -21,15 +21,13 @@ def _calculate(kind, **settings):
 
 
 @pytest.fixture
-def executable(tmp_path, monkeypatch):
+def executable(tmp_path, monkeypatch, fake_executable):
     monkeypatch.setattr(assembly.tempfile, "tempdir", str(tmp_path))
     monkeypatch.chdir(tmp_path)
 
     def create(body):
-        script = tmp_path / "fake calculator"
-        script.write_text(f"#!{sys.executable}\nimport sys\nfrom pathlib import Path\n" + body)
-        script.chmod(0o755)
-        return "./fake calculator"
+        # The space in the name checks that the subprocess boundary quotes it.
+        return fake_executable(tmp_path, "fake calculator", body)
 
     return create
 

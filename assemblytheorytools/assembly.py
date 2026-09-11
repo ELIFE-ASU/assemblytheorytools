@@ -293,6 +293,26 @@ def _which_build_tool(name: str) -> Optional[str]:
     return shutil.which(name)
 
 
+def _ninja_can_find_a_compiler() -> bool:
+    """
+    Report whether the Ninja generator would find a compiler to drive.
+
+    Returns
+    -------
+    bool
+        True if configuring with Ninja is safe on this platform.
+
+    Notes
+    -----
+    Ninja does no toolchain discovery of its own, so on Windows it only works
+    from a Visual Studio developer environment, which an ordinary Python session
+    is not. Leaving the generator unset there lets CMake select the Visual
+    Studio generator, which locates MSVC itself; the build and install steps
+    already pass ``--config Release`` for that multi-configuration generator.
+    """
+    return os.name != "nt" or shutil.which("cl") is not None
+
+
 def _require_cmake() -> str:
     """
     Return the cmake command to build with, raising if the build tools are unusable.
@@ -481,7 +501,7 @@ def _build_assembly_cpp(prefix: Path, ref: str) -> str:
     ]
     # A pip-installed ninja can sit beside the interpreter, outside PATH.
     ninja = _which_build_tool("ninja")
-    if ninja is not None:
+    if ninja is not None and _ninja_can_find_a_compiler():
         configure += ["-G", "Ninja", f"-DCMAKE_MAKE_PROGRAM={ninja}"]
 
     # A failed build can retain an incompatible CMake generator or revision.

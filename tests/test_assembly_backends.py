@@ -1,5 +1,6 @@
 """External calculator process, timeout and logging contracts."""
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -54,6 +55,9 @@ def test_molecular_timeout_uses_latest_bound_and_preserves_log(
         def send_signal(self, signal):
             pass
 
+        def terminate(self):
+            pass
+
         def poll(self):
             return self.returncode
 
@@ -85,8 +89,10 @@ def test_molecular_timeout_uses_latest_bound_and_preserves_log(
 
 def test_run_command(capfd):
     """Command output streams to stdout; the wrapper returns no value."""
-    assert att.run_command("echo hello") is None
-    assert capfd.readouterr().out == "hello\n"
+    # run_command does not use a shell, and on Windows echo is a cmd builtin
+    # rather than an executable, so there it has to be invoked through cmd.
+    assert att.run_command("cmd /c echo hello" if os.name == "nt" else "echo hello") is None
+    assert capfd.readouterr().out.replace("\r\n", "\n") == "hello\n"
 
     with pytest.raises(ValueError):
         att.run_command(None)

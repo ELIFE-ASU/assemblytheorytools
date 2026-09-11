@@ -1,7 +1,8 @@
 # Installation
 
-`assemblytheorytools` requires **Python 3.12 or newer**. It works best on
-Unix-like systems; on Windows, use the Windows Subsystem for Linux.
+`assemblytheorytools` requires **Python 3.12 or newer**. It is tested on Linux,
+macOS and Windows; Windows needs two extra pieces, described
+[below](#on-windows).
 
 ## From PyPI
 
@@ -15,6 +16,21 @@ distributed as a binary: the first calculation that needs it builds
 parallelassemblycpp from source, which takes a few minutes and needs `git` and a C++20
 compiler. Set `ASS_PATH` to use a build you already have, and see
 [Configuration](configuration.md#the-c-calculator) for the details.
+
+### On Windows
+
+Two dependencies need more than pip can supply on its own:
+
+- `assembly-theory` publishes no Windows wheel, so pip builds it from its Rust
+  source distribution. Install a [Rust toolchain](https://rustup.rs) first, or
+  the install fails while compiling it.
+- `cairosvg` binds the Cairo system library, which has no one-line install on
+  Windows. Everything else works without it; only `metro_pathway_plot` is
+  unavailable, and it says so when called.
+
+The C++ calculator is built by CMake's Visual Studio generator rather than
+Ninja, because Ninja finds no compiler outside a developer command prompt. That
+means Visual Studio with the C++ build tools, not just a bare compiler.
 
 ## From source
 

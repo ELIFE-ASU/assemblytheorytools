@@ -61,7 +61,18 @@ jobs:
   test:
     name: Python ${{ matrix.python-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    # Generous for Windows, which builds both assembly-theory and the C++
+    # calculator from source on a cold cache. The other platforms finish in
+    # a few minutes.
+    timeout-minutes: 60
+
+    defaults:
+      run:
+        # Windows would otherwise run these in PowerShell, which only reports
+        # the last command's exit status, so a failing install would be noticed
+        # one step too late. Git Bash is on the image and keeps every job's
+        # steps identical.
+        shell: bash
 
     strategy:
       # One failing interpreter should not hide the result on the others.
@@ -70,11 +81,15 @@ jobs:
         os: [ubuntu-latest]
         python-version: ["3.12", "3.13", "3.14"]
         include:
-          # Smoke-test the other supported platform. macOS runners are arm64,
-          # which is the only macOS wheel assembly-theory publishes. There is
-          # no Windows job: the package is POSIX-only (see the classifiers in
-          # pyproject.toml) and assembly-theory ships no Windows wheel.
+          # Smoke-test the other supported platforms. macOS runners are arm64,
+          # which is the only macOS wheel assembly-theory publishes.
           - os: macos-latest
+            python-version: "3.13"
+          # Windows is the slow one: assembly-theory publishes no Windows wheel,
+          # so pip builds it from its Rust sdist, and the C++ calculator is
+          # built by MSVC through CMake's Visual Studio generator rather than
+          # Ninja. Both land in caches, so only a cold run pays full price.
+          - os: windows-latest
             python-version: "3.13"
 
     steps:
@@ -88,12 +103,22 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
 
+      - name: Report the Rust toolchain
+        # assembly-theory publishes no Windows wheel, so pip builds it from the
+        # sdist with maturin. The runner image supplies Rust; say which version,
+        # because that is the first thing to check when the build fails.
+        if: runner.os == 'Windows'
+        run: |
+          rustc --version
+          cargo --version
+
       - name: Install the Cairo system library
         # cairosvg is a pip dependency but binds Cairo through cffi, and pip
         # does not supply that library. The Linux images already ship it; on
         # macOS Homebrew installs outside dyld's default search path, so the
         # fallback path has to name it or the import fails with OSError and the
-        # metro-plot test skips itself.
+        # metro-plot test skips itself. Windows has no comparable one-line
+        # install, so there the metro-plot test takes that skip.
         if: runner.os == 'macOS'
         run: |
           brew install cairo

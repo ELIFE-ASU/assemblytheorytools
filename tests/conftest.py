@@ -6,6 +6,7 @@ import re
 import shutil
 import signal
 import subprocess
+import sys
 from pathlib import Path
 
 # Configure caches and the backend before importing pyplot or the package.
@@ -119,7 +120,12 @@ def _orca_version(executable):
     try:
         stdout, _ = probe.communicate(timeout=30)
     except subprocess.TimeoutExpired:
-        os.killpg(probe.pid, signal.SIGKILL)
+        # Windows ignores start_new_session, so there is no group to signal and
+        # no SIGKILL to send; killing the probe itself is all that is on offer.
+        if os.name == "nt":
+            probe.kill()
+        else:
+            os.killpg(probe.pid, signal.SIGKILL)
         probe.communicate()
         return None
 
@@ -151,3 +157,50 @@ def orca_path():
             f"the GNOME screen reader); set ORCA_PATH to a real ORCA executable"
         )
     return executable
+
+
+def _write_fake_executable(directory: Path, name: str, body: str) -> str:
+    """
+    Write a runnable stand-in for the C++ calculator and return how to invoke it.
+
+    Parameters
+    ----------
+    directory : Path
+        The directory to write the executable into.
+    name : str
+        The base name to give it. Names containing a space are deliberate: they
+        check that the subprocess boundary quotes what it is handed.
+    body : str
+        Python source for the stand-in, run with the interpreter under test.
+
+    Returns
+    -------
+    str
+        A relative path to invoke, valid while *directory* is the working
+        directory.
+
+    Notes
+    -----
+    POSIX runs the script directly through a shebang. Windows has no shebang,
+    so the body goes in a ``.py`` file and the returned path is a ``.bat`` that
+    forwards its arguments to the interpreter; ``CreateProcess`` recognises the
+    extension and runs it through the command interpreter.
+    """
+    preamble = "import sys\nfrom pathlib import Path\n"
+    if os.name == "nt":
+        (directory / f"{name}.py").write_text(preamble + body)
+        launcher = directory / f"{name}.bat"
+        launcher.write_text(
+            f'@echo off\r\n"{sys.executable}" "%~dp0{name}.py" %*\r\n'
+        )
+        return f"./{name}.bat"
+    script = directory / name
+    script.write_text(f"#!{sys.executable}\n" + preamble + body)
+    script.chmod(0o755)
+    return f"./{name}"
+
+
+@pytest.fixture
+def fake_executable():
+    """Return the factory for runnable stand-ins for the C++ calculator."""
+    return _write_fake_executable

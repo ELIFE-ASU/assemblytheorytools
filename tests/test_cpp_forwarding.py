@@ -13,17 +13,14 @@ from assemblytheorytools import assembly
 
 
 @pytest.fixture
-def recording_calculator(tmp_path, monkeypatch):
+def recording_calculator(tmp_path, monkeypatch, fake_executable):
     monkeypatch.chdir(tmp_path)
-    script = tmp_path / "calculator"
-    script.write_text(
-        f"#!{sys.executable}\n"
-        "import json, sys\nfrom pathlib import Path\n"
+    return fake_executable(
+        tmp_path, "calculator",
+        "import json\n"
         "Path('arguments.json').write_text(json.dumps(sys.argv[2:]))\n"
         "Path(sys.argv[1] + 'Out').write_text('assembly index: 5\\n')\n"
     )
-    script.chmod(0o755)
-    return script
 
 
 def graph():

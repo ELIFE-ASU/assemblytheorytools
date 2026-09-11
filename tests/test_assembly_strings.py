@@ -1,5 +1,6 @@
 """Directed, undirected and joint string assembly across backends."""
 
+import os
 import random
 import string
 from itertools import islice, product
@@ -175,6 +176,9 @@ def test_string_backend_timeout_and_file_lifecycle(
         def send_signal(self, signal):
             events.append(signal)
 
+        def terminate(self):
+            events.append("terminate")
+
         def kill(self):
             events.append("kill")
 
@@ -205,8 +209,11 @@ def test_string_backend_timeout_and_file_lifecycle(
     assert calculation_dir.exists() is (debug or return_log_file)
     if return_log_file:
         assert Path(result[3]).read_text() == output
+    # Windows cannot deliver SIGINT to an ordinary child, so _run_assembler
+    # terminates it instead; the bounded escalation to kill is the same.
+    interrupt = "terminate" if os.name == "nt" else assembly.signal.SIGINT
     assert events == (
-        [] if not timeouts else [assembly.signal.SIGINT] + (["kill"] if timeouts == 2 else [])
+        [] if not timeouts else [interrupt] + (["kill"] if timeouts == 2 else [])
     )
 
 
