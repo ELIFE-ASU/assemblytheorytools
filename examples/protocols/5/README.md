@@ -1,7 +1,7 @@
 # Protocol 5: Copy Number, Abundance and Ensemble Assembly
 
 This protocol follows
-[Jirasek et al. (2026)](https://doi.org/10.48550/arXiv.2512.18752), which
+[Jirasek et al. (2025)](https://doi.org/10.48550/arXiv.2512.18752), which
 quantifies the emergence of selection in prebiotic peptide chemistry.
 
 [`protocol_5.ipynb`](./protocol_5.ipynb) is the one protocol here that goes

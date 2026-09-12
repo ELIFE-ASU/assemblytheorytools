@@ -40,13 +40,20 @@ list of graphs and a settings dictionary forwarded to each call. Note that
 import assemblytheorytools as att
 
 smiles = ["NCC(=O)O", "CC(N)C(=O)O", "CC", "c1ccccc1"]
-graphs = [att.smi_to_nx(s) for s in smiles]
 
-ai, virt_obj, pathway = att.calculate_assembly_index_parallel(
-    graphs, dict(strip_hydrogen=True))
+if __name__ == "__main__":
+    graphs = [att.smi_to_nx(s) for s in smiles]
 
-print(ai)   # [3, 4, 0, 3]
+    ai, virt_obj, pathway = att.calculate_assembly_index_parallel(
+        graphs, dict(strip_hydrogen=True))
+
+    print(ai)   # [3, 4, 0, 3]
 ```
+
+In a script, every batch call must sit under `if __name__ == "__main__":`: the
+worker processes re-execute the file they were launched from, so an unguarded
+top-level call re-enters itself. See
+[The general parallel map](#the-general-parallel-map) for why.
 
 It returns three lists — indices, virtual objects and pathways — aligned with
 the input order, so results stay matched to their inputs even though the
@@ -64,6 +71,11 @@ selects the C++ search within each worker.
 across processes:
 
 ```python
+import assemblytheorytools as att
+
+smiles = ["NCC(=O)O", "CC(N)C(=O)O", "CC", "c1ccccc1"]
+
+
 def ai_of(smi):
     return att.calculate_assembly_index(att.smi_to_nx(smi), strip_hydrogen=True)[0]
 
@@ -73,17 +85,21 @@ if __name__ == "__main__":
 ```
 
 :::{important}
-On POSIX platforms, Python 3.14 starts worker processes with the **forkserver**
-method, which pickles the target function by reference. For portable code, the
-function must be importable from a real module at import time:
+Python 3.14 starts worker processes with **forkserver** on Linux; macOS has used
+**spawn** since 3.8. Both pickle the target function by reference, where Linux's
+old `fork` default (3.13 and earlier) did not — so code that worked before can
+break on 3.14. For portable code, the function must be importable from a real
+module at import time:
 
 * define it at module level in a `.py` file — not in a closure, a `lambda`, or
   a comprehension;
 * guard the entry point with `if __name__ == "__main__":`;
 * run it as a script, not with `python -c`.
 
-A function defined interactively or nested inside another function raises a
-pickling error when the pool starts.
+A `lambda` or a closure raises `PicklingError` as soon as the map dispatches its
+first task. A function defined interactively is worse: it pickles by reference
+and then fails inside every worker with `AttributeError: module '__main__' has
+no attribute '<name>'`.
 :::
 
 The rule is about where the function is *defined*, not how the session is

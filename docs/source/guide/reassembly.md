@@ -1,7 +1,11 @@
 # Reassembly
 
 {mod}`assemblytheorytools.reassembler` builds molecules by applying SMARTS
-reaction templates. Where {doc}`enumeration` performs graph joins by vertex
+reaction templates, following
+[Liu *et al.* (2021)](https://doi.org/10.1126/sciadv.abj2465) for the
+fragment-pool construction and
+[Pagel *et al.* (2026)](https://doi.org/10.1021/acs.jcim.6c00939) for the
+generative search. Where {doc}`enumeration` performs graph joins by vertex
 identification and edge partitioning, reassembly works through chemical
 templates, so the structures it produces are plausible reaction products.
 
@@ -76,10 +80,14 @@ print(sorted(graph.nodes))
 Ethanol and acetaldehyde share the `CC` fragment, so the joined graph has five
 nodes rather than the six the two pathways hold separately.
 
-{class}`~assemblytheorytools.reassembler.MoleculeGenerationAssemblyPool`
-represents one generation of the pool and exposes the fragment-combining step,
-and {class}`~assemblytheorytools.reassembler.Assemble` is the driver object it
-needs:
+{class}`~assemblytheorytools.reassembler.MoleculeGenerationAssemblyPool` is the
+driver: it holds the fragments of a
+{class}`~assemblytheorytools.reassembler.MoleculeSpace` grouped by assembly
+level and runs the generation-by-generation search.
+{class}`~assemblytheorytools.reassembler.Assemble` is the stateless bond-forming
+engine it calls. A full run builds the pool from a `MoleculeSpace`; the single
+join below passes a bare graph of starting fragments instead, which is all
+`combine_fragments_layer` needs:
 
 ```python
 import random
@@ -96,9 +104,11 @@ product = generation.combine_fragments_layer(
 print(product)   # CC(N)C(=O)OC(=O)CN
 ```
 
-Template selection is stochastic: the same pair of fragments can join at
-different sites on different runs. Seed {mod}`random` when you need a
-reproducible product, as above.
+This path uses no SMARTS at all.
+{class}`~assemblytheorytools.reassembler.Assemble` fuses the two fragments by
+*overlapping* atoms, drawing how many atoms to overlap from empirical weights,
+so the same pair can join at different atoms on different runs. Seed
+{mod}`random` when you need a reproducible product, as above.
 
 ## Constraining the search
 
@@ -118,8 +128,10 @@ by a set of virtual objects.
 
 ## Parsing a reassembly log
 
-`ParsePathwayLog` reads the log a reassembly run writes, so a completed search
-can be analysed without repeating it:
+{class}`~assemblytheorytools.reassembler.ParsePathwayLog` parses the pathway log
+the *assembly-index* calculator writes — the same log
+`Molecule.reconstruct_pathway` captures — into a layered
+{class}`~networkx.MultiDiGraph`. It takes the log contents, not a filename:
 
 ```python
 from assemblytheorytools.reassembler import ParsePathwayLog

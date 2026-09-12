@@ -82,8 +82,9 @@ Plotting, file handling and parallel execution.
 Testing helpers
 ---------------
 
-Small prebuilt graph fixtures (``water_graph``, ``co2_graph``, ``phosphine_graph``
-and friends) used by the test suite. They are re-exported at the package root for
+Factory functions returning small graph fixtures (``water_graph()``,
+``co2_graph()``, ``phosphine_graph()`` and friends) used by the test suite. Each
+call builds a fresh graph. They are re-exported at the package root for
 convenience when writing tests against ATT, but they are not analysis tools.
 
 .. toctree::

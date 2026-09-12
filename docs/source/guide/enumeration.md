@@ -98,8 +98,11 @@ same graphs gives an equivalent answer.
 
 ## Cost
 
-The neighbourhood grows quickly with graph size, and the isomorphism check is
-pairwise against everything found so far. Strip hydrogens first
+The neighbourhood grows quickly with graph size. Deduplication is cheaper than
+it looks — candidates are bucketed by Weisfeiler-Lehman graph hash and each new
+graph is only tested for isomorphism against earlier graphs in its own bucket —
+so the cost is dominated by enumeration rather than by deduplication. Strip
+hydrogens first
 ({func}`~assemblytheorytools.tools_graph.remove_hydrogen_from_graph`) and start
 with small structures; `examples/advanced/forward_enumeration/` shows how to
 drive this over successive generations to explore an assembly space.

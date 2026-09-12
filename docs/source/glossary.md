@@ -26,6 +26,7 @@ Assembly units
   arbitrary labelled graph.
 
 Path
+Pathway
   A sequence of joining operations.
 
   In ATT: the third value returned by
@@ -76,7 +77,8 @@ Assembly depth
   usually not associated with the assembly index path.
 
   In ATT: {func}`~assemblytheorytools.construction.assign_levels` annotates each
-  pathway node with the depth of the pathway it belongs to, while
+  pathway node with its own level, so the depth of that pathway is the largest
+  level in it; the pathway must be rebuilt in topological order first.
   {func}`~assemblytheorytools.assembly.calculate_assembly_depth_rust` returns the
   object's minimum achievable assembly depth. See {doc}`guide/pathways`.
 
@@ -124,19 +126,20 @@ Assembly pool
   represents one generation of a pool. See {doc}`guide/reassembly`.
 :::
 
-## Assembly spaces
+## The four nested assembly spaces
 
 :::{glossary}
 Assembly universe
   *Symbol: $A_U$.* Represents the space constructed from elementary units
-  without any constraints on the combinational rules.
+  without any constraints on the combinatorial rules.
 
 Assembly possible
   *Symbol: $A_P$.* Represents the space of physically plausible objects by
   combinatorial expansion constrained by the physical rules of object
   construction and allowing all rules to be available at every step for every
-  object. In other words, it is a sub-space of the assembly universe where all
-  the objects constructed from unphysical joining operations have been removed.
+  object. In other words, it is a sub-space of the {term}`assembly universe`
+  where all the objects constructed from unphysical joining operations have
+  been removed.
 
   In ATT: {func}`~assemblytheorytools.neighborhood_enumeration.enumerate_up`
   and {mod}`assemblytheorytools.reassembler` both expand forwards under
@@ -144,17 +147,17 @@ Assembly possible
 
 Assembly contingent
   *Symbol: $A_C$.* Represents the space of physically plausible objects where
-  selection on the history matters. It is a sub-space of the assembly possible
+  selection on the history matters. It is a sub-space of {term}`assembly possible`
   where historical contingency is introduced by the assumption that only the
   constraints used on a specific path can be used in the future.
 
 Assembly observed
   *Symbol: $A_O$.* Represents the space of the observed objects, which is a
-  subset of assembly contingent. The observed objects are usually experimentally
-  measured and present in higher copy numbers. Assembly observed is
+  subset of {term}`assembly contingent`. The observed objects are usually
+  experimentally measured and present in higher copy numbers. Assembly observed is
   reconstructed by breaking the observed objects apart to their elementary
   building blocks and reconstructing a minimum path to construct those objects.
-  $A_O$ is represented by the joint assembly space.
+  $A_O$ is represented by the {term}`joint assembly space`.
 :::
 
 ## Assembly characteristic timescales
@@ -167,37 +170,46 @@ Persistence timescale
   the historical contingency can be sustained.
 
 Discovery timescale
-  *Symbol: $\tau_d$.* Is the characteristic discovery timescale at any assembly
-  index which quantifies the timescale at which new unique objects get
-  discovered.
+  *Symbol: $\tau_d$.* The characteristic time for a genuinely new object to be
+  discovered at a given assembly index ($\tau_d \sim 1/k_\mathrm{d}$, where
+  $k_\mathrm{d}$ is the discovery rate). Its relation to the
+  {term}`production timescale` $\tau_p$ decides whether selection is possible at
+  all: see {doc}`theory`.
 
 Production timescale
-  *Symbol: $\tau_p$.* Is the characteristic timescale defined by the rate of
-  production of objects by a physical process. This is governed by mass transfer
-  kinetics of the construction process ($\tau_p \sim 1/\kappa_p$), where
-  $\kappa_p$ is the production rate.
+  *Symbol: $\tau_p$.* The characteristic timescale defined by the rate of
+  production of objects by a physical process. It is governed by the mass
+  transfer kinetics of the construction process ($\tau_p \sim 1/k_\mathrm{p}$),
+  where $k_\mathrm{p}$ is the production rate.
 :::
 
 ## Selection in assembly space
 
 :::{glossary}
 Contingency
-  Is a property of a non-Markovian process and corresponds to the effect of
-  finite knowledge being transmitted from one discrete time step to another.
+Historical contingency
+  The dependence of what a system can do next on what it has already done: the
+  constraints used along a path remain available and restrict the future, which
+  is what makes the process non-Markovian. See {term}`assembly contingent`.
 
 Undirected exploration
   Describes the process by which exploration is random in assembly space and
-  corresponds to assembly possible. It is consistent with homogeneously
+  corresponds to {term}`assembly possible`. It is consistent with homogeneously
   distributed copy numbers.
+
+  *Criterion: $\alpha = 1$ in the discovery model of {doc}`theory`, where every
+  object already built stays available for reuse.*
 
 Directed exploration
   Describes the process by which exploration is non-random in assembly space and
-  corresponds to assembly contingent. The recursive operations to build objects
-  exhibit goal-directedness and more complexity is achieved in the system at the
-  cost of exploring "less" diversity-wise.
+  corresponds to {term}`assembly contingent`. The recursive operations to build
+  objects exhibit goal-directedness, and more complexity is achieved in the
+  system at the cost of exploring less of the space.
+
+  *Criterion: $0 \le \alpha < 1$, where only a subset is reused.*
 
 Selectivity
-  Describes the exploratory power of the assembly space and characterizes the
+  Describes the exploratory power of the assembly space and characterises the
   transition of a system from undirected exploration to directed exploration. In
   other words, it is the outcome of the emergence of preferential paths among
   all possible paths. Selectivity only depends on the discovery timescale and
@@ -237,6 +249,7 @@ Selection
   only assess selectivity, not selection. In a physical system, this
   goal-directed exploration maps to dynamics of cooperation and competition.
 
-  Note that when a system maintains / remains in directed exploration, we talk
-  about persistence.
+  Note that a system which stays in directed exploration is said to show
+  persistence. That is a property of the system, distinct from the single-object
+  {term}`persistence timescale`.
 :::

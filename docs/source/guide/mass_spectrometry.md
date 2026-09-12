@@ -5,7 +5,11 @@ without knowing the structure. This matters because it makes assembly index
 measurable for unknown samples — the basis of using it as a biosignature.
 
 Two independent routes are implemented: fragmentation trees from tandem mass
-spectrometry, and peak counts from infrared spectra.
+spectrometry, after
+[Marshall *et al.* (2021)](https://doi.org/10.1038/s41467-021-23258-x), and peak
+counts from infrared spectra, after
+[Jirasek *et al.* (2024)](https://doi.org/10.1021/acscentsci.4c00120). Cite the
+one you use — see {doc}`../citing`.
 
 ## Recursive MA from fragmentation trees
 
@@ -38,15 +42,22 @@ a Monte Carlo method, so it returns a distribution rather than a single number:
 ```python
 estimator = att.MAEstimator(same_level=True, tol=0.5, n_samples=20)
 
-estimate = estimator.estimate_MA(tree=tree, mw=400.0, progress_levels=0)
+estimate = estimator.estimate_MA(tree=tree, mw=500.0, progress_levels=0)
 
 print(f"{np.mean(estimate):.2f} +/- {np.std(estimate):.2f}")
 ```
 
+`mw` must match the tree's root *m/z* to within `tol`. A mass that matches no
+top-level key silently returns the molecular-weight prior instead of a
+fragment-informed estimate — the tree contributes nothing and no error is
+raised.
+
 `tol` is the mass tolerance in Daltons — match it to the instrument, since too
 tight a tolerance discards real fragments and too loose a one invents
-relationships. `n_samples` trades runtime against the width of the estimate;
-report the spread, not just the mean.
+relationships. `n_samples` is the Monte Carlo budget: more samples resolve the
+mean and the spread more precisely, but do not narrow the spread itself, which
+reflects how much assembly index varies between structures of the same mass.
+Report the spread, not just the mean.
 
 Module-level equivalents exist for the same steps
 ({func}`~assemblytheorytools.recursive_ma.rma_build_tree`,
@@ -60,8 +71,10 @@ rather not hold estimator state.
 {func}`~assemblytheorytools.tools_mzml.process_mzml_file` decodes an mzML
 document — handling the compression schemes and binary precisions the format
 declares — and writes the extracted spectra to a directory. The current parser
-supports zlib-compressed binary arrays; unsupported or uncompressed encodings
-raise an error:
+supports zlib-compressed binary arrays. Unsupported encodings fail per spectrum
+inside the parser's worker threads: the traceback is printed but not raised, and
+the affected spectra are simply missing from the output, so check that the
+returned dictionary is non-empty before going on.
 
 ```python
 att.process_mzml_file(
@@ -128,8 +141,10 @@ params, ai_predicted = att.estimate_ai_from_ir_peaks(
 forms, and {func}`~assemblytheorytools.tools_data.get_r`,
 {func}`~assemblytheorytools.tools_data.get_r2` and
 {func}`~assemblytheorytools.tools_data.get_rmsd` evaluate the fit. A linear
-model is the published choice — prefer it unless a higher order is clearly
-justified, since peak count is a coarse feature and a quintic will fit noise.
+model is the choice published by
+[Jirasek *et al.* (2024)](https://doi.org/10.1021/acscentsci.4c00120) — prefer
+it unless a higher order is clearly justified, since peak count is a coarse
+feature and a quintic will fit noise.
 
 {doc}`Protocol 3 <../examples/protocol_3>` is the complete worked correlation.
 

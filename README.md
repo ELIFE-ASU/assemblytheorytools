@@ -50,7 +50,7 @@ python -m pip install assemblytheorytools
 
 > **Platform note:** The C++ calculator is not distributed as a binary. The first calculation that needs it builds
 > [parallelassemblycpp](https://github.com/ELIFE-ASU/parallelassemblycpp) from source into `~/.cache/assemblytheorytools`, which
-> takes a few minutes and needs a C++20 compiler. To use a build you already have, set `ASS_PATH` instead; see
+> takes a few minutes and needs `git` and a C++20 compiler. To use a build you already have, set `ASS_PATH` instead; see
 > **Use your own parallelassemblycpp build** below.
 
 Calculate and plot the assembly pathway for caffeine:
@@ -86,7 +86,8 @@ Assembly index: 9
 - `ai` is the assembly index.
 - `virtual_objects` contains reusable intermediates found along the pathway. The collection is unordered; do not rely on
   positional order.
-- `pathway` is a NetworkX `DiGraph`: its nodes are virtual objects and its directed edges are joining operations.
+- `pathway` is a NetworkX `DiGraph` whose nodes are the virtual objects and the joining steps. Each node carries its
+  object in a `vo` attribute; the node ids themselves are labels such as `virtual_object_3` and `step_5`.
 
 Convert the virtual-object graphs back to SMILES with:
 
@@ -119,14 +120,18 @@ quantity ATT computes, with its inputs, its outputs, and what it is used for.
 | Assembly `A` | `calculate_assembly` | Graphs and their copy numbers | Ensemble assembly value |
 | Assembly depth | `calculate_assembly_depth_rust` | NetworkX graph or RDKit `Mol` | Minimum depth under concurrent joins |
 | Bounds | `calculate_assembly_index_upper_bound`, `calculate_assembly_index_lower_bound` | NetworkX graph or RDKit `Mol` | Instant bounds for screening |
-| Many indices at once | `calculate_assembly_index_parallel` | List of graphs | Indices, virtual objects, pathways |
-| Assembly index from tandem MS | `MAEstimator` | Fragmentation tree and molecular weight | Monte Carlo samples of MA |
-| Assembly index from IR peaks | `estimate_ai_from_ir_peaks` | Peak counts and reference indices | Fitted model and predicted indices |
+| Many indices at once | `calculate_assembly_index_parallel` | List of graphs plus a settings dictionary (required; pass `None` for the defaults) | Indices, virtual objects, pathways |
+| Assembly index *estimated* from tandem MS | `MAEstimator` | Fragmentation tree and molecular weight | Monte Carlo samples of MA |
+| Assembly index *estimated* from IR peaks | `estimate_ai_from_ir_peaks` | Peak counts, reference indices, a model function and a starting parameter guess | Fitted model and predicted indices |
+
+The last two rows are heuristic estimates from measured spectra, not exact calculations; report their spread.
 | Other complexity scores | `bertz_complexity`, `bottcher`, `wiener_index`, and more | RDKit `Mol` | Score, for comparison against the index |
 
 ## What ATT includes
 
 - Exact assembly-index calculations for molecules, arbitrary labelled graphs, and directed or undirected strings.
+  The search is exponential in the worst case, so a default 100-second timeout applies; on a timeout the calculation
+  returns the best upper bound it reached, and `exact=True` makes it return `-1` instead.
 - Default C++ and alternative Rust search interfaces, plus fast graph bounds and CFG-based string approximations.
 - Joint assembly, parallel execution, pathway parsing, pathway visualisation, and alternative-path enumeration.
 - Molecular complexity metrics, structure conversion, reassembly, crystal-cell, spectroscopy, and mass-spectrometry
@@ -139,9 +144,12 @@ quantity ATT computes, with its inputs, its outputs, and what it is used for.
 | --- | --- | --- | --- |
 | parallelassemblycpp (C++) | `calculate_assembly_index` | Default molecule and graph calculations | Index, virtual objects, and pathway |
 | assembly-theory (Rust) | `calculate_assembly_index_rust` | Fast molecular index calculations | Index |
-| assembly-theory search (Rust) | `calculate_assembly_index_rust_search` | Search statistics, options, and supported pathway reconstruction | Structured search result |
-| Graph bounds | `calculate_assembly_index_upper_bound` and `calculate_assembly_index_lower_bound` | Fast size-based estimates | Upper or lower bound |
-| assemblycfg | String calculations with `mode="cfg"` | Fast approximate string calculations | Upper bound and pathway |
+| assembly-theory search (Rust) | `calculate_assembly_index_rust_search` | Search statistics, options, and pathway reconstruction | Structured search result |
+| assemblycfg | `calculate_string_assembly_index(..., mode="cfg")` | Fast approximate string calculations | Upper bound and pathway |
+
+The analytic bounds `calculate_assembly_index_upper_bound` and
+`calculate_assembly_index_lower_bound` are not a backend: they are pure Python
+formulas that invoke no calculator at all.
 
 The Rust backend always strips hydrogens. For a meaningful comparison, compare it with
 `calculate_assembly_index(..., strip_hydrogen=True)`.
@@ -158,6 +166,11 @@ all backend options and environment variables.
 The one-line PyPI install above resolves ATT's runtime dependencies. The authoritative dependency list and minimum
 versions live in
 [`pyproject.toml`](https://github.com/ELIFE-ASU/assemblytheorytools/blob/main/pyproject.toml).
+
+On Windows, and on Intel macOS, two dependencies need more than pip can supply on its own — a Rust toolchain for
+`assembly-theory`, and the Cairo system library for `cairosvg`. The
+[installation guide](https://assemblytheorytools.readthedocs.io/en/latest/install.html) covers both, along with conda,
+HPC and build-from-source instructions.
 
 <details>
 <summary><strong>Install from source for development</strong></summary>
@@ -291,6 +304,7 @@ The second line prints `1`, the assembly index of hydrogen-stripped ethanol.
 
 | Resource | Description |
 | --- | --- |
+| [Installation](https://assemblytheorytools.readthedocs.io/en/latest/install.html) | Platform notes, conda, HPC and building the C++ calculator |
 | [Route map](https://assemblytheorytools.readthedocs.io/en/latest/route_map.html) | Every ATT quantity with its inputs, outputs, and applications |
 | [Concepts](https://assemblytheorytools.readthedocs.io/en/latest/concepts.html) | Assembly indices, virtual objects, pathways, joint assembly, and backends |
 | [User guide](https://assemblytheorytools.readthedocs.io/en/latest/guide/index.html) | Molecules, strings, graphs, pathways, parallel runs, complexity, and mass spectrometry |
@@ -343,9 +357,9 @@ Python dependencies.
 1. Sharma, A., Czégel, D., Lachmann, M., Kempes, C. P., Walker, S. I., & Cronin, L. (2023). Assembly theory explains
    and quantifies selection and evolution. *Nature*, 622(7982), 321–328.
    [doi:10.1038/s41586-023-06600-9](https://doi.org/10.1038/s41586-023-06600-9)
-2. Seet, I., Patarroyo, K. Y., Siebert, G., Walker, S. I., & Cronin, L. (2024). Rapid computation of the assembly index
-   of molecular graphs. *arXiv preprint*, arXiv:2410.09100.
-   [doi:10.48550/arXiv.2410.09100](https://doi.org/10.48550/arXiv.2410.09100)
+2. Seet, I., Patarroyo, K. Y., Siebert, G., Walker, S. I., & Cronin, L. (2025). Rapid exploration of the assembly
+   chemical space of molecular graphs. *Journal of Chemical Information and Modeling*, 65(24), 13203–13214.
+   [doi:10.1021/acs.jcim.5c01964](https://doi.org/10.1021/acs.jcim.5c01964)
 3. Vimal, D., Parzych, G., Smith, O. M., Parkar, D., Bergen, H., Daymude, J. J., & Mathis, C. (2026).
    assembly-theory: Open, reproducible calculation of assembly indices. *Journal of Open Source Software*, 11(117),
    9318. [doi:10.21105/joss.09318](https://doi.org/10.21105/joss.09318)

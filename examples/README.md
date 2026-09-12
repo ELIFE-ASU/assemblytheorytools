@@ -18,16 +18,16 @@ includes:
 
 - Calculating the Molecular Assembly Index for individual molecules and combined systems.
 - Calculating the String Assembly Index for arbitrary data sequences.
-- Visualizing the resulting assembly pathways.
+- Visualising the resulting assembly pathways.
 
 ### [Protocol 2: Large-Scale Molecular Assembly Analysis](./protocols/2/)
 
-Provides an end-to-end workflow for analyzing the relationship between Molecular Weight (MW) and Molecular Assembly (MA)
+Provides an end-to-end workflow for analysing the relationship between Molecular Weight (MW) and Molecular Assembly (MA)
 on a large scale. This includes:
 
 - Acquiring and sampling data from a molecular database (CBRDB) and from PubChem.
 - Performing large-scale, parallelized assembly calculations.
-- Visualizing the results as heatmaps and a molecule grid, and comparing the two datasets.
+- Visualising the results as heatmaps and a molecule grid, and comparing the two datasets.
 - Running the same workflow on your own molecules, from a list or a CSV file, and placing them on the database heatmap.
 
 ### [Protocol 3: Correlating Assembly with IR Spectroscopy](./protocols/3/)

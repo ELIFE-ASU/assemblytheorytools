@@ -93,6 +93,16 @@ New work should not reduce existing coverage. See the
 [test-suite guide](https://github.com/ELIFE-ASU/assemblytheorytools/blob/main/tests/README.md)
 for marker and plotting details.
 
+## Linting
+
+The `lint` group installs [Ruff](https://docs.astral.sh/ruff/). Run it from the
+repository root before opening a pull request; CI runs the same rule set,
+configured in `pyproject.toml`:
+
+```console
+ruff check .
+```
+
 ## Documentation
 
 The documentation lives in `docs/` and is published at
@@ -137,13 +147,14 @@ python -m twine check --strict dist/*
 ```
 
 The build uses an isolated environment with the backend requirements declared
-in `pyproject.toml`. The artifacts are written to `dist/`.
+in `pyproject.toml`. The artefacts are written to `dist/`.
 
 ## Pull request checklist
 
 - [ ] The change is focused and excludes unrelated refactoring.
 - [ ] New behaviour and bug fixes have tests.
 - [ ] The relevant default, integration, or slow test groups pass.
+- [ ] `ruff check .` passes.
 - [ ] Coverage does not decrease.
 - [ ] Public APIs have type hints and NumPy-style docstrings.
 - [ ] User-facing behaviour is documented.

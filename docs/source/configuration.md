@@ -6,8 +6,9 @@ ATT reads the following variables. None is required, but setting `ASS_PATH`
 avoids the on-demand build of the C++ calculator described below.
 
 `ASS_PATH`
-: Full path to the `AssemblyCpp` executable, which computes molecule, graph and
-  string assembly indices. If unset,
+: Full path to the `ParallelAssemblyCpp` executable (named `AssemblyCpp` in
+  older upstream revisions and in ATT's own cache), which computes molecule,
+  graph and string assembly indices. If unset,
   {func}`~assemblytheorytools.assembly.add_assembly_to_path` searches `PATH`
   for `ParallelAssemblyCpp` (or the older `AssemblyCpp`),
   then ATT's cache directory, and finally builds the calculator with
@@ -16,11 +17,11 @@ avoids the on-demand build of the C++ calculator described below.
   own build — for example an [optimised build](install.md#optional-a-faster-parallelassemblycpp-build):
 
   ```bash
-  export ASS_PATH=$HOME/parallelassemblycpp/build/release/ParallelAssemblyCpp
+  export ASS_PATH=$HOME/parallelassemblycpp/build/performance/ParallelAssemblyCpp
   ```
 
 `ASS_STR_PATH`
-: Full path to an `AssemblyCpp` executable to use for *string* calculations
+: Full path to a `ParallelAssemblyCpp` executable to use for *string* calculations
   instead of the one in `ASS_PATH`. One executable handles both, so this is
   only needed to compare two builds; it falls back to `ASS_PATH` when unset.
 
@@ -111,9 +112,11 @@ functions built on it.
 : A finite, non-negative wall-clock limit for the external calculator, enforced
   by ATT; `None` disables this limit. The calculator's CPU-time budget is a
   separate option, `cpp_options.runtime_ticks`, and is unlimited by default.
-  On a timeout,
-  ATT interrupts the calculator and allows up to two seconds to write its best
-  result before killing it. The search is exponential in the worst
+  On a timeout, ATT
+  interrupts the calculator (SIGINT) and allows up to two seconds to write its
+  best result before killing it; Windows has no equivalent interrupt for a child
+  process, so the calculator is terminated at once and the bound is recovered
+  from the log. The search is exponential in the worst
   case, so a large molecule can exceed any limit. When the search stops early —
   its budget ran out, it hit its enumeration cap, or it was interrupted — ATT
   returns the best upper bound the calculator reached, or `-1` if it reached
@@ -153,14 +156,17 @@ functions built on it.
   calculator failures include the end of the log in the exception.
 
 {func}`~assemblytheorytools.assembly.calculate_assembly_index_jo` reads the
-pathway from its own calculation directory and honors these retention options
+pathway from its own calculation directory and honours these retention options
 through `settings`. Its result remains `(jo, virtual_objects, pathway)`;
 `settings={"return_log_file": True}` retains the directory and prints the log
 location without adding a fourth result field.
 
 C++ string mode accepts one line of ASCII text: the calculator indexes bytes
-and reads each line as a separate input. Empty strings and edgeless graphs
-need no joining operations and return index zero without launching a calculator.
+and reads each line as a separate input. Strings of one character or fewer, and
+edgeless graphs, need no joining operations and return index zero without
+launching a calculator; with `return_log_file=True` the fourth field is then
+`None`. Single-character items are dropped from a list of strings before the
+joint encoding.
 
 `dir_code`
 : Explicit path to the calculator executable, overriding `ASS_PATH`.
@@ -187,12 +193,12 @@ older aliases for renamed flags; the table uses the current `--help` names.
 
 | C++ option | Python control | Default and meaning |
 | --- | --- | --- |
-| `--runtime` | `cpp_options.runtime_ticks` | `None`: unlimited CPU time; otherwise integer `std::clock` ticks, from 0 through `2**64 - 1`. The maximum value also means unlimited. |
+| `--runtime` | `cpp_options.runtime_ticks` | `None`: unlimited CPU time; otherwise integer `std::clock` ticks, from 0 through `2**64 - 1`. The maximum value also means unlimited. Divide by `CLOCKS_PER_SEC` (1,000,000 with glibc) to convert ticks to seconds. |
 | `--enum-max` | `cpp_options.enum_max` | `None`: C++ default, currently 50,000,000. Integers from 1 through `2**31 - 1`; graph mode only. |
 | `--pathway` | `cpp_options.pathway` | `True`; disable pathway computation/output with `False`. |
 | `--accept-palindromes` | `cpp_options.accept_palindromes` | `False`; allow a string fragment to be reused in reverse. Native string mode only. |
 | `--parallel` | `cpp_options.parallel` | `"off"`, `"auto"` or `"on"`; default `"off"`. `"auto"` can fall back to serial; `"on"` requires a compatible parallel executable. |
-| `--threads` | `cpp_options.threads` | `"auto"` or an integer from 1 through `2**31 - 1`; threads per C++ process, applicable to parallel graph search. |
+| `--threads` | `cpp_options.threads` | `"auto"` (default) or an integer from 1 through `2**31 - 1`; threads per C++ process, applicable to parallel graph search. An explicit count is graph mode only. |
 | `--verbose` | `cpp_options.verbose` | `False`; print the parsed graph into the calculator log, independently of Python's `debug`. Graph mode only. |
 | `--memory-report` | `cpp_options.memory_report` | `False`; write Linux peak memory to `memUsage`. |
 | `--telemetry` | `cpp_options.telemetry` | `False`; write `INPUTTelemetry.json`. Requires a telemetry executable; graph mode only. |
@@ -206,10 +212,11 @@ Booleans must be `True` or `False`; numeric bounds are checked before execution.
 Graph-only controls are rejected in native string mode instead of silently
 ignored. `cpp_options` is unavailable for the CFG backend.
 
-`parallel="on"` cannot be combined with a finite C++ CPU budget or intermediate
-index output. `parallel="auto"` permits the calculator's serial fallback in
-these cases. The Python wall-clock `timeout` works with every mode and does not
-force serial execution. See {doc}`guide/parallel` for selecting a parallel build.
+`parallel="on"` cannot be combined with native string mode, a finite C++ CPU
+budget, or intermediate index output. `parallel="auto"` permits the calculator's
+serial fallback for the latter two; string mode is always serial. The Python
+wall-clock `timeout` works with every mode and does not force serial execution.
+See {doc}`guide/parallel` for selecting a parallel build.
 
 ATT's default build is serial and has no telemetry. Point `dir_code` or
 `ASS_PATH` at `ParallelAssemblyCppOMP` for OpenMP, `ParallelAssemblyCppTelemetry`
@@ -224,10 +231,12 @@ retrieve that location programmatically: output files sit next to the returned
 log, with `INPUT` equal to `graph_in` or `string_in`. Both graph and string
 entry points also accept `save_dir=True` to retain their working files.
 
-For reversal matching, the returned string pathway distinguishes
+With `accept_palindromes=True`, the returned string pathway distinguishes
 `operation="concatenate"` nodes with `cost=1` from `operation="reverse"` nodes
 and edges with `cost=0`. Summing **node** costs counts joining operations;
-counting all nonprimitive nodes would also count free reversals.
+counting all nonprimitive nodes would also count free reversals. Without it the
+pathway carries no `operation` or `cost` attribute at all, and every
+nonprimitive node is one join.
 
 ## Rust backend options
 
@@ -265,7 +274,9 @@ configured entirely through the arguments of
 
 `max_pathways` (default `None`)
 : How many minimum assembly pathways to reconstruct: a positive integer for at
-  most that many, `0` for all of them, or `None` to skip reconstruction.
+  most that many, `0` for every minimum pathway the search actually discovered,
+  or `None` to skip reconstruction. `0` is not an exhaustive enumeration:
+  bounding and memoisation prune pathways that merely tie the minimum.
   Requires `assembly-theory` 0.7.0 or newer — see
   [Pathways](guide/pathways.md#pathways-from-the-rust-backend).
 

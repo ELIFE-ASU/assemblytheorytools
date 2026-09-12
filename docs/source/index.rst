@@ -7,22 +7,27 @@ enumerating assembly pathways, scoring molecular complexity, and plotting the
 results.
 
 Assembly theory quantifies the complexity of an object by the minimal number of
-joining steps needed to build it from elementary parts, reusing every
-intermediate that has already been made. ``assemblytheorytools`` (ATT) wraps the
-C++ and Rust assembly calculators behind one Python API. The Rust calculator
-installs alongside ATT as a wheel; the C++ calculator is built from source on
-first use, or found through ``ASS_PATH``.
+joining steps needed to build it from elementary parts, where every intermediate
+that has already been made may be reused for free.
+``assemblytheorytools`` (ATT) wraps three assembly calculators behind one Python
+API: a C++ one for exact molecule, graph and string indices, a Rust one for fast
+molecular indices, and a context-free-grammar one for approximate string
+indices. The Rust and CFG calculators install alongside ATT as ordinary Python
+dependencies; the C++ calculator is taken from ``ASS_PATH``, ``PATH`` or ATT's
+cache, and built from source on first use only if none of those supplies one.
 
 Installation
 ------------
 
+ATT requires **Python 3.12 or newer**.
+
 .. code-block:: bash
 
-   pip install assemblytheorytools
+   python -m pip install assemblytheorytools
 
 The first calculation below builds the C++ calculator if none is configured,
-which takes a few minutes and needs a C++20 compiler. See :doc:`install` for
-conda, HPC and build-from-source instructions.
+which takes a few minutes and needs ``git`` and a C++20 compiler. See
+:doc:`install` for conda, HPC, Windows and build-from-source instructions.
 
 Quick start
 -----------
@@ -48,8 +53,8 @@ Compute the assembly index of caffeine:
 ``ai`` is the assembly index. ``virt_obj`` holds the virtual objects — the
 reusable intermediates found along the path — as graphs, which
 :func:`~assemblytheorytools.tools_graph.nx_to_smi` converts back to SMILES.
-``pathway`` is a :class:`~networkx.DiGraph` in which each node is a virtual
-object and each edge is a joining operation.
+``pathway`` is a :class:`~networkx.DiGraph` whose nodes are the virtual objects
+and the joining steps, each carrying its object in a ``vo`` attribute.
 
 Plot the pathway:
 

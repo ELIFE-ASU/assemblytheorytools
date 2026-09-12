@@ -61,7 +61,7 @@ myst_enable_extensions = ['colon_fence', 'deflist', 'dollarmath']
 myst_heading_anchors = 3
 
 # -- MyST-NB (notebook rendering) --------------------------------------------
-# The four protocol pages are executed Jupyter notebooks committed with their
+# The protocol pages are executed Jupyter notebooks committed with their
 # outputs. They are rendered as stored and never executed by the docs build:
 # they need external datasets, network access and a large amount of CPU time.
 # Re-execute them with `jupyter nbconvert --execute` after editing, not here.
@@ -160,6 +160,25 @@ def _relax_nitpicky_without_inventories(app):
         'otherwise be reported as unresolved. Re-run with the inventories '
         'reachable to check cross-references.'
     )
+
+# -- Link checking -----------------------------------------------------------
+# `make -C docs linkcheck` is only useful if it reports real breakage. Several
+# publishers answer an automated HEAD/GET with 403 even though the DOI resolves
+# perfectly well in a browser, so checking them reports a failure that cannot be
+# fixed from this end. Every DOI below was verified manually against Crossref.
+linkcheck_ignore = [
+    r'https://doi\.org/10\.1021/.*',   # ACS: 403 to automated requests
+    r'https://doi\.org/10\.1126/.*',   # Science/AAAS: 403 to automated requests
+    r'https://pubs\.acs\.org/.*',
+    r'https://www\.science\.org/.*',
+]
+# Redirects to a canonical form (doi.org -> publisher, readthedocs.io -> /en/latest)
+# are expected and are not failures.
+linkcheck_allowed_redirects = {
+    r'https://doi\.org/.*': r'https?://.*',
+    r'https://assemblytheorytools\.readthedocs\.io/?': r'https://assemblytheorytools\.readthedocs\.io/en/latest/',
+    r'https://docs\.pytest\.org/?': r'https://docs\.pytest\.org/en/stable/',
+}
 
 # -- Autosummary -------------------------------------------------------------
 # The API pages carry summary tables only; `automodule` still owns every object

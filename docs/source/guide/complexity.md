@@ -22,30 +22,36 @@ att.count_non_h_bonds(mol)  # 15
 
 **Graph-theoretic indices** — computed from the molecular graph's topology:
 
-| Score | Function |
-| --- | --- |
-| Bertz | {func}`~assemblytheorytools.complexity_scores.bertz_complexity` |
-| Böttcher | {func}`~assemblytheorytools.complexity_scores.bottcher` |
-| Wiener | {func}`~assemblytheorytools.complexity_scores.wiener_index` |
-| Balaban | {func}`~assemblytheorytools.complexity_scores.balaban_index` |
-| Randić | {func}`~assemblytheorytools.complexity_scores.randic_index` |
-| Kirchhoff | {func}`~assemblytheorytools.complexity_scores.kirchhoff_index` |
+| Score | Function | Defined in |
+| --- | --- | --- |
+| Bertz | {func}`~assemblytheorytools.complexity_scores.bertz_complexity` | [Bertz (1981)](https://doi.org/10.1021/ja00402a071) |
+| Böttcher | {func}`~assemblytheorytools.complexity_scores.bottcher` | [Böttcher (2016)](https://doi.org/10.1021/acs.jcim.5b00723) |
+| Wiener | {func}`~assemblytheorytools.complexity_scores.wiener_index` | [Wiener (1947)](https://doi.org/10.1021/ja01193a005) |
+| Balaban | {func}`~assemblytheorytools.complexity_scores.balaban_index` | [Balaban (1982)](https://doi.org/10.1016/0009-2614(82)80009-2) |
+| Randić | {func}`~assemblytheorytools.complexity_scores.randic_index` | [Randić (1975)](https://doi.org/10.1021/ja00856a001) |
+| Kirchhoff | {func}`~assemblytheorytools.complexity_scores.kirchhoff_index` | [Klein & Randić (1993)](https://doi.org/10.1007/BF01164627) |
+
+`wiener_index` returns an `int`; the rest return floats.
 
 **Substructure and shape measures**:
 
 * {func}`~assemblytheorytools.complexity_scores.spacial_score` — three-dimensional
   complexity; `normalise=True` divides by heavy atom count.
+  [Krzyzanowski *et al.* (2023)](https://doi.org/10.1021/acs.jmedchem.3c00689)
 * {func}`~assemblytheorytools.complexity_scores.proudfoot` — atom-environment
   complexity.
+  [Proudfoot (2017)](https://doi.org/10.1016/j.bmcl.2017.03.008)
 * {func}`~assemblytheorytools.complexity_scores.mc1` and
   {func}`~assemblytheorytools.complexity_scores.mc2` — molecular complexity
-  measures.
+  measures. `mc2` returns an `int`: it is a count of atoms, not a score.
+  [Buehler & Reymond (2025)](https://doi.org/10.1021/acs.jcim.5c00334)
 * {func}`~assemblytheorytools.complexity_scores.shannon_entropy` — character
   entropy of an input string (for example, a SMILES string). This is an
   exception to the `Mol` input convention.
 
 **Compression-based measures** — how far a standard compressor shrinks the
-structure, a crude proxy for redundancy:
+structure, a crude proxy for redundancy. Unlike the scores above these are not
+published molecular complexity measures, so there is nothing to cite for them:
 
 * {func}`~assemblytheorytools.complexity_scores.compression_zlib_smi`,
   {func}`~assemblytheorytools.complexity_scores.compression_bz2_smi`,
@@ -85,6 +91,10 @@ att.calculate_assembly_index_similarity(
     settings={"strip_hydrogen": True})   # 0.75
 ```
 
+In a script this call needs an `if __name__ == "__main__":` guard, or
+`parallel=False` — it runs its constituent calculations in a process pool. See
+{doc}`parallel`.
+
 The two disagree because they measure different things: Tanimoto compares
 fingerprint bits, whereas the assembly score asks how much of the construction
 work is shared.
@@ -117,6 +127,7 @@ across seven scores on KEGG compounds.
 
 ## See also
 
+* {doc}`../citing` — the full reference for every score above.
 * {doc}`../api/complexity_scores` — every scoring function.
 * {doc}`../api/tools_data` — sampling, filtering and fitting helpers.
 * {doc}`../examples/protocol_2` — assembly index against molecular weight at scale, for CBRDB, PubChem and your own molecules.

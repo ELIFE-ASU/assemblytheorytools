@@ -3,9 +3,11 @@
 This page is background: what assembly theory claims, and which of its
 quantities ATT can actually compute. It summarises Sharma *et al.* (2023),
 [*Assembly theory explains and quantifies selection and evolution*](https://doi.org/10.1038/s41586-023-06600-9),
-which is the reference for everything below and is cited in full under
-{doc}`citing`. {doc}`glossary` gives the formal definitions; {doc}`concepts` is
-the shorter, API-facing version of the same material.
+which is the reference for most of what follows and is cited in full under
+{doc}`citing`; the exploration ratio and the union approximation of the joint
+assembly space come from Jirasek *et al.* (2025), listed there too.
+{doc}`glossary` gives the formal definitions; {doc}`concepts` is the shorter,
+API-facing version of the same material.
 
 The motivating problem is that physics has no way to tell a complex object that
 was *selected* from one that arose by chance. Evolutionary theory explains why
@@ -48,7 +50,7 @@ not of any particular path — several shortest paths usually exist, and they al
 give the same index. And it is computable in finite time for any finite object,
 which distinguishes it from Kolmogorov complexity: the assembly index is defined
 over physically realisable operations rather than over programs for a universal
-computer, so it is both computable and physically interpretable. For molecules
+computer. For molecules
 it is also *measurable*, having been inferred experimentally from MS/MS, NMR and
 infrared spectroscopy without computing it at all.
 
@@ -65,8 +67,8 @@ dependencies rather than the total number of operations.
 
 Index and depth are properties of different things: the index belongs to the
 object, while a depth belongs to a specific path. Adenine is the standard
-illustration — seven sequential steps, but only five when independent steps are
-allowed to proceed concurrently:
+illustration — seven sequential steps, but only five *along that pathway* when
+independent steps are allowed to proceed concurrently:
 
 ```python
 import networkx as nx
@@ -93,7 +95,9 @@ the path that minimises depth is generally not the path that minimises the
 index. The separate
 {func}`~assemblytheorytools.assembly.calculate_assembly_depth_rust` search
 returns the object's minimum achievable depth, though it is substantially more
-expensive and has no timeout.
+expensive and has no timeout. For adenine that minimum is 4, one less than the
+pathway above — which is exactly the point: 5 is a property of that path, 4 is a
+property of the molecule.
 
 ## Copy number and the assembly equation
 
@@ -115,8 +119,9 @@ to produce a whole ensemble:
 $$A = \sum_{i=1}^{N} e^{a_i}\left(\frac{n_i - 1}{N_\mathrm{T}}\right)$$
 
 $N$ is the number of unique objects, $a_i$ and $n_i$ the assembly index and copy
-number of object $i$, and $N_\mathrm{T}$ the total number of objects in the
-ensemble. The exponential makes assembly grow sharply with index, the $n_i - 1$
+number of object $i$, and $N_\mathrm{T} = \sum_i n_i$ the total number of objects
+in the ensemble — the sum of the copy numbers, not the number of unique
+species. The exponential makes assembly grow sharply with index, the $n_i - 1$
 factor discards objects seen only once, and dividing by $N_\mathrm{T}$ lets
 ensembles of different sizes be compared.
 
@@ -155,11 +160,15 @@ The {term}`assembly space` of an object is the set of virtual objects and
 joining operations describing how it is built. The {term}`assembly pool` is what
 is available to build with at a given moment: the assembly units plus every
 virtual object made so far. A {term}`joint assembly space` does this for several
-objects at once, sharing intermediates between them — which is why joint indices
-fall below the sum of the separate ones, and why that gap measures how much
-structure the objects have in common. ATT computes it exactly by passing a
-disconnected graph to the calculator, or approximately by merging separate
-pathways with {class}`~assemblytheorytools.reassembler.MoleculeSpace`.
+objects at once, sharing intermediates between them — each carrying a
+{term}`virtual copy number` recording how often it is reused. That sharing is
+why joint indices fall below the sum of the separate ones, and why that gap
+measures how much structure the objects have in common. ATT computes it exactly
+by passing a disconnected graph to the calculator, or approximately by merging
+separate
+pathways with {func}`~assemblytheorytools.assembly.joint_assembly_space` — or
+with {class}`~assemblytheorytools.reassembler.MoleculeSpace` for a set of
+molecules already carrying their pathways.
 
 Four spaces nest inside one another, each a constrained version of the last:
 
@@ -177,19 +186,20 @@ Four spaces nest inside one another, each a constrained version of the last:
   {mod}`assemblytheorytools.reassembler` explore. See {doc}`guide/enumeration`.
 
 {term}`Assembly contingent` ($A_C$)
-: The subspace where history matters: only constraints already used on a path
-  are available later on that path. This is where assembly theory departs from
-  ordinary combinatorics, and it is a much smaller space — the past restricts
-  the future.
+: The subspace where {term}`historical contingency <Contingency>` matters: only
+  constraints already used on a path are available later on that path. This is
+  where assembly theory departs from ordinary combinatorics, and it is a much
+  smaller space — the past restricts the future.
 
 {term}`Assembly observed` ($A_O$)
 : What is actually measured, typically in high copy number. It is reconstructed
   by breaking observed objects down to their units and rebuilding minimal paths,
   and is represented by the joint assembly space.
 
-Everything ATT computes lives in the last of these. Give the calculator a
-molecule and it recovers a minimal construction for something you already have
-in hand.
+Everything the assembly calculator computes lives in the last of these: give it
+a molecule and it recovers a minimal construction for something you already have
+in hand. The enumeration tools named above are the exception — they expand
+forwards into $A_P$.
 
 ## Timescales, selectivity and selection
 
@@ -217,8 +227,8 @@ exploring less of it.
 
 That transition from undirected to directed exploration is
 {term}`selectivity`. Its signature is a *lower* exploration ratio at *higher*
-complexity: fewer of the reachable objects actually realised, and the ones that
-are, more assembled.
+complexity: fewer of the reachable objects are realised, and those that are
+turn out to be more assembled.
 
 The {term}`exploration ratio` makes that measurable. Take the minimum pathway
 of every observed object and compose them into one graph: the union
@@ -228,11 +238,15 @@ which were never themselves seen. The ratio of observed nodes to all nodes says
 how fully the ensemble realised its own construction:
 
 ```python
-paths = [att.calculate_string_assembly_index(s, mode="cfg")[2]
-         for s in sequences]
+paths = [att.calculate_string_assembly_index(s)[2] for s in sequences]
 
 att.exploration_ratio(paths)
 ```
+
+The default mode gives exact minimum pathways. `mode="cfg"` is the fast RePair
+upper bound, so its pathways are near-minimal rather than minimal — worth
+switching to for long sequences, at the cost of a ratio that is only
+approximate.
 
 A ratio near one means almost everything the system could build from what it
 had, it did build. A markedly lower one means it drove deep along a few routes
@@ -255,6 +269,23 @@ Selection depends on copy numbers too, and ATT does not measure those; they have
 to come from your experiment and be supplied to
 {func}`~assemblytheorytools.assembly.calculate_assembly`. Without them, the
 honest claim is about selectivity, not selection.
+
+## An open debate
+
+Assembly theory is an active and contested research programme, and this page
+summarises its claims as its proponents state them. Peer-reviewed responses have
+argued that the assembly index is closely related to existing
+compression-based complexity measures, and that the selection claim does not
+follow from the formalism — see Abrahão *et al.* (2024),
+[doi:10.1371/journal.pcsy.0000014](https://doi.org/10.1371/journal.pcsy.0000014),
+and Uthamacumaran *et al.* (2024),
+[doi:10.1038/s41540-024-00403-y](https://doi.org/10.1038/s41540-024-00403-y).
+
+None of this affects what ATT computes. The assembly index is a well-defined
+quantity on a graph, and the package calculates it; how much it tells you about
+selection is the part under discussion. Where that distinction matters for the
+claims you can make from ATT's output, it is the one drawn above: an index
+speaks to selectivity, and selection additionally needs copy numbers you supply.
 
 ## Reading on
 

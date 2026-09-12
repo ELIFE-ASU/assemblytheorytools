@@ -74,9 +74,23 @@ joint = att.calculate_assembly_index(
 print(separate, sum(separate), joint)   # [3, 4] 7 4
 ```
 
+The `.` makes `smi_to_nx` emit a `UserWarning` about disconnected molecules. For
+a joint calculation that input is intended, so the warning can be ignored.
+
 The joint index is 4 against a separate total of 7: the two amino acids share
 most of their structure, so nearly everything built for one is reused for the
-other.
+other. That 4 includes the default `joint_corr=True` correction, which subtracts
+one less than the number of connected components; the calculator's raw value
+here is 5.
+
+When the molecules are already graphs rather than SMILES,
+{func}`~assemblytheorytools.tools_graph.join_graphs` builds the same
+disconnected input:
+
+```python
+att.calculate_assembly_index(att.join_graphs([graph_a, graph_b]),
+                             strip_hydrogen=True)
+```
 
 {func}`~assemblytheorytools.assembly.calculate_assembly_index_similarity`
 reports `(sum of separate indices / joint index) - 1`. For two objects the
@@ -89,18 +103,35 @@ att.calculate_assembly_index_similarity(
 ```
 
 The helper enables exact mode by default so that a timed-out upper bound is not
-mistaken for a similarity value.
+mistaken for a similarity value. If a constituent search then fails to prove a
+minimum it returns `-1.0` rather than a score; pass `enforce_exact_mode=False`
+to accept bounds instead.
+
+:::{note}
+This helper defaults to `parallel=True` and runs its constituent calculations in
+a process pool, as do
+{func}`~assemblytheorytools.assembly.calculate_sum_assembly_index`,
+{func}`~assemblytheorytools.assembly.calculate_assembly_index_semi_metric` and
+{func}`~assemblytheorytools.assembly.calculate_assembly`. In a script, call them
+under `if __name__ == "__main__":`, or pass `parallel=False` — see
+{doc}`parallel`.
+:::
 
 Related helpers:
 {func}`~assemblytheorytools.assembly.calculate_sum_assembly_index` for the
-separate total, {func}`~assemblytheorytools.assembly.calculate_assembly_index_ratio`
-and {func}`~assemblytheorytools.assembly.calculate_assembly_index_pairwise_joint`
-for pairwise comparisons across a set.
+separate total,
+{func}`~assemblytheorytools.assembly.calculate_assembly_index_semi_metric` for
+the distance between two objects — twice their joint index minus the sum of
+their separate indices, `0.0` when they are isomorphic — and
+{func}`~assemblytheorytools.assembly.calculate_assembly_index_pairwise_joint`,
+which composes every pair's pathway into one shared assembly space.
 
 ## Choosing a backend
 
 The default backend returns the index, the virtual objects and the pathway. If
-you only need the number, the Rust backend is faster:
+you only need the number,
+{func}`~assemblytheorytools.assembly.calculate_assembly_index_rust` runs the
+Rust backend and is faster:
 
 ```python
 att.calculate_assembly_index_rust(graph)    # 9 for caffeine
@@ -109,7 +140,7 @@ att.calculate_assembly_index_rust(graph)    # 9 for caffeine
 It returns a bare integer and always strips hydrogens, so only compare it with
 `strip_hydrogen=True` results.
 
-Two further functions reach the same backend.
+Other functions reach the same backend.
 {func}`~assemblytheorytools.assembly.calculate_assembly_depth_rust` gives the
 molecule's minimum assembly depth, and
 {func}`~assemblytheorytools.assembly.calculate_assembly_index_rust_search`
@@ -161,6 +192,11 @@ default mode returns the best upper bound recorded so far, or `-1` if none was
 found; virtual objects and a pathway may be unavailable. Pass `exact=True` to
 return `-1` instead of an upper bound, raise the timeout, or use the bound
 helpers above.
+
+A negative index means the search did not finish, not that the run failed. A
+calculator that exits nonzero without having timed out, or that completes
+without writing an index, raises `OSError` instead — so `if ai >= 0` is not on
+its own a sufficient guard.
 
 To see what the calculator actually did, keep the working directory:
 

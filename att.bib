@@ -1,138 +1,328 @@
-@inproceedings{networkx,
-  series = {SciPy},
-  title = {Exploring Network Structure,  Dynamics,  and Function using NetworkX},
-  ISSN = {2575-9752},
-  url = {http://dx.doi.org/10.25080/TCWV9851},
-  DOI = {10.25080/tcwv9851},
-  booktitle = {Proceedings of the 7th Python in Science Conference},
-  publisher = {SciPy},
-  author = {Hagberg,  Aric A. and Schult,  Daniel A. and Swart,  Pieter J.},
-  year = {2008},
-  month = jun,
-  pages = {11–15},
-  collection = {SciPy}
+% Bibliography for assemblytheorytools (ATT) and the work it builds on.
+%
+% Grouped as: assembly theory, the calculators ATT drives, the complexity
+% scores it implements, external datasets, and the scientific Python stack.
+% Every entry was checked against Crossref or DataCite.
+
+% ---------------------------------------------------------------- assembly theory
+
+@article{sharma2023assembly,
+  author  = {Abhishek Sharma and D{\'a}niel Cz{\'e}gel and Michael Lachmann and Christopher P. Kempes and Sara I. Walker and Leroy Cronin},
+  title   = {Assembly theory explains and quantifies selection and evolution},
+  journal = {Nature},
+  volume  = {622},
+  number  = {7982},
+  pages   = {321--328},
+  year    = {2023},
+  doi     = {10.1038/s41586-023-06600-9},
+  url     = {https://doi.org/10.1038/s41586-023-06600-9}
 }
 
-@Article{         harris2020array,
- title         = {Array programming with {NumPy}},
- author        = {Charles R. Harris and K. Jarrod Millman and St{\'{e}}fan J.
-                 van der Walt and Ralf Gommers and Pauli Virtanen and David
-                 Cournapeau and Eric Wieser and Julian Taylor and Sebastian
-                 Berg and Nathaniel J. Smith and Robert Kern and Matti Picus
-                 and Stephan Hoyer and Marten H. van Kerkwijk and Matthew
-                 Brett and Allan Haldane and Jaime Fern{\'{a}}ndez del
-                 R{\'{i}}o and Mark Wiebe and Pearu Peterson and Pierre
-                 G{\'{e}}rard-Marchant and Kevin Sheppard and Tyler Reddy and
-                 Warren Weckesser and Hameer Abbasi and Christoph Gohlke and
-                 Travis E. Oliphant},
- year          = {2020},
- month         = sep,
- journal       = {Nature},
- volume        = {585},
- number        = {7825},
- pages         = {357--362},
- doi           = {10.1038/s41586-020-2649-2},
- publisher     = {Springer Science and Business Media {LLC}},
- url           = {https://doi.org/10.1038/s41586-020-2649-2}
+@article{marshall2021identifying,
+  author  = {Stuart M. Marshall and Cole Mathis and Emma Carrick and Graham Keenan and Geoffrey J. T. Cooper and Heather Graham and Matthew Craven and Piotr S. Gromski and Douglas G. Moore and Sara I. Walker and Leroy Cronin},
+  title   = {Identifying molecules as biosignatures with assembly theory and mass spectrometry},
+  journal = {Nature Communications},
+  volume  = {12},
+  number  = {1},
+  pages   = {3033},
+  year    = {2021},
+  doi     = {10.1038/s41467-021-23258-x},
+  url     = {https://doi.org/10.1038/s41467-021-23258-x}
 }
 
-@Article{Hunter:2007,
-  Author    = {Hunter, J. D.},
-  Title     = {Matplotlib: A 2D graphics environment},
-  Journal   = {Computing in Science \& Engineering},
-  Volume    = {9},
-  Number    = {3},
-  Pages     = {90--95},
-  abstract  = {Matplotlib is a 2D graphics package used for Python for
-  application development, interactive scripting, and publication-quality
-  image generation across user interfaces and operating systems.},
-  publisher = {IEEE COMPUTER SOC},
-  doi       = {10.1109/MCSE.2007.55},
-  year      = {2007}
-}
-
-@article{landrum2013rdkit,
-  title = {RDKit: Open-source cheminformatics},
-  author = {Landrum, Gregory},
-  journal = {Available at: https://www.rdkit.org},
-  year = {2013},
-  note = {Accessed: 2025-06-26}
-}
-
-@article{Liu2021,
-  author    = {Yu Liu and Cole Mathis and Micha{\l} Dariusz Bajczyk and Stuart M. Marshall and Liam Wilbraham and Leroy Cronin},
-  title     = {Exploring and Mapping Chemical Space with Molecular Assembly Trees},
-  journal   = {Science Advances},
-  volume    = {7},
-  number    = {39},
-  pages     = {eabj2465},
-  year      = {2021},
-  doi       = {10.1126/sciadv.abj2465},
-  url       = {https://www.science.org/doi/10.1126/sciadv.abj2465}
-}
-
-@article{Marshall2021,
-  author    = {Stuart M. Marshall and Cole Mathis and Yu Liu and Micha{\l} D. Bajczyk and Alastair R. G. Murray and Jessica R. Bame and S. Hessam M. Mehr and Abhishek Sharma and Geoffrey J. T. Cooper and Sara I. Walker and Leroy Cronin},
-  title     = {Identifying molecules as biosignatures with assembly theory and mass spectrometry},
-  journal   = {Nature Communications},
-  volume    = {12},
-  number    = {1},
-  pages     = {3033},
-  year      = {2021},
-  doi       = {10.1038/s41467-021-23258-x},
-  url       = {https://www.nature.com/articles/s41467-021-23258-x}
-}
-
-@article{Sharma2023,
-  author    = {Abhishek Sharma and D{\'a}niel Cz{\'e}gel and Michael Lachmann and Christopher P. Kempes and Sara I. Walker and Leroy Cronin},
-  title     = {Assembly theory explains and quantifies selection and evolution},
-  journal   = {Nature},
-  volume    = {622},
-  number    = {7982},
-  pages     = {321--328},
-  year      = {2023},
-  doi       = {10.1038/s41586-023-06600-9},
-  url       = {https://www.nature.com/articles/s41586-023-06600-9}
+@article{liu2021exploring,
+  author  = {Yu Liu and Cole Mathis and Micha{\l} Dariusz Bajczyk and Stuart M. Marshall and Liam Wilbraham and Leroy Cronin},
+  title   = {Exploring and mapping chemical space with molecular assembly trees},
+  journal = {Science Advances},
+  volume  = {7},
+  number  = {39},
+  pages   = {eabj2465},
+  year    = {2021},
+  doi     = {10.1126/sciadv.abj2465},
+  url     = {https://doi.org/10.1126/sciadv.abj2465}
 }
 
 @article{jirasek2024molecular,
-  title = {Investigating and Quantifying Molecular Complexity Using Assembly Theory and Spectroscopy},
-  author = {Jirasek, Michael and Sharma, Abhishek and Bame, Jessica R. and Mehr, S. Hessam M. and Bell, Nicola and Marshall, Stuart M. and Mathis, Cole and MacLeod, Alasdair and Cooper, Geoffrey J. T. and Swart, Marcel and Mollfulleda, Rosa and Cronin, Leroy},
+  author  = {Michael Jirasek and Abhishek Sharma and Jessica R. Bame and S. Hessam M. Mehr and Nicola Bell and Stuart M. Marshall and Cole Mathis and Alasdair MacLeod and Geoffrey J. T. Cooper and Marcel Swart and Rosa Mollfulleda and Leroy Cronin},
+  title   = {Investigating and quantifying molecular complexity using assembly theory and spectroscopy},
   journal = {ACS Central Science},
-  volume = {10},
-  number = {5},
-  pages = {1054--1064},
-  year = {2024},
-  doi = {10.1021/acscentsci.4c00120},
+  volume  = {10},
+  number  = {5},
+  pages   = {1054--1064},
+  year    = {2024},
+  doi     = {10.1021/acscentsci.4c00120},
+  url     = {https://doi.org/10.1021/acscentsci.4c00120}
 }
 
-@misc{jirasek2026selection,
-  title = {Quantifying the Emergence of Selection Prior to Biological Evolution},
-  author = {Jirasek, Michael and Sharma, Abhishek and Wong, Mary and Munro, Jennifer and Cronin, Leroy},
-  year = {2026},
-  eprint = {2512.18752},
+@article{pagel2026mapping,
+  author  = {Sebastian Pagel and Abhishek Sharma and Leroy Cronin},
+  title   = {Mapping evolution of molecules across biochemistry with assembly theory},
+  journal = {Journal of Chemical Information and Modeling},
+  volume  = {66},
+  number  = {14},
+  pages   = {8239--8250},
+  year    = {2026},
+  doi     = {10.1021/acs.jcim.6c00939},
+  url     = {https://doi.org/10.1021/acs.jcim.6c00939},
+  note    = {Preprint: arXiv:2409.05993}
+}
+
+@misc{jirasek2025selection,
+  author        = {Michael Jirasek and Abhishek Sharma and Mary Wong and Jennifer Munro and Leroy Cronin},
+  title         = {Quantifying the emergence of selection prior to biological evolution},
+  year          = {2025},
+  eprint        = {2512.18752},
   archivePrefix = {arXiv},
-  primaryClass = {q-bio.MN},
-  doi = {10.48550/arXiv.2512.18752},
+  primaryClass  = {q-bio.MN},
+  doi           = {10.48550/arXiv.2512.18752},
+  url           = {https://doi.org/10.48550/arXiv.2512.18752}
+}
+
+% ------------------------------------------------------------------- calculators
+
+@article{seet2025rapid,
+  author  = {Ian Seet and Keith Y. Patarroyo and Gage Siebert and Sara I. Walker and Leroy Cronin},
+  title   = {Rapid exploration of the assembly chemical space of molecular graphs},
+  journal = {Journal of Chemical Information and Modeling},
+  volume  = {65},
+  number  = {24},
+  pages   = {13203--13214},
+  year    = {2025},
+  doi     = {10.1021/acs.jcim.5c01964},
+  url     = {https://doi.org/10.1021/acs.jcim.5c01964},
+  note    = {The algorithm behind the parallelassemblycpp calculator ATT drives by default}
 }
 
 @article{vimal2026assembly,
-  title = {assembly-theory: Open, Reproducible Calculation of Assembly Indices},
-  author = {Vimal, Devansh and Parzych, Garrett and Smith, Olivia M. and Parkar, Devendra and Bergen, Holly and Daymude, Joshua J. and Mathis, Cole},
+  author  = {Devansh Vimal and Garrett Parzych and Olivia M. Smith and Devendra Parkar and Holly Bergen and Joshua J. Daymude and Cole Mathis},
+  title   = {assembly-theory: Open, reproducible calculation of assembly indices},
   journal = {Journal of Open Source Software},
-  volume = {11},
-  number = {117},
-  pages = {9318},
-  year = {2026},
-  doi = {10.21105/joss.09318},
+  volume  = {11},
+  number  = {117},
+  pages   = {9318},
+  year    = {2026},
+  doi     = {10.21105/joss.09318},
+  url     = {https://doi.org/10.21105/joss.09318}
 }
 
+@software{siebert2026assemblycfg,
+  author    = {Gage Siebert and Redwan Chowdhury and Louie Slocombe and Sara Walker},
+  title     = {assemblycfg},
+  version   = {v1.2.3},
+  year      = {2026},
+  publisher = {Zenodo},
+  doi       = {10.5281/zenodo.20562899},
+  url       = {https://doi.org/10.5281/zenodo.20562899},
+  note      = {The RePair smallest-grammar upper bound reached with mode="cfg"}
+}
+
+% ------------------------------------------------------------- complexity scores
+
+@article{bertz1981first,
+  author  = {Steven H. Bertz},
+  title   = {The first general index of molecular complexity},
+  journal = {Journal of the American Chemical Society},
+  volume  = {103},
+  number  = {12},
+  pages   = {3599--3601},
+  year    = {1981},
+  doi     = {10.1021/ja00402a071},
+  url     = {https://doi.org/10.1021/ja00402a071}
+}
+
+@article{wiener1947structural,
+  author  = {Harry Wiener},
+  title   = {Structural determination of paraffin boiling points},
+  journal = {Journal of the American Chemical Society},
+  volume  = {69},
+  number  = {1},
+  pages   = {17--20},
+  year    = {1947},
+  doi     = {10.1021/ja01193a005},
+  url     = {https://doi.org/10.1021/ja01193a005}
+}
+
+@article{randic1975characterization,
+  author  = {Milan Randi{\'c}},
+  title   = {Characterization of molecular branching},
+  journal = {Journal of the American Chemical Society},
+  volume  = {97},
+  number  = {23},
+  pages   = {6609--6615},
+  year    = {1975},
+  doi     = {10.1021/ja00856a001},
+  url     = {https://doi.org/10.1021/ja00856a001}
+}
+
+@article{balaban1982highly,
+  author  = {Alexandru T. Balaban},
+  title   = {Highly discriminating distance-based topological index},
+  journal = {Chemical Physics Letters},
+  volume  = {89},
+  number  = {5},
+  pages   = {399--404},
+  year    = {1982},
+  doi     = {10.1016/0009-2614(82)80009-2},
+  url     = {https://doi.org/10.1016/0009-2614(82)80009-2}
+}
+
+@article{klein1993resistance,
+  author  = {Douglas J. Klein and Milan Randi{\'c}},
+  title   = {Resistance distance},
+  journal = {Journal of Mathematical Chemistry},
+  volume  = {12},
+  number  = {1},
+  pages   = {81--95},
+  year    = {1993},
+  doi     = {10.1007/BF01164627},
+  url     = {https://doi.org/10.1007/BF01164627}
+}
+
+@article{bottcher2016additive,
+  author  = {Thomas B{\"o}ttcher},
+  title   = {An additive definition of molecular complexity},
+  journal = {Journal of Chemical Information and Modeling},
+  volume  = {56},
+  number  = {3},
+  pages   = {462--470},
+  year    = {2016},
+  doi     = {10.1021/acs.jcim.5b00723},
+  url     = {https://doi.org/10.1021/acs.jcim.5b00723}
+}
+
+@article{proudfoot2017path,
+  author  = {John R. Proudfoot},
+  title   = {A path based approach to assessing molecular complexity},
+  journal = {Bioorganic \& Medicinal Chemistry Letters},
+  volume  = {27},
+  number  = {9},
+  pages   = {2014--2017},
+  year    = {2017},
+  doi     = {10.1016/j.bmcl.2017.03.008},
+  url     = {https://doi.org/10.1016/j.bmcl.2017.03.008}
+}
+
+@article{krzyzanowski2023spacial,
+  author  = {Adrian Krzyzanowski and Axel Pahl and Michael Grigalunas and Herbert Waldmann},
+  title   = {Spacial score---a comprehensive topological indicator for small-molecule complexity},
+  journal = {Journal of Medicinal Chemistry},
+  volume  = {66},
+  number  = {18},
+  pages   = {12739--12750},
+  year    = {2023},
+  doi     = {10.1021/acs.jmedchem.3c00689},
+  url     = {https://doi.org/10.1021/acs.jmedchem.3c00689}
+}
+
+@article{buehler2025view,
+  author  = {Ye Buehler and Jean-Louis Reymond},
+  title   = {A view on molecular complexity from the {GDB} chemical space},
+  journal = {Journal of Chemical Information and Modeling},
+  volume  = {65},
+  number  = {16},
+  pages   = {8405--8410},
+  year    = {2025},
+  doi     = {10.1021/acs.jcim.5c00334},
+  url     = {https://doi.org/10.1021/acs.jcim.5c00334},
+  note    = {The source of the MC1 and MC2 indices}
+}
+
+@article{schuffenhauer2006relationships,
+  author  = {Ansgar Schuffenhauer and Nathan Brown and Paul Selzer and Peter Ertl and Edgar Jacoby},
+  title   = {Relationships between molecular complexity, biological activity, and structural diversity},
+  journal = {Journal of Chemical Information and Modeling},
+  volume  = {46},
+  number  = {2},
+  pages   = {525--535},
+  year    = {2006},
+  doi     = {10.1021/ci0503558},
+  url     = {https://doi.org/10.1021/ci0503558}
+}
+
+% ---------------------------------------------------------------------- datasets
+
 @misc{jung2024chemotion,
-  title = {Chemotion Repository - Data collection: {FT-IR} spectroscopy data (Chemotion {IR})},
-  author = {Jung, Nicole and Tremouilhac, Pierre and Punjabi, Dev and Huang, Pei-Chi},
-  year = {2024},
+  author    = {Nicole Jung and Pierre Tremouilhac and Dev Punjabi and Pei-Chi Huang},
+  title     = {Chemotion Repository - Data collection: {FT-IR} spectroscopy data (Chemotion {IR})},
+  year      = {2024},
   publisher = {Karlsruhe Institute of Technology},
-  doi = {10.22000/OGoEQGlsZGElrgst},
-  url = {https://doi.org/10.22000/OGoEQGlsZGElrgst},
-  note = {Dataset, distributed under CC BY-SA 4.0},
+  doi       = {10.22000/OGoEQGlsZGElrgst},
+  url       = {https://doi.org/10.22000/OGoEQGlsZGElrgst},
+  note      = {Dataset, distributed under CC BY-SA 4.0}
+}
+
+% ------------------------------------------------------------ scientific Python
+
+@inproceedings{hagberg2008networkx,
+  author     = {Aric A. Hagberg and Daniel A. Schult and Pieter J. Swart},
+  title      = {Exploring network structure, dynamics, and function using {NetworkX}},
+  booktitle  = {Proceedings of the 7th Python in Science Conference},
+  series     = {SciPy},
+  publisher  = {SciPy},
+  pages      = {11--15},
+  year       = {2008},
+  month      = jun,
+  issn       = {2575-9752},
+  doi        = {10.25080/TCWV9851},
+  url        = {https://doi.org/10.25080/TCWV9851}
+}
+
+@article{harris2020array,
+  author  = {Charles R. Harris and K. Jarrod Millman and St{\'e}fan J. van der Walt and Ralf Gommers and Pauli Virtanen and David Cournapeau and Eric Wieser and Julian Taylor and Sebastian Berg and Nathaniel J. Smith and Robert Kern and Matti Picus and Stephan Hoyer and Marten H. van Kerkwijk and Matthew Brett and Allan Haldane and Jaime Fern{\'a}ndez del R{\'i}o and Mark Wiebe and Pearu Peterson and Pierre G{\'e}rard-Marchant and Kevin Sheppard and Tyler Reddy and Warren Weckesser and Hameer Abbasi and Christoph Gohlke and Travis E. Oliphant},
+  title   = {Array programming with {NumPy}},
+  journal = {Nature},
+  volume  = {585},
+  number  = {7825},
+  pages   = {357--362},
+  year    = {2020},
+  month   = sep,
+  doi     = {10.1038/s41586-020-2649-2},
+  url     = {https://doi.org/10.1038/s41586-020-2649-2}
+}
+
+@article{virtanen2020scipy,
+  author  = {Pauli Virtanen and Ralf Gommers and Travis E. Oliphant and Matt Haberland and Tyler Reddy and David Cournapeau and Evgeni Burovski and Pearu Peterson and Warren Weckesser and Jonathan Bright and St{\'e}fan J. van der Walt and Matthew Brett and Joshua Wilson and K. Jarrod Millman and Nikolay Mayorov and Andrew R. J. Nelson and Eric Jones and Robert Kern and Eric Larson and C J Carey and {\.I}lhan Polat and Yu Feng and Eric W. Moore and Jake VanderPlas and Denis Laxalde and Josef Perktold and Robert Cimrman and Ian Henriksen and E. A. Quintero and Charles R. Harris and Anne M. Archibald and Ant{\^o}nio H. Ribeiro and Fabian Pedregosa and Paul van Mulbregt and {SciPy 1.0 Contributors}},
+  title   = {{SciPy} 1.0: fundamental algorithms for scientific computing in {Python}},
+  journal = {Nature Methods},
+  volume  = {17},
+  number  = {3},
+  pages   = {261--272},
+  year    = {2020},
+  doi     = {10.1038/s41592-019-0686-2},
+  url     = {https://doi.org/10.1038/s41592-019-0686-2}
+}
+
+@article{hunter2007matplotlib,
+  author  = {John D. Hunter},
+  title   = {Matplotlib: a {2D} graphics environment},
+  journal = {Computing in Science \& Engineering},
+  volume  = {9},
+  number  = {3},
+  pages   = {90--95},
+  year    = {2007},
+  doi     = {10.1109/MCSE.2007.55},
+  url     = {https://doi.org/10.1109/MCSE.2007.55}
+}
+
+@article{larsen2017ase,
+  author  = {Ask Hjorth Larsen and Jens J{\o}rgen Mortensen and Jakob Blomqvist and Ivano E. Castelli and Rune Christensen and Marcin Du{\l}ak and Jesper Friis and Michael N. Groves and Bj{\o}rk Hammer and Cory Hargus and Eric D. Hermes and Paul C. Jennings and Peter Bjerre Jensen and James Kermode and John R. Kitchin and Esben Leonhard Kolsbjerg and Joseph Kubal and Kristen Kaasbjerg and Steen Lysgaard and J{\'o}n Bergmann Maronsson and Tristan Maxson and Thomas Olsen and Lars Pastewka and Andrew Peterson and Carsten Rostgaard and Jakob Schi{\o}tz and Ole Sch{\"u}tt and Mikkel Strange and Kristian S. Thygesen and Tejs Vegge and Lasse Vilhelmsen and Michael Walter and Zhenhua Zeng and Karsten W. Jacobsen},
+  title   = {The atomic simulation environment---a {Python} library for working with atoms},
+  journal = {Journal of Physics: Condensed Matter},
+  volume  = {29},
+  number  = {27},
+  pages   = {273002},
+  year    = {2017},
+  doi     = {10.1088/1361-648X/aa680e},
+  url     = {https://doi.org/10.1088/1361-648X/aa680e}
+}
+
+@software{landrum_rdkit,
+  author    = {Greg Landrum and {RDKit contributors}},
+  title     = {{RDKit}: open-source cheminformatics},
+  publisher = {Zenodo},
+  doi       = {10.5281/zenodo.591637},
+  url       = {https://www.rdkit.org},
+  note      = {RDKit has no canonical paper; the project asks users to cite the
+               archived release. This DOI is one release record -- substitute the
+               Zenodo DOI of the version actually used}
 }

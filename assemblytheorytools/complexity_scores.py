@@ -7,6 +7,10 @@ invariants (Bertz, Wiener, Balaban, Randic and Kirchhoff indices), published
 complexity scores (spacial score, Boettcher, Proudfoot, MC1 and MC2),
 compression-based proxies using ``zlib``, ``bz2`` and ``lzma``, and fingerprint
 similarity measures.
+
+Each published measure carries the DOI of the paper defining it in its own
+docstring; the compression proxies and ``shannon_entropy`` are not published
+molecular complexity measures. See the citing page for the full list.
 """
 
 import bz2
@@ -134,6 +138,8 @@ def bertz_complexity(mol: Mol) -> float:
     """
     Calculate the Bertz structural complexity with RDKit.
 
+    Reference: https://doi.org/10.1021/ja00402a071.
+
     Parameters
     ----------
     mol : rdkit.Chem.rdchem.Mol
@@ -159,6 +165,8 @@ def bertz_complexity(mol: Mol) -> float:
 def wiener_index(mol: Mol) -> int:
     """
     Sum shortest-path distances over all unordered atom pairs.
+
+    Reference: https://doi.org/10.1021/ja01193a005.
 
     Parameters
     ----------
@@ -195,6 +203,8 @@ def balaban_index(mol: Mol) -> float:
     """
     Calculate the Balaban connectivity index with RDKit's ``BalabanJ``.
 
+    Reference: https://doi.org/10.1016/0009-2614(82)80009-2.
+
     Parameters
     ----------
     mol : rdkit.Chem.rdchem.Mol
@@ -211,6 +221,8 @@ def balaban_index(mol: Mol) -> float:
 def randic_index(mol: Mol) -> float:
     """
     Sum inverse square roots of endpoint-degree products over all bonds.
+
+    Reference: https://doi.org/10.1021/ja00856a001.
 
     Parameters
     ----------
@@ -232,6 +244,8 @@ def randic_index(mol: Mol) -> float:
 def kirchhoff_index(mol: Mol) -> float:
     """
     Sum pairwise effective resistances using the Laplacian pseudoinverse.
+
+    Reference: https://doi.org/10.1007/BF01164627.
 
     Parameters
     ----------
@@ -257,6 +271,7 @@ def spacial_score(mol: Mol, normalise: bool = False) -> float:
     """
     Calculate the spacial score, optionally normalised per heavy atom.
 
+    Reference: https://doi.org/10.1021/acs.jmedchem.3c00689.
     See https://github.com/frog2000/Spacial-Score for the reference
     implementation.
 
@@ -925,7 +940,7 @@ def mc1(mol: Mol) -> float:
     """
     Calculate MC1: one minus the fraction of atoms with degree two.
 
-    Reference: https://pubs.acs.org/doi/full/10.1021/acs.jcim.5c00334.
+    Reference: https://doi.org/10.1021/acs.jcim.5c00334.
 
     Parameters
     ----------
@@ -948,7 +963,7 @@ def mc2(mol: Mol) -> int:
     Exclude both atoms of each C=O bond whose carbon also has a nitrogen or
     oxygen neighbour.
 
-    Reference: https://pubs.acs.org/doi/full/10.1021/acs.jcim.5c00334.
+    Reference: https://doi.org/10.1021/acs.jcim.5c00334.
 
     Parameters
     ----------
@@ -988,7 +1003,7 @@ def shannon_entropy(s: str) -> float:
     Here ``p`` is the frequency of each distinct character divided by the
     string length.
 
-    Usage example: https://www.science.org/doi/10.1126/sciadv.abj2465
+    Usage example: https://doi.org/10.1126/sciadv.abj2465
 
     Parameters
     ----------

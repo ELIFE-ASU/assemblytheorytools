@@ -12,14 +12,14 @@ import assemblytheorytools as att
 ai, virt_obj, pathway = att.calculate_string_assembly_index("abracadabra")
 
 print(ai)         # 7
-print(virt_obj)   # ['a', 'b', 'c', 'r', 'd', 'ab', 'abr', 'abra', ...]
+print(virt_obj)   # ['a', 'b', 'r', 'c', 'd', 'ab', 'abr', 'abra', ...]
 ```
 
 Building `abracadabra` character by character would take ten joins. Because
 `abra` can be reused once it exists, the index is 7. As with molecules, the
 order of `virt_obj` is not stable between runs.
 
-String and molecule calculations use the same `AssemblyCpp` executable,
+String and molecule calculations use the same `ParallelAssemblyCpp` executable,
 resolved through `ASS_PATH`. Set `ASS_STR_PATH` only to point string
 calculations at a different build (see {doc}`../configuration`).
 
@@ -35,6 +35,36 @@ att.calculate_string_assembly_index("abracadabra", directed=False, mode="mol")
 
 Undirected calculations only run through the molecule calculator, so pass
 `mode="mol"` explicitly; otherwise the function switches to it and warns.
+
+## An approximate mode for long strings
+
+A third mode, `mode="cfg"`, skips the external calculator entirely and returns a
+RePair smallest-grammar **upper bound** on the index, together with its pathway.
+It never returns a value below the true index, which is what makes it safe for
+screening, and it is the practical choice for sequences where the exact search
+does not finish. It takes no `cpp_options`.
+
+```python
+att.calculate_string_assembly_index("abracadabra", mode="cfg")[0]   # 7
+```
+
+## Plotting a string pathway
+
+{func}`~assemblytheorytools.tools_plotting.plot_pathway` draws string pathways
+with `plot_type="string"`, but it reads each node's `vo` attribute and a string
+pathway's nodes carry no attributes — the node *is* its own label. Set them
+first:
+
+```python
+import networkx as nx
+
+ai, virt_obj, pathway = att.calculate_string_assembly_index("abracadabra")
+nx.set_node_attributes(pathway, {n: n for n in pathway}, "vo")
+
+fig, ax = att.plot_pathway(pathway, plot_type="string")
+```
+
+Without that line the call raises `KeyError: 'vo'`.
 
 ## Joint assembly across several strings
 
@@ -72,8 +102,9 @@ sequence = att.load_fasta("protein.fasta")
 ai, virt_obj, pathway = att.calculate_string_assembly_index(sequence)
 ```
 
-Assembly index grows with sequence length, so start with short sequences and
-raise `timeout` as needed.
+Assembly index grows with sequence length, so start with short sequences, raise
+`timeout` as needed, and switch to `mode="cfg"` when the exact search stops
+finishing.
 
 Other helpers in {mod}`assemblytheorytools.tools_string`:
 
@@ -114,4 +145,6 @@ scores 7 — the difference is what its internal structure buys.
 
 * {doc}`../api/assembly` — {func}`~assemblytheorytools.assembly.calculate_string_assembly_index` and {func}`~assemblytheorytools.assembly.calculate_string_assembly`.
 * {doc}`../api/tools_string` — string preparation helpers.
-* {doc}`pathways` — plotting a string pathway.
+* {doc}`pathways` — levelling and plotting. Draw a string pathway with
+  {func}`~assemblytheorytools.tools_plotting.plot_pathway` and
+  `plot_type="string"`, after labelling the nodes (see below).

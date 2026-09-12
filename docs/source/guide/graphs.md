@@ -82,7 +82,6 @@ and dissect these graphs:
 | Join two graphs | {func}`~assemblytheorytools.tools_graph.join_graphs`, {func}`~assemblytheorytools.tools_graph.compose_graphs` |
 | Isomorphism check | {func}`~assemblytheorytools.tools_graph.is_graph_isomorphic` |
 | Read/write GraphML | {func}`~assemblytheorytools.tools_graph.write_graphml`, {func}`~assemblytheorytools.tools_graph.read_graphml` |
-| Induced subgraph of the highest-degree nodes | {func}`~assemblytheorytools.tools_graph.top_n_degree_subgraph` |
 
 Note that `write_graphml`/`read_graphml` are the right way to persist these
 graphs: NetworkX's own pickling does not guarantee attribute round-tripping
@@ -111,10 +110,10 @@ picks the smallest tiling that guarantees a simple graph; an explicit `reps`
 that would need a self-loop (an atom bonded to its own image) or a parallel
 edge (a pair bonded through two images) raises `ValueError`. Each node records
 `cell_index` (the atom in the input cell) and `image` (the integer cell
-shift), and the graph attributes `reps`, `cutoff_mult`, `periodic`, `cell`,
-`pbc` and `source` record the model so that it can be reported with the
-result. `atoms_to_nx` is for molecules: it ignores the cell and warns when
-given a periodic `Atoms` object.
+shift), and the graph attributes `reps`, `cutoff_mult`, `periodic`, `cell` and
+`pbc` record the model so that it can be reported with the result; `cif_to_nx`
+additionally stores the file path in `source`. `atoms_to_nx` is for molecules:
+it ignores the cell and warns when given a periodic `Atoms` object.
 
 `cif_to_nx(..., periodic=False)` instead returns a finite open cluster: the
 central cell of a `reps` tiling (default `(3, 3, 3)`) plus its first bonded
@@ -141,8 +140,10 @@ Keep the following in mind when interpreting results:
   keeps every such site with its majority species, so split sites overlap
   and inflate coordination numbers.
 * Molecular and ionic crystals give disconnected covalent graphs; with the
-  default `joint_corr=True`, `calculate_assembly_index` subtracts one less
-  than the number of components.
+  default `joint_corr=True`, `calculate_assembly_index` subtracts one less than
+  the number of components that contain at least one bond. Isolated atoms — a
+  bare counter-ion, for instance — add no joining operations and are not
+  counted.
 * The Rust backend refuses graphs with more than 999 atoms or bonds and the
   C++ calculator more than 32767 vertices; large `reps` reach these limits
   quickly.
@@ -157,7 +158,8 @@ call.
 ```python
 att.plot_graph(graph)
 att.plot_mol_graph(graph)          # molecule-style rendering
-att.plot_interactive_graph(graph)  # pyvis, opens in a browser
+att.plot_interactive_graph(graph)  # pyvis; writes interactive_graph.html
+                                   # (plus a lib/ folder) into the working directory
 ```
 
 ## See also

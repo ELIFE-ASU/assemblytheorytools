@@ -1,8 +1,8 @@
 # Installation
 
 `assemblytheorytools` requires **Python 3.12 or newer**. It is tested on Linux,
-macOS and Windows; Windows needs two extra pieces, described
-[below](#on-windows).
+macOS and Windows. Windows needs extra pieces, and Intel macOS needs a Rust
+toolchain; both are described [below](#on-windows).
 
 ## From PyPI
 
@@ -10,22 +10,25 @@ macOS and Windows; Windows needs two extra pieces, described
 python -m pip install assemblytheorytools
 ```
 
-This pulls in every runtime dependency and the Rust `assembly-theory` wheel,
-which is all the {doc}`quick start <index>` needs. The C++ calculator is not
-distributed as a binary: the first calculation that needs it builds
-parallelassemblycpp from source, which takes a few minutes and needs `git` and a C++20
-compiler. Set `ASS_PATH` to use a build you already have, and see
+This pulls in every runtime dependency, including the Rust `assembly-theory`
+wheel. The C++ calculator is not distributed as a binary: the first calculation
+that needs it — including the {doc}`quick start <index>` — builds
+parallelassemblycpp from source, which takes a few minutes and needs `git` and
+a C++20 compiler. Set `ASS_PATH` to use a build you already have, and see
 [Configuration](configuration.md#the-c-calculator) for the details.
 
 ### On Windows
 
 Two dependencies need more than pip can supply on its own:
 
-- `assembly-theory` publishes no Windows wheel, so pip builds it from its Rust
-  source distribution. Install a [Rust toolchain](https://rustup.rs) first, or
-  the install fails while compiling it.
+- `assembly-theory` publishes wheels only for Linux (x86-64 and aarch64) and
+  Apple-silicon macOS, so on Windows pip builds it from its Rust source
+  distribution. Install a [Rust toolchain](https://rustup.rs) first, or the
+  install fails while compiling it. Intel macOS needs the same toolchain, for
+  the same reason.
 - `cairosvg` binds the Cairo system library, which has no one-line install on
-  Windows. Everything else works without it; only `metro_pathway_plot` is
+  Windows. Everything else works without it; only
+  {func}`~assemblytheorytools.tools_plotting.plot_digraph_metro` is
   unavailable, and it says so when called.
 
 The C++ calculator is built by CMake's Visual Studio generator rather than
@@ -102,7 +105,6 @@ right environment:
 srun "$HOME/.conda/envs/att_env/bin/python3" my_script.py
 ```
 
-(optional-a-faster-assemblycpp-build)=
 ## Optional: a faster parallelassemblycpp build
 
 ATT's on-demand build is a plain portable release. parallelassemblycpp also ships CMake
@@ -154,8 +156,16 @@ calculations do not use it.
 import assemblytheorytools as att
 
 print(att.__version__)
-print(att.calculate_assembly_index(att.smi_to_nx("CCO"), strip_hydrogen=True)[0])
+print(att.calculate_assembly_index_rust(att.smi_to_nx("CCO")))
 ```
 
 This prints the installed version followed by `1`, the assembly index of the
-hydrogen-stripped ethanol graph.
+hydrogen-stripped ethanol graph, using the Rust wheel alone.
+
+To check the C++ calculator as well, run the same molecule through it. On a
+fresh install this is the call that builds parallelassemblycpp, so allow a few
+minutes the first time:
+
+```python
+print(att.calculate_assembly_index(att.smi_to_nx("CCO"), strip_hydrogen=True)[0])
+```
