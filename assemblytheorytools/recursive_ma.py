@@ -1,10 +1,18 @@
 """
 Recursive molecular assembly (RMA) estimation.
 
-This module implements a recursive decomposition of a molecule into a tree of
-subunits and estimates the molecular assembly index from that tree. It provides
-tree construction, depth measurement, unification of equivalent subtrees, parent
-identification, and the :class:`MAEstimator` driver class.
+This module implements the recursive MA algorithm of Jirasek et al. (2024),
+which builds a tree from multi-level MSⁿ fragment masses and estimates the
+molecular assembly index of the parent ion by recursively combining estimates
+for its fragments. It provides tree construction, depth measurement,
+unification of equivalent subtrees, parent identification, and the
+:class:`MAEstimator` driver class.
+
+Note that the published method uses consecutive fragmentation events (MSⁿ,
+validated up to MS5), not a single MS/MS stage: a tree only one level deep
+leaves the estimate dominated by the molecular-weight prior.
+
+Reference: https://doi.org/10.1021/acscentsci.4c00120.
 """
 
 import functools
@@ -112,10 +120,13 @@ def ma_distribution_params(mw: float) -> Tuple[float, float, float]:
 
     Notes
     -----
-    The fixed coefficients come from an offline fit of assembly index
-    against molecular weight, following Marshall et al.
-    [Marshall2021a]_. They are not fitted to the input or checked
-    against its chemistry. Equal masses receive the same prior
+    The fixed coefficients are the skew-normal molecular-weight prior of
+    the recursive MA algorithm of Jirasek et al. [Jirasek2024b]_, taken
+    from that paper's reference implementation. They reproduce that
+    implementation exactly and differ slightly from the values printed
+    in the paper, which gives ``loc = 0.074 * mw - 1.4`` and
+    ``scale = 0.0074 * mw + 0.511``. They are not fitted to the input or
+    checked against its chemistry. Equal masses receive the same prior
     regardless of structure; this models typical assembly indices, not a
     particular molecule's index.
 
@@ -127,10 +138,10 @@ def ma_distribution_params(mw: float) -> Tuple[float, float, float]:
 
     References
     ----------
-    .. [Marshall2021a] Marshall, S. M. *et al.* (2021). Identifying
-       molecules as biosignatures with assembly theory and mass
-       spectrometry. Nature Communications, 12, 3033.
-       https://doi.org/10.1038/s41467-021-23258-x
+    .. [Jirasek2024b] Jirasek, M. *et al.* (2024). Investigating and
+       quantifying molecular complexity using assembly theory and
+       spectroscopy. ACS Central Science, 10(5), 1054-1064.
+       https://doi.org/10.1021/acscentsci.4c00120
     """
     alpha = -0.0044321370413747405 * mw - 1.1014882364398888
     loc = 0.075 * mw - 1.3

@@ -15,9 +15,10 @@ Object
   and is breakable such that the set of constraints to construct it from
   elementary building blocks is quantifiable/measurable. This set of constraints
   (physical or informational) refers to the contingent, recursive relationships
-  linking the construction steps to each other. Note that, typically, the
-  observed persistence time of objects undergoing selection is much longer than
-  their isolated half-life because they are subject to copying.
+  linking the construction steps to each other. The definition requires only
+  that the object persists; it sets no threshold. In practice an object
+  maintained by a copying mechanism is observed for far longer than its isolated
+  half-life, which is why copy number carries the weight it does below.
 
 Assembly units
   The elementary building blocks from which the object is constructed.
@@ -69,12 +70,15 @@ Assembly
   evaluates the same equation from indices that are already known.
 
 Assembly depth
-  *Symbol: $d$.* The number of steps along a path required to construct the
-  object from its basic assembly units. It assumes that the construction
-  processes are parallel or concurrent. Note that a given assembly depth is a
-  property of the associated path while the assembly index (only associated with
-  the shortest path) is a property of the object. The shortest assembly depth is
-  usually not associated with the assembly index path.
+  *Symbol: $d$.* Introduced by Pagel *et al.* (2026),
+  [doi:10.1021/acs.jcim.6c00939](https://doi.org/10.1021/acs.jcim.6c00939): the
+  length of a construction when joining operations are allowed to run
+  concurrently rather than serially. It is assigned recursively from the
+  assembly units, which have depth 0, as $d = \max(d_{f_1}, d_{f_2}) + 1$ over
+  the two fragments joined at each step, and it bounds the assembly index from
+  below, $d \le a$. A depth computed this way is a property of the path it was
+  computed on; the smallest depth over all paths is a property of the object,
+  and is usually not attained on the path that minimises the index.
 
   In ATT: {func}`~assemblytheorytools.construction.assign_levels` annotates each
   pathway node with its own level, so the depth of that pathway is the largest
@@ -88,16 +92,23 @@ Virtual objects
   between the assembly units and the global object of interest. Note that
   virtual objects are not necessarily measurable/observable.
 
+  Note that Seet *et al.* (2025),
+  [doi:10.1021/acs.jcim.5c01964](https://doi.org/10.1021/acs.jcim.5c01964),
+  Definition 3.1, use *virtual objects* for the whole space of fragments the
+  search may consider, not only those appearing on one path. ATT follows the
+  narrower, path-local sense used here.
+
   In ATT: the second value returned by
   {func}`~assemblytheorytools.assembly.calculate_assembly_index`: graphs for a
   NetworkX input, or SMILES strings for an RDKit `Mol` input.
 
 Virtual copy number
-  *Symbol: $n_v$.* Is defined for the virtual objects along the assembly path,
-  which is particularly useful within the context of a joint assembly space
-  where multiple objects coexist. It also quantifies the efficiency of the
-  construction process in the joint assembly space based on the contribution of
-  the sub-objects in constructing the observed object.
+  *Symbol: $n_v$.* The number of times a virtual object is reused within a
+  {term}`joint assembly space` — a measure of how much of the construction that
+  object accounts for. This is ATT's name for the quantity Pagel *et al.* (2026)
+  draw as node size in a joint assembly space,
+  [doi:10.1021/acs.jcim.6c00939](https://doi.org/10.1021/acs.jcim.6c00939); the
+  assembly-theory literature gives it no standard name or symbol.
 
 Assembly space
   Corresponds to the set of (virtual) objects and joining operations that
@@ -164,10 +175,12 @@ Assembly observed
 
 :::{glossary}
 Persistence timescale
-  *Symbol: $\tau_l$.* Is the characteristic timescale for an object to last
-  before transforming into other objects. Within an assembly space, the
-  persistence timescale also represents the characteristic timescale up to which
-  the historical contingency can be sustained.
+  *Symbol: $\tau_l$.* The characteristic time for an object to last before
+  transforming into other objects, and so a bound on how long historical
+  contingency can be sustained within an assembly space. Note that the framework
+  of Sharma *et al.* (2023) is built on two timescales, $\tau_d$ and $\tau_p$;
+  this third one is carried here as useful vocabulary, not as part of that
+  parameterisation.
 
 Discovery timescale
   *Symbol: $\tau_d$.* The characteristic time for a genuinely new object to be
@@ -237,9 +250,13 @@ Exploration ratio
   {func}`~assemblytheorytools.assembly.joint_assembly_space`.
 
 Complexity-diversity space
-  Any physical temporal process can be represented in complexity-diversity space
-  for quantifying the degree of selectivity, where complexity is quantified by
-  the assembly index.
+  A plot of *diversity* — the number of unique objects observed — against
+  *complexity*, quantified by the assembly index. The shape of that relation is
+  a readout for {term}`selectivity`: reaching high complexity while realising
+  few unique objects is the signature of {term}`directed exploration`. The
+  phrase is used here as a convenient label; the underlying plot appears in
+  Sharma *et al.* (2023) and in Jirasek *et al.* (2025), which defines diversity
+  in exactly those terms.
 
 Selection
   Is the result of selectivity in a system, and represents the subset of objects

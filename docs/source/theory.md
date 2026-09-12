@@ -3,9 +3,10 @@
 This page is background: what assembly theory claims, and which of its
 quantities ATT can actually compute. It summarises Sharma *et al.* (2023),
 [*Assembly theory explains and quantifies selection and evolution*](https://doi.org/10.1038/s41586-023-06600-9),
-which is the reference for most of what follows and is cited in full under
+which is the reference for everything below and is cited in full under
 {doc}`citing`; the exploration ratio and the union approximation of the joint
-assembly space come from Jirasek *et al.* (2025), listed there too.
+assembly space are defined there too, and applied experimentally by Jirasek
+*et al.* (2025).
 {doc}`glossary` gives the formal definitions; {doc}`concepts` is the shorter,
 API-facing version of the same material.
 
@@ -52,7 +53,8 @@ which distinguishes it from Kolmogorov complexity: the assembly index is defined
 over physically realisable operations rather than over programs for a universal
 computer. For molecules
 it is also *measurable*, having been inferred experimentally from MS/MS, NMR and
-infrared spectroscopy without computing it at all.
+infrared spectroscopy without computing it at all
+([Jirasek *et al.* 2024](https://doi.org/10.1021/acscentsci.4c00120)).
 
 {func}`~assemblytheorytools.assembly.calculate_assembly_index` returns it, along
 with the {term}`virtual objects` — the intermediates on the path — and the path
@@ -60,8 +62,10 @@ itself. See {doc}`guide/molecules`.
 
 ## Assembly depth
 
-{term}`Assembly depth` $d$ counts the same construction assuming the joining
-operations run in *parallel* rather than in series. Steps that do not depend on
+{term}`Assembly depth` $d$, introduced by Pagel *et al.* (2026),
+[doi:10.1021/acs.jcim.6c00939](https://doi.org/10.1021/acs.jcim.6c00939), counts
+the same construction assuming the joining operations run in *parallel* rather
+than in series. Steps that do not depend on
 each other happen at once, so the depth is the length of the longest chain of
 dependencies rather than the total number of operations.
 
@@ -95,9 +99,13 @@ the path that minimises depth is generally not the path that minimises the
 index. The separate
 {func}`~assemblytheorytools.assembly.calculate_assembly_depth_rust` search
 returns the object's minimum achievable depth, though it is substantially more
-expensive and has no timeout. For adenine that minimum is 4, one less than the
-pathway above — which is exactly the point: 5 is a property of that path, 4 is a
-property of the molecule.
+expensive and has no timeout.
+
+Adenine shows why the distinction matters. Pagel *et al.* report $d = 5$, the
+depth of the minimum-*index* pathway — the number the snippet above prints.
+Searching over all pathways instead, ATT finds a minimum depth of 4. Both are
+right about different things: 5 is a property of that path, 4 is a property of
+the molecule.
 
 ## Copy number and the assembly equation
 
@@ -160,15 +168,15 @@ The {term}`assembly space` of an object is the set of virtual objects and
 joining operations describing how it is built. The {term}`assembly pool` is what
 is available to build with at a given moment: the assembly units plus every
 virtual object made so far. A {term}`joint assembly space` does this for several
-objects at once, sharing intermediates between them — each carrying a
-{term}`virtual copy number` recording how often it is reused. That sharing is
-why joint indices fall below the sum of the separate ones, and why that gap
-measures how much structure the objects have in common. ATT computes it exactly
-by passing a disconnected graph to the calculator, or approximately by merging
-separate
-pathways with {func}`~assemblytheorytools.assembly.joint_assembly_space` — or
-with {class}`~assemblytheorytools.reassembler.MoleculeSpace` for a set of
-molecules already carrying their pathways.
+objects at once, sharing intermediates between them — each reused some number
+of times, which ATT's {doc}`glossary` calls a {term}`virtual copy number`. That
+sharing is why joint indices fall below the sum of the separate ones, and why
+that gap measures how much structure the objects have in common. ATT computes it
+exactly by passing a disconnected graph to the calculator, or approximately by
+merging separate pathways with
+{func}`~assemblytheorytools.assembly.joint_assembly_space` — or with
+{class}`~assemblytheorytools.reassembler.MoleculeSpace` for a set of molecules
+already carrying their pathways.
 
 Four spaces nest inside one another, each a constrained version of the last:
 
@@ -206,10 +214,9 @@ forwards into $A_P$.
 Whether selection can appear at all depends on the relation between two rates.
 The {term}`discovery timescale` $\tau_d$ is how long it takes for genuinely new
 objects to be found; the {term}`production timescale` $\tau_p$ is how long it
-takes to make more copies of ones already discovered. (The
-{term}`persistence timescale` $\tau_l$ is how long an object lasts before
-transforming, and bounds how long historical contingency can be sustained at
-all.)
+takes to make more copies of ones already discovered. (ATT's {doc}`glossary`
+also carries a {term}`persistence timescale` $\tau_l$ — how long an object lasts
+before transforming — but Sharma *et al.* define only $\tau_d$ and $\tau_p$.)
 
 Discovery is modelled as
 
@@ -228,7 +235,9 @@ exploring less of it.
 That transition from undirected to directed exploration is
 {term}`selectivity`. Its signature is a *lower* exploration ratio at *higher*
 complexity: fewer of the reachable objects are realised, and those that are
-turn out to be more assembled.
+turn out to be more assembled. Plotting the two against each other — diversity
+against complexity — is what the glossary calls
+{term}`complexity-diversity space`.
 
 The {term}`exploration ratio` makes that measurable. Take the minimum pathway
 of every observed object and compose them into one graph: the union
@@ -273,13 +282,21 @@ honest claim is about selectivity, not selection.
 ## An open debate
 
 Assembly theory is an active and contested research programme, and this page
-summarises its claims as its proponents state them. Peer-reviewed responses have
-argued that the assembly index is closely related to existing
-compression-based complexity measures, and that the selection claim does not
-follow from the formalism — see Abrahão *et al.* (2024),
-[doi:10.1371/journal.pcsy.0000014](https://doi.org/10.1371/journal.pcsy.0000014),
-and Uthamacumaran *et al.* (2024),
+summarises its claims as its proponents state them. The dispute is worth knowing
+about, and both sides of it are peer-reviewed.
+
+Abrahão *et al.* (2024) argue that the assembly index is formally equivalent to
+a compression-based measure — the size of a minimal context-free grammar, in the
+LZ family — and so says no more about selection than classical information
+theory already does:
+[doi:10.1371/journal.pcsy.0000014](https://doi.org/10.1371/journal.pcsy.0000014).
+Uthamacumaran *et al.* (2024) make a separate case, that the methods do not
+reliably separate biological from abiotic molecules:
 [doi:10.1038/s41540-024-00403-y](https://doi.org/10.1038/s41540-024-00403-y).
+The theory's authors have replied directly, giving proofs that the assembly
+index falls in a different computational complexity class from those measures —
+Kempes *et al.* (2025),
+[doi:10.1038/s44260-025-00049-9](https://doi.org/10.1038/s44260-025-00049-9).
 
 None of this affects what ATT computes. The assembly index is a well-defined
 quantity on a graph, and the package calculates it; how much it tells you about

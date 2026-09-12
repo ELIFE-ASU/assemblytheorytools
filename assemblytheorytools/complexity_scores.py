@@ -136,9 +136,14 @@ def molecular_weight(mol: Mol) -> float:
 
 def bertz_complexity(mol: Mol) -> float:
     """
-    Calculate the Bertz structural complexity with RDKit.
+    Calculate the Bertz structural complexity with RDKit's ``BertzCT``.
 
     Reference: https://doi.org/10.1021/ja00402a071.
+
+    ``BertzCT`` is RDKit's variant of the index: its own documentation
+    records that it uses consistent aromatic bond orders rather than the
+    original's Kekule structures, so values for aromatic molecules differ
+    from the 1981 definition.
 
     Parameters
     ----------
@@ -201,9 +206,14 @@ def wiener_index(mol: Mol) -> int:
 
 def balaban_index(mol: Mol) -> float:
     """
-    Calculate the Balaban connectivity index with RDKit's ``BalabanJ``.
+    Calculate Balaban's J, the average distance-sum connectivity index,
+    with RDKit's ``BalabanJ``.
 
     Reference: https://doi.org/10.1016/0009-2614(82)80009-2.
+
+    J was proposed as a highly discriminating topological index for
+    telling isomers apart, not as a complexity measure, and is close to
+    size-invariant by design. Do not read a larger J as "more complex".
 
     Parameters
     ----------
@@ -715,7 +725,11 @@ def fcfp4(mol: Mol) -> int:
     """
     Count set bits in a 2048-bit, radius-2 feature-based Morgan fingerprint.
 
-    Reference: https://doi.org/10.1021/ci0503558.
+    Reference: https://doi.org/10.1021/ci100050t (Rogers and Hahn 2010,
+    which defines the FCFP feature-class fingerprints).
+    Schuffenhauer et al. 2006 (https://doi.org/10.1021/ci0503558) is the
+    precedent for using a fingerprint feature count as a complexity
+    measure; that paper notes the count correlates with molecule size.
 
     Parameters
     ----------

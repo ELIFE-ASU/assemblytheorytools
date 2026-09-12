@@ -89,10 +89,13 @@ Cite these in addition when you use the corresponding part of the package:
   selection prior to biological evolution. *arXiv preprint* arXiv:2512.18752.
   [doi:10.48550/arXiv.2512.18752](https://doi.org/10.48550/arXiv.2512.18752)
 
-  The source for {func}`~assemblytheorytools.assembly.exploration_ratio`, the
-  union approximation of the joint assembly space behind
-  {func}`~assemblytheorytools.assembly.joint_assembly_space`, and
-  {doc}`Protocol 5 <examples/protocol_5>`.
+  Applies the ensemble quantities to prebiotic peptide chemistry, and is the
+  basis of {doc}`Protocol 5 <examples/protocol_5>`. Note that
+  {func}`~assemblytheorytools.assembly.exploration_ratio` and the union
+  approximation behind
+  {func}`~assemblytheorytools.assembly.joint_assembly_space` are both defined in
+  Sharma *et al.* (2023) above; cite that for the definitions and this for the
+  application.
 
 ## Complexity scores
 
@@ -110,7 +113,7 @@ comparison against the assembly index. Cite the one you report:
 | {func}`~assemblytheorytools.complexity_scores.proudfoot` | Proudfoot (2017), *Bioorg. Med. Chem. Lett.* 27(9), 2014–2017. [doi:10.1016/j.bmcl.2017.03.008](https://doi.org/10.1016/j.bmcl.2017.03.008) |
 | {func}`~assemblytheorytools.complexity_scores.spacial_score` | Krzyzanowski, Pahl, Grigalunas & Waldmann (2023), *J. Med. Chem.* 66(18), 12739–12750. [doi:10.1021/acs.jmedchem.3c00689](https://doi.org/10.1021/acs.jmedchem.3c00689) |
 | {func}`~assemblytheorytools.complexity_scores.mc1`, {func}`~assemblytheorytools.complexity_scores.mc2` | Buehler & Reymond (2025), *JCIM* 65(16), 8405–8410. [doi:10.1021/acs.jcim.5c00334](https://doi.org/10.1021/acs.jcim.5c00334) |
-| {func}`~assemblytheorytools.complexity_scores.fcfp4` | Schuffenhauer *et al.* (2006), *JCIM* 46(2), 525–535. [doi:10.1021/ci0503558](https://doi.org/10.1021/ci0503558) |
+| {func}`~assemblytheorytools.complexity_scores.fcfp4` | Rogers & Hahn (2010), *JCIM* 50(5), 742–754, define the FCFP fingerprints. [doi:10.1021/ci100050t](https://doi.org/10.1021/ci100050t) — Schuffenhauer *et al.* (2006), *JCIM* 46(2), 525–535, [doi:10.1021/ci0503558](https://doi.org/10.1021/ci0503558), is the precedent for using a feature count as a complexity measure. |
 
 The compression proxies
 ({func}`~assemblytheorytools.complexity_scores.compression_zlib_smi` and
