@@ -21,6 +21,18 @@ Reproduces Figure 5 of the ATT paper. Builds N-bit adder circuits by stitching t
 then calculates their assembly indices. Because each adder is a literal repetition of the same sub-circuit, this is a
 clean demonstration of how the index rewards reuse: the index grows far more slowly than the circuit size.
 
+## `lz_vs_string_assembly_index.py`
+
+Compares two Lempel-Ziv compression measures against the exact string assembly index over 1000 random `atgc` strings of
+length 2 to 50. It scores each string three ways -- the LZ78 phrase count, the zlib (DEFLATE, LZ77 family) compressed
+size, and `att.calculate_string_assembly_index` -- and plots both compression measures against the index, coloured by
+string length.
+
+The headline correlations are near-perfect (`r ~ 0.99`), but that is mostly length: all three measures grow with the
+string. The third panel removes it by centring every measure within its own length, and the agreement collapses to a
+diffuse cloud (within-length Spearman `rho ~ 0.3`). Compression and assembly agree on how big a string is, and largely
+disagree on which strings of one size are the complex ones.
+
 ## `metabolic_pathway.py`
 
 Constructs a graph of a metabolic pathway from its metabolites and reaction connections, and calculates assembly
