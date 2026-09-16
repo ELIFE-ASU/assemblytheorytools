@@ -209,6 +209,24 @@ def test_pathway_renders_one_icon_per_virtual_object(plot_type):
     assert not ax.axison
 
 
+@pytest.mark.parametrize(
+    "mode,directed", [("str", True), ("mol", True), ("mol", False), ("cfg", True)]
+)
+def test_calculated_string_pathway_plots_without_attribute_changes(mode, directed):
+    _, _, pathway = att.calculate_string_assembly_index(
+        "abab", mode=mode, directed=directed
+    )
+    before = copy.deepcopy(pathway)
+
+    fig, ax = att.plot_pathway(pathway, plot_type="string")
+    fig.canvas.draw()
+
+    assert fig.axes == [ax]
+    assert len(ax.texts) == pathway.number_of_nodes()
+    assert {text.get_text() for text in ax.texts} == {"a", "b", "ab", "abab"}
+    assert nx.utils.graphs_equal(pathway, before)
+
+
 @pytest.mark.parametrize("show_icons", [False, True])
 def test_string_pathway_labels_colors_mid_arrows_and_nonmutation(show_icons):
     graph = nx.DiGraph([(0, 1), (1, 2)])

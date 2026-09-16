@@ -51,20 +51,12 @@ att.calculate_string_assembly_index("abracadabra", mode="cfg")[0]   # 7
 ## Plotting a string pathway
 
 {func}`~assemblytheorytools.tools_plotting.plot_pathway` draws string pathways
-with `plot_type="string"`, but it reads each node's `vo` attribute and a string
-pathway's nodes carry no attributes — the node *is* its own label. Set them
-first:
+with `plot_type="string"`:
 
 ```python
-import networkx as nx
-
 ai, virt_obj, pathway = att.calculate_string_assembly_index("abracadabra")
-nx.set_node_attributes(pathway, {n: n for n in pathway}, "vo")
-
 fig, ax = att.plot_pathway(pathway, plot_type="string")
 ```
-
-Without that line the call raises `KeyError: 'vo'`.
 
 ## Joint assembly across several strings
 
@@ -145,6 +137,5 @@ scores 7 — the difference is what its internal structure buys.
 
 * {doc}`../api/assembly` — {func}`~assemblytheorytools.assembly.calculate_string_assembly_index` and {func}`~assemblytheorytools.assembly.calculate_string_assembly`.
 * {doc}`../api/tools_string` — string preparation helpers.
-* {doc}`pathways` — levelling and plotting. Draw a string pathway with
-  {func}`~assemblytheorytools.tools_plotting.plot_pathway` and
-  `plot_type="string"`, after labelling the nodes (see below).
+* {doc}`pathways` — levelling and plotting pathways, including strings with
+  `plot_type="string"`.

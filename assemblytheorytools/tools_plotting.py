@@ -662,6 +662,8 @@ def plot_pathway(
         Renderer: 'mol' for molecular structures, 'graph' for graph diagrams,
         'atoms' for ball-and-stick renderings, or 'string' for string
         fragments drawn as text, by default 'mol'.
+        String labels use the node's ``vo`` attribute when present, otherwise
+        the node ID.
     arrow_style : str, optional
         Arrow rendering style: '1' for white edges, '2' for grey edges,
         by default '1'.
@@ -799,7 +801,7 @@ def plot_pathway(
             elif plot_type == "string":
                 ax.text(
                     *pos[node],
-                    data["vo"],
+                    data.get("vo", node),
                     fontsize=font_size,
                     ha="center",
                     va="center",
