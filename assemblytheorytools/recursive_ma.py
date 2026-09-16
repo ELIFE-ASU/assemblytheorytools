@@ -17,6 +17,7 @@ Reference: https://doi.org/10.1021/acscentsci.4c00120.
 
 import functools
 import logging
+import warnings
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -349,6 +350,13 @@ class MAEstimator:
         np.ndarray
             Estimated MA samples for the molecular weight.
 
+        Warns
+        -----
+        UserWarning
+            If a non-empty tree has no top-level key matching `mw`
+            strictly within `tol`. An empty tree requests the prior
+            without a warning.
+
         Notes
         -----
         This greedy heuristic retains the candidate with the lowest sample
@@ -368,6 +376,28 @@ class MAEstimator:
         Recursive tree estimates are not memoised across branches, though
         `estimate_by_MW` caches draws from the prior.
         """
+        if tree and mw not in tree and not any(
+            mass - self.tol < mw < mass + self.tol for mass in tree
+        ):
+            roots = ", ".join(str(mass) for mass in tree)
+            warnings.warn(
+                f"mw={mw} matches no top-level tree key within tol={self.tol}. "
+                f"Available root m/z values: {roots}. "
+                "The estimate may fall back to the molecular-weight prior.",
+                UserWarning,
+                stacklevel=2,
+                skip_file_prefixes=(__file__,),
+            )
+        return self._estimate_MA(tree, mw, progress_levels, joint)
+
+    def _estimate_MA(
+        self,
+        tree: dict[float, dict],
+        mw: float,
+        progress_levels: int = 0,
+        joint: bool = False,
+    ) -> np.ndarray:
+        """Estimate recursively without warning about inferred fragment masses."""
         children = tree.get(mw) or self.precursors(tree, mw)
         if not children:
             return self.estimate_by_MW(mw, False)
@@ -375,7 +405,7 @@ class MAEstimator:
         next_level = progress_levels - 1
         if joint:
             return sum(
-                self.estimate_MA(children, child, next_level) for child in children
+                self._estimate_MA(children, child, next_level) for child in children
             )
 
         estimates = [self.estimate_by_MW(mw, True)]
@@ -397,8 +427,8 @@ class MAEstimator:
 
             # Simple child + complement with no common precursors
             ma_candidates = [
-                self.estimate_MA(children, child, next_level)
-                + self.estimate_MA(children, complement, next_level)
+                self._estimate_MA(children, child, next_level)
+                + self._estimate_MA(children, complement, next_level)
                 + 1.0
             ]
 
@@ -407,7 +437,7 @@ class MAEstimator:
                 if min(chunks) < MIN_CHUNK:
                     continue
                 chunk_mas = sum(
-                    self.estimate_MA(children, chunk, next_level) for chunk in chunks
+                    self._estimate_MA(children, chunk, next_level) for chunk in chunks
                 )
                 ma_candidates.append(chunk_mas + 3)
 
@@ -860,6 +890,13 @@ def rma_estimate_ma(
     -------
     float
         Mean estimated MA for the molecular weight.
+
+    Warns
+    -----
+    UserWarning
+        If a non-empty tree has no top-level key matching `mw`
+        strictly within `tol`. An empty tree requests the prior
+        without a warning.
 
     Notes
     -----

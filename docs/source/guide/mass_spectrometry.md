@@ -53,10 +53,9 @@ estimate = estimator.estimate_MA(tree=tree, mw=500.0, progress_levels=0)
 print(f"{np.mean(estimate):.2f} +/- {np.std(estimate):.2f}")
 ```
 
-`mw` must match the tree's root *m/z* to within `tol`. A mass that matches no
-top-level key silently returns the molecular-weight prior instead of a
-fragment-informed estimate — the tree contributes nothing and no error is
-raised.
+`mw` should match a top-level root *m/z* within `tol`; otherwise a non-empty
+tree triggers a `UserWarning` listing the available roots. Pass `tree={}`
+to deliberately request the molecular-weight prior without a warning.
 
 `tol` is the mass tolerance in Daltons — match it to the instrument, since too
 tight a tolerance discards real fragments and too loose a one invents
