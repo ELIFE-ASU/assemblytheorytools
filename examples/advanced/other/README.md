@@ -21,6 +21,19 @@ Reproduces Figure 5 of the ATT paper. Builds N-bit adder circuits by stitching t
 then calculates their assembly indices. Because each adder is a literal repetition of the same sub-circuit, this is a
 clean demonstration of how the index rewards reuse: the index grows far more slowly than the circuit size.
 
+## `lz_vs_molecule_assembly_index.py`
+
+The molecular counterpart of `lz_vs_string_assembly_index.py`. Samples 1000 random molecules from PubChem with
+`att.sample_random_pubchem`, compresses each one's heavy-atom SMILES three ways with the package's own
+`compression_zlib_smi`, `compression_bz2_smi` and `compression_lzma_smi`, and takes the exact assembly index on the
+heavy-atom graph. The sample is cached to `pubchem_lz_sample.csv`, so reruns to adjust the figure do not go back to the
+API.
+
+The same caveat applies as in the string case, and the fourth panel is the one that matters: the first three panels
+compare each compressed size against the index as measured, and the last centres both within bond count so that only
+the differences between molecules of the same size remain. `bz2` is not an LZ compressor and is included as a control
+-- if it behaves like the two LZ panels, the result is about compression in general rather than about LZ.
+
 ## `lz_vs_string_assembly_index.py`
 
 Compares two Lempel-Ziv compression measures against the exact string assembly index over 1000 random `atgc` strings of
