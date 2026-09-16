@@ -171,6 +171,12 @@ def compare_panel(ax, x, y, lengths, xlab, ylab="Assembly index", trend="mean",
     """
     Draw one LZ-measure-against-assembly-index panel coloured by string length.
 
+    Colour is the third variable, and reading it is how you tell a real
+    agreement from a shared size trend. If the points grade smoothly from dark
+    to bright along the trend, both axes are largely tracking length rather
+    than each other; if the colour is scattered, the relation between the two
+    measures stands on its own.
+
     Args:
         ax (matplotlib.axes.Axes): The axis to draw on.
         x (array-like): The LZ compression measure.
@@ -222,20 +228,51 @@ if __name__ == "__main__":
               f"within-length rho = {within_group_spearman(measure, ai, lengths):.3f}",
               flush=True)
 
-    # Length drives all three measures, so the third panel removes it and asks
-    # the sharper question: among strings of one size, does LZ see what the
-    # assembly index sees?
+    # The figure asks the same question at two levels.
+    #
+    # Panels 1 and 2 plot each LZ measure against the assembly index as
+    # measured. They look like near-perfect agreement, and the printed
+    # correlations back that up -- but length alone already tracks the assembly
+    # index just as closely, because every measure here grows with the string.
+    # So most of that agreement is the two axes reporting size twice rather
+    # than concurring about structure. The colour gradient running along the
+    # diagonal band is what that looks like.
+    #
+    # Panel 3 takes the size out. Centring each measure within its own length
+    # leaves only how a string differs from the other strings of exactly its
+    # size, which asks the question worth asking: among strings of one length,
+    # does LZ single out the ones the assembly index calls complex? It largely
+    # does not. The band falls apart into a diffuse cloud with a shallow
+    # slope, and the colour scatters instead of grading -- the signature of a
+    # length dependence that has been removed rather than merely hidden.
     ai_centred = centre_within_groups(ai, lengths)
     lz78_centred = centre_within_groups(lz78, lengths)
 
     fig, axes = plt.subplots(1, 3, figsize=(16, 4.8))
+
+    # Panel 1 is the fairest comparison in the figure: an LZ78 phrase and an
+    # assembly step are the same kind of thing, a single construction move
+    # whose only free material is what has already been built.
     compare_panel(axes[0], lz78, ai, lengths, "LZ78 phrase count")
+
+    # Panel 2 repeats it for a compressor people actually use. zlib emits whole
+    # bytes, so its axis is coarser and its grid blockier, and over strings this
+    # short a fair part of what it reports is its own output quantisation rather
+    # than anything about the string.
     points = compare_panel(axes[1], zlib_bytes, ai, lengths,
                            "zlib compressed size (bytes)")
+
+    # Panel 3 is panel 1 with length taken out, so both axes now read as "more
+    # or less than a typical string of this size". The fitted slope replaces the
+    # per-x mean because centring turns an integer axis into a continuous one.
     compare_panel(axes[2], lz78_centred, ai_centred, lengths,
                   "LZ78 phrase count (length-centred)",
                   ylab="Assembly index (length-centred)", trend="fit")
 
+    # One bar for the whole row: attaching it to every axis takes the width from
+    # all three rather than squeezing the last one. The shared scale is only
+    # correct because all three panels were handed the same `lengths` array --
+    # plot a subset in one of them and it would need an explicit vmin and vmax.
     colorbar = fig.colorbar(points, ax=axes.ravel().tolist(), pad=0.015)
     colorbar.set_label("String length", fontsize=15)
     colorbar.ax.tick_params(labelsize=13)
