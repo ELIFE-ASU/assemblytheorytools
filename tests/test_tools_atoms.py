@@ -1,5 +1,6 @@
 """Atomic conversions, calculator configuration, and simulation wrappers."""
 
+import shlex
 import warnings
 from pathlib import Path
 from types import SimpleNamespace
@@ -427,8 +428,33 @@ def test_ccsd_limits_processes_using_atoms_info_charge(fake_orca, n_procs, expec
     assert call["orcablocks"] == expected
     assert call["charge"] == -1
     assert call["orcasimpleinput"] == "DLPNO-CCSD(T) def2-TZVPP def2-TZVPP/C"
-    assert call["profile"].command == str(Path("environment-orca").resolve())
+    # ASE re-splits profile.command with POSIX shlex to build its argument
+    # list, so what has to match is the path that survives that round trip,
+    # not the string handed to OrcaProfile.
+    assert shlex.split(call["profile"].command) == [
+        str(Path("environment-orca").resolve())
+    ]
     assert not Path(call["directory"]).exists()
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        r"D:\a\assemblytheorytools\orca",
+        r"C:\Program Files\ORCA\orca.exe",
+        "/opt/orca/orca",
+        "orca",
+    ],
+)
+def test_orca_command_survives_the_shlex_round_trip_ase_puts_it_through(path):
+    """OrcaProfile stores shlex.join(shlex.split(command)) and resplits it.
+
+    Unquoted, a backslash is read as an escape and a space as a separator, so
+    a Windows path arrives as a different path and a path with a space arrives
+    as two arguments.
+    """
+    stored = shlex.join(shlex.split(atoms_tools._orca_command(path)))
+    assert shlex.split(stored) == [path]
 
 
 @pytest.mark.parametrize(
