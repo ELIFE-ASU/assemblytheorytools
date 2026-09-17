@@ -1,6 +1,6 @@
 # Route map
 
-One table per family of quantities, listing what each one needs, what it
+One Table per family of quantities, listing what each one needs, what it
 returns, and what it is for. Use it to find the right function; use
 {doc}`concepts` for what the terms mean, {doc}`glossary` for their formal
 definitions, and the {doc}`guide/index` for worked walkthroughs.
