@@ -659,7 +659,11 @@ def plot_pathway(
     node_color : str, optional
         Color for nodes in hex format, by default '#264f70'.
     plot_type : str, optional
-        Type of plot visualization ('mol' for molecules), by default 'mol'.
+        Renderer: 'mol' for molecular structures, 'graph' for graph diagrams,
+        'atoms' for ball-and-stick renderings, or 'string' for string
+        fragments drawn as text, by default 'mol'.
+        String labels use the node's ``vo`` attribute when present, otherwise
+        the node ID.
     arrow_style : str, optional
         Arrow rendering style: '1' for white edges, '2' for grey edges,
         by default '1'.
@@ -797,7 +801,7 @@ def plot_pathway(
             elif plot_type == "string":
                 ax.text(
                     *pos[node],
-                    data["vo"],
+                    data.get("vo", node),
                     fontsize=font_size,
                     ha="center",
                     va="center",
@@ -867,7 +871,9 @@ def plot_pathway_mid_arrow(
     node_color : str, optional
         Color for nodes in hex format, by default '#264f70'.
     plot_type : str, optional
-        Type of plot visualization ('mol' for molecules), by default 'mol'.
+        Renderer: 'mol' for molecular structures, 'graph' for graph diagrams,
+        'atoms' for ball-and-stick renderings, or 'string' for string
+        fragments drawn as text, by default 'mol'.
     layout_style : str, optional
         Layout algorithm: 'crossmin', 'crossmin_long', 'sa', or default
         multipartite, by default 'crossmin_long'.

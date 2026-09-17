@@ -3,9 +3,25 @@
 import networkx as nx
 import pytest
 from rdkit import Chem
+from rdkit.Chem import rdmolops
 
 import assemblytheorytools as att
 import assemblytheorytools.tools_mol as mol_tools
+
+
+def test_sanitize_ops_name_molecule_operations_not_reaction_ones():
+    """The flags must come from rdmolops, not from the AllChem alias.
+
+    AllChem re-exports rdChemReactions, whose SanitizeFlags is the reaction
+    enum with SANITIZE_ALL = 0xFFFFFFFF. That sets bits no molecule
+    sanitisation defines, and Boost.Python returns it through a 32-bit long on
+    Windows, so XOR-ing it there gives a negative sanitizeOps that SanitizeMol
+    rejects with OverflowError.
+    """
+    assert mol_tools._SANITIZE_OPS == (
+        rdmolops.SANITIZE_ALL ^ rdmolops.SANITIZE_CLEANUP ^ rdmolops.SANITIZE_PROPERTIES
+    )
+    assert 0 < mol_tools._SANITIZE_OPS <= int(rdmolops.SANITIZE_ALL)
 
 
 @pytest.fixture(params=["smiles", "inchi", "molfile"])

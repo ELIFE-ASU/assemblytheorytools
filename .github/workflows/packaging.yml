@@ -126,23 +126,53 @@ jobs:
           retention-days: 7
 
   install:
-    name: Install the wheel on Python ${{ matrix.python-version }}
+    name: Install the wheel on Python ${{ matrix.python-version }} (${{ matrix.os }})
     needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    runs-on: ${{ matrix.os }}
+    # Every platform only downloads wheels here: assembly-theory, the one
+    # dependency that would have to be compiled, is not installed on Windows.
+    timeout-minutes: 40
+
+    defaults:
+      run:
+        # The steps below glob a wheel path and use a heredoc, neither of which
+        # PowerShell provides. Git Bash is on every runner image.
+        shell: bash
+
+    env:
+      # A fixed, platform-independent location for the cache step below to
+      # restore into. pip's own default differs per operating system.
+      PIP_CACHE_DIR: ${{ github.workspace }}/.pip-cache
 
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         # Oldest and newest supported interpreters. A dependency with no wheel
         # yet on the newest one fails here rather than on a user's
         # `pip install assemblytheorytools`.
         python-version: ["3.12", "3.14"]
+        include:
+          # The published wheel is pure Python, so what a second platform
+          # checks is the dependency set: that every runtime import resolves
+          # off PyPI alone, without a compiler or a system library.
+          - os: windows-latest
+            python-version: "3.13"
 
     steps:
       - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
+
+      - name: Restore pip's wheel store
+        # The dependency set is large (rdkit, scipy, matplotlib), and this job
+        # installs it from scratch on three runners. There is no checkout here
+        # to hash, so the key names the distributions instead.
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.PIP_CACHE_DIR }}
+          key: pip-${{ runner.os }}-${{ matrix.python-version }}-${{ needs.build.outputs.version }}
+          restore-keys: pip-${{ runner.os }}-${{ matrix.python-version }}-
 
       - name: Retrieve the built distributions
         uses: actions/download-artifact@v8
@@ -159,9 +189,12 @@ jobs:
       - name: Smoke-test the installed package
         # There is deliberately no checkout, so the import below can only
         # resolve to the installed wheel and not to a source tree beside it.
-        # The calculation uses the Rust backend, which arrives as a declared
-        # dependency, so this job proves the wheel installs and computes
-        # without needing a C++ toolchain. The C++ backend is covered by
+        # Off Windows the calculation uses the Rust backend, which arrives as a
+        # declared dependency, so this job proves the wheel installs and
+        # computes without needing a C++ toolchain. On Windows that dependency
+        # is excluded by a marker, so the same call has to fail with the
+        # ImportError that names it: this is the only job that exercises that
+        # path on the platform it exists for. The C++ backend is covered by
         # tests.yml, which builds it from parallelassemblycpp.
         env:
           MPLBACKEND: Agg
@@ -169,6 +202,7 @@ jobs:
         run: |
           python - <<'PY'
           import os
+          import sys
 
           from rdkit import Chem
 
@@ -177,7 +211,23 @@ jobs:
           expected = os.environ["EXPECTED_VERSION"]
           assert att.__version__ == expected, f"{att.__version__} != {expected}"
 
-          index = att.calculate_assembly_index_rust(Chem.MolFromSmiles("CCO"))
+          ethanol = Chem.MolFromSmiles("CCO")
+
+          if sys.platform == "win32":
+              try:
+                  att.calculate_assembly_index_rust(ethanol)
+              except ImportError as error:
+                  assert "assembly-theory" in str(error), error
+              else:
+                  raise AssertionError(
+                      "assembly-theory is installed on Windows, where its sdist "
+                      "cannot build; the dependency marker has stopped working."
+                  )
+              print(f"assemblytheorytools {att.__version__} installs; "
+                    "the Rust backend reports itself absent, as it should")
+              sys.exit(0)
+
+          index = att.calculate_assembly_index_rust(ethanol)
           assert isinstance(index, int) and index >= 0, index
 
           print(f"assemblytheorytools {att.__version__} installs and runs; MA(ethanol) = {index}")

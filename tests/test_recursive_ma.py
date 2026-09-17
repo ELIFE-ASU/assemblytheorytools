@@ -1,5 +1,9 @@
 """Fragmentation tree processing and recursive molecular assembly estimates."""
 
+import warnings
+from contextlib import nullcontext
+from functools import partial
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -53,11 +57,57 @@ def test_seeded_estimates_match_reference_statistics(tree, mass, expected):
     np.random.seed(0)
     estimator = rma.MAEstimator(same_level=True, tol=0.5, n_samples=20)
 
-    samples = estimator.estimate_MA(tree, mass, progress_levels=0)
+    warning = pytest.warns(UserWarning) if mass not in tree else nullcontext()
+    with warning:
+        samples = estimator.estimate_MA(tree, mass, progress_levels=0)
 
     assert samples.shape == (20,)
     statistics = [np.mean(samples), np.std(samples), np.min(samples), np.max(samples)]
     np.testing.assert_allclose(statistics[: len(expected)], expected, rtol=0, atol=0.01)
+
+
+@pytest.fixture(params=["estimator", "wrapper"])
+def estimate_ma(request):
+    if request.param == "estimator":
+        return rma.MAEstimator(tol=0.5, n_samples=20).estimate_MA
+    return partial(rma.rma_estimate_ma, tol=0.5, n_samples=20)
+
+
+@pytest.mark.parametrize(
+    "mass", [400.0, 499.5, 500.5], ids=["nested-match", "lower-bound", "upper-bound"]
+)
+def test_missing_root_warns_and_preserves_prior(estimate_ma, mass):
+    tree = {500.0: {400.0: {300.0: {}}}, 600.0: {}}
+    np.random.seed(0)
+
+    with pytest.warns(UserWarning) as caught:
+        samples = estimate_ma(tree, mass)
+
+    assert len(caught) == 1
+    assert caught[0].filename == __file__
+    message = str(caught[0].message)
+    assert str(mass) in message
+    assert "500.0" in message
+    assert "600.0" in message
+    assert "m/z" in message
+    np.random.seed(0)
+    np.testing.assert_array_equal(samples, estimate_ma({}, mass))
+
+
+@pytest.mark.parametrize("mass", [499.75, 500.0, 500.25])
+@pytest.mark.parametrize("joint", [False, True])
+def test_matching_root_and_recursive_complements_do_not_warn(estimate_ma, mass, joint):
+    tree = {600.0: {}, 500.0: {300.0: {100.0: {}, 80.0: {}}, 150.0: {}}}
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        estimate_ma(tree, mass, joint=joint)
+
+
+def test_empty_tree_does_not_warn(estimate_ma):
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        estimate_ma({}, 400.0)
 
 
 @pytest.mark.parametrize("mass", [55.934939, 62.929599], ids=["iron-56", "copper-63"])

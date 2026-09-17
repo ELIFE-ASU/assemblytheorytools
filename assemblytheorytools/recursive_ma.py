@@ -1,14 +1,24 @@
 """
 Recursive molecular assembly (RMA) estimation.
 
-This module implements a recursive decomposition of a molecule into a tree of
-subunits and estimates the molecular assembly index from that tree. It provides
-tree construction, depth measurement, unification of equivalent subtrees, parent
-identification, and the :class:`MAEstimator` driver class.
+This module implements the recursive MA algorithm of Jirasek et al. (2024),
+which builds a tree from multi-level MSⁿ fragment masses and estimates the
+molecular assembly index of the parent ion by recursively combining estimates
+for its fragments. It provides tree construction, depth measurement,
+unification of equivalent subtrees, parent identification, and the
+:class:`MAEstimator` driver class.
+
+Note that the published method uses consecutive fragmentation events (MSⁿ,
+validated up to MS5), not a single MS/MS stage: a tree only one level deep
+leaves the estimate dominated by the molecular-weight prior.
+
+Reference: https://doi.org/10.1021/acscentsci.4c00120.
 """
 
 import functools
 import logging
+import sys
+import warnings
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -112,10 +122,13 @@ def ma_distribution_params(mw: float) -> Tuple[float, float, float]:
 
     Notes
     -----
-    The fixed coefficients come from an offline fit of assembly index
-    against molecular weight, following Marshall et al.
-    [Marshall2021a]_. They are not fitted to the input or checked
-    against its chemistry. Equal masses receive the same prior
+    The fixed coefficients are the skew-normal molecular-weight prior of
+    the recursive MA algorithm of Jirasek et al. [Jirasek2024b]_, taken
+    from that paper's reference implementation. They reproduce that
+    implementation exactly and differ slightly from the values printed
+    in the paper, which gives ``loc = 0.074 * mw - 1.4`` and
+    ``scale = 0.0074 * mw + 0.511``. They are not fitted to the input or
+    checked against its chemistry. Equal masses receive the same prior
     regardless of structure; this models typical assembly indices, not a
     particular molecule's index.
 
@@ -127,10 +140,10 @@ def ma_distribution_params(mw: float) -> Tuple[float, float, float]:
 
     References
     ----------
-    .. [Marshall2021a] Marshall, S. M. *et al.* (2021). Identifying
-       molecules as biosignatures with assembly theory and mass
-       spectrometry. Nature Communications, 12, 3033.
-       https://doi.org/10.1038/s41467-021-23258-x
+    .. [Jirasek2024b] Jirasek, M. *et al.* (2024). Investigating and
+       quantifying molecular complexity using assembly theory and
+       spectroscopy. ACS Central Science, 10(5), 1054-1064.
+       https://doi.org/10.1021/acscentsci.4c00120
     """
     alpha = -0.0044321370413747405 * mw - 1.1014882364398888
     loc = 0.075 * mw - 1.3
@@ -205,6 +218,33 @@ def rma_unify_trees(trees: list[dict]) -> Dict[float, Any]:
         **{key: second[key] for key in second_keys - common_keys},
         **{key: rma_unify_trees([first[key], second[key]]) for key in common_keys},
     }
+
+
+def _external_stacklevel() -> int:
+    """Return the `warnings` stack level of the first frame outside this module.
+
+    Returns
+    -------
+    int
+        Stack level, counted from the caller of this helper, that attributes
+        a warning to the first frame belonging to another file.
+
+    Notes
+    -----
+    `warnings.warn` honours `skip_file_prefixes` on Python 3.14 but not on
+    3.12, where `stacklevel` walks raw frames and blames this module's public
+    wrapper instead of its caller. Counting the frames here keeps the warning
+    on the user's call site on every supported version, whether they call the
+    estimator method or a wrapper around it. The caller's own frame supplies
+    the file to skip, so a compiled filename that differs from `__file__`
+    still matches.
+    """
+    level, frame = 1, sys._getframe(1)
+    module_file = frame.f_code.co_filename
+    while frame is not None and frame.f_code.co_filename == module_file:
+        level += 1
+        frame = frame.f_back
+    return level
 
 
 class MAEstimator:
@@ -338,6 +378,13 @@ class MAEstimator:
         np.ndarray
             Estimated MA samples for the molecular weight.
 
+        Warns
+        -----
+        UserWarning
+            If a non-empty tree has no top-level key matching `mw`
+            strictly within `tol`. An empty tree requests the prior
+            without a warning.
+
         Notes
         -----
         This greedy heuristic retains the candidate with the lowest sample
@@ -357,6 +404,27 @@ class MAEstimator:
         Recursive tree estimates are not memoised across branches, though
         `estimate_by_MW` caches draws from the prior.
         """
+        if tree and mw not in tree and not any(
+            mass - self.tol < mw < mass + self.tol for mass in tree
+        ):
+            roots = ", ".join(str(mass) for mass in tree)
+            warnings.warn(
+                f"mw={mw} matches no top-level tree key within tol={self.tol}. "
+                f"Available root m/z values: {roots}. "
+                "The estimate may fall back to the molecular-weight prior.",
+                UserWarning,
+                stacklevel=_external_stacklevel(),
+            )
+        return self._estimate_MA(tree, mw, progress_levels, joint)
+
+    def _estimate_MA(
+        self,
+        tree: dict[float, dict],
+        mw: float,
+        progress_levels: int = 0,
+        joint: bool = False,
+    ) -> np.ndarray:
+        """Estimate recursively without warning about inferred fragment masses."""
         children = tree.get(mw) or self.precursors(tree, mw)
         if not children:
             return self.estimate_by_MW(mw, False)
@@ -364,7 +432,7 @@ class MAEstimator:
         next_level = progress_levels - 1
         if joint:
             return sum(
-                self.estimate_MA(children, child, next_level) for child in children
+                self._estimate_MA(children, child, next_level) for child in children
             )
 
         estimates = [self.estimate_by_MW(mw, True)]
@@ -386,8 +454,8 @@ class MAEstimator:
 
             # Simple child + complement with no common precursors
             ma_candidates = [
-                self.estimate_MA(children, child, next_level)
-                + self.estimate_MA(children, complement, next_level)
+                self._estimate_MA(children, child, next_level)
+                + self._estimate_MA(children, complement, next_level)
                 + 1.0
             ]
 
@@ -396,7 +464,7 @@ class MAEstimator:
                 if min(chunks) < MIN_CHUNK:
                     continue
                 chunk_mas = sum(
-                    self.estimate_MA(children, chunk, next_level) for chunk in chunks
+                    self._estimate_MA(children, chunk, next_level) for chunk in chunks
                 )
                 ma_candidates.append(chunk_mas + 3)
 
@@ -849,6 +917,13 @@ def rma_estimate_ma(
     -------
     float
         Mean estimated MA for the molecular weight.
+
+    Warns
+    -----
+    UserWarning
+        If a non-empty tree has no top-level key matching `mw`
+        strictly within `tol`. An empty tree requests the prior
+        without a warning.
 
     Notes
     -----

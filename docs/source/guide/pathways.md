@@ -2,9 +2,16 @@
 
 The third value returned by
 {func}`~assemblytheorytools.assembly.calculate_assembly_index` is the assembly
-pathway: a {class}`~networkx.DiGraph` whose nodes are virtual objects and whose
-edges are joining operations, directed from inputs to output. Elementary parts
-have in-degree zero; the target has out-degree zero.
+pathway: a {class}`~networkx.DiGraph` recording how the object was built.
+
+Its nodes are of two kinds, distinguished by their `type` attribute:
+`virtual_object` nodes are the intermediates, and `step` nodes are the joining
+operations. Both carry the object itself in a `vo` attribute — a graph for a
+NetworkX input, a SMILES string for an RDKit `Mol`. Node *ids* are strings such
+as `virtual_object_3` and `step_5`, so iterate `pathway.nodes(data=True)` and
+read `vo` rather than treating the ids as objects. Edges run from the inputs of
+a join into the `step` that performs it. Elementary parts have in-degree zero;
+the target has out-degree zero.
 
 ```python
 import assemblytheorytools as att
@@ -46,6 +53,10 @@ print(sorted({d["level"] for _, d in ordered.nodes(data=True)}))   # [0, 1, 2, 3
 virtual objects at a given depth, and
 {func}`~assemblytheorytools.tools_graph.longest_path_length` gives the depth of
 the whole pathway.
+{func}`~assemblytheorytools.tools_graph.top_n_degree_subgraph` prunes a large
+pathway to its highest-degree nodes plus a list of virtual objects to keep
+regardless; it reads each node's `vo` attribute, so it works on pathways rather
+than on plain labelled graphs.
 
 {term}`Assembly depth` counts the construction as if independent joins ran
 concurrently, so it is generally smaller than the assembly index — but the two
@@ -59,7 +70,9 @@ that pathway, not as the object's minimum achievable assembly depth.
 ## Plotting
 
 {func}`~assemblytheorytools.tools_plotting.plot_pathway` is the main entry
-point. `plot_type` selects the renderer:
+point. `plot_type` selects the renderer: `"mol"` (the default) draws molecular
+structures, `"graph"` draws graph diagrams, `"atoms"` draws ball-and-stick
+renderings, and `"string"` draws string fragments as text.
 
 ```python
 import matplotlib.pyplot as plt
@@ -68,6 +81,10 @@ att.plot_pathway(pathway, plot_type="mol")     # molecule structures
 att.plot_pathway(pathway, plot_type="graph")   # graph diagrams
 plt.show()
 ```
+
+Every renderer reads each node's `vo` attribute. Pathways from the molecule and
+graph calculators carry it; a string pathway does not, so label its nodes first
+— see {doc}`strings`.
 
 It returns the `(figure, axes)` pair, so the result can be saved or composed
 into a larger figure:
@@ -83,19 +100,24 @@ between the crossing-minimisation layouts in
 ({func}`~assemblytheorytools.tools_plotting.multipartite_layout_crossmin`,
 {func}`~assemblytheorytools.tools_plotting.multipartite_layout_crossmin_long`
 and {func}`~assemblytheorytools.tools_plotting.multipartite_layout_sa`, a
-simulated-annealing variant). Set `auto_fig_size=True` to size the canvas to the
-pathway rather than fixing it up front.
+simulated-annealing variant). An unrecognised `layout_style` falls back to
+NetworkX's plain `multipartite_layout` without warning. Set
+`auto_fig_size=True` to size the canvas to the pathway rather than fixing it up
+front.
 
 Alternative renderings:
 
 * {func}`~assemblytheorytools.tools_plotting.plot_pathway_mid_arrow` — arrows
   drawn at edge midpoints, which reads better on wide pathways.
 * {func}`~assemblytheorytools.tools_plotting.plot_digraph_metro` — metro-map
-  style diagram. Writes to a file rather than returning a figure, and is
-  Linux-only.
+  style diagram. Writes `{filename}.svg` and `{filename}.png` rather than
+  returning a figure, and needs the optional `dagviz` and `cairosvg` packages
+  plus the Cairo system library; it raises `ImportError` with install
+  instructions when they are missing.
 * {func}`~assemblytheorytools.tools_plotting.plot_assembly_circle` — circular
-  layout taking an adjacency matrix and per-node indices, used for comparing
-  many objects at once.
+  layout taking a sequence of nodes, a square adjacency matrix and one assembly
+  index per node (all three required, in that order) rather than a pathway
+  graph. For comparing many objects at once.
 
 ## Pathways from the Rust backend
 
@@ -123,16 +145,22 @@ else:
 ```
 
 `max_pathways` is the number of pathways to reconstruct: a positive integer for
-at most that many, `0` for all of them, or `None` (the default) to skip
-reconstruction. This is the API to use when the pathways themselves are
-required. The sampling helper below collects virtual objects rather than
-pathway graphs and is not an equivalent enumerator.
+at most that many, `0` for every minimum pathway the search actually discovered,
+or `None` (the default) to skip reconstruction. `0` is not an exhaustive
+enumeration — bounding and memoisation prune pathways that merely tie the
+minimum, so pass `bounds=()` and `memoize="none"` if you need every one. This is
+the API to use when the pathways themselves are required. The sampling helper
+below collects virtual objects rather than pathway graphs and is not an
+equivalent enumerator.
 
 These pathways are {class}`~networkx.MultiDiGraph` objects rather than
 {class}`~networkx.DiGraph` ones, because a fragment joined to a copy of itself
 produces two parallel edges. They carry the same `type`, `vo` and `label` node
-attributes as every other ATT pathway, so `assign_levels`, `set_graph_layer` and
-all the plots above work on them unchanged.
+attributes as every other ATT pathway, so `assign_levels` and `set_graph_layer`
+work on them unchanged, as does `plot_pathway(..., plot_type="mol")`. Their `vo`
+values are SMILES strings by default, so for `plot_type="graph"` ask the search
+for graph virtual objects instead — `calculate_assembly_index_rust_search(...,
+max_pathways=1, vo_type="graph")`.
 
 They also carry a `bonds` attribute the other backends do not: on a node, the
 indices of the bonds its fragment contains; on an edge, the bonds the source
@@ -181,8 +209,8 @@ pathway, vo_list = att.parse_pathway_file("pathway.json", vo_type="smiles")
 ```
 
 {func}`~assemblytheorytools.construction.parse_pathway_file` accepts
-`vo_type="smiles"` or `"graph"` and can return the pathway log as a third value
-with `log=True`. It is a thin wrapper over
+`vo_type="graph"`, `"mol"`, `"smiles"` (the default) or `"inchi"`, and can
+return the pathway log as a third value with `log=True`. It is a thin wrapper over
 {class}`~assemblytheorytools.construction.AssemblyConstruction`, which is
 available directly for finer control:
 

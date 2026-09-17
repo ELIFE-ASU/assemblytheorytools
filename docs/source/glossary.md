@@ -15,9 +15,10 @@ Object
   and is breakable such that the set of constraints to construct it from
   elementary building blocks is quantifiable/measurable. This set of constraints
   (physical or informational) refers to the contingent, recursive relationships
-  linking the construction steps to each other. Note that, typically, the
-  observed persistence time of objects undergoing selection is much longer than
-  their isolated half-life because they are subject to copying.
+  linking the construction steps to each other. The definition requires only
+  that the object persists; it sets no threshold. In practice an object
+  maintained by a copying mechanism is observed for far longer than its isolated
+  half-life, which is why copy number carries the weight it does below.
 
 Assembly units
   The elementary building blocks from which the object is constructed.
@@ -26,6 +27,7 @@ Assembly units
   arbitrary labelled graph.
 
 Path
+Pathway
   A sequence of joining operations.
 
   In ATT: the third value returned by
@@ -68,15 +70,19 @@ Assembly
   evaluates the same equation from indices that are already known.
 
 Assembly depth
-  *Symbol: $d$.* The number of steps along a path required to construct the
-  object from its basic assembly units. It assumes that the construction
-  processes are parallel or concurrent. Note that a given assembly depth is a
-  property of the associated path while the assembly index (only associated with
-  the shortest path) is a property of the object. The shortest assembly depth is
-  usually not associated with the assembly index path.
+  *Symbol: $d$.* Introduced by Pagel *et al.* (2026),
+  [doi:10.1021/acs.jcim.6c00939](https://doi.org/10.1021/acs.jcim.6c00939): the
+  length of a construction when joining operations are allowed to run
+  concurrently rather than serially. It is assigned recursively from the
+  assembly units, which have depth 0, as $d = \max(d_{f_1}, d_{f_2}) + 1$ over
+  the two fragments joined at each step, and it bounds the assembly index from
+  below, $d \le a$. A depth computed this way is a property of the path it was
+  computed on; the smallest depth over all paths is a property of the object,
+  and is usually not attained on the path that minimises the index.
 
   In ATT: {func}`~assemblytheorytools.construction.assign_levels` annotates each
-  pathway node with the depth of the pathway it belongs to, while
+  pathway node with its own level, so the depth of that pathway is the largest
+  level in it; the pathway must be rebuilt in topological order first.
   {func}`~assemblytheorytools.assembly.calculate_assembly_depth_rust` returns the
   object's minimum achievable assembly depth. See {doc}`guide/pathways`.
 
@@ -86,16 +92,23 @@ Virtual objects
   between the assembly units and the global object of interest. Note that
   virtual objects are not necessarily measurable/observable.
 
+  Note that Seet *et al.* (2025),
+  [doi:10.1021/acs.jcim.5c01964](https://doi.org/10.1021/acs.jcim.5c01964),
+  Definition 3.1, use *virtual objects* for the whole space of fragments the
+  search may consider, not only those appearing on one path. ATT follows the
+  narrower, path-local sense used here.
+
   In ATT: the second value returned by
   {func}`~assemblytheorytools.assembly.calculate_assembly_index`: graphs for a
   NetworkX input, or SMILES strings for an RDKit `Mol` input.
 
 Virtual copy number
-  *Symbol: $n_v$.* Is defined for the virtual objects along the assembly path,
-  which is particularly useful within the context of a joint assembly space
-  where multiple objects coexist. It also quantifies the efficiency of the
-  construction process in the joint assembly space based on the contribution of
-  the sub-objects in constructing the observed object.
+  *Symbol: $n_v$.* The number of times a virtual object is reused within a
+  {term}`joint assembly space` — a measure of how much of the construction that
+  object accounts for. This is ATT's name for the quantity Pagel *et al.* (2026)
+  draw as node size in a joint assembly space,
+  [doi:10.1021/acs.jcim.6c00939](https://doi.org/10.1021/acs.jcim.6c00939); the
+  assembly-theory literature gives it no standard name or symbol.
 
 Assembly space
   Corresponds to the set of (virtual) objects and joining operations that
@@ -124,19 +137,20 @@ Assembly pool
   represents one generation of a pool. See {doc}`guide/reassembly`.
 :::
 
-## Assembly spaces
+## The four nested assembly spaces
 
 :::{glossary}
 Assembly universe
   *Symbol: $A_U$.* Represents the space constructed from elementary units
-  without any constraints on the combinational rules.
+  without any constraints on the combinatorial rules.
 
 Assembly possible
   *Symbol: $A_P$.* Represents the space of physically plausible objects by
   combinatorial expansion constrained by the physical rules of object
   construction and allowing all rules to be available at every step for every
-  object. In other words, it is a sub-space of the assembly universe where all
-  the objects constructed from unphysical joining operations have been removed.
+  object. In other words, it is a sub-space of the {term}`assembly universe`
+  where all the objects constructed from unphysical joining operations have
+  been removed.
 
   In ATT: {func}`~assemblytheorytools.neighborhood_enumeration.enumerate_up`
   and {mod}`assemblytheorytools.reassembler` both expand forwards under
@@ -144,60 +158,71 @@ Assembly possible
 
 Assembly contingent
   *Symbol: $A_C$.* Represents the space of physically plausible objects where
-  selection on the history matters. It is a sub-space of the assembly possible
+  selection on the history matters. It is a sub-space of {term}`assembly possible`
   where historical contingency is introduced by the assumption that only the
   constraints used on a specific path can be used in the future.
 
 Assembly observed
   *Symbol: $A_O$.* Represents the space of the observed objects, which is a
-  subset of assembly contingent. The observed objects are usually experimentally
-  measured and present in higher copy numbers. Assembly observed is
+  subset of {term}`assembly contingent`. The observed objects are usually
+  experimentally measured and present in higher copy numbers. Assembly observed is
   reconstructed by breaking the observed objects apart to their elementary
   building blocks and reconstructing a minimum path to construct those objects.
-  $A_O$ is represented by the joint assembly space.
+  $A_O$ is represented by the {term}`joint assembly space`.
 :::
 
 ## Assembly characteristic timescales
 
 :::{glossary}
 Persistence timescale
-  *Symbol: $\tau_l$.* Is the characteristic timescale for an object to last
-  before transforming into other objects. Within an assembly space, the
-  persistence timescale also represents the characteristic timescale up to which
-  the historical contingency can be sustained.
+  *Symbol: $\tau_l$.* The characteristic time for an object to last before
+  transforming into other objects, and so a bound on how long historical
+  contingency can be sustained within an assembly space. Note that the framework
+  of Sharma *et al.* (2023) is built on two timescales, $\tau_d$ and $\tau_p$;
+  this third one is carried here as useful vocabulary, not as part of that
+  parameterisation.
 
 Discovery timescale
-  *Symbol: $\tau_d$.* Is the characteristic discovery timescale at any assembly
-  index which quantifies the timescale at which new unique objects get
-  discovered.
+  *Symbol: $\tau_d$.* The characteristic time for a genuinely new object to be
+  discovered at a given assembly index ($\tau_d \sim 1/k_\mathrm{d}$, where
+  $k_\mathrm{d}$ is the discovery rate). Its relation to the
+  {term}`production timescale` $\tau_p$ decides whether selection is possible at
+  all: see {doc}`theory`.
 
 Production timescale
-  *Symbol: $\tau_p$.* Is the characteristic timescale defined by the rate of
-  production of objects by a physical process. This is governed by mass transfer
-  kinetics of the construction process ($\tau_p \sim 1/\kappa_p$), where
-  $\kappa_p$ is the production rate.
+  *Symbol: $\tau_p$.* The characteristic timescale defined by the rate of
+  production of objects by a physical process. It is governed by the mass
+  transfer kinetics of the construction process ($\tau_p \sim 1/k_\mathrm{p}$),
+  where $k_\mathrm{p}$ is the production rate.
 :::
 
 ## Selection in assembly space
 
 :::{glossary}
 Contingency
-  Is a property of a non-Markovian process and corresponds to the effect of
-  finite knowledge being transmitted from one discrete time step to another.
+Historical contingency
+  The dependence of what a system can do next on what it has already done: the
+  constraints used along a path remain available and restrict the future, which
+  is what makes the process non-Markovian. See {term}`assembly contingent`.
 
 Undirected exploration
   Describes the process by which exploration is random in assembly space and
-  corresponds to assembly possible. It is consistent with homogeneously
+  corresponds to {term}`assembly possible`. It is consistent with homogeneously
   distributed copy numbers.
+
+  *Criterion: $\alpha = 1$ in the discovery model of {doc}`theory`, where every
+  object already built stays available for reuse.*
 
 Directed exploration
   Describes the process by which exploration is non-random in assembly space and
-  corresponds to assembly contingent. The recursive operations to build objects
-  exhibit goal-directedness and more complexity is achieved in the system at the
-  cost of exploring "less" diversity-wise.
+  corresponds to {term}`assembly contingent`. The recursive operations to build
+  objects exhibit goal-directedness, and more complexity is achieved in the
+  system at the cost of exploring less of the space.
+
+  *Criterion: $0 \le \alpha < 1$, where only a subset is reused.*
 
 Selectivity
-  Describes the exploratory power of the assembly space and characterizes the
+  Describes the exploratory power of the assembly space and characterises the
   transition of a system from undirected exploration to directed exploration. In
   other words, it is the outcome of the emergence of preferential paths among
   all possible paths. Selectivity only depends on the discovery timescale and
@@ -225,9 +250,13 @@ Exploration ratio
   {func}`~assemblytheorytools.assembly.joint_assembly_space`.
 
 Complexity-diversity space
-  Any physical temporal process can be represented in complexity-diversity space
-  for quantifying the degree of selectivity, where complexity is quantified by
-  the assembly index.
+  A plot of *diversity* — the number of unique objects observed — against
+  *complexity*, quantified by the assembly index. The shape of that relation is
+  a readout for {term}`selectivity`: reaching high complexity while realising
+  few unique objects is the signature of {term}`directed exploration`. The
+  phrase is used here as a convenient label; the underlying plot appears in
+  Sharma *et al.* (2023) and in Jirasek *et al.* (2025), which defines diversity
+  in exactly those terms.
 
 Selection
   Is the result of selectivity in a system, and represents the subset of objects
@@ -237,6 +266,7 @@ Selection
   only assess selectivity, not selection. In a physical system, this
   goal-directed exploration maps to dynamics of cooperation and competition.
 
-  Note that when a system maintains / remains in directed exploration, we talk
-  about persistence.
+  Note that a system which stays in directed exploration is said to show
+  persistence. That is a property of the system, distinct from the single-object
+  {term}`persistence timescale`.
 :::

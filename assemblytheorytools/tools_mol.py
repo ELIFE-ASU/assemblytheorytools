@@ -14,10 +14,25 @@ from typing import List, Union
 
 import networkx as nx
 from rdkit.Chem import AllChem as Chem
+from rdkit.Chem import rdmolops
 from rdkit.Chem.MolStandardize import rdMolStandardize
 from rdkit.Chem.rdchem import GetPeriodicTable
 
 _AMINO_ACIDS = "ACDEFGHIKLMNPQRSTVWY"
+
+# Every molecule sanitisation step except the two that rewrite the input.
+#
+# The flags have to come from rdmolops rather than from the AllChem alias
+# above: AllChem re-exports rdChemReactions, whose SanitizeFlags is the
+# *reaction* enum and whose SANITIZE_ALL is 0xFFFFFFFF, shadowing the molecule
+# enum's 0x0FFFFFFF. Boost.Python hands that value back through a C long, which
+# is 32 bits on Windows, so there Chem.SANITIZE_ALL is -1 and XOR-ing it yields
+# a negative sanitizeOps that SanitizeMol rejects outright:
+# "OverflowError: can't convert negative int to unsigned". The two agree on
+# every bit SanitizeMol actually reads, so this changes nothing elsewhere.
+_SANITIZE_OPS = (
+    rdmolops.SANITIZE_ALL ^ rdmolops.SANITIZE_CLEANUP ^ rdmolops.SANITIZE_PROPERTIES
+)
 
 
 def safe_standardize_mol(mol: Chem.Mol, add_hydrogens: bool = True) -> Chem.Mol:
@@ -44,13 +59,7 @@ def safe_standardize_mol(mol: Chem.Mol, add_hydrogens: bool = True) -> Chem.Mol:
     mol.UpdatePropertyCache(strict=False)
     Chem.SetConjugation(mol)
     Chem.SetHybridization(mol)
-    Chem.SanitizeMol(
-        mol,
-        sanitizeOps=(
-            Chem.SANITIZE_ALL ^ Chem.SANITIZE_CLEANUP ^ Chem.SANITIZE_PROPERTIES
-        ),
-        catchErrors=False,
-    )
+    Chem.SanitizeMol(mol, sanitizeOps=_SANITIZE_OPS, catchErrors=False)
     rdMolStandardize.NormalizeInPlace(mol)
     Chem.Kekulize(mol)
     return Chem.AddHs(mol) if add_hydrogens else mol

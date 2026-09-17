@@ -1,7 +1,8 @@
 # Installation
 
-`assemblytheorytools` requires **Python 3.12 or newer**. It works best on
-Unix-like systems; on Windows, use the Windows Subsystem for Linux.
+`assemblytheorytools` requires **Python 3.12 or newer**. It is tested on Linux,
+macOS and Windows. Windows needs extra pieces, and Intel macOS needs a Rust
+toolchain; both are described [below](#on-windows).
 
 ## From PyPI
 
@@ -9,12 +10,37 @@ Unix-like systems; on Windows, use the Windows Subsystem for Linux.
 python -m pip install assemblytheorytools
 ```
 
-This pulls in every runtime dependency and the Rust `assembly-theory` wheel,
-which is all the {doc}`quick start <index>` needs. The C++ calculator is not
-distributed as a binary: the first calculation that needs it builds
-parallelassemblycpp from source, which takes a few minutes and needs `git` and a C++20
-compiler. Set `ASS_PATH` to use a build you already have, and see
-[Configuration](configuration.md#the-c-calculator) for the details.
+This pulls in every runtime dependency, including the Rust `assembly-theory`
+wheel on every platform but Windows, where it cannot be built at all — see
+[below](#on-windows). The C++ calculator is not distributed as a binary: the
+first calculation that needs it — including the {doc}`quick start <index>` —
+builds parallelassemblycpp from source, which takes a few minutes and needs
+`git` and a C++20 compiler. Set `ASS_PATH` to use a build you already have,
+and see [Configuration](configuration.md#the-c-calculator) for the details.
+
+### On Windows
+
+Two dependencies behave differently there:
+
+- `assembly-theory` is **not installed on Windows**. It publishes wheels only
+  for Linux (x86-64 and aarch64) and Apple-silicon macOS, and its Rust source
+  distribution does not build there either: the `nauty` C library it vendors is
+  a POSIX `configure` output, so MSVC stops at the first `#include <unistd.h>`.
+  The dependency therefore carries a `sys_platform != "win32"` marker and pip
+  skips it. Everything else works, and
+  {func}`~assemblytheorytools.assembly.calculate_assembly_index` runs the C++
+  calculator as usual; only the four Rust-backed functions are unavailable, and
+  each raises `ImportError` naming the package when called. Intel macOS does
+  build the source distribution, so it needs a
+  [Rust toolchain](https://rustup.rs).
+- `cairosvg` binds the Cairo system library, which has no one-line install on
+  Windows. Everything else works without it; only
+  {func}`~assemblytheorytools.tools_plotting.plot_digraph_metro` is
+  unavailable, and it says so when called.
+
+The C++ calculator is built by CMake's Visual Studio generator rather than
+Ninja, because Ninja finds no compiler outside a developer command prompt. That
+means Visual Studio with the C++ build tools, not just a bare compiler.
 
 ## From source
 
@@ -86,7 +112,6 @@ right environment:
 srun "$HOME/.conda/envs/att_env/bin/python3" my_script.py
 ```
 
-(optional-a-faster-assemblycpp-build)=
 ## Optional: a faster parallelassemblycpp build
 
 ATT's on-demand build is a plain portable release. parallelassemblycpp also ships CMake
@@ -138,8 +163,16 @@ calculations do not use it.
 import assemblytheorytools as att
 
 print(att.__version__)
-print(att.calculate_assembly_index(att.smi_to_nx("CCO"), strip_hydrogen=True)[0])
+print(att.calculate_assembly_index_rust(att.smi_to_nx("CCO")))
 ```
 
 This prints the installed version followed by `1`, the assembly index of the
-hydrogen-stripped ethanol graph.
+hydrogen-stripped ethanol graph, using the Rust wheel alone.
+
+To check the C++ calculator as well, run the same molecule through it. On a
+fresh install this is the call that builds parallelassemblycpp, so allow a few
+minutes the first time:
+
+```python
+print(att.calculate_assembly_index(att.smi_to_nx("CCO"), strip_hydrogen=True)[0])
+```

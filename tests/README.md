@@ -49,9 +49,9 @@ pytest --cov --cov-report=term-missing
 Plotting entry points are stubbed by default so the suite remains headless. Set
 `ATT_TEST_SHOW_PLOTS=1` when manually inspecting figures and images.
 
-## Organization
+## Organisation
 
-Keep tests beside the behavior they exercise, including regressions. Use
+Keep tests beside the behaviour they exercise, including regressions. Use
 `test_<module>.py` for most modules. Larger areas have a few focused suites:
 
 | Area | Suites |
@@ -61,12 +61,28 @@ Keep tests beside the behavior they exercise, including regressions. Use
 | Ensemble quantities | `test_assembly_ensemble.py` |
 | Data utilities | `test_tools_data.py`, `test_tools_data_pubchem.py`, `test_tools_data_spectra.py` |
 
+`test_assembly_mols.py::test_reference_molecule_assembly_index` checks every
+compound marked `test_include=True` in the bundled
+`assemblytheorytools/data/test_molecule_data.csv` against its reference assembly
+index. Each compound has a named test case. References apply to the stored
+SMILES after the package's normalisation and kekulisation, with hydrogens
+stripped. The test requires a completed exact search, so a timeout bound cannot
+pass as an exact result. Taxol is excluded by the CSV flag and covered
+separately by the opt-in slow test.
+
+`test_assembly_rust.py::test_rust_matches_default_calculator_on_random_molecules`
+is the cross-backend survey: it samples 100 random PubChem compounds of at
+most 50 bonds, hydrogens included, and requires the Rust index to equal a completed, exact,
+hydrogen-stripped search by the C++ calculator. It is marked both `integration`
+(it queries PubChem) and `slow` (a hundred exact searches), and the sampling
+seed is fixed so a disagreement can be reproduced.
+
 Avoid separate `*_refactor` or `*_regressions` files. A regression's name or a
-short comment should explain the behavior it protects.
+short comment should explain the behaviour it protects.
 
 ## Writing tests
 
-- Give each test a descriptive behavior name. Parameterize independent examples
+- Give each test a descriptive behaviour name. Parameterise independent examples
   of the same contract, with readable case IDs when the values are complex.
 - Assert observable results, including order and multiplicity when meaningful.
   Use `pytest.approx` or NumPy assertions for floating-point values. Bounds must
@@ -77,7 +93,7 @@ short comment should explain the behavior it protects.
 - Test timeout handling with controlled clocks or backend responses. Retain real
   backend smoke checks, but avoid assertions that depend on machine speed.
 - Keep plotting assertions in plotting tests, using deterministic input and
-  checking artists or saved artifacts. Avoid debug prints and unasserted plots.
+  checking artists or saved artefacts. Avoid debug prints and unasserted plots.
 
 `conftest.py` seeds Python and NumPy's global generators to zero before each test
 and restores their previous states afterward. Set a different seed explicitly

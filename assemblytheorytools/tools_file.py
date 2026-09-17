@@ -5,12 +5,13 @@ This module provides directory listing and filtering, concurrency-safe appends t
 a shared file using file locking, and guarded removal of files and directories.
 """
 
-import fcntl
 import glob
 import json
 import os
 import re
 from typing import Iterable, List, Match, Optional
+
+from filelock import FileLock
 
 
 def file_list(mypath: Optional[str] = None) -> List[str]:
@@ -88,11 +89,23 @@ def write_to_shared_file(message: str, shared_file: str) -> None:
         The message to write to the file.
     shared_file : str
         The path to the shared file.
+
+    Returns
+    -------
+    None
+
+    Notes
+    -----
+    The lock is taken on a sidecar ``<shared_file>.lock`` rather than on the
+    shared file itself, because the POSIX and Windows APIs for locking a file
+    in place have no common subset. Writers therefore only exclude each other
+    if they all go through this function. The sidecar is left in place; that is
+    what makes the lock visible to a process that arrives later.
     """
-    with open(shared_file, "a") as stream:
-        fcntl.flock(stream, fcntl.LOCK_EX)
-        stream.write(message)
-        # Closing flushes buffered writes before releasing the lock.
+    with FileLock(f"{os.fspath(shared_file)}.lock"):
+        with open(shared_file, "a") as stream:
+            stream.write(message)
+        # Closing flushes buffered writes before the lock is released.
 
 
 def remove_files(target_dir: str, debug: bool = False) -> None:

@@ -13,9 +13,10 @@ needed to build it from elementary parts, where every intermediate that has
 already been constructed may be reused for free.
 
 The reuse rule is what makes the measure interesting. Building `abracadabra`
-character by character takes ten joins, but once `abra` exists it can be joined
-to itself and to the remaining fragment, and the index drops to 7. The index
-therefore rewards *internal repetition*, not merely size.
+character by character takes ten joins. Instead the calculator spends three
+joins on `abra`, extends it to `abracad` in three more, and then joins that to
+the `abra` it already has — seven joins, because the repeated block is paid for
+once. The index therefore rewards *internal repetition*, not merely size.
 
 For molecules the elementary parts are bonds, so a molecular assembly index
 counts bond-forming steps over the molecular graph.
@@ -42,9 +43,11 @@ rather than by position.
 ## The assembly pathway
 
 The **pathway** is the record of how the object was built: a
-{class}`~networkx.DiGraph` whose nodes are virtual objects and whose edges are
-joining operations pointing from inputs to output. Elementary parts have
-in-degree zero; the target object has out-degree zero.
+{class}`~networkx.DiGraph` whose nodes are the virtual objects and the joining
+steps, each carrying its object in a `vo` attribute, with edges pointing from
+the inputs of a join into the step that performs it. Elementary parts have
+in-degree zero; the target object has out-degree zero. See {doc}`guide/pathways`
+for the node attributes.
 
 An object usually has more than one shortest pathway. The default calculator
 returns one of them. The Rust search can reconstruct several; the older
@@ -88,8 +91,10 @@ value returned by the calculator.
 
 ## Calculator backends
 
-ATT does not implement the search itself; it prepares input, drives an external
-calculator and parses the result. Three backends are available.
+ATT does not implement the search itself; it prepares the input, drives a
+calculator and parses the result. Three backends are available — the C++ one is
+a separate executable, while the Rust and CFG ones are Python extensions called
+in-process.
 
 parallelassemblycpp
 : The default. A C++ branch-and-bound calculator, invoked by
@@ -112,7 +117,8 @@ assembly-theory (Rust)
   [Pathways](guide/pathways.md).
 
 assemblycfg
-: A context-free-grammar approximation for strings, selected with
+: A RePair smallest-grammar heuristic that returns an **upper bound** on the
+  string assembly index — never a value below it — selected with
   `calculate_string_assembly_index(..., mode="cfg")`. The molecular/graph
   upper bound is simply the edge count minus one; the lower bound comes from an
   integer addition chain (or a logarithm for very large graphs). Those analytic

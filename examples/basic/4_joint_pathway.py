@@ -40,7 +40,7 @@ if __name__ == "__main__":
     # Display the calculated assembly index
     print(f"Assembly Index: {ai}", flush=True)
 
-    # Generate and save a metro-style plot of the assembly graph (Linux only)
+    # Generate and save a metro-style plot (needs dagviz, cairosvg and Cairo)
     if platform.system().lower() == "linux":
         att.plot_digraph_metro(pathway, filename="metro_pathway_example")
 
