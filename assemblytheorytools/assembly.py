@@ -2,11 +2,12 @@
 Assembly index calculation for molecules, strings and graphs.
 
 This module wraps the external assembly calculators and exposes them through a
-uniform interface. Three backends are supported: the ``AssemblyCpp``
-executable from parallelassemblycpp, the ``assembly_theory`` Rust extension, and
-``assemblycfg`` for context-free-grammar upper bounds. Helpers are provided for
-locating and building the C++ executable, parsing its output, correcting joint
-assembly indices, and deriving bounds, ratios and similarity measures.
+uniform interface. Three backends are supported: the ``AssemblyCpp`` executable
+from parallelassemblycpp, the optional ``assembly_theory`` Rust extension, which
+is not installed on Windows, and ``assemblycfg`` for context-free-grammar upper
+bounds. Helpers are provided for locating and building the C++ executable,
+parsing its output, correcting joint assembly indices, and deriving bounds,
+ratios and similarity measures.
 """
 
 import json
@@ -28,7 +29,13 @@ from pathlib import Path
 from typing import (Union, List, Optional, Sequence, Tuple, Dict, Any,
                     NamedTuple, Callable, Hashable, Iterable)
 
-import assembly_theory as at_rust
+# assembly-theory is optional. It publishes no Windows wheel, and its source
+# distribution cannot build there, so the dependency carries a platform marker
+# and the Rust-backed functions report its absence when they are called.
+try:
+    import assembly_theory as at_rust
+except ImportError:
+    at_rust = None
 import assemblycfg
 from filelock import FileLock
 import networkx as nx
@@ -2201,6 +2208,21 @@ class RustSearchResult(NamedTuple):
     pathways: List[nx.MultiDiGraph]
 
 
+def _require_rust() -> None:
+    """Reject a call into the Rust backend when it is not installed."""
+    if at_rust is None:
+        raise ImportError(
+            "The 'assembly-theory' package is required for this function.\n"
+            "Please install it via pip:\n"
+            "pip install 'assembly-theory==0.7.0' \n"
+            "It publishes no Windows wheel, and its source distribution does\n"
+            "not build with MSVC, so pip does not install it there: the nauty\n"
+            "C library it vendors is configured for a POSIX host. Every other\n"
+            "backend works on Windows; calculate_assembly_index runs the C++\n"
+            "calculator, which reports pathways as well as the index.\n"
+        )
+
+
 def _rust_version() -> str:
     """Return the Rust package version, or 'unknown' if metadata is missing."""
     try:
@@ -2218,6 +2240,7 @@ def _rust_supports_pathways() -> bool:
     block probes support without running a search. Release 0.6.1 omits accepted
     arguments from its ``__text_signature__``, so inspecting it is unreliable.
     """
+    _require_rust()
     try:
         at_rust.index_search("", max_pathways=0)
     except TypeError:
@@ -2320,6 +2343,8 @@ def calculate_assembly_index_rust(mol: Union[nx.Graph, Chem.Mol]) -> int:
 
     Raises
     ------
+    ImportError
+        If `assembly-theory` is not installed, which is the default on Windows.
     ValueError
         If the molecule is not a NetworkX graph or an RDKit molecule, if it is
         too large for a V2000 mol block, or if the Rust backend cannot read it.
@@ -2349,6 +2374,7 @@ def calculate_assembly_index_rust(mol: Union[nx.Graph, Chem.Mol]) -> int:
     >>> att.calculate_assembly_index_rust(att.smi_to_mol("[Fe+2]"))
     0
     """
+    _require_rust()
     return _rust_count(_call_rust(at_rust.index, mol))
 
 
@@ -2373,6 +2399,8 @@ def calculate_assembly_depth_rust(mol: Union[nx.Graph, Chem.Mol]) -> int:
 
     Raises
     ------
+    ImportError
+        If `assembly-theory` is not installed, which is the default on Windows.
     ValueError
         If the molecule is not a NetworkX graph or an RDKit molecule, if it is
         too large for a V2000 mol block, or if the Rust backend cannot read it.
@@ -2399,6 +2427,7 @@ def calculate_assembly_depth_rust(mol: Union[nx.Graph, Chem.Mol]) -> int:
     >>> att.calculate_assembly_depth_rust(att.smi_to_nx("CC"))
     0
     """
+    _require_rust()
     return _rust_count(_call_rust(at_rust.depth, mol))
 
 
@@ -2424,6 +2453,8 @@ def get_molecule_info_rust(mol: Union[nx.Graph, Chem.Mol]) -> str:
 
     Raises
     ------
+    ImportError
+        If `assembly-theory` is not installed, which is the default on Windows.
     ValueError
         If the molecule is not a NetworkX graph or an RDKit molecule, if it is
         too large for a V2000 mol block, or if the Rust backend cannot read it.
@@ -2441,6 +2472,7 @@ def get_molecule_info_rust(mol: Union[nx.Graph, Chem.Mol]) -> str:
     >>> info.count('label = "Atom')
     3
     """
+    _require_rust()
     return _call_rust(at_rust.mol_info, mol)
 
 
@@ -2506,6 +2538,8 @@ def calculate_assembly_index_rust_search(mol: Union[nx.Graph, Chem.Mol],
 
     Raises
     ------
+    ImportError
+        If `assembly-theory` is not installed, which is the default on Windows.
     ValueError
         If the molecule is not a NetworkX graph or an RDKit molecule, if it is
         too large for a V2000 mol block, if the Rust backend cannot read it, if
@@ -2544,6 +2578,8 @@ def calculate_assembly_index_rust_search(mol: Union[nx.Graph, Chem.Mol],
     ...     att.smi_to_nx("c1ccccc1"), max_pathways=1)
     >>> fig, ax = att.plot_pathway(result.pathways[0])  # doctest: +SKIP
     """
+    _require_rust()
+
     if vo_type not in _VO_TYPES:
         raise ValueError(_VO_TYPE_ERROR)
 

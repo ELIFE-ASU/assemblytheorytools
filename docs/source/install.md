@@ -11,21 +11,28 @@ python -m pip install assemblytheorytools
 ```
 
 This pulls in every runtime dependency, including the Rust `assembly-theory`
-wheel. The C++ calculator is not distributed as a binary: the first calculation
-that needs it — including the {doc}`quick start <index>` — builds
-parallelassemblycpp from source, which takes a few minutes and needs `git` and
-a C++20 compiler. Set `ASS_PATH` to use a build you already have, and see
-[Configuration](configuration.md#the-c-calculator) for the details.
+wheel on every platform but Windows, where it cannot be built at all — see
+[below](#on-windows). The C++ calculator is not distributed as a binary: the
+first calculation that needs it — including the {doc}`quick start <index>` —
+builds parallelassemblycpp from source, which takes a few minutes and needs
+`git` and a C++20 compiler. Set `ASS_PATH` to use a build you already have,
+and see [Configuration](configuration.md#the-c-calculator) for the details.
 
 ### On Windows
 
-Two dependencies need more than pip can supply on its own:
+Two dependencies behave differently there:
 
-- `assembly-theory` publishes wheels only for Linux (x86-64 and aarch64) and
-  Apple-silicon macOS, so on Windows pip builds it from its Rust source
-  distribution. Install a [Rust toolchain](https://rustup.rs) first, or the
-  install fails while compiling it. Intel macOS needs the same toolchain, for
-  the same reason.
+- `assembly-theory` is **not installed on Windows**. It publishes wheels only
+  for Linux (x86-64 and aarch64) and Apple-silicon macOS, and its Rust source
+  distribution does not build there either: the `nauty` C library it vendors is
+  a POSIX `configure` output, so MSVC stops at the first `#include <unistd.h>`.
+  The dependency therefore carries a `sys_platform != "win32"` marker and pip
+  skips it. Everything else works, and
+  {func}`~assemblytheorytools.assembly.calculate_assembly_index` runs the C++
+  calculator as usual; only the four Rust-backed functions are unavailable, and
+  each raises `ImportError` naming the package when called. Intel macOS does
+  build the source distribution, so it needs a
+  [Rust toolchain](https://rustup.rs).
 - `cairosvg` binds the Cairo system library, which has no one-line install on
   Windows. Everything else works without it; only
   {func}`~assemblytheorytools.tools_plotting.plot_digraph_metro` is

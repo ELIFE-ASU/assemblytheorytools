@@ -6,6 +6,27 @@ import pytest
 import assemblytheorytools as att
 from assemblytheorytools import assembly
 
+# assembly-theory is not installed on Windows, so the whole module is skipped
+# there. That includes the missing-backend test below, whose behaviour is the
+# Windows behaviour: packaging.yml asserts it on Windows against the wheel.
+pytestmark = pytest.mark.skipif(
+    assembly.at_rust is None,
+    reason="assembly-theory is not installed; it publishes no Windows wheel",
+)
+
+
+def test_rust_entry_points_report_a_missing_backend(monkeypatch):
+    """Each Rust-backed function must name the package before it is used."""
+    monkeypatch.setattr(assembly, "at_rust", None)
+    mol = att.smi_to_nx("CCO")
+
+    for call in (att.calculate_assembly_index_rust,
+                 att.calculate_assembly_depth_rust,
+                 att.get_molecule_info_rust,
+                 att.calculate_assembly_index_rust_search):
+        with pytest.raises(ImportError, match="assembly-theory"):
+            call(mol)
+
 
 def test_calculate_rust_ai():
     smi = "C1=CC=CC=C1"  # Benzene

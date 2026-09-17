@@ -11,6 +11,7 @@ from ase import Atoms
 from ase.spacegroup.spacegroup import SpacegroupNotFoundError
 
 import assemblytheorytools as att
+from assemblytheorytools import assembly
 from assemblytheorytools import tools_cell as cell
 from assemblytheorytools.tools_graph import write_ass_graph_file
 
@@ -365,14 +366,18 @@ def test_empty_tiling_retains_cell_and_periodicity():
         np.testing.assert_array_equal(region.pbc, atoms.pbc)
 
 
-def test_cell_to_nx_builds_the_cube_graph_with_automatic_repetitions():
-    atoms = Atoms(
+def _cube_cell():
+    """Build the cell whose one periodic direction tiles into the cube graph."""
+    return Atoms(
         "C4",
         positions=[(0, 0, 0), (1.5, 0, 0), (0, 0, 1.5), (1.5, 0, 1.5)],
         cell=[3, 10, 10],
         pbc=[True, False, False],
     )
-    graph = cell.cell_to_nx(atoms)
+
+
+def test_cell_to_nx_builds_the_cube_graph_with_automatic_repetitions():
+    graph = cell.cell_to_nx(_cube_cell())
 
     assert graph.graph == {
         "reps": (2, 1, 1),
@@ -391,7 +396,16 @@ def test_cell_to_nx_builds_the_cube_graph_with_automatic_repetitions():
     assert set(nx.get_node_attributes(graph, "color").values()) == {"C"}
     assert set(nx.get_edge_attributes(graph, "color").values()) == {1}
     assert att.calculate_assembly_index(graph)[0] == 4
-    assert att.calculate_assembly_index_rust(graph) == 4
+
+
+# Split from the test above so that only the cross-check is lost where
+# assembly-theory is not installed, which is every Windows run.
+@pytest.mark.skipif(
+    assembly.at_rust is None,
+    reason="assembly-theory is not installed; it publishes no Windows wheel",
+)
+def test_cell_to_nx_cube_graph_index_matches_the_rust_backend():
+    assert att.calculate_assembly_index_rust(cell.cell_to_nx(_cube_cell())) == 4
 
 
 def test_cell_to_nx_wraps_only_the_periodic_directions():

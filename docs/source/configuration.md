@@ -245,6 +245,10 @@ installed as the `assembly-theory` wheel and called in-process. Its search is
 configured entirely through the arguments of
 {func}`~assemblytheorytools.assembly.calculate_assembly_index_rust_search`.
 
+It is unavailable on Windows, where the package cannot be installed at all;
+every function below raises `ImportError` there. See
+[Installation](install.md#on-windows).
+
 `timeout` (default `None`)
 : Seconds after which to stop searching and return the best index found so far.
   Given in seconds to match

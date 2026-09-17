@@ -154,6 +154,9 @@ formulas that invoke no calculator at all.
 The Rust backend always strips hydrogens. For a meaningful comparison, compare it with
 `calculate_assembly_index(..., strip_hydrogen=True)`.
 
+The Rust backend is unavailable on Windows, where `assembly-theory` cannot be installed; its four functions raise
+`ImportError` there, and every other backend works.
+
 The PyPI distribution ships no parallelassemblycpp binary. ATT checks `ASS_PATH`, then looks for `ParallelAssemblyCpp`
 (or the older `AssemblyCpp`) on `PATH`, then in its own cache, and builds one from source if it finds none. A single executable covers molecules,
 graphs and strings. See [configuration](https://assemblytheorytools.readthedocs.io/en/latest/configuration.html) for
@@ -167,8 +170,9 @@ The one-line PyPI install above resolves ATT's runtime dependencies. The authori
 versions live in
 [`pyproject.toml`](https://github.com/ELIFE-ASU/assemblytheorytools/blob/main/pyproject.toml).
 
-On Windows, and on Intel macOS, two dependencies need more than pip can supply on its own — a Rust toolchain for
-`assembly-theory`, and the Cairo system library for `cairosvg`. The
+Two dependencies need more than pip can supply on its own: `assembly-theory` is not installed on Windows at all,
+because it has no wheel there and its Rust source distribution does not build with MSVC (Intel macOS does build it,
+and needs a Rust toolchain), and `cairosvg` needs the Cairo system library. The
 [installation guide](https://assemblytheorytools.readthedocs.io/en/latest/install.html) covers both, along with conda,
 HPC and build-from-source instructions.
 

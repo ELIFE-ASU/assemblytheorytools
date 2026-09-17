@@ -61,9 +61,8 @@ jobs:
   test:
     name: Python ${{ matrix.python-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    # Generous for Windows, which builds both assembly-theory and the C++
-    # calculator from source on a cold cache. The other platforms finish in
-    # a few minutes.
+    # Generous for Windows, which builds the C++ calculator from source with
+    # MSVC on a cold cache. The other platforms finish in a few minutes.
     timeout-minutes: 60
 
     defaults:
@@ -85,10 +84,11 @@ jobs:
           # which is the only macOS wheel assembly-theory publishes.
           - os: macos-latest
             python-version: "3.13"
-          # Windows is the slow one: assembly-theory publishes no Windows wheel,
-          # so pip builds it from its Rust sdist, and the C++ calculator is
-          # built by MSVC through CMake's Visual Studio generator rather than
-          # Ninja. Both land in caches, so only a cold run pays full price.
+          # Windows is the slow one: the C++ calculator is built by MSVC
+          # through CMake's Visual Studio generator rather than Ninja. It
+          # lands in a cache, so only a cold run pays full price. The Rust
+          # backend is not installed there (see pyproject.toml), so the tests
+          # that need it skip themselves.
           - os: windows-latest
             python-version: "3.13"
 
@@ -102,15 +102,6 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: pyproject.toml
-
-      - name: Report the Rust toolchain
-        # assembly-theory publishes no Windows wheel, so pip builds it from the
-        # sdist with maturin. The runner image supplies Rust; say which version,
-        # because that is the first thing to check when the build fails.
-        if: runner.os == 'Windows'
-        run: |
-          rustc --version
-          cargo --version
 
       - name: Install the Cairo system library
         # cairosvg is a pip dependency but binds Cairo through cffi, and pip
