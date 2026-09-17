@@ -17,6 +17,7 @@ Reference: https://doi.org/10.1021/acscentsci.4c00120.
 
 import functools
 import logging
+import sys
 import warnings
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple
@@ -219,6 +220,33 @@ def rma_unify_trees(trees: list[dict]) -> Dict[float, Any]:
     }
 
 
+def _external_stacklevel() -> int:
+    """Return the `warnings` stack level of the first frame outside this module.
+
+    Returns
+    -------
+    int
+        Stack level, counted from the caller of this helper, that attributes
+        a warning to the first frame belonging to another file.
+
+    Notes
+    -----
+    `warnings.warn` honours `skip_file_prefixes` on Python 3.14 but not on
+    3.12, where `stacklevel` walks raw frames and blames this module's public
+    wrapper instead of its caller. Counting the frames here keeps the warning
+    on the user's call site on every supported version, whether they call the
+    estimator method or a wrapper around it. The caller's own frame supplies
+    the file to skip, so a compiled filename that differs from `__file__`
+    still matches.
+    """
+    level, frame = 1, sys._getframe(1)
+    module_file = frame.f_code.co_filename
+    while frame is not None and frame.f_code.co_filename == module_file:
+        level += 1
+        frame = frame.f_back
+    return level
+
+
 class MAEstimator:
     """Estimate molecular assembly from fragment masses and observed trees.
 
@@ -385,8 +413,7 @@ class MAEstimator:
                 f"Available root m/z values: {roots}. "
                 "The estimate may fall back to the molecular-weight prior.",
                 UserWarning,
-                stacklevel=2,
-                skip_file_prefixes=(__file__,),
+                stacklevel=_external_stacklevel(),
             )
         return self._estimate_MA(tree, mw, progress_levels, joint)
 

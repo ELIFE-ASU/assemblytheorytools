@@ -73,7 +73,9 @@ def test_wall_timeout_does_not_impose_cpu_budget(recording_calculator, kind):
 
 def test_public_api_covers_the_native_help_options():
     """Fail the weekly upstream check if a new CLI control needs exposing."""
-    advertised = set(re.findall(r"^  --([\w-]+)=", att.get_assembly_cpp_help(), re.MULTILINE))
+    # Only the generated option list spells a value placeholder, so `=<` keeps
+    # prose such as "Use --name=value." in the notes out of the comparison.
+    advertised = set(re.findall(r"^  --([\w-]+)=<", att.get_assembly_cpp_help(), re.MULTILINE))
     exposed = {"runtime", "enum-max", "pathway", "accept-palindromes", "parallel", "threads",
                "verbose", "memory-report", "telemetry", "write-intermediate-mas"}
     wrapper_owned = {"run-strings", "remove-hydrogens", "compensate-disjoint"}
