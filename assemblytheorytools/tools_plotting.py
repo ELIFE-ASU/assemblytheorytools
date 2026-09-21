@@ -574,7 +574,7 @@ def plot_pathway(
     plt_arrow_style: Union[str, ArrowStyle] = "->",
     arrow_pos: float = 1.0,
     arrow_size: int = 20,
-    auto_fig_size: bool = False,
+    auto_fig_size: bool = True,
 ) -> tuple[Figure, Axes]:
     """
     Visualize a directed acyclic graph as a pathway with customizable layout.
@@ -590,7 +590,8 @@ def plot_pathway(
     graph : networkx.DiGraph
         Directed acyclic graph representing a pathway or assembly process.
     fig_size : tuple of float, optional
-        Figure size in inches as (width, height), by default (12, 7).
+        Minimum figure size in inches as (width, height), by default (12, 7).
+        Set ``auto_fig_size=False`` to use this exact size.
     show_icons : bool, optional
         If True, displays molecular structure icons on nodes, by default True.
     node_color : str, optional
@@ -621,10 +622,13 @@ def plot_pathway(
         See `plot_pathway_mid_arrow` for heads half way along the edges.
     arrow_size : int, optional
         Size of the arrowheads (matplotlib mutation scale), by default 20.
-        Nodes and arrows scale together to fit the requested figure size.
+        Nodes and arrows shrink together when fitting a fixed-size figure.
     auto_fig_size : bool, optional
-        If True, ignore `fig_size` and compute a figure size scaled to the
-        number of nodes in `graph` instead, by default False.
+        Grow the canvas to fit measured node sizes, layers and edge lanes,
+        by default True. Width and height grow independently from `fig_size`
+        with no upper size cap, keeping large SVG/PDF pathways readable
+        when zoomed. If False, shrink nodes and arrows to fit `fig_size`.
+        Later manual figure resizing is respected in either mode.
 
     Returns
     -------
@@ -648,14 +652,12 @@ def plot_pathway(
     >>> plt.show()  # doctest: +SKIP
 
     Use ``plot_type="mol"`` to draw molecular structures instead of graph
-    diagrams, and ``auto_fig_size=True`` to size the canvas to the pathway
-    rather than fixing it in advance.
+    diagrams. The canvas grows automatically for large pathways; use
+    ``auto_fig_size=False`` when an exact figure size is required.
     """
     if arrow_style not in ("1", "2"):
         raise ValueError("Invalid arrow style. Use '1' or '2'.")
     graph = set_graph_layer(graph.copy())
-    if auto_fig_size:
-        fig_size = _auto_fig_size(graph.number_of_nodes(), base_size=fig_size)
 
     if layout_style in ("crossmin_long", "sa"):
         layout = (
@@ -737,6 +739,8 @@ def plot_pathway(
         arrow_pos=arrow_pos,
     )
     ax.add_artist(artist)
+    if auto_fig_size:
+        artist.autosize_figure()
     # Settle geometry for callers inspecting the returned artists. The layout
     # artist also updates before subsequent interactive and export draws.
     fig.canvas.draw()
@@ -756,7 +760,7 @@ def plot_pathway_mid_arrow(
     plt_arrow_style: Union[str, ArrowStyle] = "->",
     arrow_pos: float = 0.5,
     arrow_size: int = 20,
-    auto_fig_size: bool = False,
+    auto_fig_size: bool = True,
 ) -> tuple[Figure, Axes]:
     """
     Visualize a directed acyclic graph as a pathway with mid-edge arrowheads.
@@ -771,7 +775,8 @@ def plot_pathway_mid_arrow(
     graph : networkx.DiGraph
         Directed acyclic graph representing a pathway or assembly process.
     fig_size : tuple of float, optional
-        Figure size in inches as (width, height), by default (12, 7).
+        Minimum figure size in inches as (width, height), by default (12, 7).
+        Set ``auto_fig_size=False`` to use this exact size.
     show_icons : bool, optional
         If True, displays molecular structure icons on nodes, by default True.
     node_color : str, optional
@@ -797,8 +802,11 @@ def plot_pathway_mid_arrow(
     arrow_size : int, optional
         Size of the arrowheads (matplotlib mutation scale), by default 20.
     auto_fig_size : bool, optional
-        If True, ignore `fig_size` and compute a figure size scaled to the
-        number of nodes in `graph` instead, by default False.
+        Grow the canvas to fit measured node sizes, layers and edge lanes,
+        by default True. Width and height grow independently from `fig_size`
+        with no upper size cap, keeping large SVG/PDF pathways readable
+        when zoomed. If False, shrink nodes and arrows to fit `fig_size`.
+        Later manual figure resizing is respected in either mode.
 
     Returns
     -------

@@ -155,6 +155,7 @@ class _PathwayArtist(Artist):
         self.font_size = font_size
         self.arrow_size = arrow_size
         self.arrow_pos = arrow_pos
+        self._measure_only = False
         style = ArrowStyle(arrow_style) if isinstance(arrow_style, str) else arrow_style
         # Filled arrow styles only accept a single quadratic Bezier. Give
         # them a short local head, leaving the routed shaft independent.
@@ -235,6 +236,38 @@ class _PathwayArtist(Artist):
             sizes[node] = np.array([box.width, box.height])
         return sizes
 
+    def _layout_size(
+        self, sizes, layers, span, parallel_count, route_padding, gap, pixel, scale
+    ):
+        """Measure the canvas demand, including dummy lanes and arrow clearance."""
+        widths = {
+            layer: max(
+                (sizes[n][0] for n in self.nodes if self.positions[n][0] == layer),
+                default=0,
+            )
+            for layer in layers
+        }
+        tallest = max(size[1] for size in sizes.values())
+        pitch = tallest + 2 * route_padding * scale
+        width = sum(widths.values()) + gap * scale * (len(layers) - 1)
+        height = span * pitch + tallest + (parallel_count - 1) * 18 * pixel * scale
+        return widths, pitch, width, height
+
+    def autosize_figure(self):
+        """Grow once at native node size; subsequent resizes remain user-controlled."""
+        if not self.positions:
+            return
+        fig = self.axes.figure
+        # Use the active backend's renderer without allocating a large raster or
+        # routing edges twice. Never resize within draw: savefig may temporarily
+        # change the DPI and canvas bounds, especially with bbox_inches='tight'.
+        self._measure_only = True
+        try:
+            fig.draw_without_rendering()
+        finally:
+            self._measure_only = False
+        fig.set_size_inches(np.maximum(fig.get_size_inches(), self._required_inches))
+
     def _fit_nodes(self, renderer, layers, span, parallel_count, route_padding, gap):
         """Fit actual font metrics, which do not scale linearly at small sizes."""
         for node, (original, wrapped) in self.wrapped_labels.items():
@@ -246,17 +279,9 @@ class _PathwayArtist(Artist):
         scale = 1.0
         for attempt in range(16):
             sizes = self._measure(renderer, scale)
-            widths = {
-                layer: max(
-                    (sizes[n][0] for n in self.nodes if self.positions[n][0] == layer),
-                    default=0,
-                )
-                for layer in layers
-            }
-            pitch = max(size[1] for size in sizes.values()) + 2 * route_padding * scale
-            width = sum(widths.values()) + gap * scale * (len(layers) - 1)
-            height = span * pitch + max(size[1] for size in sizes.values())
-            height += (parallel_count - 1) * 18 * pixel * scale
+            widths, pitch, width, height = self._layout_size(
+                sizes, layers, span, parallel_count, route_padding, gap, pixel, scale
+            )
             shrink = min(1, *(available / np.maximum(1, [width, height])))
             if shrink >= 0.999 or attempt == 15:
                 return sizes, widths, pitch, width, scale
@@ -290,7 +315,12 @@ class _PathwayArtist(Artist):
         pixel = renderer.points_to_pixels(1)
         layers = sorted({xy[0] for xy in self.positions.values()})
         head_extent = self.head_length + self.head_width
-        route_padding = max(12, head_extent - 4) * pixel
+        # A separate head needs its full extent at the source. Reserve the
+        # same space between rows so a steep source port cannot enter the
+        # padded obstacle belonging to the next node in its layer.
+        route_padding = (
+            max(12, head_extent if self.arrow_pos < 1 else head_extent - 4) * pixel
+        )
         gap = max(48, head_extent * 2.5) * pixel
         free = np.array([xy[1] for xy in self.positions.values()])
         # Normalize the free-axis spacing, including NetworkX's rescaled layouts.
@@ -309,6 +339,22 @@ class _PathwayArtist(Artist):
             ),
             default=1,
         )
+        if self._measure_only:
+            _, _, width, height = self._layout_size(
+                self._measure(renderer, 1),
+                layers,
+                span,
+                parallel_count,
+                route_padding,
+                gap,
+                pixel,
+                1,
+            )
+            # Keep the same margin as _fit_nodes and a little extra room for
+            # font metric differences between interactive and vector backends.
+            required = np.array([width, height]) * 1.02 + 36 * pixel
+            self._required_inches = required / (72 * pixel * ax.get_position().size)
+            return
         sizes, widths, pitch, width, scale = self._fit_nodes(
             renderer, layers, span, parallel_count, route_padding, gap
         )

@@ -100,9 +100,14 @@ parallel edges remain individually visible. The spacing and arrow clearance
 are recalculated when you resize the figure or save at a different DPI.
 Image and text boxes use light borders; pass `frame_on=False` to hide them.
 `arrow_size` controls heads at either the target or an intermediate position.
-For crowded diagrams, increase `fig_size` or use `auto_fig_size=True`; nodes
-and arrows scale together to fit the available canvas.
-Very long string labels wrap when needed to fit a small figure.
+The canvas grows automatically for large pathways, such as paclitaxel, using
+measured node sizes, the number of layers, and space for edge routes. Width
+and height grow independently, without a size cap, so SVG/PDF exports retain
+room for nodes and arrows when zoomed in. `fig_size` sets the minimum canvas
+size; small pathways keep that size. To require an exact canvas size, pass
+`auto_fig_size=False`; nodes and arrows then shrink together to fit it. Later
+manual resizing is respected in either mode. Very long string labels wrap
+when needed to fit a small figure.
 
 Layout is the hard part of these diagrams; the `layout_style` argument selects
 between the crossing-minimisation layouts in
@@ -111,10 +116,9 @@ between the crossing-minimisation layouts in
 {func}`~assemblytheorytools.tools_plotting.multipartite_layout_crossmin_long`
 and {func}`~assemblytheorytools.tools_plotting.multipartite_layout_sa`, a
 simulated-annealing variant). An unrecognised `layout_style` falls back to
-NetworkX's plain `multipartite_layout` without warning. Set
-`auto_fig_size=True` to size the canvas to the pathway rather than fixing it up
-front. The default, `"crossmin_long"`, includes long edges in the crossing
-minimisation. It retains the best ordering found during its sweeps and refines
+NetworkX's plain `multipartite_layout` without warning. The default,
+`"crossmin_long"`, includes long edges in the crossing minimisation. It retains
+the best ordering found during its sweeps and refines
 neighboring nodes against both adjacent layers. These are heuristic layouts:
 some pathways still require crossings.
 

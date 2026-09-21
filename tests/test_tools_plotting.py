@@ -182,9 +182,15 @@ def test_automatic_figure_size_grows_with_node_count(plot_kind):
 
     small = plot(4, auto_fig_size=True)
     large = plot(40, auto_fig_size=True)
-    fixed = plot(40, fig_size=9 if plot_kind == "circle" else (9, 4))
+    fixed = plot(
+        40, fig_size=9 if plot_kind == "circle" else (9, 4), auto_fig_size=False
+    )
 
-    assert np.all(large.get_size_inches() > small.get_size_inches())
+    if plot_kind == "pathway":
+        assert large.get_figwidth() > small.get_figwidth()
+        assert large.get_figheight() == small.get_figheight()
+    else:
+        assert np.all(large.get_size_inches() > small.get_size_inches())
     np.testing.assert_array_equal(
         fixed.get_size_inches(), [9, 9] if plot_kind == "circle" else [9, 4]
     )

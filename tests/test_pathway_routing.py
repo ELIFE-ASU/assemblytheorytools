@@ -80,12 +80,82 @@ def _skip_layer_pathway(plot_type):
     return graph
 
 
+@pytest.mark.parametrize("plot", [att.plot_pathway, att.plot_pathway_mid_arrow])
+def test_taxol_canvas_keeps_native_icons_and_clear_routes_on_vector_export(
+    plot, data_dir, monkeypatch
+):
+    graph, _ = att.parse_pathway_file(data_dir / "pathway" / "taxolPathway")
+    fig, ax = plot(graph)
+    size = fig.get_size_inches().copy()
+    assert np.all(size > (12, 7))
+    assert size[0] > 30  # Large pathways must not hit the old canvas-size cap.
+    icons = [artist for artist in ax.artists if isinstance(artist, AnnotationBbox)]
+    assert len(icons) == len(graph)
+    assert all(artist.offsetbox.get_zoom() == pytest.approx(0.4) for artist in icons)
+    original_draw = fig.draw
+    draws = []
+
+    def checked_draw(renderer):
+        original_draw(renderer)
+        _assert_clear_pathway(fig, ax, renderer, len(graph), graph.number_of_edges())
+        assert min(artist.offsetbox.get_zoom() for artist in icons) >= 0.39
+        draws.append(type(renderer).__name__)
+
+    monkeypatch.setattr(fig, "draw", checked_draw)
+    fig.canvas.draw()
+    for fmt in ("svg", "pdf"):
+        with BytesIO() as output:
+            fig.savefig(output, format=fmt, bbox_inches="tight")
+            assert len(output.getvalue()) > 1000
+        np.testing.assert_allclose(fig.get_size_inches(), size)
+    assert len(draws) >= 5
+
+
+@pytest.mark.parametrize("shape", ["deep", "wide"])
+@pytest.mark.parametrize("show_icons", [True, False])
+def test_canvas_grows_only_in_crowded_dimension_and_respects_manual_resize(
+    shape, show_icons
+):
+    graph = (
+        nx.path_graph(40, create_using=nx.DiGraph)
+        if shape == "deep"
+        else nx.DiGraph((0, node) for node in range(1, 40))
+    )
+    nx.set_node_attributes(graph, "fragment", "vo")
+    fig, ax = att.plot_pathway(graph, plot_type="string", show_icons=show_icons)
+    growing, unchanged = (0, 1) if shape == "deep" else (1, 0)
+    assert fig.get_size_inches()[growing] > (12, 7)[growing]
+    assert fig.get_size_inches()[unchanged] == (12, 7)[unchanged]
+    if show_icons:
+        assert all(text.get_fontsize() == 11 for text in ax.texts)
+        _assert_clear_pathway(
+            fig, ax, fig.canvas.get_renderer(), len(graph), graph.number_of_edges()
+        )
+    else:
+        np.testing.assert_allclose(ax.collections[0].get_sizes(), [1000])
+    fig.set_size_inches(8, 5)
+    fig.canvas.draw()
+    np.testing.assert_allclose(fig.get_size_inches(), (8, 5))
+
+
+@pytest.mark.parametrize("plot", [att.plot_pathway, att.plot_pathway_mid_arrow])
+def test_small_pathways_keep_requested_canvas_and_large_ones_can_opt_out(plot):
+    for count, options in [(3, {}), (40, {"auto_fig_size": False})]:
+        graph = nx.path_graph(count, create_using=nx.DiGraph)
+        fig, _ = plot(graph, plot_type="string", fig_size=(9, 4), **options)
+        np.testing.assert_allclose(fig.get_size_inches(), (9, 4))
+
+
 @pytest.mark.parametrize("plot_type", ["mol", "string"])
 @pytest.mark.parametrize("arrow_style", ["1", "2"])
 def test_pathway_arrows_avoid_cards_including_long_edges(plot_type, arrow_style):
     graph = _skip_layer_pathway(plot_type)
     fig, ax = att.plot_pathway(
-        graph, plot_type=plot_type, arrow_style=arrow_style, fig_size=(10, 6)
+        graph,
+        plot_type=plot_type,
+        arrow_style=arrow_style,
+        fig_size=(10, 6),
+        auto_fig_size=False,
     )
     fig.canvas.draw()
 
@@ -107,7 +177,7 @@ def test_real_molecular_pathway_stays_clear_when_resized_and_exported(
         mol=molecule,
         vo_type="smiles",
     )
-    fig, ax = plot(graph, fig_size=(10, 6))
+    fig, ax = plot(graph, fig_size=(10, 6), auto_fig_size=False)
     original_draw = fig.draw
     draws = []
 
@@ -133,7 +203,7 @@ def test_parallel_edges_are_distinct_and_clear_of_their_endpoint_boxes():
     graph.add_node("source", vo="CC")
     graph.add_node("target", vo="CCCC")
     graph.add_edges_from([("source", "target"), ("source", "target")])
-    fig, ax = att.plot_pathway(graph, fig_size=(6, 3))
+    fig, ax = att.plot_pathway(graph, fig_size=(6, 3), auto_fig_size=False)
     fig.canvas.draw()
 
     _assert_clear_pathway(fig, ax, fig.canvas.get_renderer(), 2, 2)
@@ -150,7 +220,7 @@ def test_parallel_edge_lanes_fit_inside_a_short_figure(edge_count):
     graph.add_node(0, vo="CC")
     graph.add_node(1, vo="CCCC")
     graph.add_edges_from([(0, 1)] * edge_count)
-    fig, ax = att.plot_pathway(graph, fig_size=(6, 2))
+    fig, ax = att.plot_pathway(graph, fig_size=(6, 2), auto_fig_size=False)
 
     _assert_clear_pathway(fig, ax, fig.canvas.get_renderer(), 2, edge_count)
     for path in _arrow_paths(ax):
@@ -164,7 +234,7 @@ def test_long_string_labels_use_measured_font_sizes_when_fitted(
     graph = nx.path_graph(nodes, create_using=nx.DiGraph)
     label = ("ABCD" * characters)[:characters]
     nx.set_node_attributes(graph, label, "vo")
-    fig, ax = att.plot_pathway(graph, plot_type="string", fig_size=size)
+    fig, ax = att.plot_pathway(graph, plot_type="string", fig_size=size, auto_fig_size=False)
 
     _assert_clear_pathway(fig, ax, fig.canvas.get_renderer(), nodes, nodes - 1)
     assert all(text.get_text().replace("\n", "") == label for text in ax.texts)
@@ -201,6 +271,7 @@ def test_large_midpoint_heads_avoid_intermediate_boxes(layout, size, position):
         arrow_size=size,
         arrow_pos=position,
         fig_size=(10, 6),
+        auto_fig_size=False,
     )
 
     _assert_clear_pathway(
@@ -215,7 +286,7 @@ def test_arrowheads_near_source_do_not_extend_back_into_its_card(arrow_pos):
     graph.add_node(1, vo="CCCC")
     graph.add_edge(0, 1)
     fig, ax = att.plot_pathway(
-        graph, arrow_pos=arrow_pos, arrow_size=40, fig_size=(6, 3)
+        graph, arrow_pos=arrow_pos, arrow_size=40, fig_size=(6, 3), auto_fig_size=False
     )
     fig.canvas.draw()
 
