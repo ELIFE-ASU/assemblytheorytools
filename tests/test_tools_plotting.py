@@ -250,12 +250,12 @@ def test_string_pathway_labels_colors_mid_arrows_and_nonmutation(show_icons):
     expected_labels = ["a", "aa", "aaaa"] if show_icons else []
     assert [text.get_text() for text in ax.texts] == expected_labels
     assert all(text.get_fontsize() == 13 for text in ax.texts)
-    np.testing.assert_allclose(
-        ax.collections[0].get_facecolors(),
-        [colors.to_rgba("white" if show_icons else "orange")],
-    )
+    if not show_icons:
+        np.testing.assert_allclose(
+            ax.collections[0].get_facecolors(), [colors.to_rgba("orange")]
+        )
     arrows = [patch for patch in ax.patches if isinstance(patch, FancyArrowPatch)]
-    assert len(arrows) == graph.number_of_edges() * 3
+    assert len(arrows) == graph.number_of_edges() * 2
     heads = arrows[-graph.number_of_edges() :]
     assert all(head.get_mutation_scale() == 27 for head in heads)
     assert all(head.get_edgecolor() == colors.to_rgba("purple") for head in heads)
@@ -281,9 +281,9 @@ def test_rust_dot_pathway_renders_icons_and_arrowheads(data_dir, plot, plot_type
     fig, ax = plot(pathway, plot_type=plot_type)
 
     assert fig.axes == [ax]
-    assert len(ax.artists) == pathway.number_of_nodes()
+    assert sum(isinstance(artist, AnnotationBbox) for artist in ax.artists) == pathway.number_of_nodes()
     arrows = [patch for patch in ax.patches if isinstance(patch, FancyArrowPatch)]
-    arrows_per_edge = 3 if plot is plotting.plot_pathway_mid_arrow else 2
+    arrows_per_edge = 2 if plot is plotting.plot_pathway_mid_arrow else 1
     assert len(arrows) == arrows_per_edge * pathway.number_of_edges()
 
 

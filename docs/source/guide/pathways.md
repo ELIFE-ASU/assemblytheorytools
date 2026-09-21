@@ -94,6 +94,16 @@ fig, ax = att.plot_pathway(pathway, plot_type="graph")
 fig.savefig("pathway.svg")
 ```
 
+Arrows stop outside the measured image or label boxes. Long edges follow
+routes through intermediate layers, with rounded bends around other nodes;
+parallel edges remain individually visible. The spacing and arrow clearance
+are recalculated when you resize the figure or save at a different DPI.
+Image and text boxes use light borders; pass `frame_on=False` to hide them.
+`arrow_size` controls heads at either the target or an intermediate position.
+For crowded diagrams, increase `fig_size` or use `auto_fig_size=True`; nodes
+and arrows scale together to fit the available canvas.
+Very long string labels wrap when needed to fit a small figure.
+
 Layout is the hard part of these diagrams; the `layout_style` argument selects
 between the crossing-minimisation layouts in
 {mod}`assemblytheorytools.tools_plotting`
@@ -103,7 +113,10 @@ and {func}`~assemblytheorytools.tools_plotting.multipartite_layout_sa`, a
 simulated-annealing variant). An unrecognised `layout_style` falls back to
 NetworkX's plain `multipartite_layout` without warning. Set
 `auto_fig_size=True` to size the canvas to the pathway rather than fixing it up
-front.
+front. The default, `"crossmin_long"`, includes long edges in the crossing
+minimisation. It retains the best ordering found during its sweeps and refines
+neighboring nodes against both adjacent layers. These are heuristic layouts:
+some pathways still require crossings.
 
 Alternative renderings:
 
