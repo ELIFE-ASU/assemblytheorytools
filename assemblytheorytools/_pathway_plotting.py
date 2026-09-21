@@ -81,8 +81,27 @@ def _box_port(center, toward, box):
     return center + min(factors, default=0) * delta
 
 
-def _rounded_path(points, radius):
-    """Round polyline bends with short quadratic curves, preserving endpoints."""
+def _rounded_path(points, radius, boxes=()):
+    """Use broad, tangent-continuous bends, tightening only near node boxes."""
+    # A long straight lane may contain a waypoint at every intermediate layer.
+    # Removing these lets the adjacent bend use the whole available run.
+    simplified = []
+    for point in points:
+        point = np.asarray(point, dtype=float)
+        if simplified and np.linalg.norm(point - simplified[-1]) < 1e-9:
+            continue
+        while len(simplified) >= 2:
+            incoming = simplified[-1] - simplified[-2]
+            outgoing = point - simplified[-1]
+            cross = incoming[0] * outgoing[1] - incoming[1] * outgoing[0]
+            if (
+                abs(cross) > 1e-9 * np.linalg.norm(incoming) * np.linalg.norm(outgoing)
+                or np.dot(incoming, outgoing) <= 0
+            ):
+                break
+            simplified.pop()
+        simplified.append(point)
+    points = simplified
     vertices = [points[0]]
     codes = [Path.MOVETO]
     for before, corner, after in zip(points, points[1:], points[2:]):
@@ -90,7 +109,21 @@ def _rounded_path(points, radius):
         length_in, length_out = np.linalg.norm(incoming), np.linalg.norm(outgoing)
         if min(length_in, length_out) < 1e-9:
             continue
-        trim = min(radius, length_in / 3, length_out / 3)
+        trim = min(radius, length_in / 2, length_out / 2)
+        # Wide fillets make open lanes flow naturally. At a crowded corner,
+        # use the largest local fillet which retains the route's clearance.
+        for _ in range(16):
+            curve = Path(
+                [
+                    corner - incoming * trim / length_in,
+                    corner,
+                    corner + outgoing * trim / length_out,
+                ],
+                [Path.MOVETO, Path.CURVE3, Path.CURVE3],
+            )
+            if not any(curve.intersects_bbox(box, filled=False) for box in boxes):
+                break
+            trim *= 0.5
         vertices.extend(
             [
                 corner - incoming * trim / length_in,
@@ -429,7 +462,13 @@ class _PathwayArtist(Artist):
             routed = [points[0]]
             for start, end in zip(points, points[1:]):
                 routed.extend(_visible_route(start, end, obstacles)[1:])
-            connection.path = _rounded_path(routed, 6 * pixel * scale)
+            smoothing_boxes = [
+                box.padded(
+                    (1.5 * pixel if node in pair else route_padding * 0.65) * scale
+                )
+                for node, box in boxes.items()
+            ]
+            connection.path = _rounded_path(routed, 72 * pixel * scale, smoothing_boxes)
             edge.set_mutation_scale(self.arrow_size * scale)
             edge.set_linewidth(1.5 * scale)
             if self.heads:

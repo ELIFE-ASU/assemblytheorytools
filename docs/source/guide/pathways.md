@@ -95,7 +95,7 @@ fig.savefig("pathway.svg")
 ```
 
 Arrows stop outside the measured image or label boxes. Long edges follow
-routes through intermediate layers, with rounded bends around other nodes;
+smooth curves through intermediate layers, tightening bends near other nodes;
 parallel edges remain individually visible. The spacing and arrow clearance
 are recalculated when you resize the figure or save at a different DPI.
 Image and text boxes use light borders; pass `frame_on=False` to hide them.
