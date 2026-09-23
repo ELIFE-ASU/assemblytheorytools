@@ -1234,7 +1234,7 @@ def reassemble_old(
     .. [Liu2021] Liu, Y., Mathis, C., Bajczyk, M. D., Marshall, S. M., Wilbraham, L., & Cronin, L. (2021).
        Exploring and mapping chemical space with molecular assembly trees.
        Science Advances, 7(39), eabj2465.
-       https://www.science.org/doi/full/10.1126/sciadv.abj2465
+       https://doi.org/10.1126/sciadv.abj2465
 
     """
 
@@ -2279,7 +2279,13 @@ class Molecule:
         try:
             proc.wait(timeout=self.timeout)
         except subprocess.TimeoutExpired:
-            proc.send_signal(signal.SIGINT)
+            # SIGINT asks the calculator to save its best result. On Windows,
+            # Popen cannot deliver it to an ordinary child process, so the only
+            # option is to terminate; see _run_assembler in assembly.py.
+            if os.name == "nt":
+                proc.terminate()
+            else:
+                proc.send_signal(signal.SIGINT)
 
         self.assembly_output_path = f"{output_base}Pathway"
 
@@ -2512,7 +2518,7 @@ class MoleculeGenerationAssemblyPool:
     """
     Generation of novel molecules from molecular fragment pools.
 
-    See Pagel et al. [Pagel2024a]_ for details.
+    See Pagel et al. [Pagel2026a]_ for details.
 
     This class implements a molecular generation algorithm that creates new
     molecules by randomly combining fragments from existing assembly
@@ -2549,9 +2555,10 @@ class MoleculeGenerationAssemblyPool:
     References
     ----------
 
-    .. [Pagel2024a] Pagel, S., Sharma, A., & Cronin, L. (2024).
+    .. [Pagel2026a] Pagel, S., Sharma, A., & Cronin, L. (2026).
            Mapping evolution of molecules across biochemistry with assembly
-           theory. arXiv preprint arXiv:2409.05993.
+           theory. Journal of Chemical Information and Modeling, 66(14),
+           8239-8250. https://doi.org/10.1021/acs.jcim.6c00939
 
     """
 
@@ -3191,21 +3198,22 @@ class Assemble:
     mechanisms to generate chemically reasonable molecular products from
     fragment precursors.
 
-    See Pagel et al. [Pagel2024b]_ for details.
+    See Pagel et al. [Pagel2026b]_ for details.
 
     Attributes
     ----------
     BASE_WEIGHTS : list of float
         Empirical probabilities of a fragment pair connecting at 1, 2, 3 or
         4 overlapping atoms, taken from the reaction statistics in
-        [Pagel2024b]_.
+        [Pagel2026b]_.
 
     References
     ----------
 
-    .. [Pagel2024b] Pagel, S., Sharma, A., & Cronin, L. (2024).
+    .. [Pagel2026b] Pagel, S., Sharma, A., & Cronin, L. (2026).
            Mapping evolution of molecules across biochemistry with assembly
-           theory. arXiv preprint arXiv:2409.05993.
+           theory. Journal of Chemical Information and Modeling, 66(14),
+           8239-8250. https://doi.org/10.1021/acs.jcim.6c00939
 
     """
 

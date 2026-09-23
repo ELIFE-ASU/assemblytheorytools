@@ -1,5 +1,6 @@
 """Crystal file loading, periodic and finite cell graphs, and bond-order search."""
 
+import sys
 import warnings
 from collections import Counter
 
@@ -10,29 +11,29 @@ from ase import Atoms
 from ase.spacegroup.spacegroup import SpacegroupNotFoundError
 
 import assemblytheorytools as att
+from assemblytheorytools import assembly
 from assemblytheorytools import tools_cell as cell
 from assemblytheorytools.tools_graph import write_ass_graph_file
 
 IGNORE_OCCUPANCY = "ignore:.*occupancy:UserWarning"
 IGNORE_EXPERIMENTAL = "ignore:The cif_to_nx function is experimental:UserWarning"
 
+CIF_ATOM_COUNTS = [
+    ("Arsenstruvite_0.cif", 59),
+    ("Attakolite_0.cif", 70),
+    ("Capgaronnite_0.cif", 16),
+    ("Carlinite_1.cif", 27),
+    ("Cristobalite_5.cif", 15),
+    ("Lithiophorite_0.cif", 8),
+    ("Paravauxite_0.cif", 45),
+    ("Pearceite_4.cif", 55),
+    ("Tistarite_0.cif", 10),
+    ("Wodginite_3.cif", 24),
+]
+
 
 @pytest.mark.filterwarnings(IGNORE_OCCUPANCY)
-@pytest.mark.parametrize(
-    "filename,atom_count",
-    [
-        ("Arsenstruvite_0.cif", 59),
-        ("Attakolite_0.cif", 70),
-        ("Capgaronnite_0.cif", 16),
-        ("Carlinite_1.cif", 27),
-        ("Cristobalite_5.cif", 15),
-        ("Lithiophorite_0.cif", 8),
-        ("Paravauxite_0.cif", 45),
-        ("Pearceite_4.cif", 55),
-        ("Tistarite_0.cif", 10),
-        ("Wodginite_3.cif", 24),
-    ],
-)
+@pytest.mark.parametrize("filename,atom_count", CIF_ATOM_COUNTS)
 def test_cif_loading_reads_primitive_cells(data_dir, filename, atom_count):
     atoms = cell.read_cif_file(str(data_dir / "cif_files" / filename))
 
@@ -254,6 +255,14 @@ def test_mol_file_format_and_input_left_unchanged(water, tmp_path):
     assert len(lines) == 8
 
 
+def test_mol_file_refuses_counts_the_format_cannot_hold(tmp_path):
+    crowd = Atoms("H" * 1000, positions=np.arange(3000).reshape(1000, 3) * 5.0)
+    path = tmp_path / "crowd.mol"
+    with pytest.raises(ValueError, match="999"):
+        cell.atoms_to_mol_file(crowd, str(path))
+    assert not path.exists()
+
+
 def test_cluster_ties_and_diagnostics(capsys):
     atoms = Atoms("H4", positions=[(0, 0, 0), (0.7, 0, 0), (4, 0, 0), (4.7, 0, 0)])
     assert cell.find_clusters(atoms) == [2, 3]
@@ -293,7 +302,7 @@ def test_crystal_tiling_separates_central_cell_and_coordination_shells(capgaronn
     [
         (1, [[0], [], []], [0]),
         (4, [[1.4], [0.7, 2.1], [0]], [0.7, 1.4, 2.1]),
-        (5, [[1.4, 2.1], [0.7, 2.8], [0]], [0.7, 1.4, 2.1, 2.8]),
+        (5, [[1.4], [0.7, 2.1], [0, 2.8]], [0.7, 1.4, 2.1]),
     ],
 )
 def test_tiling_shell_boundaries_and_metadata(
@@ -328,6 +337,27 @@ def test_tiling_wraps_positions_without_reordering_atoms():
     assert len(second) == 0
 
 
+@pytest.mark.parametrize("repetitions", [1, 2, 3, 4, 5, 6])
+def test_central_region_keeps_one_image_of_a_boundary_atom(repetitions):
+    # An atom at fractional coordinate 0 lands on both faces of the central
+    # window, so a tolerance that widens the window would keep it twice.
+    atoms = Atoms("H", cell=[0.7, 4, 5], pbc=[True, False, True])
+    central, _, _ = cell.tile_cell_shells(atoms, reps=(repetitions, 1, 1))
+    assert len(central) == 1
+
+
+@pytest.mark.filterwarnings(IGNORE_OCCUPANCY)
+@pytest.mark.parametrize("filename,atom_count", CIF_ATOM_COUNTS)
+def test_central_region_is_exactly_one_unit_cell(data_dir, filename, atom_count):
+    atoms = cell.read_cif_file(str(data_dir / "cif_files" / filename))
+    for reps in ((2, 2, 2), (3, 3, 3)):
+        central, _, _ = cell.tile_cell_shells(atoms, reps=reps)
+        assert len(central) == atom_count, reps
+        assert Counter(central.get_chemical_symbols()) == Counter(
+            atoms.get_chemical_symbols()
+        )
+
+
 def test_empty_tiling_retains_cell_and_periodicity():
     atoms = Atoms(cell=[1, 2, 3], pbc=[True, False, True])
     for region in (cell.tile_cell(atoms), *cell.tile_cell_shells(atoms)):
@@ -336,14 +366,18 @@ def test_empty_tiling_retains_cell_and_periodicity():
         np.testing.assert_array_equal(region.pbc, atoms.pbc)
 
 
-def test_cell_to_nx_builds_the_cube_graph_with_automatic_repetitions():
-    atoms = Atoms(
+def _cube_cell():
+    """Build the cell whose one periodic direction tiles into the cube graph."""
+    return Atoms(
         "C4",
         positions=[(0, 0, 0), (1.5, 0, 0), (0, 0, 1.5), (1.5, 0, 1.5)],
         cell=[3, 10, 10],
         pbc=[True, False, False],
     )
-    graph = cell.cell_to_nx(atoms)
+
+
+def test_cell_to_nx_builds_the_cube_graph_with_automatic_repetitions():
+    graph = cell.cell_to_nx(_cube_cell())
 
     assert graph.graph == {
         "reps": (2, 1, 1),
@@ -362,7 +396,16 @@ def test_cell_to_nx_builds_the_cube_graph_with_automatic_repetitions():
     assert set(nx.get_node_attributes(graph, "color").values()) == {"C"}
     assert set(nx.get_edge_attributes(graph, "color").values()) == {1}
     assert att.calculate_assembly_index(graph)[0] == 4
-    assert att.calculate_assembly_index_rust(graph) == 4
+
+
+# Split from the test above so that only the cross-check is lost where
+# assembly-theory is not installed, which is every Windows run.
+@pytest.mark.skipif(
+    assembly.at_rust is None,
+    reason="assembly-theory is not installed; it publishes no Windows wheel",
+)
+def test_cell_to_nx_cube_graph_index_matches_the_rust_backend():
+    assert att.calculate_assembly_index_rust(cell.cell_to_nx(_cube_cell())) == 4
 
 
 def test_cell_to_nx_wraps_only_the_periodic_directions():
@@ -453,6 +496,17 @@ def test_every_cif_fixture_gives_a_calculator_ready_graph(
     assert (tmp_path / "graph_in").read_text().splitlines()[1] == str(node_count)
 
 
+@pytest.mark.filterwarnings(IGNORE_OCCUPANCY)
+@pytest.mark.filterwarnings(IGNORE_EXPERIMENTAL)
+@pytest.mark.parametrize("periodic", [True, False])
+@pytest.mark.parametrize("reps", [(3, 3), (0, 1, 1), (-1, 1, 1), 3])
+def test_invalid_repetitions_are_rejected_on_both_paths(
+    capgaronnite_path, periodic, reps
+):
+    with pytest.raises(ValueError, match="three positive integers"):
+        cell.cif_to_nx(capgaronnite_path, reps=reps, periodic=periodic)
+
+
 @pytest.mark.parametrize(
     "graph_factory,success,bond_orders",
     [
@@ -470,14 +524,33 @@ def test_bond_order_search_for_small_molecules(graph_factory, success, bond_orde
     assert list(nx.get_edge_attributes(result, "color").values()) == bond_orders
 
 
-def test_unsolved_crystal_bond_search_retains_original_connectivity(crystal_graph):
+def test_unsolved_crystal_bond_search_retains_original_connectivity(
+    crystal_cluster_graph,
+):
+    # An open cluster has under-coordinated surface atoms, so no assignment can
+    # satisfy every valence and the graph must come back untouched.
+    with pytest.warns(UserWarning, match="guess_bond_orders function is experimental"):
+        result, success, diagnostics = cell.guess_bond_orders(crystal_cluster_graph)
+
+    assert not success
+    assert nx.utils.graphs_equal(result, crystal_cluster_graph)
+    assert diagnostics["success_edges_assigned"] == 0
+    assert diagnostics["total_edges"] == crystal_cluster_graph.number_of_edges()
+
+
+def test_periodic_crystal_bond_search_satisfies_every_valence(crystal_graph):
+    # The wrap-around graph has no surface, so every atom can reach its target.
     with pytest.warns(UserWarning, match="guess_bond_orders function is experimental"):
         result, success, diagnostics = cell.guess_bond_orders(crystal_graph)
 
-    assert not success
-    assert nx.utils.graphs_equal(result, crystal_graph)
-    assert diagnostics["success_edges_assigned"] == 0
-    assert diagnostics["total_edges"] == crystal_graph.number_of_edges()
+    assert success
+    assert diagnostics["success_edges_assigned"] == crystal_graph.number_of_edges()
+    assert set(diagnostics["remaining_valence_per_atom"].values()) == {0}
+    achieved = dict.fromkeys(result, 0)
+    for u, v, order in result.edges(data="color"):
+        achieved[u] += order
+        achieved[v] += order
+    assert achieved == diagnostics["target_valence"]
 
 
 @pytest.mark.parametrize(
@@ -487,19 +560,22 @@ def test_unsolved_crystal_bond_search_retains_original_connectivity(crystal_grap
         "expected_orders",
         "success",
         "targets",
+        "remaining",
         "tried",
         "backtracks",
     ),
     [
-        ("NN", [(0, 1)], [3], True, {0: 3, 1: 3}, 1, 0),
-        ("CC", [(0, 1)], [9], False, {0: 4, 1: 4}, 0, 1),
-        ("HHC", [(0, 1)], [1], False, {0: 1, 1: 1, 2: 4}, 1, 1),
-        ("O", [], [], False, {0: 2}, 0, 0),
-        ("", [], [], True, {}, 0, 0),
+        ("NN", [(0, 1)], [3], True, {0: 3, 1: 3}, {0: 0, 1: 0}, 1, 0),
+        ("CC", [(0, 1)], [9], False, {0: 4, 1: 4}, {0: 4, 1: 4}, 0, 1),
+        # The H-H bond is assigned even though the lone C cannot be satisfied,
+        # so the reported residuals must describe that partial assignment.
+        ("HHC", [(0, 1)], [1], False, {0: 1, 1: 1, 2: 4}, {0: 0, 1: 0, 2: 4}, 1, 1),
+        ("O", [], [], False, {0: 2}, {0: 2}, 0, 0),
+        ("", [], [], True, {}, {}, 0, 0),
     ],
 )
 def test_bond_search_results_and_diagnostics(
-    elements, edges, expected_orders, success, targets, tried, backtracks
+    elements, edges, expected_orders, success, targets, remaining, tried, backtracks
 ):
     graph = nx.Graph(name="original")
     graph.add_nodes_from((i, {"color": element}) for i, element in enumerate(elements))
@@ -507,7 +583,7 @@ def test_bond_search_results_and_diagnostics(
     with pytest.warns(
         UserWarning, match="The guess_bond_orders function is experimental"
     ):
-        result, ok, info = cell.guess_bond_orders(G=graph, max_bond_order=4)
+        result, ok, info = cell.guess_bond_orders(G=graph)
 
     assert ok is success
     assert result is not graph
@@ -518,7 +594,7 @@ def test_bond_search_results_and_diagnostics(
     assert all(result.edges[edge]["label"] == "preserved" for edge in edges)
     assert info == {
         "target_valence": targets,
-        "remaining_valence_per_atom": dict.fromkeys(targets, 0) if success else targets,
+        "remaining_valence_per_atom": remaining,
         "tried_edges": tried,
         "backtracks": backtracks,
         "success_edges_assigned": sum(order != 9 for order in expected_orders),
@@ -528,7 +604,7 @@ def test_bond_search_results_and_diagnostics(
 
 @pytest.mark.parametrize(
     ("charge", "attribute", "expected"),
-    [(1, "charge", 3), (-1, "charge", 2), (1, None, 2)],
+    [(1, "charge", 3), (-1, "charge", 1), (1, None, 2)],
 )
 def test_custom_charge_attribute(charge, attribute, expected):
     graph = nx.Graph()
@@ -540,7 +616,7 @@ def test_custom_charge_attribute(charge, attribute, expected):
 
 
 @pytest.mark.parametrize("oxygen_first", [True, False])
-def test_bond_search_preserves_node_order_behavior(oxygen_first):
+def test_bond_search_is_independent_of_node_order(oxygen_first):
     oxygen, hydrogen, other_hydrogen = "oxygen", ("hydrogen", 1), 8
     nodes = (
         [oxygen, hydrogen, other_hydrogen]
@@ -554,11 +630,71 @@ def test_bond_search_preserves_node_order_behavior(oxygen_first):
     graph.add_edges_from([(oxygen, hydrogen), (oxygen, other_hydrogen)], color=9)
     with pytest.warns(UserWarning, match="experimental"):
         result, success, info = cell.guess_bond_orders(graph)
-    assert success is oxygen_first
+    assert success
     assert list(result) == nodes
-    assert list(nx.get_edge_attributes(result, "color").values()) == (
-        [1, 1] if oxygen_first else [9, 9]
-    )
-    assert (info["tried_edges"], info["backtracks"]) == (
-        (2, 0) if oxygen_first else (1, 2)
-    )
+    assert list(nx.get_edge_attributes(result, "color").values()) == [1, 1]
+    assert (info["tried_edges"], info["backtracks"]) == (2, 0)
+
+
+def test_bond_search_solves_a_ring_with_alternating_orders():
+    # Every ring atom is the second endpoint of one of its own bonds, which the
+    # feasibility check must still recognise as already assigned.
+    graph = nx.Graph()
+    for carbon in range(6):
+        graph.add_node(carbon, color="C")
+        graph.add_node(f"H{carbon}", color="H")
+        graph.add_edge(carbon, f"H{carbon}")
+        graph.add_edge(carbon, (carbon + 1) % 6)
+
+    with pytest.warns(UserWarning, match="experimental"):
+        result, success, info = cell.guess_bond_orders(graph)
+
+    assert success
+    ring = sorted(result.edges[c, (c + 1) % 6]["color"] for c in range(6))
+    assert ring == [1, 1, 1, 2, 2, 2]
+    assert all(result.edges[c, f"H{c}"]["color"] == 1 for c in range(6))
+    assert set(info["remaining_valence_per_atom"].values()) == {0}
+
+
+@pytest.mark.parametrize(
+    "max_bond_order,expected_order,success", [(3, 9, False), (4, 4, True)]
+)
+def test_max_bond_order_bounds_the_search(max_bond_order, expected_order, success):
+    graph = nx.Graph()
+    graph.add_nodes_from((i, {"color": "C"}) for i in range(2))
+    graph.add_edge(0, 1, color=9)
+
+    with pytest.warns(UserWarning, match="experimental"):
+        result, ok, _ = cell.guess_bond_orders(graph, max_bond_order=max_bond_order)
+
+    assert ok is success
+    assert result.edges[0, 1]["color"] == expected_order
+
+
+def test_unknown_element_symbol_raises_value_error():
+    graph = nx.Graph()
+    graph.add_node(0, color="Unobtainium")
+    with pytest.warns(UserWarning, match="experimental"):
+        with pytest.raises(ValueError, match="unknown element symbol"):
+            cell.guess_bond_orders(graph)
+
+
+def test_bond_search_handles_more_edges_than_the_recursion_limit():
+    # The search visits one frame per edge, so a graph with more bonds than
+    # sys.getrecursionlimit() would overflow a recursive implementation.
+    ring_size = 400
+    graph = nx.Graph()
+    for carbon in range(ring_size):
+        graph.add_node(carbon, color="C")
+        graph.add_edge(carbon, (carbon + 1) % ring_size)
+        for hydrogen in range(2):
+            graph.add_node(f"H{carbon}.{hydrogen}", color="H")
+            graph.add_edge(carbon, f"H{carbon}.{hydrogen}")
+    assert graph.number_of_edges() > sys.getrecursionlimit()
+
+    with pytest.warns(UserWarning, match="experimental"):
+        result, success, info = cell.guess_bond_orders(graph)
+
+    assert success
+    assert set(nx.get_edge_attributes(result, "color").values()) == {1}
+    assert set(info["remaining_valence_per_atom"].values()) == {0}

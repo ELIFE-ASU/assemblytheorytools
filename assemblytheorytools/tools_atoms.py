@@ -9,6 +9,7 @@ optimisation, and CCSD and free-energy evaluation for virtual objects.
 
 import os
 import re
+import shlex
 import tempfile
 import warnings
 from io import StringIO
@@ -487,7 +488,7 @@ def orca_calc_preset(
         orca_path = os.environ.get("ORCA_PATH")
     if directory is None:
         directory = os.path.join(tempfile.mkdtemp(), "orca")
-    profile = OrcaProfile(command=orca_path)
+    profile = OrcaProfile(command=_orca_command(orca_path))
 
     processors = f"%pal nprocs {n_procs} end" if n_procs > 1 else ""
     solvent = ""
@@ -547,6 +548,20 @@ def _resolve_orca_path(orca_path: Optional[str]) -> Optional[str]:
     if orca_path is None:
         return os.environ.get("ORCA_PATH")
     return os.path.abspath(orca_path)
+
+
+def _orca_command(orca_path: Optional[str]) -> Optional[str]:
+    """Quote an executable path so ASE cannot mangle it into another path.
+
+    ``OrcaProfile`` stores ``shlex.join(shlex.split(command))`` and splits it
+    again to build the argument list. POSIX shlex reads a backslash as an escape
+    and a space as a separator, so an unquoted Windows path loses every
+    separator (``D:\\a\\orca`` becomes ``D:aorca``) and any path containing a
+    space is torn in two on every platform. Quoting survives that round trip.
+    A path needing no quoting, which is the usual POSIX case, is returned
+    unchanged.
+    """
+    return orca_path if orca_path is None else shlex.quote(orca_path)
 
 
 def _run_orca(atoms: Atoms, **calculator_options: Any) -> float:
@@ -1064,7 +1079,7 @@ def calculate_goat(
         - 'Energy_kcal_mol': Energy in kcal/mol (float).
         - 'Percent_total': Percentage of the total (float).
     """
-    profile = OrcaProfile(command=_resolve_orca_path(orca_path))
+    profile = OrcaProfile(command=_orca_command(_resolve_orca_path(orca_path)))
     processors = f"%pal nprocs {n_procs} end" if n_procs > 1 else ""
     with tempfile.TemporaryDirectory() as directory:
         atoms.calc = ORCA(

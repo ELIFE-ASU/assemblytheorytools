@@ -38,6 +38,7 @@ from rdkit import Chem
 from rdkit.Chem import Draw, rdFMCS
 from scipy.stats import gaussian_kde
 
+from ._pathway_plotting import _PathwayArtist
 from .tools_atoms import mol_to_atoms
 from .tools_data import enumerate_stereoisomers_shortest, pubchem_smi_to_name
 from .tools_graph import nx_to_smi, relabel_digraph, set_graph_layer
@@ -514,84 +515,6 @@ def plot_digraph_metro(
     cairosvg.svg2png(bytestring=svg.encode("utf-8"), write_to=f"{filename}.png")
 
 
-def _draw_edge_arrowhead(
-    ax: Axes,
-    edge_patch: FancyArrowPatch,
-    position: float,
-    color: str,
-    plt_arrow_style: Union[str, ArrowStyle],
-    arrow_size: int,
-    width: float = 2.5,
-) -> None:
-    """
-    Draw a single arrowhead part way along an edge that has already been drawn.
-
-    The edge patch is asked for its path in data coordinates, so the head follows
-    the curvature of the edge and its node margins rather than the straight line
-    between the two nodes.
-
-    Parameters
-    ----------
-    ax : matplotlib.axes.Axes
-        Axis holding the edge.
-    edge_patch : matplotlib.patches.FancyArrowPatch
-        Edge as returned by `networkx.draw_networkx_edges`, drawn without a head.
-    position : float
-        Fraction along the edge at which to place the head, from 0 at the source
-        to 1 at the target.
-    color : str
-        Colour of the arrowhead.
-    plt_arrow_style : str or matplotlib.patches.ArrowStyle
-        Style of the arrowhead.
-    arrow_size : int
-        Size of the arrowhead (matplotlib mutation scale).
-    width : float, optional
-        Line width of the arrowhead, by default 2.5.
-
-    Returns
-    -------
-    None
-        The arrowhead is added to the axis in place.
-    """
-    # Poly-line approximation of the drawn edge, in data coordinates
-    verts = np.asarray(
-        [v for v, _ in edge_patch.get_path().iter_segments(curves=False)]
-    )
-    if len(verts) < 2:
-        return
-
-    steps = np.diff(verts, axis=0)
-    lengths = np.hypot(steps[:, 0], steps[:, 1])
-    # Drop repeated vertices, they carry no direction
-    keep = lengths > 0.0
-    if not keep.any():
-        return
-    starts, steps, lengths = verts[:-1][keep], steps[keep], lengths[keep]
-
-    # Walk along the arc length, so the head sits part way along the curve
-    # rather than part way between the two nodes
-    arc = np.concatenate(([0.0], np.cumsum(lengths)))
-    target = float(np.clip(position, 0.0, 1.0)) * arc[-1]
-    i = int(np.clip(np.searchsorted(arc, target) - 1, 0, len(lengths) - 1))
-    point = starts[i] + steps[i] * (target - arc[i]) / lengths[i]
-
-    # Stub pointing along the edge, short enough to hide under the head itself
-    stub = 1e-3 * arc[-1] * steps[i] / lengths[i]
-    ax.add_patch(
-        FancyArrowPatch(
-            point - stub,
-            point + stub,
-            arrowstyle=plt_arrow_style,
-            mutation_scale=arrow_size,
-            color=color,
-            linewidth=width,
-            shrinkA=0,
-            shrinkB=0,
-            zorder=edge_patch.get_zorder(),
-        )
-    )
-
-
 def _figure_image(fig: Figure, dpi: int) -> np.ndarray:
     """Render a temporary figure to an in-memory PNG and close it."""
     try:
@@ -606,8 +529,16 @@ def _figure_image(fig: Figure, dpi: int) -> np.ndarray:
 def _pathway_icon(vo: Any, plot_type: str) -> OffsetImage:
     """Render a virtual object at the scale used by pathway nodes."""
     if plot_type == "mol":
-        smi = vo.replace("[", "").replace("]", "")
-        mol = smi_to_mol(smi, add_hydrogens=False)
+        if isinstance(vo, nx.Graph):
+            try:
+                vo = nx_to_smi(vo, add_hydrogens=False, sanitize=False)
+            except Exception:
+                return _pathway_icon(vo, "graph")
+        mol = (
+            Chem.Mol(vo)
+            if isinstance(vo, Chem.Mol)
+            else smi_to_mol(vo, add_hydrogens=False)
+        )
         img = Draw.MolToImage(mol, size=(200, 200), kekulize=False, fitImage=True)
         return OffsetImage(img, zoom=0.4)
     if plot_type == "graph":
@@ -616,7 +547,11 @@ def _pathway_icon(vo: Any, plot_type: str) -> OffsetImage:
         )
         return OffsetImage(_figure_image(fig, dpi=400), zoom=0.05)
 
-    mol = smi_to_mol(vo, add_hydrogens=False)
+    mol = (
+        Chem.Mol(vo)
+        if isinstance(vo, Chem.Mol)
+        else smi_to_mol(vo, add_hydrogens=False)
+    )
     atoms = mol_to_atoms(mol, sanitize=False, add_hydrogens=False)
     fig, ax = plt.subplots()
     plot_atoms(atoms, ax, show_unit_cell=0, scale=2.0)
@@ -639,35 +574,42 @@ def plot_pathway(
     plt_arrow_style: Union[str, ArrowStyle] = "->",
     arrow_pos: float = 1.0,
     arrow_size: int = 20,
-    auto_fig_size: bool = False,
+    auto_fig_size: bool = True,
 ) -> tuple[Figure, Axes]:
     """
     Visualize a directed acyclic graph as a pathway with customizable layout.
 
     Creates a layered pathway visualization with topological ordering. Supports
     molecular structure icons, optimized crossing minimization layouts, and
-    customizable arrow styles.
+    customizable arrow styles. Edges follow the layout through intermediate
+    layers and stay clear of measured image and text boxes. Geometry adapts
+    when the figure is resized or exported at another resolution.
 
     Parameters
     ----------
     graph : networkx.DiGraph
         Directed acyclic graph representing a pathway or assembly process.
     fig_size : tuple of float, optional
-        Figure size in inches as (width, height), by default (12, 7).
+        Minimum figure size in inches as (width, height), by default (12, 7).
+        Set ``auto_fig_size=False`` to use this exact size.
     show_icons : bool, optional
         If True, displays molecular structure icons on nodes, by default True.
     node_color : str, optional
         Color for nodes in hex format, by default '#264f70'.
     plot_type : str, optional
-        Type of plot visualization ('mol' for molecules), by default 'mol'.
+        Renderer: 'mol' for molecular structures, 'graph' for graph diagrams,
+        'atoms' for ball-and-stick renderings, or 'string' for string
+        fragments drawn as text, by default 'mol'.
+        String labels use the node's ``vo`` attribute when present, otherwise
+        the node ID.
     arrow_style : str, optional
-        Arrow rendering style: '1' for white edges, '2' for grey edges,
+        Arrow rendering style: '1' uses `arrow_color`, '2' uses grey,
         by default '1'.
     layout_style : str, optional
         Layout algorithm: 'crossmin', 'crossmin_long', 'sa', or default
         multipartite, by default 'crossmin_long'.
     frame_on : bool, optional
-        If True, displays axis frame, by default True.
+        If True, outlines image and text boxes, by default True.
     font_size : int, optional
         Font size for string assembly paths, by default 11.
     arrow_color : str, optional
@@ -677,14 +619,16 @@ def plot_pathway(
     arrow_pos : float, optional
         Fraction along each edge at which the arrowhead is drawn, from 0 at the
         source to 1 at the target, by default 1.0 (head at the target node).
-        Only used with arrow_style '1'; see `plot_pathway_mid_arrow` for heads
-        half way along the edges.
+        See `plot_pathway_mid_arrow` for heads half way along the edges.
     arrow_size : int, optional
-        Size of the arrowhead (matplotlib mutation scale) when it is placed part
-        way along an edge, by default 20. Unused when arrow_pos is 1.
+        Size of the arrowheads (matplotlib mutation scale), by default 20.
+        Nodes and arrows shrink together when fitting a fixed-size figure.
     auto_fig_size : bool, optional
-        If True, ignore `fig_size` and compute a figure size scaled to the
-        number of nodes in `graph` instead, by default False.
+        Grow the canvas to fit measured node sizes, layers and edge lanes,
+        by default True. Width and height grow independently from `fig_size`
+        with no upper size cap, keeping large SVG/PDF pathways readable
+        when zoomed. If False, shrink nodes and arrows to fit `fig_size`.
+        Later manual figure resizing is respected in either mode.
 
     Returns
     -------
@@ -708,128 +652,98 @@ def plot_pathway(
     >>> plt.show()  # doctest: +SKIP
 
     Use ``plot_type="mol"`` to draw molecular structures instead of graph
-    diagrams, and ``auto_fig_size=True`` to size the canvas to the pathway
-    rather than fixing it in advance.
+    diagrams. The canvas grows automatically for large pathways; use
+    ``auto_fig_size=False`` when an exact figure size is required.
     """
-    graph = graph.copy()
-    if plot_type == "mol":
-        for _, data in graph.nodes(data=True):
-            node_graph = data["vo"]
-            if isinstance(node_graph, nx.Graph):
-                try:
-                    data["vo"] = nx_to_smi(
-                        node_graph, add_hydrogens=False, sanitize=False
-                    )
-                except Exception:
-                    plot_type = "graph"
-    elif plot_type == "string" and show_icons:
-        node_color = "white"
+    if arrow_style not in ("1", "2"):
+        raise ValueError("Invalid arrow style. Use '1' or '2'.")
+    graph = set_graph_layer(graph.copy())
 
-    if auto_fig_size:
-        fig_size = _auto_fig_size(graph.number_of_nodes(), base_size=fig_size)
+    if layout_style in ("crossmin_long", "sa"):
+        layout = (
+            multipartite_layout_sa
+            if layout_style == "sa"
+            else multipartite_layout_crossmin_long
+        )
+        pos, routes = layout(
+            graph, subset_key="layer", return_dummies=True, return_routes=True, seed=42
+        )
+    else:
+        layout = (
+            multipartite_layout_crossmin
+            if layout_style == "crossmin"
+            else nx.multipartite_layout
+        )
+        pos = layout(graph, subset_key="layer")
+        routes = [{"endpoints": (u, v), "nodes": [u, v]} for u, v in graph.edges()]
 
     fig, ax = plt.subplots(figsize=fig_size)
-    graph = set_graph_layer(graph)
-
-    layouts = {
-        "crossmin": multipartite_layout_crossmin,
-        "crossmin_long": multipartite_layout_crossmin_long,
-        "sa": multipartite_layout_sa,
-    }
-    layout = layouts.get(layout_style, nx.multipartite_layout)
-    pos = layout(graph, subset_key="layer")
-
-    if arrow_style == "1":
-        edge_color1 = "white"
-    elif arrow_style == "2":
-        edge_color1 = "grey"
-    else:
-        raise ValueError("Invalid arrow style. Use '1' or '2'.")
-
-    nx.draw_networkx(
-        graph,
-        pos=pos,
-        ax=ax,
-        with_labels=False,
-        node_size=1000,
-        node_color=node_color,
-        connectionstyle="arc3,rad=0.1",
-        edge_color=edge_color1,
-        arrows=True,
-        arrowstyle="->",
-        width=2.0,
-    )
-
-    edge_patches = []
-    if arrow_style == "1":
-        arrow_margin = 70 if show_icons else 20
-
-        for edge in graph.edges():
-            src, dst = edge
-            # Bend toward the destination; horizontally aligned edges stay straight.
-            if pos[src][1] > pos[dst][1]:
-                rad = -0.15
-            elif pos[src][1] < pos[dst][1]:
-                rad = 0.15
-            else:
-                rad = 0.0
-
-            # A head part way along the edge is added afterwards, so the edge
-            # itself is drawn without one
-            edge_patches += nx.draw_networkx_edges(
-                graph,
-                pos=pos,
-                edgelist=[edge],
-                ax=ax,
-                arrows=True,
-                arrowstyle=plt_arrow_style if arrow_pos >= 1.0 else "-",
-                width=2.5,
-                edge_color=arrow_color,
-                connectionstyle=f"arc3,rad={rad}",
-                min_target_margin=arrow_margin,
-            )
-
-    if show_icons:
-        for node, data in graph.nodes(data=True):
+    fig.subplots_adjust(left=0.02, right=0.98, bottom=0.03, top=0.97)
+    ax.set(xlim=(0, 1), ylim=(0, 1))
+    ax.axis("off")
+    nodes = {}
+    for node, data in graph.nodes(data=True):
+        artist = None
+        if show_icons:
             if plot_type in ("mol", "graph", "atoms"):
                 icon = _pathway_icon(data["vo"], plot_type)
-                ax.add_artist(AnnotationBbox(icon, pos[node], frameon=frame_on))
+                artist = AnnotationBbox(
+                    icon,
+                    (0.5, 0.5),
+                    frameon=frame_on,
+                    pad=0.4,
+                    bboxprops=dict(
+                        edgecolor="#c7d0d9", facecolor="white", linewidth=0.75
+                    ),
+                    zorder=3,
+                    annotation_clip=False,
+                )
+                ax.add_artist(artist)
             elif plot_type == "string":
-                ax.text(
-                    *pos[node],
-                    data["vo"],
+                artist = ax.text(
+                    0.5,
+                    0.5,
+                    str(data.get("vo", node)),
                     fontsize=font_size,
                     ha="center",
                     va="center",
+                    zorder=3,
                     bbox=dict(
                         boxstyle="round,pad=0.5",
                         facecolor="white",
-                        edgecolor="white",
-                        linewidth=1,
+                        edgecolor="#c7d0d9" if frame_on else "none",
+                        linewidth=0.75,
                     ),
                 )
-
-    fig.tight_layout()
-    ax.axis("off")
-    # scatter the positions to fix the view
-    ax.scatter(
-        [pos[node][0] for node in graph.nodes()],
-        [pos[node][1] for node in graph.nodes()],
-        s=0,
-        color="red",
+        nodes[node] = artist
+    collection = None
+    if nodes and all(artist is None for artist in nodes.values()):
+        collection = ax.scatter(
+            [0.5] * len(nodes),
+            [0.5] * len(nodes),
+            s=1000,
+            color=node_color,
+            linewidths=0,
+            zorder=3,
+        )
+    artist = _PathwayArtist(
+        ax,
+        pos,
+        routes,
+        nodes,
+        collection,
+        font_size=font_size,
+        arrow_color=arrow_color if arrow_style == "1" else "grey",
+        arrow_style=plt_arrow_style,
+        arrow_size=arrow_size,
+        arrow_pos=arrow_pos,
     )
-
-    if edge_patches and arrow_pos < 1.0:
-        # The edge paths are built in display space, so the view has to be
-        # settled before they are read back, and frozen so the heads stay on them
-        fig.canvas.draw()
-        ax.set_xlim(*ax.get_xlim())
-        ax.set_ylim(*ax.get_ylim())
-        for edge_patch in edge_patches:
-            _draw_edge_arrowhead(
-                ax, edge_patch, arrow_pos, arrow_color, plt_arrow_style, arrow_size
-            )
-
+    ax.add_artist(artist)
+    if auto_fig_size:
+        artist.autosize_figure()
+    # Settle geometry for callers inspecting the returned artists. The layout
+    # artist also updates before subsequent interactive and export draws.
+    fig.canvas.draw()
     return fig, ax
 
 
@@ -846,12 +760,12 @@ def plot_pathway_mid_arrow(
     plt_arrow_style: Union[str, ArrowStyle] = "->",
     arrow_pos: float = 0.5,
     arrow_size: int = 20,
-    auto_fig_size: bool = False,
+    auto_fig_size: bool = True,
 ) -> tuple[Figure, Axes]:
     """
     Visualize a directed acyclic graph as a pathway with mid-edge arrowheads.
 
-    Same as `plot_pathway` with the white edge style, except that each edge is
+    Same as `plot_pathway`, except that each edge is
     drawn as a plain line and its arrowhead is placed half way along it instead
     of at the target node. Useful when the icons are large enough that heads at
     the target node crowd them.
@@ -861,18 +775,21 @@ def plot_pathway_mid_arrow(
     graph : networkx.DiGraph
         Directed acyclic graph representing a pathway or assembly process.
     fig_size : tuple of float, optional
-        Figure size in inches as (width, height), by default (12, 7).
+        Minimum figure size in inches as (width, height), by default (12, 7).
+        Set ``auto_fig_size=False`` to use this exact size.
     show_icons : bool, optional
         If True, displays molecular structure icons on nodes, by default True.
     node_color : str, optional
         Color for nodes in hex format, by default '#264f70'.
     plot_type : str, optional
-        Type of plot visualization ('mol' for molecules), by default 'mol'.
+        Renderer: 'mol' for molecular structures, 'graph' for graph diagrams,
+        'atoms' for ball-and-stick renderings, or 'string' for string
+        fragments drawn as text, by default 'mol'.
     layout_style : str, optional
         Layout algorithm: 'crossmin', 'crossmin_long', 'sa', or default
         multipartite, by default 'crossmin_long'.
     frame_on : bool, optional
-        If True, displays axis frame, by default True.
+        If True, outlines image and text boxes, by default True.
     font_size : int, optional
         Font size for string assembly paths, by default 11.
     arrow_color : str, optional
@@ -885,8 +802,11 @@ def plot_pathway_mid_arrow(
     arrow_size : int, optional
         Size of the arrowheads (matplotlib mutation scale), by default 20.
     auto_fig_size : bool, optional
-        If True, ignore `fig_size` and compute a figure size scaled to the
-        number of nodes in `graph` instead, by default False.
+        Grow the canvas to fit measured node sizes, layers and edge lanes,
+        by default True. Width and height grow independently from `fig_size`
+        with no upper size cap, keeping large SVG/PDF pathways readable
+        when zoomed. If False, shrink nodes and arrows to fit `fig_size`.
+        Later manual figure resizing is respected in either mode.
 
     Returns
     -------
@@ -2123,13 +2043,14 @@ def _layout_layers(G, subset_key, *, allow_mixed=False):
     for node, data in G.nodes(data=True):
         groups[data.get(subset_key, 0)].append(node)
 
-    keys = set(groups) if allow_mixed else groups
     try:
-        layer_keys = sorted(keys)
+        layer_keys = sorted(groups)
     except TypeError:
         if not allow_mixed:
             raise
-        layer_keys = sorted(keys, key=str)
+        layer_keys = sorted(
+            groups, key=lambda key: (str(key), type(key).__module__, type(key).__name__)
+        )
 
     layers = [
         sorted(groups[key], key=lambda node: (G.degree(node), str(node)))
@@ -2175,16 +2096,75 @@ def _order_layout_layer(target_nodes, neighbor_nodes, neighbor_weights, method):
 
 
 def _sweep_layout_layers(layers, neighbor_weights, method, iterations):
-    """Refine layer orders with alternating forward and backward sweeps."""
+    """Retain the best sweep order, then remove locally avoidable crossings."""
+    node_layer = {node: i for i, layer in enumerate(layers) for node in layer}
+    neighbors = {node: list(neighbor_weights(node)) for node in node_layer}
+    edges_by_pair = [[] for _ in range(max(0, len(layers) - 1))]
+    for node, i in node_layer.items():
+        for neighbor, weight in neighbors[node]:
+            if node_layer.get(neighbor) == i + 1:
+                edges_by_pair[i].append((node, neighbor, weight))
+
+    def pair_cross(i):
+        if 0 <= i < len(edges_by_pair):
+            return _pair_crossings_weighted(layers[i], layers[i + 1], edges_by_pair[i])
+        return 0.0
+
+    current_cost = sum(pair_cross(i) for i in range(len(edges_by_pair)))
+    best_cost = current_cost
+    best_layers = [list(layer) for layer in layers]
+    seen = set()
     for _ in range(max(1, int(iterations))):
+        state = tuple(tuple(layer) for layer in layers)
+        if state in seen or best_cost <= 0:
+            break
+        seen.add(state)
         for indices, offset in (
             (range(1, len(layers)), -1),
             (range(len(layers) - 2, -1, -1), 1),
         ):
             for i in indices:
+                before = pair_cross(i - 1) + pair_cross(i)
                 layers[i] = _order_layout_layer(
-                    layers[i], layers[i + offset], neighbor_weights, method
+                    layers[i], layers[i + offset], lambda node: neighbors[node], method
                 )
+                current_cost += pair_cross(i - 1) + pair_cross(i) - before
+                if current_cost < best_cost - 1e-12:
+                    best_cost = current_cost
+                    best_layers = [list(layer) for layer in layers]
+    layers[:] = best_layers
+    _transpose_layout_layers(layers, neighbors)
+
+
+def _transpose_layout_layers(layers, neighbors, max_passes=12):
+    """Polish adjacent swaps using crossings on both sides of each layer.
+
+    A barycenter sweep sees only one neighbor layer at a time. These strictly
+    improving swaps remove crossings it can leave behind without sacrificing
+    the order on the other side. Shared endpoints never contribute to the cost.
+    """
+    for _ in range(max_passes):
+        improved = False
+        for i, layer in enumerate(layers):
+            adjacent = [j for j in (i - 1, i + 1) if 0 <= j < len(layers)]
+            indices = [{node: k for k, node in enumerate(layers[j])} for j in adjacent]
+            for a in range(len(layer) - 1):
+                u, v = layer[a : a + 2]
+                delta = 0.0
+                for index in indices:
+                    left = [(index[n], w) for n, w in neighbors[u] if n in index]
+                    right = [(index[n], w) for n, w in neighbors[v] if n in index]
+                    delta += sum(
+                        wu * wv * (1 if pu < pv else -1)
+                        for pu, wu in left
+                        for pv, wv in right
+                        if pu != pv
+                    )
+                if delta < -1e-12:
+                    layer[a], layer[a + 1] = v, u
+                    improved = True
+        if not improved:
+            break
 
 
 def _layout_positions(layers, align, layer_spacing, node_spacing, scale):
@@ -2206,7 +2186,7 @@ def _layout_result(
     layer_keys,
     layers,
     routes,
-    dummy_prefix,
+    dummy_nodes,
     return_order,
     return_dummies,
     return_routes,
@@ -2218,7 +2198,7 @@ def _layout_result(
         else {
             node: xy
             for node, xy in positions.items()
-            if not (isinstance(node, str) and node.startswith(dummy_prefix))
+            if node not in dummy_nodes
         }
     )
     result = [pos]
@@ -2259,8 +2239,9 @@ def multipartite_layout_crossmin(
     """Minimize crossings between adjacent layers using stable ordering sweeps.
 
     Nodes start in degree/name order within each layer. Alternating forward and
-    backward sweeps order each layer by its neighbors in the adjacent layer;
-    ties retain the current order. The graph is not modified.
+    backward sweeps retain the best crossing count, then adjacent swaps refine
+    both neighboring layers together. Ties retain the current order. Incoming
+    and outgoing edges both contribute; the graph is not modified.
 
     Parameters
     ----------
@@ -2273,13 +2254,14 @@ def multipartite_layout_crossmin(
     method : {'barycenter', 'median'}, optional
         Order nodes by their weighted mean or unweighted median neighbor index.
     iterations : int, optional
-        Number of forward/backward sweep pairs; at least one pair is performed.
+        Maximum number of forward/backward sweep pairs. Stop earlier when an
+        order repeats or no crossings remain.
     layer_spacing, node_spacing : float, optional
         Spacing between layers and between nodes within each centered layer.
     scale : float, optional
         Multiply final coordinates by this factor.
     seed : int or None, optional
-        Reset Python's random seed when supplied. Ordering itself uses stable ties.
+        Accepted for compatibility; this layout uses deterministic stable ties.
     weight : str or None, optional
         Edge attribute for barycenter weights; missing weights default to 1.
         Median ordering ignores edge weights.
@@ -2299,20 +2281,18 @@ def multipartite_layout_crossmin(
     The heuristic does not guarantee a global minimum of edge crossings.
     """
 
-    if seed is not None:
-        random.seed(seed)
     layer_keys, layers, _ = _layout_layers(G, subset_key)
+    neighbors = defaultdict(lambda: defaultdict(float))
+    for u, v, data in G.edges(data=True):
+        value = (
+            data.get(weight, 1.0)
+            if method == "barycenter" and weight is not None
+            else 1.0
+        )
+        neighbors[u][v] += value
+        neighbors[v][u] += value
 
-    def neighbor_weights(node):
-        for neighbor in G[node]:
-            edge_weight = (
-                G[node][neighbor].get(weight, 1.0)
-                if method == "barycenter" and weight is not None
-                else 1.0
-            )
-            yield neighbor, edge_weight
-
-    _sweep_layout_layers(layers, neighbor_weights, method, iterations)
+    _sweep_layout_layers(layers, lambda node: neighbors[node].items(), method, iterations)
     pos = _layout_positions(layers, align, layer_spacing, node_spacing, scale)
     if return_order:
         return pos, {key: list(layer) for key, layer in zip(layer_keys, layers)}
@@ -2354,20 +2334,21 @@ def multipartite_layout_crossmin_long(
         Order nodes by weighted mean or median neighbor index. Median ordering
         repeats each neighbor index by its rounded weight, with a minimum of one.
     iterations : int, optional
-        Number of forward/backward sweep pairs; at least one pair is performed.
+        Maximum number of forward/backward sweep pairs. Stop earlier when an
+        order repeats or no crossings remain.
     layer_spacing, node_spacing : float, optional
         Spacing between layers and between nodes within each centered layer.
     scale : float, optional
         Multiply final coordinates by this factor.
     seed : int or None, optional
-        Reset Python's random seed when supplied. Ordering itself uses stable ties.
+        Accepted for compatibility; this layout uses deterministic stable ties.
     weight : str or None, optional
         Edge weight attribute; missing weights default to 1.
     insert_dummies : bool, optional
-        Split long edges into adjacent-layer hops. Disabling insertion uses the
-        multigraph edge iterator with ``keys=False``.
+        Split long edges into adjacent-layer hops. Without insertion only
+        adjacent-layer edges contribute to crossing costs.
     dummy_prefix : str, optional
-        Prefix for sequential dummy node names and for filtering dummy positions.
+        Prefix for sequential dummy node names. Existing graph nodes are preserved.
     return_order : bool, optional
         Append the final layer-to-node-list mapping, including dummy nodes.
     return_dummies : bool, optional
@@ -2378,19 +2359,18 @@ def multipartite_layout_crossmin_long(
     Returns
     -------
     pos : dict
-        Node-to-(x, y) coordinates, omitting dummy-prefixed nodes unless requested.
+        Node-to-(x, y) coordinates, omitting inserted dummy nodes unless requested.
     tuple, optional
         ``(pos, orders)``, ``(pos, routes)``, or ``(pos, orders, routes)`` when
         the corresponding flags are enabled. Orders and routes include dummies
         even when their positions are omitted from ``pos``.
     """
 
-    if seed is not None:
-        random.seed(seed)
     layer_keys, layers, node_layer = _layout_layers(G, subset_key, allow_mixed=True)
     neighbors = defaultdict(lambda: defaultdict(float))
     routes = []
     dummy_count = 0
+    dummy_nodes = set()
 
     def edge_weight(u, v, data):
         if weight is None:
@@ -2422,13 +2402,17 @@ def multipartite_layout_crossmin_long(
                 left, right = right, left
             if right - left == 1:
                 add_edge(u, v, value)
-                routes.append({"endpoints": endpoints, "nodes": [u, v]})
+                routes.append({"endpoints": endpoints, "nodes": list(endpoints)})
                 continue
 
             chain = [u]
             for i in range(left + 1, right):
                 dummy_count += 1
                 dummy = f"{dummy_prefix}{dummy_count}"
+                while dummy in node_layer:
+                    dummy_count += 1
+                    dummy = f"{dummy_prefix}{dummy_count}"
+                dummy_nodes.add(dummy)
                 node_layer[dummy] = i
                 layers[i].append(dummy)
                 add_edge(chain[-1], dummy, value)
@@ -2439,7 +2423,7 @@ def multipartite_layout_crossmin_long(
                 chain.reverse()
             routes.append({"endpoints": (chain[0], chain[-1]), "nodes": chain})
     else:
-        for u, v, data in G.edges(data=True, keys=False):
+        for u, v, data in G.edges(data=True):
             add_edge(u, v, edge_weight(u, v, data))
             routes.append({"endpoints": (u, v), "nodes": [u, v]})
 
@@ -2452,7 +2436,7 @@ def multipartite_layout_crossmin_long(
         layer_keys,
         layers,
         routes,
-        dummy_prefix,
+        dummy_nodes,
         return_order,
         return_dummies,
         return_routes,
@@ -2554,9 +2538,10 @@ def multipartite_layout_sa(
 ) -> Union[Dict[Any, Tuple[float, float]], Tuple[Any, ...]]:
     """Minimize weighted inter-layer crossings using simulated annealing.
 
-    Nodes start in degree/name order. Annealing explores adjacent and arbitrary
-    within-layer swaps, accepting some uphill moves as the temperature falls,
-    and returns the best ordering found. The input graph is not modified.
+    Stable crossing-minimizing sweeps provide an initial order. Annealing
+    explores adjacent and arbitrary within-layer swaps, accepting some uphill
+    moves as the temperature falls, and returns the best ordering found after
+    a final adjacent-swap refinement. The input graph is not modified.
 
     Parameters
     ----------
@@ -2567,11 +2552,10 @@ def multipartite_layout_sa(
     align : {'vertical', 'horizontal'}, optional
         Arrange layers in columns or rows, respectively.
     insert_dummies : bool, optional
-        Split long edges into adjacent-layer hops. Disabling insertion uses the
-        multigraph edge iterator with ``keys=False``; only adjacent-layer edges
-        then contribute to crossing costs.
+        Split long edges into adjacent-layer hops. Without insertion only
+        adjacent-layer edges contribute to crossing costs.
     dummy_prefix : str, optional
-        Prefix for sequential dummy node names and for filtering dummy positions.
+        Prefix for sequential dummy node names. Existing graph nodes are preserved.
     node_spacing, layer_spacing : float, optional
         Spacing between nodes within a centered layer and between layers.
     scale : float, optional
@@ -2591,7 +2575,7 @@ def multipartite_layout_sa(
     T0 : float or None, optional
         Initial temperature; estimated from trial swaps when omitted.
     seed : int or None, optional
-        Python random seed for reproducible swaps and acceptance decisions.
+        Seed for a local random generator; global Python random state is preserved.
     return_order : bool, optional
         Append the final layer-to-node-list mapping, including dummy nodes.
     return_dummies : bool, optional
@@ -2602,20 +2586,20 @@ def multipartite_layout_sa(
     Returns
     -------
     pos : dict
-        Node-to-(x, y) coordinates, omitting dummy-prefixed nodes unless requested.
+        Node-to-(x, y) coordinates, omitting inserted dummy nodes unless requested.
     tuple, optional
         ``(pos, orders)``, ``(pos, routes)``, or ``(pos, orders, routes)`` when
         the corresponding flags are enabled. Orders and routes include dummies
         even when their positions are omitted from ``pos``.
     """
 
-    if seed is not None:
-        random.seed(seed)
+    rng = random.Random(seed)
     layer_keys, layers, node_layer = _layout_layers(G, subset_key, allow_mixed=True)
     layer_count = len(layers)
     edges_by_pair = [[] for _ in range(max(0, layer_count - 1))]
     routes = []
     dummy_count = 0
+    dummy_nodes = set()
 
     def edge_weight(u, v, data):
         if weight is None:
@@ -2643,6 +2627,10 @@ def multipartite_layout_sa(
             for i in range(left + 1, right):
                 dummy_count += 1
                 dummy = f"{dummy_prefix}{dummy_count}"
+                while dummy in node_layer:
+                    dummy_count += 1
+                    dummy = f"{dummy_prefix}{dummy_count}"
+                dummy_nodes.add(dummy)
                 node_layer[dummy] = i
                 layers[i].append(dummy)
                 edges_by_pair[i - 1].append((chain[-1], dummy, value))
@@ -2653,14 +2641,22 @@ def multipartite_layout_sa(
                 chain.reverse()
             routes.append({"endpoints": (chain[0], chain[-1]), "nodes": chain})
     else:
-        for u, v, data in G.edges(data=True, keys=False):
+        for u, v, data in G.edges(data=True):
             value = edge_weight(u, v, data)
             left, right = node_layer[u], node_layer[v]
+            endpoints = (u, v)
             if abs(left - right) == 1:
                 if left > right:
                     u, v = v, u
                 edges_by_pair[min(left, right)].append((u, v, value))
-            routes.append({"endpoints": (u, v), "nodes": [u, v]})
+            routes.append({"endpoints": endpoints, "nodes": list(endpoints)})
+
+    neighbors = defaultdict(list)
+    for edges in edges_by_pair:
+        for u, v, value in edges:
+            neighbors[u].append((v, value))
+            neighbors[v].append((u, value))
+    _sweep_layout_layers(layers, lambda node: neighbors[node], "barycenter", 12)
 
     def pair_cross(i):
         """Return the crossing cost for one adjacent pair, or zero at the ends."""
@@ -2679,10 +2675,10 @@ def multipartite_layout_sa(
         for _ in range(samples):
             if not candidates:
                 break
-            i = random.choice(candidates)
+            i = rng.choice(candidates)
             before = pair_cross(i - 1) + pair_cross(i)
             n = len(layers[i])
-            a, b = random.randrange(n), random.randrange(n)
+            a, b = rng.randrange(n), rng.randrange(n)
             if a == b:
                 continue
             layers[i][a], layers[i][b] = layers[i][b], layers[i][a]
@@ -2692,24 +2688,26 @@ def multipartite_layout_sa(
                 deltas.append(delta)
         return max(1e-6, sum(deltas) / len(deltas)) if deltas else 1.0
 
-    temperature = estimate_temperature() if T0 is None else float(T0)
     current_total = sum(pair_cross(i) for i in range(layer_count - 1))
+    temperature = float(T0) if T0 is not None else (
+        estimate_temperature() if current_total > 0 else 1.0
+    )
     best_total = current_total
     best_layers = [list(layer) for layer in layers]
     last_improve_at = 0
 
     for step in range(int(max_proposals)):
-        if not candidates:
+        if not candidates or best_total <= 0:
             break
-        i = random.choice(candidates)
+        i = rng.choice(candidates)
         n = len(layers[i])
-        if random.random() < adjacent_swap_prob:
-            a = random.randrange(n - 1)
+        if rng.random() < adjacent_swap_prob:
+            a = rng.randrange(n - 1)
             b = a + 1
         else:
-            a, b = random.randrange(n), random.randrange(n)
+            a, b = rng.randrange(n), rng.randrange(n)
             while b == a:
-                b = random.randrange(n)
+                b = rng.randrange(n)
 
         before = pair_cross(i - 1) + pair_cross(i)
         layers[i][a], layers[i][b] = layers[i][b], layers[i][a]
@@ -2717,7 +2715,7 @@ def multipartite_layout_sa(
         accept = delta <= 0
         if not accept:
             probability = math.exp(-delta / max(temperature, 1e-12))
-            accept = random.random() < probability
+            accept = rng.random() < probability
 
         if accept:
             current_total += delta
@@ -2733,6 +2731,7 @@ def multipartite_layout_sa(
         if step - last_improve_at >= int(stop_after_no_improve):
             break
 
+    _transpose_layout_layers(best_layers, neighbors)
     positions = _layout_positions(
         best_layers, align, layer_spacing, node_spacing, scale
     )
@@ -2741,7 +2740,7 @@ def multipartite_layout_sa(
         layer_keys,
         best_layers,
         routes,
-        dummy_prefix,
+        dummy_nodes,
         return_order,
         return_dummies,
         return_routes,

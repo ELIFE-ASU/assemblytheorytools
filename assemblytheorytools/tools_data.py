@@ -1516,6 +1516,9 @@ def find_peak_indices_in_range(
         (e.g., frequencies) and the second column represents y-values (e.g., intensities).
     min_x : float, optional
         The minimum x-value of the range to consider. Default is 400.0.
+        Together with ``max_x`` this is the infrared fingerprint region over
+        which Jirasek et al. established the peak-count correlation; see
+        https://doi.org/10.1021/acscentsci.4c00120.
     max_x : float, optional
         The maximum x-value of the range to consider. Default is 1500.0.
     prominence : float, optional
@@ -1569,6 +1572,9 @@ def find_n_peak_indices_in_range(
         (e.g., frequencies) and the second column represents y-values (e.g., intensities).
     min_x : float, optional
         The minimum x-value of the range to consider. Default is 400.0.
+        Together with ``max_x`` this is the infrared fingerprint region over
+        which Jirasek et al. established the peak-count correlation; see
+        https://doi.org/10.1021/acscentsci.4c00120.
     max_x : float, optional
         The maximum x-value of the range to consider. Default is 1500.0.
     prominence : float, optional

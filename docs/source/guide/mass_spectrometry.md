@@ -4,14 +4,24 @@ The assembly index of a molecule can be *estimated* from experimental spectra
 without knowing the structure. This matters because it makes assembly index
 measurable for unknown samples — the basis of using it as a biosignature.
 
-Two independent routes are implemented: fragmentation trees from tandem mass
-spectrometry, and peak counts from infrared spectra.
+Two independent routes are implemented, both from
+[Jirasek *et al.* (2024)](https://doi.org/10.1021/acscentsci.4c00120): the
+recursive MA algorithm over MSⁿ fragmentation trees, and peak counts from
+infrared spectra. That paper measures assembly index three ways; the third, from
+NMR carbon resonances, is not implemented here. See {doc}`../citing`.
+
+The earlier peak-count correlation of
+[Marshall *et al.* (2021)](https://doi.org/10.1038/s41467-021-23258-x) — which
+regresses assembly index on the number of peaks in a single MS2 spectrum — is a
+different method and is not what this module implements.
 
 ## Recursive MA from fragmentation trees
 
-{mod}`assemblytheorytools.recursive_ma` estimates molecular assembly from an
-MS/MS fragmentation tree. The tree is a nested dictionary keyed by *m/z*, each
-value being the fragments that parent produced:
+{mod}`assemblytheorytools.recursive_ma` estimates molecular assembly from a
+multi-level MSⁿ fragmentation tree. The published method uses consecutive
+fragmentation events, validated up to MS5; a tree only one level deep leaves the
+estimate dominated by the molecular-weight prior. The tree is a nested
+dictionary keyed by *m/z*, each value being the fragments that parent produced:
 
 ```python
 import numpy as np
@@ -38,15 +48,21 @@ a Monte Carlo method, so it returns a distribution rather than a single number:
 ```python
 estimator = att.MAEstimator(same_level=True, tol=0.5, n_samples=20)
 
-estimate = estimator.estimate_MA(tree=tree, mw=400.0, progress_levels=0)
+estimate = estimator.estimate_MA(tree=tree, mw=500.0, progress_levels=0)
 
 print(f"{np.mean(estimate):.2f} +/- {np.std(estimate):.2f}")
 ```
 
+`mw` should match a top-level root *m/z* within `tol`; otherwise a non-empty
+tree triggers a `UserWarning` listing the available roots. Pass `tree={}`
+to deliberately request the molecular-weight prior without a warning.
+
 `tol` is the mass tolerance in Daltons — match it to the instrument, since too
 tight a tolerance discards real fragments and too loose a one invents
-relationships. `n_samples` trades runtime against the width of the estimate;
-report the spread, not just the mean.
+relationships. `n_samples` is the Monte Carlo budget: more samples resolve the
+mean and the spread more precisely, but do not narrow the spread itself, which
+reflects how much assembly index varies between structures of the same mass.
+Report the spread, not just the mean.
 
 Module-level equivalents exist for the same steps
 ({func}`~assemblytheorytools.recursive_ma.rma_build_tree`,
@@ -60,8 +76,10 @@ rather not hold estimator state.
 {func}`~assemblytheorytools.tools_mzml.process_mzml_file` decodes an mzML
 document — handling the compression schemes and binary precisions the format
 declares — and writes the extracted spectra to a directory. The current parser
-supports zlib-compressed binary arrays; unsupported or uncompressed encodings
-raise an error:
+supports zlib-compressed binary arrays. Unsupported encodings fail per spectrum
+inside the parser's worker threads: the traceback is printed but not raised, and
+the affected spectra are simply missing from the output, so check that the
+returned dictionary is non-empty before going on.
 
 ```python
 att.process_mzml_file(
@@ -100,8 +118,10 @@ peaks = att.find_peak_indices_in_range(spectrum, min_x=400.0, max_x=1500.0)
 att.plot_ir_spectrum(spectrum, peaks=peaks)
 ```
 
-The 400–1500 cm⁻¹ window is the fingerprint region, where peak count tracks
-structural complexity most closely.
+The 400–1500 cm⁻¹ window is the infrared fingerprint region used by
+[Jirasek *et al.* (2024)](https://doi.org/10.1021/acscentsci.4c00120), on the
+hypothesis that its many collective and coupled modes track the number of
+distinct substructures.
 {func}`~assemblytheorytools.tools_data.apply_sg_filter` applies a
 Savitzky-Golay smooth first, because peak finding on raw spectra picks up noise;
 {func}`~assemblytheorytools.tools_data.find_n_peak_indices_in_range` returns the
@@ -128,8 +148,18 @@ params, ai_predicted = att.estimate_ai_from_ir_peaks(
 forms, and {func}`~assemblytheorytools.tools_data.get_r`,
 {func}`~assemblytheorytools.tools_data.get_r2` and
 {func}`~assemblytheorytools.tools_data.get_rmsd` evaluate the fit. A linear
-model is the published choice — prefer it unless a higher order is clearly
-justified, since peak count is a coarse feature and a quintic will fit noise.
+model is the choice published by
+[Jirasek *et al.* (2024)](https://doi.org/10.1021/acscentsci.4c00120), who report
+MA = 0.45 × n_peaks − 2.3 over 99 measured spectra, and
+MA = 0.21 × n_peaks − 0.15 over 10,000 computed ones.
+
+Those coefficients will not transfer to ATT unchanged: peak count depends
+entirely on how peaks were detected, and the paper's counts come from different
+software and thresholds than
+{func}`~assemblytheorytools.tools_data.find_n_peak_indices_in_range`. Fit your
+own calibration on your own pipeline. Prefer a linear model unless a higher
+order is clearly justified — peak count is a coarse feature and a quintic will
+fit noise.
 
 {doc}`Protocol 3 <../examples/protocol_3>` is the complete worked correlation.
 

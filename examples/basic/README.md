@@ -1,7 +1,7 @@
 # Basic examples
 
 These small scripts demonstrate one ATT feature at a time. Run them from this
-directory so generated plots and calculator artifacts stay together:
+directory so generated plots and calculator artefacts stay together:
 
 ```bash
 cd examples/basic

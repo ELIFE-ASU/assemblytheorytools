@@ -1,8 +1,8 @@
-import fcntl
-import io
 import json
+import os
 
 import pytest
+from filelock import FileLock, Timeout
 
 import assemblytheorytools as att
 from assemblytheorytools import tools_file
@@ -33,7 +33,11 @@ def test_file_list_all_recurses_and_preserves_path_style(tmp_path, monkeypatch):
     assert set(att.file_list_all(tmp_path)) == {str(direct_file), str(nested_file)}
 
     monkeypatch.chdir(tmp_path)
-    assert set(att.file_list_all(".")) == {"./direct.txt", "./one/two/nested.txt"}
+    # os.walk joins with the platform separator, so the expectation has to too.
+    assert set(att.file_list_all(".")) == {
+        os.path.join(".", "direct.txt"),
+        os.path.join(".", "one", "two", "nested.txt"),
+    }
     assert set(att.file_list_all("")) == {str(direct_file), str(nested_file)}
 
 
@@ -63,25 +67,46 @@ def test_write_to_shared_file_appends_without_adding_content(tmp_path):
 
 
 def test_write_to_shared_file_holds_lock_through_buffered_writes(tmp_path, monkeypatch):
+    """The stream is closed inside the lock, so buffered bytes land before it lifts."""
     shared_file = tmp_path / "shared.log"
+    events = []
 
-    class LockCheckedFile(io.FileIO):
-        def write(self, data):
-            # A separate descriptor must be unable to lock the file while
-            # buffered bytes are being written to the underlying stream.
-            with open(shared_file, "a") as contender, pytest.raises(BlockingIOError):
-                fcntl.flock(contender, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            return super().write(data)
+    class RecordingLock:
+        def __init__(self, lock_file):
+            events.append(("requested", os.path.basename(lock_file)))
 
-    stream = io.TextIOWrapper(LockCheckedFile(shared_file, "a"))
-    monkeypatch.setattr(tools_file, "open", lambda path, mode: stream, raising=False)
+        def __enter__(self):
+            events.append(("acquired", None))
+            return self
 
+        def __exit__(self, *exception):
+            # Reading here is what proves the buffer already reached disk.
+            events.append(("released", shared_file.read_text()))
+            return False
+
+    monkeypatch.setattr(tools_file, "FileLock", RecordingLock)
     att.write_to_shared_file("buffered message", shared_file)
 
-    assert stream.closed
-    assert shared_file.read_text() == "buffered message"
-    with open(shared_file, "a") as contender:
-        fcntl.flock(contender, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    assert events == [
+        ("requested", "shared.log.lock"),
+        ("acquired", None),
+        ("released", "buffered message"),
+    ]
+
+
+def test_write_to_shared_file_excludes_a_concurrent_writer(tmp_path):
+    """A held sidecar lock is what makes a second writer wait its turn."""
+    shared_file = tmp_path / "shared.log"
+    lock_file = f"{shared_file}.lock"
+
+    with FileLock(lock_file):
+        with pytest.raises(Timeout):
+            # A distinct instance contends through the operating system, which
+            # is the same path a second process takes.
+            FileLock(lock_file, timeout=0).acquire()
+
+    att.write_to_shared_file("released\n", shared_file)
+    assert shared_file.read_text() == "released\n"
 
 
 def test_remove_files_removes_nested_files_but_preserves_directories(tmp_path):

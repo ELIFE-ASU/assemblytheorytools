@@ -13,17 +13,14 @@ from assemblytheorytools import assembly
 
 
 @pytest.fixture
-def recording_calculator(tmp_path, monkeypatch):
+def recording_calculator(tmp_path, monkeypatch, fake_executable):
     monkeypatch.chdir(tmp_path)
-    script = tmp_path / "calculator"
-    script.write_text(
-        f"#!{sys.executable}\n"
-        "import json, sys\nfrom pathlib import Path\n"
+    return fake_executable(
+        tmp_path, "calculator",
+        "import json\n"
         "Path('arguments.json').write_text(json.dumps(sys.argv[2:]))\n"
         "Path(sys.argv[1] + 'Out').write_text('assembly index: 5\\n')\n"
     )
-    script.chmod(0o755)
-    return script
 
 
 def graph():
@@ -76,7 +73,9 @@ def test_wall_timeout_does_not_impose_cpu_budget(recording_calculator, kind):
 
 def test_public_api_covers_the_native_help_options():
     """Fail the weekly upstream check if a new CLI control needs exposing."""
-    advertised = set(re.findall(r"^  --([\w-]+)=", att.get_assembly_cpp_help(), re.MULTILINE))
+    # Only the generated option list spells a value placeholder, so `=<` keeps
+    # prose such as "Use --name=value." in the notes out of the comparison.
+    advertised = set(re.findall(r"^  --([\w-]+)=<", att.get_assembly_cpp_help(), re.MULTILINE))
     exposed = {"runtime", "enum-max", "pathway", "accept-palindromes", "parallel", "threads",
                "verbose", "memory-report", "telemetry", "write-intermediate-mas"}
     wrapper_owned = {"run-strings", "remove-hydrogens", "compensate-disjoint"}

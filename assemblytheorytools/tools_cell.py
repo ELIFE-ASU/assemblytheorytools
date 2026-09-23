@@ -162,12 +162,24 @@ def atoms_to_mol_file(
     None
         This function does not return a value.
 
+    Raises
+    ------
+    ValueError
+        If the structure has more than 999 atoms or 999 bonds, which the
+        three-character counts line of the V2000 format cannot hold.
+
     Notes
     -----
     Bonds are detected without periodic boundaries and all receive order 1.
     The input atoms are left unchanged.
     """
     bond_pairs = get_bonding_config(atoms, mult=mult)
+    if len(atoms) > 999 or len(bond_pairs) > 999:
+        raise ValueError(
+            f"V2000 counts are three characters wide, so {len(atoms)} atoms and "
+            f"{len(bond_pairs)} bonds cannot be written to {file_name}; at most "
+            "999 of each fit. Write a subset, or use a V3000 writer."
+        )
     lines = [
         "\nLouie's generator\n\n",
         f"{len(atoms):>3}{len(bond_pairs):>3}  0  0  0  0  0  0  0  0999 V2000\n",
@@ -265,14 +277,22 @@ def find_clusters(atoms: Atoms, cutoff_smear: float = 1.5) -> Optional[List[int]
 def _cell_neighborhood(
     atoms: Atoms, reps: tuple[int, int, int], multi: float, eps: float
 ) -> tuple[Atoms, np.ndarray, np.ndarray, np.ndarray]:
-    """Build a supercell, central-region mask, and directed bond pairs."""
+    """
+    Build a supercell, central-region mask, and directed bond pairs.
+
+    The central region is the half-open window of one cell width centred on
+    the supercell, so it holds exactly one image of every atom. ``eps``
+    shifts both bounds down rather than widening them: a boundary plane
+    usually passes exactly through atoms, and relaxing the upper bound would
+    keep an atom at both faces and count it twice.
+    """
     supercell = atoms.repeat(reps)
     scaled_positions = supercell.get_scaled_positions(wrap=False)
     repetitions = np.asarray(reps, dtype=float)
     low = (repetitions - 1) / (2 * repetitions)
     high = (repetitions + 1) / (2 * repetitions)
     central = np.all(
-        (scaled_positions >= low - eps) & (scaled_positions < high + eps), axis=1
+        (scaled_positions >= low - eps) & (scaled_positions < high - eps), axis=1
     )
     sources, targets, _ = _bond_pairs(supercell, multi, periodic=True)
     return supercell, central, sources, targets
@@ -281,10 +301,13 @@ def _cell_neighborhood(
 def _neighbors_of(
     region: np.ndarray, sources: np.ndarray, targets: np.ndarray
 ) -> np.ndarray:
-    """Select atoms bonded to the region in either edge direction."""
+    """Select atoms bonded to the region.
+
+    ``neighbor_list`` reports every bond in both directions, so selecting the
+    targets of edges leaving the region already covers the edges entering it.
+    """
     neighbors = np.zeros(len(region), dtype=bool)
     neighbors[targets[region[sources]]] = True
-    neighbors[sources[region[targets]]] = True
     return neighbors
 
 
@@ -403,6 +426,17 @@ def _auto_reps(atoms: Atoms, mult: float) -> tuple[int, int, int]:
     return tuple(reps)
 
 
+def _validate_reps(reps) -> tuple[int, int, int]:
+    """Return ``reps`` as three positive integers, or raise ValueError."""
+    try:
+        validated = tuple(int(r) for r in reps)
+    except TypeError:
+        raise ValueError("reps must be three positive integers.") from None
+    if len(validated) != 3 or any(r < 1 for r in validated):
+        raise ValueError("reps must be three positive integers.")
+    return validated
+
+
 def _graph_metadata(
     atoms: Atoms, reps: tuple[int, int, int], cutoff_mult: float, periodic: bool
 ) -> Dict:
@@ -470,17 +504,11 @@ def cell_to_nx(
     See Also
     --------
     cif_to_nx : Build the graph directly from a CIF file.
-    tile_cell : Cut a finite cluster with open boundaries instead.
+    tile_cell : Cut the central cell and its bonded neighbours instead. The
+        subset keeps the supercell and its periodic boundaries; for a graph
+        with open boundaries use ``cif_to_nx(..., periodic=False)``.
     """
-    if reps is None:
-        reps = _auto_reps(atoms, cutoff_mult)
-    else:
-        try:
-            reps = tuple(int(r) for r in reps)
-        except TypeError:
-            raise ValueError("reps must be three positive integers.") from None
-    if len(reps) != 3 or any(r < 1 for r in reps):
-        raise ValueError("reps must be three positive integers.")
+    reps = _auto_reps(atoms, cutoff_mult) if reps is None else _validate_reps(reps)
 
     supercell = atoms.repeat(reps)
     sources, targets, _ = _bond_pairs(supercell, cutoff_mult, periodic=True)
@@ -581,8 +609,8 @@ def cif_to_nx(
     Raises
     ------
     ValueError
-        If the tiling is too small for a simple periodic graph; see
-        :func:`cell_to_nx`.
+        If ``reps`` is not three positive integers, or if the tiling is too
+        small for a simple periodic graph; see :func:`cell_to_nx`.
 
     Warns
     -----
@@ -601,7 +629,7 @@ def cif_to_nx(
     if periodic:
         graph = cell_to_nx(atoms, reps=reps, cutoff_mult=cutoff_mult)
     else:
-        cluster_reps = (3, 3, 3) if reps is None else tuple(reps)
+        cluster_reps = (3, 3, 3) if reps is None else _validate_reps(reps)
         graph = _open_cluster_graph(atoms, cluster_reps, cutoff_mult, eps)
     graph.graph["source"] = os.fspath(file)
     return graph
@@ -610,13 +638,15 @@ def cif_to_nx(
 def guess_bond_orders(
     G: nx.Graph,
     formal_charge_attr: Optional[str] = "formal_charge",
-    max_bond_order: int = 4,
+    max_bond_order: int = 3,
 ) -> Tuple[nx.Graph, bool, Dict]:
     """
     Assign bond orders to a molecular graph by backtracking over valences.
 
-    Target valences come from periodic table data, with an upward bias for
-    positively charged atoms.
+    Target valences come from periodic table data, shifted by the formal
+    charge: an ammonium nitrogen takes four bonds and a hydroxide oxygen one.
+    The shift follows the octet rule, so it is wrong for electron-deficient
+    species such as carbocations, which it gives five bonds rather than three.
 
     Parameters
     ----------
@@ -627,8 +657,8 @@ def guess_bond_orders(
         Attribute name for formal charge on nodes. Default is
         "formal_charge".
     max_bond_order : int, optional
-        Upper bound on bond order. Default is 4; the search considers only
-        single, double, and triple bonds.
+        Upper bound on bond order. Default is 3, so the search considers only
+        single, double and triple bonds.
 
     Returns
     -------
@@ -638,9 +668,9 @@ def guess_bond_orders(
     success : bool
         True if all valence constraints were satisfied, False otherwise.
     info : Dict
-        Target valences, remaining valences, and search statistics.
-        Failed searches report residuals after backtracking, even when
-        the returned graph retains a partial assignment.
+        Target valences, remaining valences, and search statistics. The
+        remaining valences describe the assignment carried by the returned
+        graph, so they are zero throughout only when ``success`` is True.
 
     Raises
     ------
@@ -661,21 +691,26 @@ def guess_bond_orders(
     def choose_target_valence(atomic_number: int, needed_min: int, charge: int) -> int:
         """Choose the smallest positive valence that fits the degree."""
         valences = periodic_table.GetValenceList(atomic_number)
-        bias = 1 if charge > 0 else 0
         candidates = [
-            int(v) + bias for v in valences if v > 0 and v + bias >= needed_min
+            int(v) + charge
+            for v in valences
+            if v > 0 and v + charge >= max(needed_min, 1)
         ]
         if candidates:
             return min(candidates)
         default = periodic_table.GetDefaultValence(atomic_number)
         if default >= needed_min:
-            return default + bias
+            return default + charge
         return max(needed_min, int(max(valences)))
 
     target_valence = {}
     for node, data in graph.nodes(data=True):
         element = data.get("color")
-        atomic_number = periodic_table.GetAtomicNumber(element)
+        try:
+            atomic_number = periodic_table.GetAtomicNumber(element)
+        except (RuntimeError, TypeError):
+            # RDKit raises rather than returning 0 for symbols it cannot parse.
+            atomic_number = 0
         if atomic_number == 0:
             raise ValueError(f"Node {node} has unknown element symbol: {element}")
         charge = int(data.get(formal_charge_attr, 0)) if formal_charge_attr else 0
@@ -696,11 +731,15 @@ def guess_bond_orders(
             remaining = residual[node] - order
             if remaining < 0:
                 return False
-            # Keep incident-edge orientation to preserve the search traversal.
+            # ``graph.edges(node)`` orients every edge away from ``node``,
+            # while ``assigned`` is keyed by the orientation ``graph.edges()``
+            # yields, so both orientations must be checked.
             other_nodes = [
                 y if x == node else x
                 for x, y in graph.edges(node)
-                if (x, y) not in assigned and (x, y) not in ((u, v), (v, u))
+                if (x, y) not in assigned
+                and (y, x) not in assigned
+                and (x, y) not in ((u, v), (v, u))
             ]
             capacity = sum(
                 max(0, min(max_bond_order, remaining, residual[other]))
@@ -717,7 +756,7 @@ def guess_bond_orders(
             if (u, v) in assigned or (v, u) in assigned:
                 continue
             limit = min(residual[u], residual[v], max_bond_order)
-            domain = [order for order in (1, 2, 3) if order <= limit]
+            domain = list(range(1, limit + 1))
             if not domain:
                 return (u, v), []
             if best_domain is None or len(domain) < len(best_domain):
@@ -725,43 +764,64 @@ def guess_bond_orders(
         return best_edge, best_domain
 
     def search() -> bool:
-        """Try feasible orders and retain the best terminal assignment."""
+        """Try feasible orders and retain the best terminal assignment.
+
+        The stack of half-explored edges is held explicitly rather than on the
+        Python call stack, which one frame per edge would overflow on a graph
+        of more than a thousand bonds.
+        """
         nonlocal tried_edges, backtracks, best_partial, best_score
-        edge, domain = select_edge()
-        if edge is None or not domain:
-            score = sum(value == 0 for value in residual.values())
-            if edge is None and score == len(residual):
-                return True
-            if score > best_score:
-                best_score, best_partial = score, assigned.copy()
-            return False
+        stack: List[Tuple[Tuple, List[int]]] = []
 
-        u, v = edge
-        # Prefer higher orders when both endpoints have substantial valence left.
-        for order in sorted(domain, reverse=residual[u] > 2 and residual[v] > 2):
-            if not feasible_after(u, v, order):
-                continue
-            tried_edges += 1
-            assigned[edge] = order
-            residual[u] -= order
-            residual[v] -= order
-            if search():
-                return True
-            residual[u] += order
-            residual[v] += order
-            del assigned[edge]
+        while True:
+            edge, domain = select_edge()
+            if edge is None or not domain:
+                score = sum(value == 0 for value in residual.values())
+                if edge is None and score == len(residual):
+                    return True
+                if score > best_score:
+                    best_score, best_partial = score, assigned.copy()
+            else:
+                u, v = edge
+                # Prefer higher orders when both endpoints have valence left.
+                orders = sorted(domain, reverse=residual[u] > 2 and residual[v] > 2)
+                stack.append((edge, orders))
 
-        backtracks += 1
-        return False
+            # Unwind to the deepest edge that still has an order left to try.
+            while stack:
+                edge, orders = stack[-1]
+                u, v = edge
+                if edge in assigned:
+                    undone = assigned.pop(edge)
+                    residual[u] += undone
+                    residual[v] += undone
+                while orders:
+                    order = orders.pop(0)
+                    if not feasible_after(u, v, order):
+                        continue
+                    tried_edges += 1
+                    assigned[edge] = order
+                    residual[u] -= order
+                    residual[v] -= order
+                    break
+                if edge in assigned:
+                    break
+                backtracks += 1
+                stack.pop()
+            else:
+                return False
 
     success = search()
     final_assignments = assigned if success else best_partial
+    final_residual = target_valence.copy()
     for (u, v), order in final_assignments.items():
         graph.edges[u, v]["color"] = int(order)
+        final_residual[u] -= order
+        final_residual[v] -= order
 
     info = {
         "target_valence": target_valence,
-        "remaining_valence_per_atom": residual.copy(),
+        "remaining_valence_per_atom": final_residual,
         "tried_edges": tried_edges,
         "backtracks": backtracks,
         "success_edges_assigned": len(final_assignments),

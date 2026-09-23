@@ -12,8 +12,9 @@ python 1_simple_molecule_example.py
 The scripts are numbered in increasing order of complexity, so working through
 them in order is the fastest way to get oriented.
 
-Scripts 4 and 7 call `att.plot_digraph_metro`, which is Linux-only; both guard
-that call so the rest of the script still runs elsewhere.
+Scripts 4 and 7 call `att.plot_digraph_metro`, which needs the optional
+`dagviz` and `cairosvg` packages plus the Cairo system library; both guard that
+call so the rest of the script still runs without them.
 
 ## Related documentation
 

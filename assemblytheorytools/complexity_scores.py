@@ -7,6 +7,10 @@ invariants (Bertz, Wiener, Balaban, Randic and Kirchhoff indices), published
 complexity scores (spacial score, Boettcher, Proudfoot, MC1 and MC2),
 compression-based proxies using ``zlib``, ``bz2`` and ``lzma``, and fingerprint
 similarity measures.
+
+Each published measure carries the DOI of the paper defining it in its own
+docstring; the compression proxies and ``shannon_entropy`` are not published
+molecular complexity measures. See the citing page for the full list.
 """
 
 import bz2
@@ -132,7 +136,14 @@ def molecular_weight(mol: Mol) -> float:
 
 def bertz_complexity(mol: Mol) -> float:
     """
-    Calculate the Bertz structural complexity with RDKit.
+    Calculate the Bertz structural complexity with RDKit's ``BertzCT``.
+
+    Reference: https://doi.org/10.1021/ja00402a071.
+
+    ``BertzCT`` is RDKit's variant of the index: its own documentation
+    records that it uses consistent aromatic bond orders rather than the
+    original's Kekule structures, so values for aromatic molecules differ
+    from the 1981 definition.
 
     Parameters
     ----------
@@ -159,6 +170,8 @@ def bertz_complexity(mol: Mol) -> float:
 def wiener_index(mol: Mol) -> int:
     """
     Sum shortest-path distances over all unordered atom pairs.
+
+    Reference: https://doi.org/10.1021/ja01193a005.
 
     Parameters
     ----------
@@ -193,7 +206,14 @@ def wiener_index(mol: Mol) -> int:
 
 def balaban_index(mol: Mol) -> float:
     """
-    Calculate the Balaban connectivity index with RDKit's ``BalabanJ``.
+    Calculate Balaban's J, the average distance-sum connectivity index,
+    with RDKit's ``BalabanJ``.
+
+    Reference: https://doi.org/10.1016/0009-2614(82)80009-2.
+
+    J was proposed as a highly discriminating topological index for
+    telling isomers apart, not as a complexity measure, and is close to
+    size-invariant by design. Do not read a larger J as "more complex".
 
     Parameters
     ----------
@@ -211,6 +231,8 @@ def balaban_index(mol: Mol) -> float:
 def randic_index(mol: Mol) -> float:
     """
     Sum inverse square roots of endpoint-degree products over all bonds.
+
+    Reference: https://doi.org/10.1021/ja00856a001.
 
     Parameters
     ----------
@@ -232,6 +254,8 @@ def randic_index(mol: Mol) -> float:
 def kirchhoff_index(mol: Mol) -> float:
     """
     Sum pairwise effective resistances using the Laplacian pseudoinverse.
+
+    Reference: https://doi.org/10.1007/BF01164627.
 
     Parameters
     ----------
@@ -257,6 +281,7 @@ def spacial_score(mol: Mol, normalise: bool = False) -> float:
     """
     Calculate the spacial score, optionally normalised per heavy atom.
 
+    Reference: https://doi.org/10.1021/acs.jmedchem.3c00689.
     See https://github.com/frog2000/Spacial-Score for the reference
     implementation.
 
@@ -700,7 +725,11 @@ def fcfp4(mol: Mol) -> int:
     """
     Count set bits in a 2048-bit, radius-2 feature-based Morgan fingerprint.
 
-    Reference: https://doi.org/10.1021/ci0503558.
+    Reference: https://doi.org/10.1021/ci100050t (Rogers and Hahn 2010,
+    which defines the FCFP feature-class fingerprints).
+    Schuffenhauer et al. 2006 (https://doi.org/10.1021/ci0503558) is the
+    precedent for using a fingerprint feature count as a complexity
+    measure; that paper notes the count correlates with molecule size.
 
     Parameters
     ----------
@@ -925,7 +954,7 @@ def mc1(mol: Mol) -> float:
     """
     Calculate MC1: one minus the fraction of atoms with degree two.
 
-    Reference: https://pubs.acs.org/doi/full/10.1021/acs.jcim.5c00334.
+    Reference: https://doi.org/10.1021/acs.jcim.5c00334.
 
     Parameters
     ----------
@@ -948,7 +977,7 @@ def mc2(mol: Mol) -> int:
     Exclude both atoms of each C=O bond whose carbon also has a nitrogen or
     oxygen neighbour.
 
-    Reference: https://pubs.acs.org/doi/full/10.1021/acs.jcim.5c00334.
+    Reference: https://doi.org/10.1021/acs.jcim.5c00334.
 
     Parameters
     ----------
@@ -988,7 +1017,7 @@ def shannon_entropy(s: str) -> float:
     Here ``p`` is the frequency of each distinct character divided by the
     string length.
 
-    Usage example: https://www.science.org/doi/10.1126/sciadv.abj2465
+    Usage example: https://doi.org/10.1126/sciadv.abj2465
 
     Parameters
     ----------
