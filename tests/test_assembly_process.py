@@ -172,11 +172,43 @@ def test_invalid_timeout_fails_before_backend_lookup(monkeypatch, timeout, kind)
         _calculate(kind, timeout=timeout)
 
 
-@pytest.mark.parametrize("text", ["ab\ncd", "ab\rcd", "ééé"])
-def test_cpp_string_input_requires_one_ascii_line(monkeypatch, text):
+@pytest.mark.parametrize("text", ["ab\ncd", "ab\rcd", "\n", ["ab", "\r"]])
+def test_cpp_string_input_requires_one_utf8_line(monkeypatch, text):
     monkeypatch.setattr(assembly, "add_assembly_to_path", lambda **kwargs: pytest.fail("backend lookup"))
-    with pytest.raises(ValueError, match="single line of ASCII"):
+    with pytest.raises(ValueError, match="single line of UTF-8"):
         assembly.calculate_string_assembly_index(text)
+
+
+@pytest.mark.parametrize("text", ["\ud800", "a\udfff", ["ab", "\ud800"]])
+def test_cpp_string_input_rejects_invalid_unicode_before_backend_lookup(monkeypatch, text):
+    monkeypatch.setattr(assembly, "add_assembly_to_path", lambda **kwargs: pytest.fail("backend lookup"))
+    with pytest.raises(ValueError, match="Unicode scalar"):
+        assembly.calculate_string_assembly_index(text)
+
+
+@pytest.mark.parametrize("label", ["assembly index", "assembly upper bound"])
+def test_heuristic_output_reports_bound_and_exact_requirement(executable, capsys, label):
+    calculator = executable(
+        'Path(sys.argv[1] + "Out").write_text('
+        f'"{label}: 7\\nstatus: heuristic upper bound (minimum not proven)\\n")\n'
+    )
+    assert _calculate("graph", dir_code=calculator)[0] == 7
+    assert "minimum not proven" in capsys.readouterr().out
+    assert _calculate("graph", dir_code=calculator, exact=True)[0] == -1
+
+
+def test_string_heuristic_result_ignores_bound_text_in_echoed_input(executable):
+    calculator = executable(
+        'value = Path(sys.argv[1]).read_text(encoding="utf-8")\n'
+        'Path(sys.argv[1] + "Out").write_text('
+        'value + " has assembly upper bound: 18\\nstatus: heuristic upper bound (minimum not proven)\\n", '
+        'encoding="utf-8")\n'
+    )
+    result = assembly.calculate_string_assembly_index(
+        "é assembly upper bound: 999", dir_code=calculator, return_log_file=True,
+    )
+    assert result[:3] == (18, None, None)
+    assert assembly.load_assembly_output(Path(result[3]).parent / "string_inOut") == 18
 
 
 @pytest.mark.parametrize("nodes", [0, 1, 3])

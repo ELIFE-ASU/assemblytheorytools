@@ -78,6 +78,14 @@ def test_get_unique_char_retains_ascii_whitespace_candidates():
     assert att.get_unique_char(string.printable.rstrip()) == "\t"
 
 
+def test_joint_delimiters_never_introduce_new_input_lines():
+    alphabet = string.printable.replace("\r", "").replace("\n", "")
+    combined, delimiters = att.prep_joint_string_ai([alphabet, alphabet, alphabet])
+    assert "\r" not in combined and "\n" not in combined
+    assert len(set(delimiters)) == 2
+    assert all(delimiter not in alphabet for delimiter in delimiters)
+
+
 def test_get_unique_char_reports_exhausted_delimiters():
     reserved = string.printable + "".join(map(chr, range(0x00A1, 0x2FFF)))
 

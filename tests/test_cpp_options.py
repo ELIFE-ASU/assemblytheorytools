@@ -9,14 +9,14 @@ from assemblytheorytools._cpp_options import AssemblyCppOptions
 UINT64_MAX = (1 << 64) - 1
 INT_MAX = (1 << 31) - 1
 BASE_ARGUMENTS = ["-removeHydrogens=0", "-compensateDisjoint=0", "-memTest=0"]
+STRING_BASE_ARGUMENTS = ["-compensateDisjoint=0", "-memTest=0", "-runStrings=1"]
 
 
 @pytest.mark.parametrize("str_mode", [False, True])
-def test_defaults_preserve_legacy_command_line(str_mode):
+def test_defaults_use_compatible_command_line_for_each_mode(str_mode):
     options = AssemblyCppOptions()
-    assert options._arguments(str_mode=str_mode) == BASE_ARGUMENTS + (
-        ["-runStrings=1"] if str_mode else []
-    )
+    assert options._arguments(str_mode=str_mode) == (
+        STRING_BASE_ARGUMENTS if str_mode else BASE_ARGUMENTS)
     assert not options._retain_files
 
 
@@ -29,6 +29,11 @@ def test_options_are_immutable():
 @pytest.mark.parametrize(
     "settings, flag, str_mode",
     [
+        ({"algorithm": "full"}, "--algorithm=full", False),
+        ({"algorithm": "full"}, "--algorithm=full", True),
+        ({"algorithm": "re-pair"}, "--algorithm=re-pair", False),
+        ({"algorithm": "re-pair"}, "--algorithm=re-pair", True),
+        ({"upper_bound": "graph-repair"}, "--upper-bound=graph-repair", False),
         ({"runtime_ticks": 0}, "-runTime=0", False),
         ({"runtime_ticks": UINT64_MAX}, f"-runTime={UINT64_MAX}", True),
         ({"enum_max": 1}, "-enumMax=1", False),
@@ -39,9 +44,12 @@ def test_options_are_immutable():
         ({"parallel": "auto"}, "--parallel=auto", False),
         ({"parallel": "auto"}, "--parallel=auto", True),
         ({"parallel": "on"}, "--parallel=on", False),
+        ({"parallel": "on"}, "--parallel=on", True),
         ({"threads": 1}, "--threads=1", False),
+        ({"threads": 1}, "--threads=1", True),
         ({"threads": INT_MAX}, f"--threads={INT_MAX}", False),
         ({"verbose": True}, "--verbose=1", False),
+        ({"verbose": True}, "--verbose=1", True),
         ({"memory_report": True}, "-memTest=1", False),
         ({"memory_report": True}, "-memTest=1", True),
         ({"telemetry": True}, "--telemetry=1", False),
@@ -53,7 +61,7 @@ def test_each_control_maps_to_a_unique_flag(settings, flag, str_mode):
     assert flag in arguments
     names = [argument.split("=", 1)[0] for argument in arguments]
     assert len(names) == len(set(names))
-    assert "-removeHydrogens=0" in arguments
+    assert ("-removeHydrogens=0" in arguments) is not str_mode
     assert "-compensateDisjoint=0" in arguments
 
 
@@ -105,6 +113,29 @@ def test_parallel_rejects_invalid_types(value):
         AssemblyCppOptions(parallel=value)
 
 
+@pytest.mark.parametrize("name", ["algorithm", "upper_bound"])
+@pytest.mark.parametrize("value", [True, 1, [], {}])
+def test_algorithm_selectors_reject_invalid_types(name, value):
+    with pytest.raises(TypeError, match=name):
+        AssemblyCppOptions(**{name: value})
+
+
+@pytest.mark.parametrize(
+    "name, value",
+    [("algorithm", ""), ("algorithm", "FULL"), ("algorithm", "graph-repair"),
+     ("upper_bound", ""), ("upper_bound", "re-pair"), ("upper_bound", "full")],
+)
+def test_algorithm_selectors_reject_invalid_values(name, value):
+    with pytest.raises(ValueError, match=name):
+        AssemblyCppOptions(**{name: value})
+
+
+@pytest.mark.parametrize("algorithm", ["full", "re-pair"])
+def test_algorithm_selectors_are_mutually_exclusive(algorithm):
+    with pytest.raises(ValueError, match="algorithm and upper_bound"):
+        AssemblyCppOptions(algorithm=algorithm, upper_bound="graph-repair")
+
+
 @pytest.mark.parametrize("value", ["AUTO", "1", "", "on"])
 def test_threads_rejects_invalid_strings(value):
     with pytest.raises(ValueError, match="threads"):
@@ -133,10 +164,8 @@ def test_graph_mode_rejects_string_reversal_control():
 @pytest.mark.parametrize(
     "settings, name",
     [
-        ({"parallel": "on"}, "parallel"),
+        ({"upper_bound": "graph-repair"}, "upper_bound"),
         ({"enum_max": 50_000_000}, "enum_max"),
-        ({"threads": 1}, "threads"),
-        ({"verbose": True}, "verbose"),
         ({"telemetry": True}, "telemetry"),
         ({"write_intermediate_mas": True}, "write_intermediate_mas"),
     ],
@@ -147,14 +176,16 @@ def test_string_mode_rejects_unavailable_controls(settings, name):
 
 
 @pytest.mark.parametrize("runtime_ticks", [0, 1, UINT64_MAX - 1])
-def test_forced_parallel_rejects_finite_runtime(runtime_ticks):
+@pytest.mark.parametrize("str_mode", [False, True])
+def test_forced_parallel_rejects_finite_runtime(runtime_ticks, str_mode):
     with pytest.raises(ValueError, match="parallel.*finite runtime_ticks"):
-        AssemblyCppOptions(parallel="on", runtime_ticks=runtime_ticks)._arguments(str_mode=False)
+        AssemblyCppOptions(parallel="on", runtime_ticks=runtime_ticks)._arguments(str_mode=str_mode)
 
 
 @pytest.mark.parametrize("runtime_ticks", [None, UINT64_MAX])
-def test_forced_parallel_accepts_unlimited_runtime(runtime_ticks):
-    arguments = AssemblyCppOptions(parallel="on", runtime_ticks=runtime_ticks)._arguments(str_mode=False)
+@pytest.mark.parametrize("str_mode", [False, True])
+def test_forced_parallel_accepts_unlimited_runtime(runtime_ticks, str_mode):
+    arguments = AssemblyCppOptions(parallel="on", runtime_ticks=runtime_ticks)._arguments(str_mode=str_mode)
     assert "--parallel=on" in arguments
 
 
@@ -174,24 +205,56 @@ def test_auto_parallel_permits_cpp_serial_fallback():
 
 def test_all_graph_controls_serialize_together_without_duplicates():
     options = AssemblyCppOptions(
-        runtime_ticks=100, enum_max=500, pathway=False, parallel="auto",
+        algorithm="full", runtime_ticks=100, enum_max=500, pathway=False, parallel="auto",
         threads=2, verbose=True, memory_report=True, telemetry=True,
         write_intermediate_mas=True,
     )
     assert options._arguments(str_mode=False) == [
         "-removeHydrogens=0", "-compensateDisjoint=0", "-memTest=1",
-        "-runTime=100", "-enumMax=500", "--pathway=0", "--parallel=auto",
+        "--algorithm=full", "-runTime=100", "-enumMax=500", "--pathway=0", "--parallel=auto",
         "--threads=2", "--verbose=1", "--telemetry=1", "-writeIntermediateMAs=1",
     ]
 
 
 def test_all_string_controls_serialize_together_without_duplicates():
     options = AssemblyCppOptions(
-        runtime_ticks=100, pathway=False, accept_palindromes=True,
-        parallel="auto", memory_report=True,
+        algorithm="full", runtime_ticks=100, pathway=False, accept_palindromes=True,
+        parallel="auto", threads=2, verbose=True, memory_report=True,
     )
     assert options._arguments(str_mode=True) == [
-        "-removeHydrogens=0", "-compensateDisjoint=0", "-memTest=1",
-        "-runStrings=1", "-runTime=100", "--pathway=0",
-        "-acceptPalindromes=1", "--parallel=auto",
+        "-compensateDisjoint=0", "-memTest=1",
+        "-runStrings=1", "--algorithm=full", "-runTime=100", "--pathway=0",
+        "-acceptPalindromes=1", "--parallel=auto", "--threads=2", "--verbose=1",
     ]
+
+
+@pytest.mark.parametrize("selector, str_mode", [
+    ({"algorithm": "re-pair"}, False), ({"algorithm": "re-pair"}, True),
+    ({"upper_bound": "graph-repair"}, False),
+])
+@pytest.mark.parametrize("settings, name", [
+    ({"runtime_ticks": 0}, "runtime_ticks"),
+    ({"runtime_ticks": UINT64_MAX}, "runtime_ticks"),
+    ({"enum_max": 50_000_000}, "enum_max"),
+    ({"parallel": "on"}, "parallel"),
+    ({"telemetry": True}, "telemetry"),
+    ({"write_intermediate_mas": True}, "write_intermediate_mas"),
+])
+def test_re_pair_rejects_unavailable_controls(selector, str_mode, settings, name):
+    with pytest.raises(ValueError, match=name):
+        AssemblyCppOptions(**selector, **settings)._arguments(str_mode=str_mode)
+
+
+@pytest.mark.parametrize("selector, str_mode", [
+    ({"algorithm": "re-pair"}, False), ({"algorithm": "re-pair"}, True),
+    ({"upper_bound": "graph-repair"}, False),
+])
+def test_re_pair_accepts_supported_controls_and_auto_fallback(selector, str_mode):
+    options = AssemblyCppOptions(
+        **selector, parallel="auto", threads=2, pathway=False, verbose=True,
+        memory_report=True, accept_palindromes=str_mode,
+    )
+    arguments = options._arguments(str_mode=str_mode)
+    assert options._is_re_pair
+    assert {"--parallel=auto", "--threads=2", "--pathway=0", "--verbose=1", "-memTest=1"} <= set(arguments)
+    assert ("-acceptPalindromes=1" in arguments) is str_mode

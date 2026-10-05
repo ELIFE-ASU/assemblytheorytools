@@ -64,7 +64,7 @@ from .tools_string import (prep_joint_string_ai,
                            get_undir_str_molecule)
 
 # Patterns emitted by the C++ assembler, on its output file and log respectively
-_AI_PATTERN = re.compile(r"assembly index:[ \t]*(\d+)[ \t]*$")
+_AI_PATTERN = re.compile(r"assembly (?:index|upper bound):[ \t]*(\d+)[ \t]*$")
 # parallelassemblycpp logs "Best assembly index: N (T clock ticks)"; the executables
 # this package used to bundle logged "min AI found so far: N". Accept both, so an
 # older binary on ASS_PATH still reports a bound after a timeout.
@@ -86,7 +86,7 @@ _ASSEMBLYCPP_EXECUTABLE_NAMES = (
 
 
 def _read_assembly_output(file_path: str) -> tuple[int, Optional[str]]:
-    """Read the index and any early-stop status in a single pass.
+    """Read the index or heuristic bound and its status in a single pass.
 
     The native string output includes the input before its result, so match
     the final numeric field rather than an ``assembly index:`` in that input.
@@ -145,7 +145,8 @@ def load_assembly_output(file_path: str) -> int:
     Returns
     -------
     int
-        The assembly index extracted from the file.
+        The assembly index or heuristic upper bound extracted from the file.
+        This loader does not establish whether the minimum was proven.
 
     Raises
     ------
@@ -683,7 +684,10 @@ def _read_calculation_index(file_path_out: str, log_file: str, timed_out: bool,
     except FileNotFoundError:
         ai, status = -1, None
     if status is not None:
-        print(f"Warning: the assembly search stopped early ({status}).", flush=True)
+        if status.startswith("heuristic upper bound"):
+            print(f"Assembly calculation returned a {status}.", flush=True)
+        else:
+            print(f"Warning: the assembly search stopped early ({status}).", flush=True)
     if timed_out or status is not None:
         # Prefer a saved result even when the wall-clock deadline raced with
         # normal completion. The log is only a fallback for missing output.
@@ -756,11 +760,13 @@ def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
         Default is True.
     exact : bool, optional
         If True, require a proven minimum: return -1 rather than the best bound
-        the calculator reached when its search stopped early. Default is False.
+        from an early-stopped search or a Re-Pair calculation. Default is False.
     cpp_options : AssemblyCppOptions, optional
-        C++ search and output controls: parallelism, threads, enumeration and
+        C++ algorithm and output controls: parallelism, threads, enumeration and
         CPU-time limits, pathway output and diagnostics. Diagnostic output
         requests retain the calculation directory and print its location.
+        ``algorithm="re-pair"`` returns a heuristic upper bound with a
+        constructive pathway, rather than proving the minimum.
         Hydrogen stripping and joint correction remain controlled by the
         corresponding Python arguments so input and pathway labels agree.
 
@@ -866,6 +872,18 @@ def calculate_assembly_index(graph: Union[nx.Graph, Chem.Mol],
 
         if joint_corr and ai > 0:
             ai = joint_assembly_index_correction(graph, ai)
+            if pathway is not None and pathway.graph.get("algorithm") == "re-pair":
+                # The native certificate includes joins between components;
+                # ATT's joint index treats those combinations as free.
+                for _, data in pathway.nodes(data=True):
+                    if data["operation"] == "combine_components":
+                        data["cost"] = 0
+                pathway.graph.update(
+                    upper_bound=ai,
+                    trivial_upper_bound=joint_assembly_index_correction(
+                        graph, pathway.graph["trivial_upper_bound"]),
+                    compensate_disjoint=True,
+                )
         result = (ai, virtual_objects, pathway)
         if return_log_file:
             print(f"Log file printed to: {log_file}", flush=True)
@@ -1326,18 +1344,27 @@ def _calculate_string_assembly_molecular(
     return (*result, graph_result[3]) if return_log_file else result
 
 
+def _validate_cpp_string(string: str) -> None:
+    """The native calculator treats UTF-8 code points as symbols, one line per input."""
+    if "\n" in string or "\r" in string:
+        raise ValueError("C++ string assembly requires a single line of UTF-8 text")
+    try:
+        string.encode("utf-8")
+    except UnicodeEncodeError as error:
+        raise ValueError("C++ string assembly requires valid Unicode scalar values") from error
+
+
 def _calculate_string_assembly_cpp(
     string: str, delimiters: Sequence[str], *, dir_code: Optional[str],
     timeout: Optional[float], debug: bool, return_log_file: bool,
     save_dir: bool, options: AssemblyCppOptions, arguments: Sequence[str],
 ) -> tuple:
     """Calculate string assembly using the shared C++ execution lifecycle."""
-    if not string.isascii() or "\n" in string or "\r" in string:
-        raise ValueError("C++ string assembly requires a single line of ASCII text")
+    _validate_cpp_string(string)
     with _calculation_directory(save=save_dir or options._retain_files, debug=debug,
                                 return_log_file=return_log_file) as directory:
         file_path_in = str(directory / "string_in")
-        Path(file_path_in).write_text(string, encoding="ascii")
+        Path(file_path_in).write_text(string, encoding="utf-8")
         log_file = str(directory / "assembly_output.log")
         if dir_code is None:
             dir_code = add_assembly_to_path(str_mode=True)
@@ -1421,7 +1448,10 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
         C++ search and output controls. In native string mode,
         ``accept_palindromes=True`` permits reuse of reversed fragments;
         the pathway marks reversal operations with zero cost. Graph-only
-        controls are rejected in this mode. Options are forwarded to the
+        controls are rejected in this mode. ``algorithm="re-pair"`` returns
+        a heuristic upper bound and its constructive pathway. Full string
+        search supports parallel execution with a compatible executable.
+        Options are forwarded to the
         graph calculator for undirected molecular encoding. CFG mode does
         not accept C++ options.
 
@@ -1449,8 +1479,8 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
     - Joint inputs (lists) are encoded with delimiters; the final returned AI is
       corrected by subtracting delimiter and directedness offsets.
     - In 'str' mode the shared C++ executable runs in string mode. Its input
-      must be a single line of ASCII text because it indexes bytes and treats
-      newlines as separate calculations.
+      must be a single line of valid Unicode text. Each Unicode code point is
+      one symbol, with no normalization; pathways use code point offsets.
     - ``return_log_file=True`` also retains the directory so the returned log
       remains readable. Otherwise temporary files are removed on success or
       failure, unless ``debug`` is True.
@@ -1506,10 +1536,15 @@ def calculate_string_assembly_index(input_data: Union[str, List[str]],
     if isinstance(input_data, str):
         string = input_data
         delimiters = []
+        if mode == "str":
+            _validate_cpp_string(string)
         if len(string) <= 1:
             return (0, None, None) if not return_log_file else (0, None, None, None)
 
     elif isinstance(input_data, list):
+        if mode == "str":
+            for item in input_data:
+                _validate_cpp_string(item)
         input_data = [s for s in input_data if len(s) > 1]  # Remove elements of the list that are single characters
         if not input_data:
             return (0, None, None) if not return_log_file else (0, None, None, None)

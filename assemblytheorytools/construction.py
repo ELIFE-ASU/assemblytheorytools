@@ -872,7 +872,13 @@ def parse_pathway_file(
     input_graph: Optional[nx.Graph] = None,
 ) -> Union[Tuple[nx.DiGraph, List[Any]], Tuple[nx.DiGraph, List[Any], str]]:
     """
-    Parse a pathway JSON file and construct an assembly graph.
+    Parse an exact or Re-Pair pathway JSON file into an assembly graph.
+
+    Re-Pair certificates are replayed and validated. Their graph metadata
+    records ``upper_bound`` and ``minimum_proven=False``; node ``cost`` values
+    count the construction's joins. Free disjoint-component combinations have
+    zero cost when the certificate requests compensation. Isolated atoms are
+    retained in ``graph.graph['target']`` but are not bond primitives.
 
     Parameters
     ----------
@@ -917,6 +923,15 @@ def parse_pathway_file(
     SMILES.
     """
     data = _read_assembly_json(file)
+    if data.get("schema") == "graph-repair-assembly-v1":
+        graph, vo_list = _parse_graph_repair_pathway(data, vo_type)
+        if debug:
+            for node, attributes in graph.nodes(data=True):
+                print(f"Node: {node}, Type: {attributes['type']}, VO: {attributes['vo']}",
+                      flush=True)
+        if log:
+            return graph, vo_list, _repair_pathway_log(graph)
+        return graph, vo_list
     construction = AssemblyConstruction(data, vo_type=vo_type, input_graph=input_graph)
     graph, vo_list = construction.get_assembly_digraph()
 
@@ -929,6 +944,166 @@ def parse_pathway_file(
     if log:
         return graph, vo_list, construction.pathway_log_string()
     return graph, vo_list
+
+
+def _repair_require(condition: bool, message: str) -> None:
+    """Report invalid construction certificates consistently."""
+    if not condition:
+        raise ValueError(f"Invalid Re-Pair pathway certificate: {message}.")
+
+
+def _repair_metadata(data: Dict[str, Any], cost: int, trivial: int) -> Dict[str, Any]:
+    """Check the reported construction counts before exposing the bound."""
+    expected = {
+        "rule_count": len(data["rules"]),
+        "remaining_fragments": len(data["residual"]),
+        "upper_bound": cost,
+        "trivial_upper_bound": trivial,
+    }
+    for key, value in expected.items():
+        _repair_require(type(data[key]) is int and data[key] == value,
+                        f"incorrect {key}")
+    _repair_require(cost <= trivial, "construction exceeds the trivial bound")
+    return {"schema": data["schema"], "algorithm": "re-pair",
+            "minimum_proven": False, **expected}
+
+
+def _repair_pathway_log(graph: nx.DiGraph) -> str:
+    """Describe a replayed heuristic construction without claiming optimality."""
+    lines = [graph.graph["schema"],
+             f"Assembly upper bound: {graph.graph['upper_bound']}",
+             "Status: heuristic upper bound (minimum not proven)"]
+    lines.extend(f"{node}: {data['operation']} (cost={data['cost']})"
+                 for node, data in graph.nodes(data=True))
+    return "\n".join(lines) + "\n"
+
+
+def _parse_graph_repair_pathway(
+    data: Dict[str, Any], vo_type: str,
+) -> Tuple[nx.DiGraph, List[Any]]:
+    """Replay binary graph rules and join their physical residual occurrences."""
+    if vo_type not in _VO_TYPES:
+        raise ValueError(_VO_TYPE_ERROR)
+    atoms, edges = data["atoms"], data["edges"]
+    _repair_require(all(isinstance(atom, str) for atom in atoms), "invalid atom labels")
+    target = nx.Graph()
+    target.add_nodes_from((i, {"color": atom}) for i, atom in enumerate(atoms))
+    for edge in edges:
+        _repair_require(len(edge) == 3 and all(type(v) is int for v in edge),
+                        "invalid edge record")
+        u, v, color = edge
+        _repair_require(0 <= u < len(atoms) and 0 <= v < len(atoms)
+                        and u != v and color > 0 and not target.has_edge(u, v),
+                        "invalid edge endpoints or bond order")
+        target.add_edge(u, v, color=color)
+
+    def mask(values):
+        _repair_require(isinstance(values, list) and bool(values)
+                        and all(type(i) is int and 0 <= i < len(edges) for i in values),
+                        "invalid edge reference")
+        selected = frozenset(values)
+        _repair_require(len(selected) == len(values), "repeated edge in a fragment")
+        return selected
+
+    def fragment(selected):
+        return target.edge_subgraph([tuple(edges[i][:2]) for i in sorted(selected)]).copy()
+
+    def matches(first, second):
+        return first == second or nx.is_isomorphic(
+            fragment(first), fragment(second),
+            node_match=nx.algorithms.isomorphism.categorical_node_match("color", None),
+            edge_match=nx.algorithms.isomorphism.categorical_edge_match("color", None),
+        )
+
+    path = nx.DiGraph()
+    symbols = {}
+
+    def add_node(name, selected, operation, cost):
+        selected_graph = fragment(selected)
+        vertices = sorted(selected_graph)
+        local = {vertex: i for i, vertex in enumerate(vertices)}
+        tables = ([(i, atoms[v]) for i, v in enumerate(vertices)],
+                  [(local[edges[e][0]], local[edges[e][1]], edges[e][2])
+                   for e in sorted(selected)])
+        vo = _tables_to_vo(tables, vo_type)
+        label = (name if vo_type == "graph" else
+                 Chem.MolToSmiles(vo) if vo_type == "mol" else vo)
+        path.add_node(name, type="virtual_object" if cost == 0 and operation == "primitive"
+                      else "step", vo=vo, label=label, operation=operation,
+                      cost=cost, bonds=selected)
+        return name
+
+    def add_symbol(symbol, selected, name, operation, cost):
+        _repair_require(type(symbol) is int and symbol >= 0 and symbol not in symbols,
+                        "duplicate or invalid symbol ID")
+        _repair_require(nx.is_connected(fragment(selected)), "disconnected symbol")
+        symbols[symbol] = (add_node(name, selected, operation, cost), selected)
+
+    def dependency(source, destination, selected):
+        # A single symbol may supply both operands; retain both placements even
+        # though the public pathway interface is a DiGraph.
+        if path.has_edge(source, destination):
+            path.edges[source, destination]["occurrences"].append(selected)
+        else:
+            path.add_edge(source, destination, occurrences=[selected])
+
+    for i, terminal in enumerate(data["terminals"]):
+        selected = mask(terminal["edges"])
+        _repair_require(len(selected) == 1, "nonprimitive terminal")
+        add_symbol(terminal["id"], selected, f"virtual_object_{i}", "primitive", 0)
+    for i, rule in enumerate(data["rules"], 1):
+        left, right, selected = (mask(rule[key])
+                                 for key in ("left_edges", "right_edges", "edges"))
+        _repair_require(not left & right and left | right == selected,
+                        "rule operands do not partition the result")
+        for child, occurrence in ((rule["left"], left), (rule["right"], right)):
+            _repair_require(child in symbols, "undefined or cyclic rule")
+            _repair_require(matches(symbols[child][1], occurrence),
+                            "rule occurrence does not match its symbol")
+        name = f"step_{i}"
+        add_symbol(rule["id"], selected, name, "join", 1)
+        dependency(symbols[rule["left"]][0], name, left)
+        dependency(symbols[rule["right"]][0], name, right)
+
+    covered, residual = set(), []
+    for occurrence in data["residual"]:
+        selected, symbol = mask(occurrence["edges"]), occurrence["symbol"]
+        _repair_require(symbol in symbols, "unknown residual symbol")
+        _repair_require(not covered & selected, "overlapping residual occurrences")
+        _repair_require(matches(symbols[symbol][1], selected),
+                        "residual occurrence does not match its symbol")
+        covered.update(selected)
+        residual.append((symbols[symbol][0], selected, set(fragment(selected))))
+    _repair_require(covered == set(range(len(edges))), "residual does not cover target")
+    bonded_target = target.edge_subgraph(target.edges)
+    components = nx.number_connected_components(bonded_target)
+    _repair_require(type(data["components"]) is int and data["components"] == components,
+                    "incorrect component count")
+    compensate = data["compensate_disjoint"]
+    _repair_require(type(compensate) is bool, "invalid compensation flag")
+
+    # First complete each connected component. Only after that combine
+    # disjoint components, charging the same optional joins as the calculator.
+    while len(residual) > 1:
+        pair = next(((i, j) for i in range(len(residual))
+                     for j in range(i + 1, len(residual))
+                     if residual[i][2] & residual[j][2]), None)
+        connected = pair is not None
+        i, j = pair if connected else (0, 1)
+        left, right = residual[i], residual[j]
+        selected = left[1] | right[1]
+        name = f"step_{sum(d['type'] == 'step' for _, d in path.nodes(data=True)) + 1}"
+        add_node(name, selected, "join" if connected else "combine_components",
+                 int(connected or not compensate))
+        dependency(left[0], name, left[1])
+        dependency(right[0], name, right[1])
+        residual[i] = (name, selected, left[2] | right[2])
+        residual.pop(j)
+    cost = sum(attributes["cost"] for _, attributes in path.nodes(data=True))
+    trivial = max(0, len(edges) - (components if compensate else 1))
+    path.graph.update(_repair_metadata(data, cost, trivial), target=target,
+                      components=components, compensate_disjoint=compensate)
+    return path, list(dict.fromkeys(attributes["vo"] for _, attributes in path.nodes(data=True)))
 
 
 # Matches a petgraph BitSet label such as "{}", "{14}" or "{3, 4, 5}"
@@ -1396,6 +1571,88 @@ def build_str(
     return path
 
 
+def _parse_string_repair_pathway(data: Dict[str, Any]) -> Tuple[List[str], nx.DiGraph]:
+    """Expand the certified grammar, preserving free reversals and join costs."""
+    original = data["input"]
+    _repair_require(isinstance(original, str) and data["length"] == len(original),
+                    "incorrect input length")
+    accept_reversed = data["accept_reversed"]
+    _repair_require(type(accept_reversed) is bool, "invalid reversal flag")
+    path, symbols = nx.DiGraph(), {}
+
+    def add_node(value, operation, cost):
+        # Usually the expanded string is also its node ID, as in exact string
+        # pathways. Preserve separate paid operations if a certificate happens
+        # to construct the same value more than once.
+        name = value if value not in path else ("construction", len(path), value)
+        path.add_node(name, vo=value, label=value, operation=operation, cost=cost)
+        return name
+
+    def add_symbol(symbol, node):
+        _repair_require(type(symbol) is int and symbol >= 0 and symbol not in symbols,
+                        "duplicate or invalid symbol ID")
+        symbols[symbol] = node
+
+    def oriented(symbol, reverse):
+        _repair_require(type(reverse) is bool and (accept_reversed or not reverse),
+                        "invalid fragment orientation")
+        _repair_require(symbol in symbols, "undefined or cyclic symbol reference")
+        node = symbols[symbol]
+        if not reverse:
+            return node
+        value = path.nodes[node]["vo"][::-1]
+        if value in path:
+            return value
+        result = add_node(value, "reverse", 0)
+        path.add_edge(node, result, operation="reverse", cost=0)
+        return result
+
+    def concatenate(left, right):
+        result = add_node(path.nodes[left]["vo"] + path.nodes[right]["vo"],
+                          "concatenate", 1)
+        path.nodes[result]["operands"] = (left, right)
+        path.add_edge(left, result, operation="concatenate")
+        path.add_edge(right, result, operation="concatenate")
+        return result
+
+    for terminal in data["terminals"]:
+        code_point = terminal["code_point"]
+        _repair_require(type(code_point) is int and 0 <= code_point <= 0x10ffff
+                        and not 0xd800 <= code_point <= 0xdfff,
+                        "invalid Unicode scalar terminal")
+        add_symbol(terminal["id"], add_node(chr(code_point), "primitive", 0))
+    _repair_require([chr(t["code_point"]) for t in data["terminals"]]
+                    == list(dict.fromkeys(original)), "terminals do not match input")
+    for rule in data["rules"]:
+        left = oriented(rule["left"], rule["left_reversed"])
+        right = oriented(rule["right"], rule["right_reversed"])
+        node = concatenate(left, right)
+        _repair_require(rule["length"] == len(path.nodes[node]["vo"]),
+                        "incorrect rule length")
+        add_symbol(rule["id"], node)
+
+    recovered, residual = "", []
+    for occurrence in data["residual"]:
+        node = oriented(occurrence["symbol"], occurrence["reversed"])
+        value = path.nodes[node]["vo"]
+        _repair_require(occurrence["offset"] == len(recovered)
+                        and occurrence["length"] == len(value),
+                        "incorrect residual offset or length")
+        recovered += value
+        residual.append(node)
+    _repair_require(recovered == original, "residual does not reconstruct input")
+    if residual:
+        result = residual[0]
+        for node in residual[1:]:
+            result = concatenate(result, node)
+    cost = len(data["rules"]) + len(residual) - 1
+    path.graph.update(_repair_metadata(data, cost, len(original) - 1),
+                      input=original, accept_reversed=accept_reversed)
+    _repair_require(sum(attributes["cost"] for _, attributes in path.nodes(data=True))
+                    == max(0, cost), "inconsistent reconstructed cost")
+    return list(dict.fromkeys(attributes["vo"] for _, attributes in path.nodes(data=True))), path
+
+
 def parse_string_pathway_file(
     file_path_pathway: str, *, accept_palindromes: bool = False,
 ) -> Tuple[List[str], nx.DiGraph]:
@@ -1408,8 +1665,9 @@ def parse_string_pathway_file(
         Path to the pathway file.
     accept_palindromes : bool, optional
         Whether the C++ search treated fragments and their reversals as
-        equivalent, by default False. Pass the value used for the calculation;
-        the pathway file does not record it.
+        equivalent, by default False. Exact pathway files do not record this
+        option, so pass the value used for the calculation. Re-Pair certificates
+        record their own reversal mode and are parsed using that value.
 
     Returns
     -------
@@ -1423,6 +1681,11 @@ def parse_string_pathway_file(
         reversals cost zero. Reversal edges also have ``operation="reverse"``
         and ``cost=0``. Reused objects retain their first construction, keeping
         the graph acyclic even when both orientations occur repeatedly.
+        Re-Pair pathways always provide operation and cost attributes, along
+        with ``vo`` string payloads, and record ``upper_bound`` and
+        ``minimum_proven=False`` in graph metadata. An empty string has bound
+        -1 and no operations. If a certificate constructs the same string twice,
+        additional occurrences have tuple IDs to retain every paid operation.
 
     Raises
     ------
@@ -1433,6 +1696,8 @@ def parse_string_pathway_file(
         raise FileNotFoundError(f"Pathway file not found: {file_path_pathway}")
 
     data = _read_assembly_json(file_path_pathway)
+    if data.get("schema") == "string-repair-assembly-v1":
+        return _parse_string_repair_pathway(data)
 
     file_string = data["file_graph"][0]["Fragments"][0]
     path = nx.DiGraph()

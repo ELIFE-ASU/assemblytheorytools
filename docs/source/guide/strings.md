@@ -23,6 +23,12 @@ String and molecule calculations use the same `ParallelAssemblyCpp` executable,
 resolved through `ASS_PATH`. Set `ASS_STR_PATH` only to point string
 calculations at a different build (see {doc}`../configuration`).
 
+Native string mode accepts Unicode: each code point is one elementary symbol,
+and pathway offsets and lengths use the same units. It does not normalize
+text, so a precomposed character and a combining sequence are different
+inputs. Embedded line breaks are rejected because ATT submits one calculation
+per file. Strings with no more than one code point have index zero.
+
 ## Directed and undirected strings
 
 `directed=True` (the default) treats the string as read in one direction only.
@@ -36,7 +42,28 @@ att.calculate_string_assembly_index("abracadabra", directed=False, mode="mol")
 Undirected calculations only run through the molecule calculator, so pass
 `mode="mol"` explicitly; otherwise the function switches to it and warns.
 
-## An approximate mode for long strings
+To keep the native string backend while allowing reversed fragments, use
+`cpp_options=att.AssemblyCppOptions(accept_palindromes=True)`. In its returned
+pathway, reversal nodes have zero cost and concatenation nodes cost one.
+This option also works with native Re-Pair.
+
+## Upper bounds for long strings
+
+The C++ calculator can produce a Re-Pair heuristic upper bound without an
+exact search:
+
+```python
+ai, virt_obj, pathway = att.calculate_string_assembly_index(
+    "abracadabra",
+    cpp_options=att.AssemblyCppOptions(algorithm="re-pair"),
+)
+```
+
+This returns the usual tuple and converts the calculator's construction
+certificate into a pathway. The bound does not prove the minimum. Re-Pair
+runs serially and rejects explicit CPU-time or enumeration limits, enabled
+telemetry and intermediate output, and `parallel="on"`. The Python wall-clock
+`timeout` still applies. Set `pathway=False` in the options to skip its pathway.
 
 A third mode, `mode="cfg"`, skips the external calculator entirely and returns a
 RePair smallest-grammar **upper bound** on the index, together with its pathway.
@@ -95,8 +122,9 @@ ai, virt_obj, pathway = att.calculate_string_assembly_index(sequence)
 ```
 
 Assembly index grows with sequence length, so start with short sequences, raise
-`timeout` as needed, and switch to `mode="cfg"` when the exact search stops
-finishing.
+`timeout` as needed, and switch to native Re-Pair or `mode="cfg"` when the exact
+search stops finishing. A supporting OpenMP build can also parallelise the
+full native string search; see {doc}`parallel`.
 
 Other helpers in {mod}`assemblytheorytools.tools_string`:
 

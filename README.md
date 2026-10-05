@@ -132,7 +132,8 @@ The last two rows are heuristic estimates from measured spectra, not exact calcu
 - Exact assembly-index calculations for molecules, arbitrary labelled graphs, and directed or undirected strings.
   The search is exponential in the worst case, so a default 100-second timeout applies; on a timeout the calculation
   returns the best upper bound it reached, and `exact=True` makes it return `-1` instead.
-- Default C++ and alternative Rust search interfaces, plus fast graph bounds and CFG-based string approximations.
+- Default C++ and alternative Rust search interfaces, plus native Re-Pair upper bounds for graphs and Unicode
+  strings, analytic graph bounds, and CFG-based string approximations.
 - Joint assembly, parallel execution, pathway parsing, pathway visualisation, and alternative-path enumeration.
 - Molecular complexity metrics, structure conversion, reassembly, crystal-cell, spectroscopy, and mass-spectrometry
   utilities.
@@ -142,7 +143,7 @@ The last two rows are heuristic estimates from measured spectra, not exact calcu
 
 | Backend | Main interface | Best suited to | Result |
 | --- | --- | --- | --- |
-| parallelassemblycpp (C++) | `calculate_assembly_index` | Default molecule and graph calculations | Index, virtual objects, and pathway |
+| parallelassemblycpp (C++) | `calculate_assembly_index`, `calculate_string_assembly_index` | Molecule, graph and Unicode string calculations | Index or Re-Pair upper bound, virtual objects, and pathway |
 | assembly-theory (Rust) | `calculate_assembly_index_rust` | Fast molecular index calculations | Index |
 | assembly-theory search (Rust) | `calculate_assembly_index_rust_search` | Search statistics, options, and pathway reconstruction | Structured search result |
 | assemblycfg | `calculate_string_assembly_index(..., mode="cfg")` | Fast approximate string calculations | Upper bound and pathway |
@@ -150,6 +151,14 @@ The last two rows are heuristic estimates from measured spectra, not exact calcu
 The analytic bounds `calculate_assembly_index_upper_bound` and
 `calculate_assembly_index_lower_bound` are not a backend: they are pure Python
 formulas that invoke no calculator at all.
+
+Use `cpp_options=att.AssemblyCppOptions(algorithm="re-pair")` with either C++
+entry point for a fast heuristic upper bound and construction pathway. The
+default full search proves the minimum when it completes; Re-Pair does not.
+Full graph and native string searches can use an OpenMP build with
+`AssemblyCppOptions(parallel="on", threads=4)`. The
+[configuration reference](https://assemblytheorytools.readthedocs.io/en/latest/configuration.html#c-command-line-controls)
+maps every calculator flag to its Python control and lists incompatible options.
 
 The Rust backend always strips hydrogens. For a meaningful comparison, compare it with
 `calculate_assembly_index(..., strip_hydrogen=True)`.

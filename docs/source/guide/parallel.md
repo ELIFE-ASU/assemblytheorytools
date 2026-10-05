@@ -6,8 +6,8 @@ well.
 
 ## Threads within one calculation
 
-To parallelise a single graph search, use an upstream OpenMP executable and
-pass {class}`~assemblytheorytools.assembly.AssemblyCppOptions`:
+To parallelise a single graph or native string search, use an upstream OpenMP
+executable and pass {class}`~assemblytheorytools.assembly.AssemblyCppOptions`:
 
 ```python
 import assemblytheorytools as att
@@ -27,8 +27,26 @@ with `PARALLELASSEMBLYCPP_BUILD_OPENMP=ON` in upstream CMake, then point
 `dir_code` or `ASS_PATH` at it.
 
 `timeout` limits elapsed wall time and works with parallel execution. The
-separate `runtime_ticks` option imposes the C++ CPU-time budget, which currently
-requires serial search, as does `write_intermediate_mas=True`.
+separate `runtime_ticks` option imposes the C++ CPU-time budget; finite budgets
+require serial search, as does `write_intermediate_mas=True`. Re-Pair also runs
+serially: `algorithm="re-pair"` rejects `parallel="on"`, while `"auto"` falls
+back to serial.
+
+The same controls apply to a native string search:
+
+```python
+ai, virtual_objects, pathway = att.calculate_string_assembly_index(
+    "abracadabraabracadabra",
+    dir_code="/path/to/ParallelAssemblyCppOMP",
+    cpp_options=att.AssemblyCppOptions(parallel="on", threads=4),
+)
+```
+
+String search distributes branches within the string and reconstructs a
+deterministic pathway. Its useful thread count is capped by available root
+jobs, so short inputs may gain little. Graph search chooses automatic thread
+counts using estimated work; explicit counts are not reduced by that cap.
+Telemetry and intermediate index output are unavailable for native strings.
 
 ## Many molecules at once
 

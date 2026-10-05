@@ -53,6 +53,31 @@ def test_native_forced_parallel_search_preserves_index_and_pathway():
     _calculate(_binary("ATT_TEST_CPP_PARALLEL_PATH"), parallel="on", threads=2)
 
 
+@pytest.mark.parametrize("accept_palindromes", [False, True])
+def test_native_parallel_strings_match_serial_pathways(accept_palindromes):
+    binary = _binary("ATT_TEST_CPP_PARALLEL_PATH")
+    text = "αβγδαβγδγβα"
+    serial = att.calculate_string_assembly_index(
+        text, dir_code=binary,
+        cpp_options=att.AssemblyCppOptions(accept_palindromes=accept_palindromes),
+    )
+    parallel = att.calculate_string_assembly_index(
+        text, dir_code=binary, return_log_file=True,
+        cpp_options=att.AssemblyCppOptions(
+            parallel="on", threads=2, verbose=True, accept_palindromes=accept_palindromes,
+        ),
+    )
+    assert serial[0] == parallel[0]
+    assert set(serial[1]) == set(parallel[1])
+    assert set(serial[2].edges()) == set(parallel[2].edges())
+    assert text in Path(parallel[3]).read_text(encoding="utf-8")
+
+
+def test_native_telemetry_help_covers_the_optional_flag():
+    help_text = att.get_assembly_cpp_help(_binary("ATT_TEST_CPP_TELEMETRY_PATH"))
+    assert "  --telemetry=<0|1>" in help_text
+
+
 def test_native_telemetry_is_retained_beside_returned_log():
     directory = _calculate(_binary("ATT_TEST_CPP_TELEMETRY_PATH"), telemetry=True)
     telemetry = json.loads((directory / "graph_inTelemetry.json").read_text())
