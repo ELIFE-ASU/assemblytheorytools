@@ -34,17 +34,6 @@ CIF_ATOM_COUNTS = [
 
 
 @pytest.mark.filterwarnings(IGNORE_OCCUPANCY)
-@pytest.mark.parametrize("filename,atom_count", CIF_ATOM_COUNTS)
-def test_cif_loading_reads_primitive_cells(data_dir, filename, atom_count):
-    atoms = cell.read_cif_file(str(data_dir / "cif_files" / filename))
-
-    assert len(atoms) == atom_count
-    assert atoms.pbc.all()
-    assert atoms.get_volume() > 0
-    assert np.isfinite(atoms.positions).all()
-
-
-@pytest.mark.filterwarnings(IGNORE_OCCUPANCY)
 @pytest.mark.parametrize(
     "filename,atom_count,number,symbol",
     [("Attakolite_0.cif", 70, 12, "C 2/m"), ("Wodginite_3.cif", 24, 15, "C 2/c")],
@@ -342,8 +331,15 @@ def test_central_region_keeps_one_image_of_a_boundary_atom(repetitions):
 
 @pytest.mark.filterwarnings(IGNORE_OCCUPANCY)
 @pytest.mark.parametrize("filename,atom_count", CIF_ATOM_COUNTS)
-def test_central_region_is_exactly_one_unit_cell(data_dir, filename, atom_count):
+def test_cif_loading_and_tiling_preserve_the_primitive_cell(
+    data_dir, filename, atom_count
+):
     atoms = cell.read_cif_file(str(data_dir / "cif_files" / filename))
+
+    assert len(atoms) == atom_count
+    assert atoms.pbc.all()
+    assert atoms.get_volume() > 0
+    assert np.isfinite(atoms.positions).all()
     for reps in ((2, 2, 2), (3, 3, 3)):
         central, _, _ = cell.tile_cell_shells(atoms, reps=reps)
         assert len(central) == atom_count, reps

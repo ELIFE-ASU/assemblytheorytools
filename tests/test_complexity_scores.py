@@ -68,6 +68,26 @@ def test_molecular_descriptors_for_doravirine():
 
 
 @pytest.mark.parametrize(
+    "smiles, bertz, balaban, spacial",
+    [
+        ("CC", 0.0, 1.0, 6.0),
+        ("CCC", 0.0, 4 / math.sqrt(6), 18.0),
+        ("C1CC1", 3 * math.log2(3), 2.25, 72.0),
+    ],
+    ids=["ethane", "propane", "cyclopropane"],
+)
+def test_descriptor_wrappers_on_small_topologies(smiles, bertz, balaban, spacial):
+    molecule = Chem.MolFromSmiles(smiles)
+
+    assert scores.bertz_complexity(molecule) == pytest.approx(bertz)
+    assert scores.balaban_index(molecule) == pytest.approx(balaban)
+    assert scores.spacial_score(molecule) == pytest.approx(spacial)
+    assert scores.spacial_score(molecule, normalise=True) == pytest.approx(
+        spacial / molecule.GetNumHeavyAtoms()
+    )
+
+
+@pytest.mark.parametrize(
     "first, second, expected",
     [("CCOC", "CCO", 0.6), ("CCOC", "COC", 0.4), ("CCO", "COC", 0.25)],
 )

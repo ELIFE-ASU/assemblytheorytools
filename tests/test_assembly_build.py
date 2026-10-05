@@ -78,6 +78,16 @@ def test_explicit_ref_does_not_reuse_an_unrecorded_cache(builder):
     assert builder.refs == ["main", "main"]
 
 
+def test_corrupt_build_record_rebuilds_the_cached_executable(builder):
+    path = Path(assembly.build_assembly_cpp())
+    record = path.parents[1] / "build.json"
+    record.write_text("incomplete JSON")
+
+    assert assembly.build_assembly_cpp() == str(path)
+    assert builder.refs == ["main", "main"]
+    assert json.loads(record.read_text())["ref"] == "main"
+
+
 @pytest.mark.parametrize("failure", ["--build", "--install", "missing-executable"])
 def test_failed_rebuild_preserves_previous_executable_and_diagnostics(builder, failure):
     path = Path(assembly.build_assembly_cpp(ref="working"))
@@ -285,6 +295,18 @@ def test_build_assembly_cpp_reports_missing_build_tools(assemblycpp_cache, monke
         lambda command, **kwargs: SimpleNamespace(stdout="cmake version 3.22.1\n"),
     )
     with pytest.raises(OSError, match="needs cmake 3.25 or newer"):
+        att.build_assembly_cpp()
+
+
+def test_build_assembly_cpp_reports_missing_git_before_running_tools(
+    assemblycpp_cache, monkeypatch
+):
+    monkeypatch.setattr(assembly.shutil, "which", lambda name: None if name == "git" else name)
+    monkeypatch.setattr(
+        assembly.subprocess, "run", lambda *args, **kwargs: pytest.fail("build tool ran")
+    )
+
+    with pytest.raises(OSError, match="git was not found.*ASS_PATH"):
         att.build_assembly_cpp()
 
 

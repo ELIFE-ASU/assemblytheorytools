@@ -205,6 +205,16 @@ def test_peak_bounds_are_inclusive_and_applied_after_detection():
     np.testing.assert_array_equal(spectrum, original)
 
 
+@pytest.mark.parametrize(
+    "spectrum",
+    [1.0, [1.0, 2.0], [[1.0], [2.0]], [[[1.0, 2.0]]]],
+    ids=["scalar", "flat", "missing-intensity", "extra-dimension"],
+)
+def test_peak_detection_rejects_arrays_without_frequency_intensity_pairs(spectrum):
+    with pytest.raises(ValueError, match=r"shape \(N, 2\)"):
+        tools_data.find_peak_indices_in_range(spectrum)
+
+
 def test_sg_filter_preserves_polynomial_and_input():
     x = np.arange(9)
     spectrum = np.column_stack((x, x**3 - 2 * x**2 + x))
@@ -237,7 +247,13 @@ def test_calc_n_peaks_in_range(data_dir):
     )
 
 
-def test_process_chemotion_ir_data_builds_frame(chemotion_archive, serial_data_mp):
+def test_process_chemotion_ir_data_builds_frame_without_caching(
+    chemotion_archive, serial_data_mp, tmp_path, monkeypatch
+):
+    cwd = tmp_path / "cwd"
+    cwd.mkdir()
+    monkeypatch.chdir(cwd)
+
     frame = tools_data.process_chemotion_ir_data(chemotion_archive)
 
     assert list(frame.columns) == ["smiles", "name", "spectrum"]
@@ -245,19 +261,25 @@ def test_process_chemotion_ir_data_builds_frame(chemotion_archive, serial_data_m
     spectrum = frame["spectrum"].iloc[0]
     assert isinstance(spectrum, np.ndarray)
     assert spectrum.ndim == 2 and spectrum.shape[1] == 2
-
-
-def test_process_chemotion_ir_data_does_not_cache_by_default(
-    chemotion_archive, serial_data_mp, tmp_path, monkeypatch
-):
-    cwd = tmp_path / "cwd"
-    cwd.mkdir()
-    monkeypatch.chdir(cwd)
-
-    tools_data.process_chemotion_ir_data(chemotion_archive)
-
     assert not _cache_path(chemotion_archive).exists()
     assert list(cwd.iterdir()) == []
+
+
+@pytest.mark.parametrize("missing", ["meta_data.json", "IR_data.tar.xz"])
+def test_chemotion_reports_missing_archive_components(
+    chemotion_archive, serial_data_mp, tmp_path, missing
+):
+    incomplete = tmp_path / "incomplete.tar"
+    with tarfile.open(chemotion_archive) as source, tarfile.open(incomplete, "w") as target:
+        for member in source.getmembers():
+            if member.name != missing:
+                with source.extractfile(member) as contents:
+                    target.addfile(member, contents)
+
+    with pytest.raises(FileNotFoundError, match=f"No {missing} file found"):
+        tools_data.process_chemotion_ir_data(incomplete, save=True)
+
+    assert not _cache_path(incomplete).exists()
 
 
 def test_chemotion_cache_follows_archive_and_round_trips_arrays(

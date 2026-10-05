@@ -290,3 +290,16 @@ def test_rust_search_reports_unavailable_pathway_support(monkeypatch):
     monkeypatch.setattr(assembly, "_rust_supports_pathways", lambda: False)
     with pytest.raises(NotImplementedError, match="cannot reconstruct"):
         att.calculate_assembly_index_rust_search(att.smi_to_nx("CCO"), max_pathways=1)
+
+
+def test_rust_search_translates_backend_os_errors(monkeypatch):
+    error = OSError("unreadable mol block")
+
+    def fail(*args, **kwargs):
+        raise error
+
+    monkeypatch.setattr(assembly.at_rust, "index_search", fail)
+    with pytest.raises(ValueError, match="Rust backend could not read this molecule") as raised:
+        att.calculate_assembly_index_rust_search(att.smi_to_nx("CCO"))
+
+    assert raised.value.__cause__ is error

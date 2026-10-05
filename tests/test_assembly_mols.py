@@ -230,6 +230,48 @@ def test_calculate_assembly_index_parallel(molecular_ensemble, two_assembly_work
     assert ai == ref_list
 
 
+@pytest.mark.parametrize("keep_log", [False, True])
+def test_batch_results_keep_failures_and_optional_logs_aligned(
+    monkeypatch, serial_assembly_mp, keep_log
+):
+    graphs = [nx.path_graph(3), nx.path_graph(4)]
+    pathway = nx.DiGraph([("C", "CC")])
+    settings = {"timeout": 0.25, "return_log_file": keep_log}
+    original = dict(settings)
+    calls = []
+
+    def calculate(graph, **options):
+        calls.append((graph, options))
+        result = (2, ["C", "CC"], pathway) if graph is graphs[0] else (-1, None, None)
+        return (*result, f"{graph.number_of_nodes()}.log") if keep_log else result
+
+    monkeypatch.setattr(assembly, "calculate_assembly_index", calculate)
+
+    result = att.calculate_assembly_index_parallel(iter(graphs), settings)
+
+    assert result == [[2, -1], [["C", "CC"], None], [pathway, None]] + (
+        [["3.log", "4.log"]] if keep_log else []
+    )
+    assert calls == [(graph, original) for graph in graphs]
+    assert settings == original
+
+
+def test_empty_batch_returns_no_result_columns(serial_assembly_mp):
+    assert att.calculate_assembly_index_parallel(iter(()), None) == []
+
+
+@pytest.mark.parametrize(
+    "calculate", [att.calculate_assembly_index_parallel, att.calculate_sum_assembly_index]
+)
+@pytest.mark.parametrize("graphs", [None, 7])
+def test_batch_apis_reject_noniterable_input_before_starting_workers(
+    monkeypatch, calculate, graphs
+):
+    monkeypatch.setattr(assembly, "mp_calc", lambda *a, **k: pytest.fail("workers started"))
+    with pytest.raises(ValueError, match="iterable of graph objects"):
+        calculate(graphs, None)
+
+
 @pytest.mark.parametrize("parallel", [False, True], ids=["serial", "parallel"])
 def test_sum_of_assembly_indices(parallel, serial_assembly_mp):
     graphs = [att.smi_to_nx(smiles) for smiles in ["c1ccccc1", "c1ccccc1O"]]

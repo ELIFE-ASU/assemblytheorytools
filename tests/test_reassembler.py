@@ -37,23 +37,25 @@ def test_origami_cyclizes_glycerol_and_preserves_a_cyclized_product():
     assert Chem.MolToSmiles(repeated[0]) == Chem.MolToSmiles(products[0])
 
 
-def test_origami_keeps_only_products_that_lose_exactly_one_atom(monkeypatch):
+def test_origami_skips_failed_reactions_and_products_without_single_atom_loss(monkeypatch):
     molecule = Chem.MolFromSmiles("OCC(O)CO")
     cyclized = Chem.MolFromSmiles("OCC1CO1")
-    reaction = Mock()
+    rejected, reaction = Mock(), Mock()
+    rejected.RunReactant.side_effect = RuntimeError("reaction failed")
     reaction.RunReactant.return_value = [
         (molecule,),
         (cyclized,),
         (Chem.MolFromSmiles("CC"),),
     ]
-    monkeypatch.setattr(reassembler, "origami_smarts", lambda: ["ring-closure"])
+    monkeypatch.setattr(reassembler, "origami_smarts", lambda: ["failed", "ring-closure"])
     monkeypatch.setattr(
-        reassembler.AllChem, "ReactionFromSmarts", lambda pattern: reaction
+        reassembler.AllChem, "ReactionFromSmarts", Mock(side_effect=[rejected, reaction])
     )
 
     products = reassembler.origami(molecule)
 
     assert [Chem.MolToSmiles(product) for product in products] == ["OCC1CO1"]
+    rejected.RunReactant.assert_called_once_with(molecule, 0)
     reaction.RunReactant.assert_called_once_with(molecule, 0)
 
 
@@ -75,8 +77,8 @@ def test_assemble_combines_two_molecules():
     assert Chem.MolToSmiles(product) == "C=C(O)C(O)CO"
 
 
-@pytest.mark.parametrize("sites", [1, 2])
-def test_assembly_returns_none_when_no_reaction_accepts_the_fragments(sites):
+@pytest.mark.parametrize("sites", [0, 1, 2, 3])
+def test_assembly_returns_none_for_unreactive_fragments_or_unsupported_sites(sites):
     helium = Chem.MolFromSmiles("[He]")
 
     assert reassembler.assemble(helium, helium, sites) is None
@@ -87,7 +89,8 @@ def test_legacy_reassembly_generates_requested_number_of_valid_molecules():
     np.random.seed(0)
     molecule = att.smi_to_mol("[H]OC(=O)C([H])([H])N([H])[H]")
     _, virtual_objects, _ = att.calculate_assembly_index(molecule, strip_hydrogen=True)
-    fragments = [att.smi_to_mol(smiles) for smiles in virtual_objects]
+    # The calculator deduplicates with a set; stabilize the pool before sampling.
+    fragments = [att.smi_to_mol(smiles) for smiles in sorted(virtual_objects)]
 
     products = reassembler.reassemble_old(fragments, n_mol_needed=4)
 
@@ -111,7 +114,7 @@ def test_pool_combines_amino_acid_fragments():
     assert product == "CC(N)C(=O)OC(=O)CN"
 
 
-def test_joined_pathways_share_building_blocks(molecule_space):
+def test_joined_pathways_share_building_blocks_and_trim_the_product_layer(molecule_space):
     graph = molecule_space.joined_assembly_graph
 
     assert set(graph) == {"CC", "CO", "CCO", "C=O", "CC=O"}
@@ -121,9 +124,6 @@ def test_joined_pathways_share_building_blocks(molecule_space):
         ("CO", "CCO"),
         ("C=O", "CC=O"),
     }
-
-
-def test_removing_the_product_layer_leaves_only_building_blocks(molecule_space):
     graph, _ = molecule_space.a_minus_x_assembly_pool(X=1)
 
     assert set(graph) == {"CC", "CO", "C=O"}
@@ -270,14 +270,25 @@ def test_possible_combinations_filter_valence_and_shuffle_once(monkeypatch):
     assert shuffle.call_count == 1
 
 
-def test_unique_molecules_keep_first_objects_in_input_order():
+def test_unique_molecules_skip_failures_and_preserve_first_seen_objects(monkeypatch):
     first = Chem.MolFromSmiles("CCO")
     duplicate = Chem.MolFromSmiles("OCC")
     second = Chem.MolFromSmiles("CO")
-    molecules = [None, first, duplicate, second, first]
+    failed = Chem.MolFromSmiles("CC")
+    last = Chem.MolFromSmiles("CN")
+    molecules = [None, first, duplicate, second, first, failed, last]
+    original = molecules.copy()
+    to_inchi = Chem.MolToInchi
 
-    assert reassembler.get_unique_mols(molecules) == [first, second]
-    assert molecules == [None, first, duplicate, second, first]
+    def encode(mol):
+        if mol is failed:
+            raise ValueError("InChI conversion failed")
+        return to_inchi(mol)
+
+    monkeypatch.setattr(reassembler.Chem, "MolToInchi", encode)
+
+    assert reassembler.get_unique_mols(molecules) == [first, second, last]
+    assert molecules == original
     assert reassembler.get_unique_mols([]) == []
 
 
@@ -510,3 +521,101 @@ def test_assembled_molecule_results_keep_success_order_and_empty_distinction():
     pool.assembled_molecules[3] = [["CC", "CO", "CCO"], ["CCO", "CC", "CCCO"]]
     pool.assembled_molecules[1] = [["CC", "CC", "CCC"]]
     assert pool.get_assembled_molecules() == ["CCCO", "CCC"]
+
+
+@pytest.fixture
+def precomputed_molecule_space():
+    """Two observed products share the same elementary and intermediate objects."""
+    ethanol = nx.DiGraph()
+    ethanol.add_nodes_from(["CC", "CO", "CCO"])
+    ethanol.add_edges_from([("CC", "CCO"), ("CO", "CCO")])
+    nx.set_node_attributes(ethanol, {"CC": 0, "CO": 0, "CCO": 1}, "level")
+    ether = ethanol.copy()
+    ether.add_edges_from([("CCO", "CCOC"), ("CO", "CCOC")])
+    ether.nodes["CCOC"]["level"] = 2
+    return reassembler.MoleculeSpace(
+        [reassembler.Molecule(G=ethanol), reassembler.Molecule(G=ether)]
+    )
+
+
+@pytest.mark.parametrize("remove_paths", [False, True])
+def test_pool_pruning_preserves_shared_fragments_and_original_counts(
+    precomputed_molecule_space, remove_paths
+):
+    space = precomputed_molecule_space
+
+    nodes, removed = space.a_minus_x_assembly_pool(
+        X=1, get_graph=False, remove_paths=remove_paths
+    )
+
+    assert space.molecule_smiles == ["CCO", "CCOC"]
+    assert set(space.root_nodes) == {"CC", "CO"}
+    assert space.leaf_nodes == ["CCO", "CCOC"]
+    assert set(nodes) == {"CC", "CO", "CCO"}
+    assert removed == 1
+    assert nx.get_node_attributes(space.joined_assembly_graph_minus_x, "count") == {
+        node: 1 if remove_paths else 2 for node in nodes
+    }
+    assert nx.get_node_attributes(space.joined_assembly_graph, "count") == {
+        "CC": 2, "CO": 2, "CCO": 2, "CCOC": 1,
+    }
+    assert space.joined_assembly_graph.has_edge("CCO", "CCOC")
+
+
+def test_pool_pruning_rejects_depth_beyond_the_longest_path(precomputed_molecule_space):
+    space = precomputed_molecule_space
+
+    with pytest.raises(ValueError, match="maximum assembly index 2"):
+        space.a_minus_x_assembly_pool(X=3)
+
+    assert set(space.joined_assembly_graph) == {"CC", "CO", "CCO", "CCOC"}
+    assert space.joined_assembly_graph_minus_x is None
+
+
+def test_invalid_product_does_not_mutate_the_generation_pool(precomputed_molecule_space):
+    pool = reassembler.MoleculeGenerationAssemblyPool(precomputed_molecule_space)
+    pool.set_assembly_pool(x=1)
+    graph = precomputed_molecule_space.joined_assembly_graph_minus_x
+    original_graph = deepcopy(graph)
+    original_layers = deepcopy(pool.level_to_fragment)
+
+    assert pool.add_to_assembly_graph(["CC", "CO"], "not a molecule") is False
+
+    assert nx.utils.graphs_equal(graph, original_graph)
+    assert pool.level_to_fragment == original_layers
+
+
+@pytest.mark.parametrize("score", [-1, 1])
+def test_failed_embedding_returns_no_conformer(monkeypatch, capsys, score):
+    molecule = Chem.MolFromSmiles("CC")
+
+    def embed(hydrogenated, params):
+        assert hydrogenated is not molecule
+        assert hydrogenated.GetNumAtoms() == 8
+        assert params.randomSeed == 0xF00D
+        return score
+
+    monkeypatch.setattr(reassembler.AllChem, "EmbedMolecule", embed)
+
+    assert reassembler.conformation_filter(molecule) is None
+    assert molecule.GetNumAtoms() == 2
+    assert ("Geometry generation failed" in capsys.readouterr().out) is (score == -1)
+
+
+def test_overbonded_fragment_combination_fails_without_mutating_inputs(capsys):
+    first, second = [Chem.MolFromSmiles("C#C") for _ in range(2)]
+    original = [Chem.MolToMolBlock(mol) for mol in (first, second)]
+
+    assert reassembler.combine_fragments(first, second, [(0, 0)]) is None
+
+    assert "Standardization failed" in capsys.readouterr().out
+    assert [Chem.MolToMolBlock(mol) for mol in (first, second)] == original
+
+
+def test_bond_creation_returns_none_for_fragments_without_free_valence():
+    first, first_mapping = reassembler.get_atom_type_index_mapping("N#N")
+    second, second_mapping = reassembler.get_atom_type_index_mapping("O=O")
+
+    assert reassembler.Assemble().create_bond(
+        first, second, first_mapping, second_mapping
+    ) is None

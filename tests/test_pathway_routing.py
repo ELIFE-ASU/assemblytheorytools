@@ -80,6 +80,11 @@ def _skip_layer_pathway(plot_type):
     return graph
 
 
+def test_pathway_rejects_unknown_arrow_style():
+    with pytest.raises(ValueError, match="Invalid arrow style"):
+        att.plot_pathway(nx.DiGraph(), arrow_style="unknown")
+
+
 @pytest.mark.parametrize("plot", [att.plot_pathway, att.plot_pathway_mid_arrow])
 def test_taxol_canvas_keeps_native_icons_and_clear_routes_on_vector_export(
     plot, data_dir, monkeypatch
@@ -182,6 +187,10 @@ def test_real_molecular_pathway_stays_clear_when_resized_and_exported(
         vo_type="smiles",
     )
     fig, ax = plot(graph, fig_size=(10, 6), auto_fig_size=False)
+    assert fig.axes == [ax]
+    assert sum(isinstance(artist, AnnotationBbox) for artist in ax.artists) == len(graph)
+    arrows_per_edge = 2 if plot is att.plot_pathway_mid_arrow else 1
+    assert len(_arrow_paths(ax)) == arrows_per_edge * graph.number_of_edges()
     _assert_clear_pathway(
         fig, ax, fig.canvas.get_renderer(), len(graph), graph.number_of_edges()
     )

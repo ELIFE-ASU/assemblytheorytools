@@ -825,8 +825,11 @@ class AssemblyConstruction:
             if self.vo_type == "graph":
                 data["label"] = name
             elif self.vo_type == "mol":
-                smiles = Chem.MolToSmiles(
-                    data["vo"], allHsExplicit=True, isomericSmiles=True
+                # Molecular mode retains SMILES payloads for assembled steps.
+                smiles = (
+                    data["vo"] if isinstance(data["vo"], str) else Chem.MolToSmiles(
+                        data["vo"], allHsExplicit=True, isomericSmiles=True
+                    )
                 )
                 data["label"] = smi_remove_implicit_hydrogen(smiles)
             elif self.vo_type in ("smiles", "inchi"):

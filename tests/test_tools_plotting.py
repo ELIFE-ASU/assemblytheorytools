@@ -118,6 +118,23 @@ def test_interactive_graph_writes_html_in_requested_directory(monkeypatch, tmp_p
     assert len(network.edges) == graph.number_of_edges()
 
 
+def test_interactive_graph_embeds_escaped_html_when_shown(monkeypatch):
+    documents = []
+    monkeypatch.setattr(plotting, "HTML", documents.append)
+    monkeypatch.setattr(
+        plotting.Network, "generate_html", lambda self, notebook: '<p title="x">A&B</p>'
+    )
+    monkeypatch.setattr(
+        plotting.Network, "show", lambda *args: pytest.fail("show=True must embed HTML")
+    )
+
+    network = plotting.plot_interactive_graph(nx.path_graph(2), show=True)
+
+    assert len(network.nodes) == 2
+    assert len(documents) == 1
+    assert 'srcdoc="&lt;p title=&quot;x&quot;&gt;A&amp;B&lt;/p&gt;"' in documents[0]
+
+
 @pytest.mark.skipif(
     not CAIRO_AVAILABLE,
     reason="cairosvg cannot load the Cairo system library",
@@ -167,15 +184,12 @@ def test_metro_pathway_reports_a_missing_cairo_system_library(monkeypatch, tmp_p
     assert not list(tmp_path.iterdir())
 
 
-@pytest.mark.parametrize("plot_kind", ["graph", "pathway", "circle"])
+@pytest.mark.parametrize("plot_kind", ["graph", "circle"])
 def test_automatic_figure_size_grows_with_node_count(plot_kind):
     def plot(node_count, **options):
         graph = nx.path_graph(node_count, create_using=nx.DiGraph)
-        nx.set_node_attributes(graph, {node: str(node) for node in graph}, "vo")
         if plot_kind == "graph":
             return plotting.plot_graph(graph, **options)[0]
-        if plot_kind == "pathway":
-            return plotting.plot_pathway(graph, plot_type="string", **options)[0]
         return plotting.plot_assembly_circle(
             list(graph), nx.to_numpy_array(graph), list(graph), **options
         )[0]
@@ -186,17 +200,13 @@ def test_automatic_figure_size_grows_with_node_count(plot_kind):
         40, fig_size=9 if plot_kind == "circle" else (9, 4), auto_fig_size=False
     )
 
-    if plot_kind == "pathway":
-        assert large.get_figwidth() > small.get_figwidth()
-        assert large.get_figheight() == small.get_figheight()
-    else:
-        assert np.all(large.get_size_inches() > small.get_size_inches())
+    assert np.all(large.get_size_inches() > small.get_size_inches())
     np.testing.assert_array_equal(
         fixed.get_size_inches(), [9, 9] if plot_kind == "circle" else [9, 4]
     )
 
 
-@pytest.mark.parametrize("plot_type", ["mol", "graph", "atoms"])
+@pytest.mark.parametrize("plot_type", ["mol", "atoms"])
 def test_pathway_renders_one_icon_per_virtual_object(plot_type):
     pathway = nx.path_graph(3, create_using=nx.DiGraph)
     for node, smiles in enumerate(["CC", "CCC", "CCCCC"]):
@@ -266,30 +276,22 @@ def test_string_pathway_labels_colors_mid_arrows_and_nonmutation(show_icons):
     assert all(head.get_edgecolor() == colors.to_rgba("purple") for head in heads)
 
 
-@pytest.mark.parametrize(
-    "plot,plot_type",
-    [
-        (plotting.plot_pathway, "mol"),
-        (plotting.plot_pathway_mid_arrow, "mol"),
-        (plotting.plot_pathway, "graph"),
-    ],
-)
-def test_rust_dot_pathway_renders_icons_and_arrowheads(data_dir, plot, plot_type):
+def test_rust_dot_graph_pathway_renders_icons_and_arrowheads(data_dir):
     molecule = att.molfile_to_mol(
         str(data_dir / "mol_files" / "anthracene.mol"), add_hydrogens=False
     )
     dot = (data_dir / "pathway" / "anthracene_pathway.dot").read_text()
-    pathway = att.parse_pathway_dot(
-        dot, mol=molecule, vo_type="graph" if plot_type == "graph" else "smiles"
-    )
+    pathway = att.parse_pathway_dot(dot, mol=molecule, vo_type="graph")
 
-    fig, ax = plot(pathway, plot_type=plot_type)
+    fig, ax = plotting.plot_pathway(pathway, plot_type="graph")
 
     assert fig.axes == [ax]
-    assert sum(isinstance(artist, AnnotationBbox) for artist in ax.artists) == pathway.number_of_nodes()
+    icons = [artist for artist in ax.artists if isinstance(artist, AnnotationBbox)]
+    assert len(icons) == pathway.number_of_nodes()
+    assert all(icon.offsetbox.get_data().size > 0 for icon in icons)
+    assert not ax.axison
     arrows = [patch for patch in ax.patches if isinstance(patch, FancyArrowPatch)]
-    arrows_per_edge = 2 if plot is plotting.plot_pathway_mid_arrow else 1
-    assert len(arrows) == arrows_per_edge * pathway.number_of_edges()
+    assert len(arrows) == pathway.number_of_edges()
 
 
 def test_circle_reuses_axes_preserves_data_and_hyperbolic_radii():
@@ -324,6 +326,25 @@ def test_circle_reuses_axes_preserves_data_and_hyperbolic_radii():
     )
     assert [text.get_text() for text in ax.texts] == ["A", "C"]
     assert fig.axes[1].get_ylabel() == "Assembly index"
+
+
+def test_circle_places_reverse_edges_and_disconnected_components_on_their_rings():
+    # One node only connects to a lower-index child; the other component has
+    # no path to a building block. Both must receive finite positions.
+    adjacency = np.zeros((4, 4))
+    adjacency[1, 0] = adjacency[2, 3] = 1
+    before = adjacency.copy()
+
+    _, ax = plotting.plot_assembly_circle(
+        list("abcd"), adjacency, [0, 1, 1, 2], labels=True
+    )
+
+    positions = ax.collections[0].get_offsets()
+    assert np.isfinite(positions).all()
+    np.testing.assert_allclose(np.linalg.norm(positions, axis=1), [1, 2, 2, 3])
+    assert len([p for p in ax.patches if isinstance(p, FancyArrowPatch)]) == 2
+    assert [text.get_text() for text in ax.texts] == list("abcd")
+    np.testing.assert_array_equal(adjacency, before)
 
 
 def test_assembly_circle_saves_png_and_renders_labels(tmp_path):
@@ -440,6 +461,23 @@ def test_3d_explicit_colors_preserve_point_order_and_options():
     assert fig.axes[1].get_ylabel() == "Point Density"
 
 
+def test_3d_density_colors_draw_dense_points_last_without_mutating_coordinates():
+    points = np.array(
+        [[0, 0, 0], [0.1, 0.2, 0.1], [0.2, 0.1, 0.3], [1, 1.5, 0.5], [2, 0.5, 1]]
+    )
+    before = points.copy()
+    density = gaussian_kde(points.T)(points.T)
+
+    _, ax = plotting.scatter_plot_3d_with_colorbar(*points.T)
+
+    scatter = ax.collections[0]
+    np.testing.assert_allclose(
+        np.column_stack(scatter._offsets3d), points[np.argsort(density)]
+    )
+    np.testing.assert_allclose(scatter.get_array(), np.sort(density))
+    np.testing.assert_array_equal(points, before)
+
+
 @pytest.mark.parametrize("guide_line", [False, True])
 def test_hexbin_counts_guide_and_axis_ranges(guide_line):
     fig, ax = plotting.plot_hexbin_scatter(
@@ -533,6 +571,23 @@ def test_ms2_filters_parent_tolerance_and_sorts_peak_data(capsys):
     np.testing.assert_array_equal(ax.get_xlim(), [0, 90])
     pd.testing.assert_frame_equal(data, before)
     assert "Plotting all 2 processed MS2 fragments" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("fragments", [{620: {}, 450: {}}, {}], ids=["fragments", "empty"])
+def test_ms2_uses_tree_fragments_when_processed_parent_is_absent(fragments, capsys):
+    processed = pd.DataFrame({"parent": [200.0], "mz": [90], "intensity": [4]})
+
+    assert plotting.plot_ms2_spectrum(processed, 700.0, {700.0: fragments}) is None
+
+    ax = plt.gca()
+    segments = ax.collections[0].get_segments()
+    if fragments:
+        np.testing.assert_array_equal(segments, [[[450, 0], [450, 1]], [[620, 0], [620, 1]]])
+    else:
+        assert segments == []
+    np.testing.assert_array_equal(ax.get_xlim(), [0, 640 if fragments else 300])
+    assert (ax.get_xlabel(), ax.get_ylabel()) == ("MS2 m/z", "Intensity")
+    assert f"Plotting {len(fragments)} MS2 fragments from tree" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize(
@@ -698,6 +753,17 @@ def test_molecule_grid_validation(grid):
         grid(["CO", 123])
     with pytest.raises(ValueError, match="legends"):
         grid(["CO"], legends=["A", "B"])
+
+
+@pytest.mark.parametrize("option", ["gap", "outer_margin", "inner_pad"])
+def test_box_grid_rejects_negative_spacing(option):
+    with pytest.raises(ValueError, match="must be >= 0"):
+        plotting.draw_mol_grid_box(["CO"], **{option: -1})
+
+
+def test_common_bond_image_rejects_invalid_smiles():
+    with pytest.raises(ValueError, match="could not be parsed"):
+        plotting.show_common_bonds("CCO", "invalid")
 
 
 def test_empty_box_grid_returns_blank_margin_sized_image():

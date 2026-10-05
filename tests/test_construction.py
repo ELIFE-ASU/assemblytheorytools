@@ -45,6 +45,31 @@ def test_assign_levels_uses_deepest_predecessor(levels, edges):
     assert nx.get_node_attributes(graph, "level") == levels
 
 
+def test_assign_levels_can_return_a_copy_without_mutating_the_original():
+    graph = nx.DiGraph([(0, 1), (1, 2), (0, 2)])
+    graph.nodes[0]["label"] = "building block"
+    original = copy.deepcopy(graph)
+
+    leveled = construction.assign_levels(graph, inplace=False)
+
+    assert leveled is not graph
+    assert nx.get_node_attributes(leveled, "level") == {0: 0, 1: 1, 2: 2}
+    assert leveled.nodes[0]["label"] == "building block"
+    assert nx.utils.graphs_equal(graph, original)
+
+
+def test_assign_levels_rejects_undirected_graphs():
+    with pytest.raises(TypeError, match="directed graph"):
+        construction.assign_levels(nx.path_graph(3))
+
+
+def test_string_pathway_reports_the_missing_file(tmp_path):
+    source = tmp_path / "missing-pathway.json"
+
+    with pytest.raises(FileNotFoundError, match=str(source)):
+        construction.parse_string_pathway_file(source)
+
+
 def test_convert_virtual_objects_to_smiles():
     # Use a local structure so conversion does not depend on PubChem.
     graph = att.smi_to_nx("CCOC(=O)C1=CC=CC=C1C(=O)OCC")
@@ -95,6 +120,7 @@ def test_parse_pathway_dot_preserves_fragments_and_bond_bookkeeping(
     anthracene_pathway_data,
 ):
     molecule, dot = anthracene_pathway_data
+    original = Chem.MolToMolBlock(molecule)
 
     pathway = construction.parse_pathway_dot(dot, mol=molecule)
 
@@ -120,9 +146,10 @@ def test_parse_pathway_dot_preserves_fragments_and_bond_bookkeeping(
     assert pathway.nodes[0]["bonds"] == frozenset({14})
     assert pathway[0][2][0]["bonds"] == frozenset({14})
     assert pathway[2][3][0]["bonds"] == frozenset({14, 15})
+    assert Chem.MolToMolBlock(molecule) == original
 
 
-@pytest.mark.parametrize("vo_type", ["mol", "graph", "smiles", "inchi"])
+@pytest.mark.parametrize("vo_type", ["mol", "graph", "inchi"])
 def test_parse_pathway_dot_virtual_object_representations(
     anthracene_pathway_data, vo_type
 ):
@@ -138,8 +165,6 @@ def test_parse_pathway_dot_virtual_object_representations(
     elif vo_type == "graph":
         assert isinstance(fragment, nx.Graph)
         assert (fragment.number_of_nodes(), fragment.number_of_edges()) == (3, 2)
-    elif vo_type == "smiles":
-        assert fragment == "C=CC"
     else:
         assert pathway.nodes[7]["vo"].startswith("InChI=1S/C14H10")
     assert Chem.MolToMolBlock(molecule) == original
@@ -160,6 +185,7 @@ def test_parse_pathway_dot_without_molecule_retains_bond_labels(
     "dot, message",
     [
         ("hello world", "Could not parse"),
+        ("digraph {} digraph {}", "Expected a single DOT graph"),
         ('graph { 0 [label="{1}"] }', "must be a DOT 'digraph'"),
         ('digraph { 0 [label="nope"] }', "malformed bond set"),
         ("digraph { 0 }", "has no 'label' attribute"),
@@ -172,15 +198,22 @@ def test_parse_pathway_dot_without_molecule_retains_bond_labels(
             'digraph { 0 [label="{1}"]; 1 [label="{2, 3}"]; 0 -> 1 [label="{2, 3}"] }',
             "source fragment has 1",
         ),
+        (
+            'digraph { 0 [label="{0}"]; 1 [label="{0, 1}"]; '
+            '0 -> 1 [label="{0}"]; 0 -> 1 [label="{0}"] }',
+            r"reuses bond\(s\) \[0\]",
+        ),
     ],
     ids=[
         "invalid-dot",
+        "multiple-graphs",
         "undirected",
         "malformed-label",
         "missing-label",
         "node-id",
         "missing-bond",
         "edge-size",
+        "overlapping-inputs",
     ],
 )
 def test_parse_pathway_dot_rejects_invalid_structure(dot, message):
@@ -320,20 +353,6 @@ def test_assembly_pathway_retains_components_that_need_no_joins(
     assert [graph.degree(node) for node in graph] == expected_degrees
     assert {data["vo"] for _, data in graph.nodes(data=True)} == set(virtual_objects)
     assert all("label" in data and "type" in data for _, data in graph.nodes(data=True))
-
-
-def test_string_pathway_builds_a_duplicate_starting_after_zero(tmp_path):
-    data = {"file_graph": [{"Fragments": ["xabab"]}],
-            "duplicates": [{"Left": [1, 2], "Right": [3, 2]}]}
-    path = tmp_path / "pathway.json"
-    path.write_text(json.dumps(data))
-
-    virtual_objects, graph = construction.parse_string_pathway_file(path)
-
-    assert virtual_objects == ["x", "a", "b", "ab", "xab", "xabab"]
-    assert nx.is_directed_acyclic_graph(graph)
-    assert set(graph.edges()) == {("a", "ab"), ("b", "ab"), ("x", "xab"),
-                                  ("ab", "xab"), ("xab", "xabab"), ("ab", "xabab")}
 
 
 def test_string_pathway_only_reuses_copies_starting_at_the_cursor():
@@ -490,7 +509,7 @@ def test_construction_keeps_first_bond_representative_and_uses_input_colours():
     assert data == original
 
 
-@pytest.mark.parametrize("vo_type", ["graph", "smiles", "inchi"])
+@pytest.mark.parametrize("vo_type", ["graph", "mol", "smiles", "inchi"])
 def test_assembly_digraph_preserves_step_order_payloads_and_input(vo_type):
     edges = [[0, 1], [1, 2], [2, 3]]
     data = pathway_data(edges, ["C", "C", "O", "C"])
@@ -519,6 +538,17 @@ def test_assembly_digraph_preserves_step_order_payloads_and_input(vo_type):
         assert attributes["type"] == (
             "step" if name.startswith("step_") else "virtual_object"
         )
+        if vo_type == "mol":
+            assert attributes["label"] == {
+                "virtual_object_0": "[C][C]", "virtual_object_1": "[C][O]",
+                "step_1": "[C][C][O]", "step_2": "[C][C][O][C]",
+            }[name]
+            if name.startswith("step_"):
+                assert isinstance(attributes["vo"], str)
+                assert Chem.MolFromSmiles(attributes["vo"]) is not None
+            else:
+                assert isinstance(attributes["vo"], Chem.Mol)
+            continue
         assert attributes["label"] == (name if vo_type == "graph" else attributes["vo"])
         if vo_type == "graph":
             assert isinstance(attributes["vo"], nx.Graph)

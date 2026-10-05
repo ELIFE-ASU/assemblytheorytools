@@ -53,14 +53,11 @@ def test_string_result_ignores_index_text_in_echoed_input(executable):
         'Path(sys.argv[1] + "Out").write_text('
         'value + " has assembly index: 18\\ntime elapsed: 1\\n")\n'
     )
-    assert assembly.calculate_string_assembly_index(
-        "assembly index: 999", dir_code=calculator,
-    ) == (18, None, None)
-
-
-def test_output_loader_ignores_index_text_in_echoed_input(tmp_path):
-    output = tmp_path / "stringOut"
-    output.write_text("assembly index: 999 has assembly index: 18\ntime elapsed: 1\n")
+    result = assembly.calculate_string_assembly_index(
+        "assembly index: 999", dir_code=calculator, return_log_file=True,
+    )
+    assert result[:3] == (18, None, None)
+    output = Path(result[3]).parent / "string_inOut"
     assert assembly.load_assembly_output(output) == 18
 
 
@@ -222,3 +219,28 @@ def test_joint_string_timeout_without_bound_preserves_sentinel(monkeypatch):
 
     monkeypatch.setattr(assembly, "_run_assembler", timeout)
     assert _calculate("string", dir_code="calculator") == (-1, None, None)
+
+
+@pytest.mark.parametrize("kind", ["graph", "string"])
+@pytest.mark.parametrize("debug", [False, True])
+def test_malformed_pathway_preserves_index_and_reports_diagnostics(
+    tmp_path, monkeypatch, capsys, kind, debug
+):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(assembly.tempfile, "tempdir", str(tmp_path))
+
+    def calculate(executable, input_file, log_file, *args, **kwargs):
+        Path(input_file + "Out").write_text("assembly index: 5\n")
+        suffix = "_0_Pathway" if kind == "string" else "Pathway"
+        Path(input_file + suffix).write_text("invalid pathway data")
+        Path(log_file).write_text("calculator completed\n")
+        return False
+
+    monkeypatch.setattr(assembly, "_run_assembler", calculate)
+    result = _calculate(kind, dir_code="calculator", debug=debug, return_log_file=True)
+
+    assert result[:3] == (3 if kind == "string" else 5, None, None)
+    assert Path(result[3]).read_text() == "calculator completed\n"
+    captured = capsys.readouterr()
+    assert "Failed to load pathway data" in captured.out
+    assert ("Traceback" in captured.err) is debug

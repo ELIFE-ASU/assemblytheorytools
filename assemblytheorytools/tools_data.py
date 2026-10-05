@@ -1094,7 +1094,7 @@ def _valid_mol_mw(smi: str) -> float:
         mol = smi_to_mol(smi)
         Chem.SanitizeMol(mol)
         Chem.Kekulize(mol)
-        return Chem.Descriptors.MolWt(mol)
+        return molecular_weight(mol)
     except Exception:
         return 0.0
 

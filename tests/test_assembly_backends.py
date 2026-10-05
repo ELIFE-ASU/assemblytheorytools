@@ -134,3 +134,54 @@ def test_molecular_log_option_controls_retention(
         assert Path(result[3]).read_text()
 
     assert calculation_dir.exists() is return_log_file
+
+
+def test_load_assembly_time_reads_latest_output_and_removes_only_its_run(
+    tmp_path, monkeypatch
+):
+    monkeypatch.chdir(tmp_path)
+    older = tmp_path / "ai_calc_z_old"
+    latest = tmp_path / "ai_calc_a_new"
+    unrelated = tmp_path / "unrelated"
+    for folder in (older, latest, unrelated):
+        folder.mkdir()
+    old_output = latest / "z_oldOut"
+    new_output = latest / "a_newOut"
+    old_output.write_text("time elapsed: 9000000\n")
+    new_output.write_text("assembly index: 3\ntime elapsed: 1250000\n")
+    (latest / "assembly_output.log").write_text("not an output result")
+    timestamps = {older: 1, latest: 2, old_output: 3, new_output: 4}
+    monkeypatch.setattr(assembly.os.path, "getctime", lambda path: timestamps[Path(path)])
+
+    assert att.load_assembly_time() == pytest.approx(1.25)
+    assert not latest.exists()
+    assert older.is_dir()
+    assert unrelated.is_dir()
+
+
+@pytest.mark.parametrize(
+    "state, error, message",
+    [
+        ("no-run", FileNotFoundError, "No 'ai_calc_' folders"),
+        ("not-directory", FileNotFoundError, "No assembly calculation folder"),
+        ("no-output", FileNotFoundError, "No '.*Out' files"),
+        ("empty-output", ValueError, "is empty"),
+        ("invalid-time", ValueError, "Failed to parse time"),
+    ],
+)
+def test_load_assembly_time_preserves_unreadable_run(tmp_path, monkeypatch, state, error, message):
+    monkeypatch.chdir(tmp_path)
+    calculation = tmp_path / "ai_calc_saved"
+    if state == "not-directory":
+        calculation.write_text("not a directory")
+    elif state != "no-run":
+        calculation.mkdir()
+        if state in {"empty-output", "invalid-time"}:
+            (calculation / "graph_inOut").write_text(
+                "" if state == "empty-output" else "time elapsed: unknown\n"
+            )
+
+    with pytest.raises(error, match=message):
+        att.load_assembly_time()
+
+    assert calculation.exists() is (state != "no-run")

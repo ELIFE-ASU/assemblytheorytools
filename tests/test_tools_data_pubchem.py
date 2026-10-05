@@ -21,14 +21,6 @@ def cid_smiles_archive(tmp_path):
     return path
 
 
-@pytest.fixture
-def serial_weights(monkeypatch, serial_data_mp):
-    weights = {"C": 16.043, "CC": 30.07, "CCO": 46.069, "CCCCCC": 86.178}
-    monkeypatch.setattr(
-        tools_data, "_valid_mol_mw", lambda smiles: weights.get(smiles, 0.0)
-    )
-
-
 @pytest.mark.parametrize(
     ("name", "expected"),
     [
@@ -268,6 +260,25 @@ def test_sequential_pubchem_reports_exhausted_cids(monkeypatch):
     assert queries == [[3, 4]]
 
 
+def test_sequential_pubchem_limits_batches_of_empty_or_disconnected_molecules(monkeypatch):
+    queries = []
+
+    def lookup(cids, namespace):
+        assert namespace == "cid"
+        queries.append(cids)
+        return [SimpleNamespace(cid=cid, smiles=smi) for cid, smi in zip(cids, ["", "C.C"])]
+
+    monkeypatch.setattr(tools_data.pcp, "get_compounds", lookup)
+
+    with pytest.raises(RuntimeError, match="Only collected 0 valid molecules after 2 attempts"):
+        tools_data.sample_first_pubchem(
+            1, batch_size=2, max_attempts=2, max_cid=10, delay_s=0
+        )
+
+    # Attempts count candidate IDs, so one two-item batch exhausts the budget.
+    assert queries == [[1, 2]]
+
+
 @pytest.mark.parametrize(
     "sampler", [tools_data.sample_random_pubchem, tools_data.sample_first_pubchem]
 )
@@ -283,7 +294,7 @@ def test_pubchem_sampling_is_deterministic_with_mocked_batches(monkeypatch):
     monkeypatch.setattr(tools_data.pcp, "get_compounds", fake_get_compounds)
 
     random_ids, random_smis = tools_data.sample_random_pubchem(
-        3, seed=7, max_cid=100, delay_s=0, batch_size=3
+        3, seed=7, max_cid=100, delay_s=0
     )
     first_ids, first_smis = tools_data.sample_first_pubchem(
         3, start_cid=10, max_cid=20, delay_s=0, batch_size=3
@@ -299,6 +310,7 @@ def test_pubchem_sampling_is_deterministic_with_mocked_batches(monkeypatch):
     ("function", "kwargs", "message"),
     [
         (tools_data.sample_random_pubchem, {"batch_size": 0}, "batch_size"),
+        (tools_data.sample_first_pubchem, {"batch_size": 0}, "batch_size"),
         (
             tools_data.sample_first_pubchem,
             {"start_cid": 0, "max_cid": 10},
@@ -351,8 +363,10 @@ def test_gzip_sampling_preserves_seed_and_filters_molecules(cid_smiles_archive):
 
 
 def test_gzip_weight_sampling_filters_and_reuses_cache(
-    cid_smiles_archive, tmp_path, serial_weights
+    cid_smiles_archive, tmp_path, serial_data_mp
 ):
+    # Keep real weights: mocking them masked a broken RDKit descriptor lookup
+    # that silently rejected every molecule as having weight zero.
     output = tmp_path / "sample.csv.gz"
     result = tools_data.sample_pubchem_cid_smiles_gz_mw(
         3, gz_path=cid_smiles_archive, out_file=output, seed=7, max_mw=50, max_bonds=2
@@ -367,7 +381,7 @@ def test_gzip_weight_sampling_filters_and_reuses_cache(
 
 
 def test_gzip_weight_sampling_raises_when_too_few_candidates_survive(
-    cid_smiles_archive, tmp_path, serial_weights
+    cid_smiles_archive, tmp_path, serial_data_mp
 ):
     output = tmp_path / "sample.csv.gz"
     with pytest.raises(ValueError, match="larger sample than population"):

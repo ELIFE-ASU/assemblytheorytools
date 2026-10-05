@@ -17,12 +17,14 @@ from assemblytheorytools import assembly
 @pytest.mark.parametrize("mode", ["mol", "str"])
 @pytest.mark.parametrize("directed", [False, True])
 def test_abracadabra_index(mode, directed):
-    assert (
-        att.calculate_string_assembly_index(
-            "abracadabra", mode=mode, directed=directed
-        )[0]
-        == 7
+    ai, virtual_objects, pathway = att.calculate_string_assembly_index(
+        "abracadabra", mode=mode, directed=directed
     )
+    assert ai == 7
+    if directed:
+        assert len(virtual_objects) == 12  # 7 steps + 5 units
+        assert pathway.number_of_nodes() == len(virtual_objects)
+        assert pathway.number_of_edges() == ai * 2
 
 
 @pytest.mark.parametrize(
@@ -137,18 +139,6 @@ def test_string_ensemble_assembly():
         + np.exp(0) * ((40 - 1) / nt)
     )
     assert answer == att.calculate_string_assembly(strings=input_strings, n_i=input_ns)
-
-
-def test_directed_str_data():
-    s_inpt = "abracadabra"
-    ai_ref = 7
-    ai, vo, path = att.calculate_string_assembly_index(
-        s_inpt, directed=True, mode="str"
-    )
-    assert ai == ai_ref
-    assert len(vo) == 12  # 12 = 7 steps + 5 units
-    assert len(path.nodes()) == len(vo)
-    assert len(path.edges()) == ai_ref * 2
 
 
 @pytest.mark.parametrize("debug", [False, True])

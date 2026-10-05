@@ -167,6 +167,24 @@ def test_charge_reset_returns_a_copy_and_leaves_original_charges_unchanged():
     assert [atom.GetFormalCharge() for atom in result.GetAtoms()] == [2, 0]
 
 
+@pytest.mark.parametrize(
+    "smiles, expected",
+    [("", []), ("CCO", ["CCO"]), ("O.CC.O", ["O", "CC", "O"])],
+    ids=["empty", "connected", "repeated-components"],
+)
+def test_split_molecules_preserves_component_order_multiplicity_and_input(smiles, expected):
+    molecule = Chem.MolFromSmiles(smiles)
+    original = Chem.MolToMolBlock(molecule)
+
+    fragments = mol_tools.split_mols(molecule)
+
+    assert isinstance(fragments, tuple)
+    assert [Chem.MolToSmiles(fragment) for fragment in fragments] == expected
+    if fragments:
+        fragments[0].GetAtomWithIdx(0).SetIsotope(18)
+    assert Chem.MolToMolBlock(molecule) == original
+
+
 def test_combine_molecules_preserves_empty_and_single_input_contracts():
     molecule = Chem.MolFromSmiles("CO")
     molecules = (molecule,)
