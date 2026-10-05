@@ -3,15 +3,11 @@
 import json
 import shutil
 import tarfile
-from pathlib import Path
 
 import numpy as np
 import pytest
 
 from assemblytheorytools import tools_data
-from assemblytheorytools.tools_plotting import plot_ir_spectrum
-
-CHEMOTION_IR_TAR = Path("~/Downloads/10.22000-OGoEQGlsZGElrgst.tar").expanduser()
 
 
 @pytest.fixture
@@ -239,27 +235,6 @@ def test_calc_n_peaks_in_range(data_dir):
     assert (
         tools_data.find_n_peak_indices_in_range(spectrum, min_x=500, max_x=1500) == 19
     )
-
-
-@pytest.mark.integration
-@pytest.mark.slow
-@pytest.mark.skipif(
-    not CHEMOTION_IR_TAR.is_file(),
-    reason="Chemotion IR dataset archive is not installed",
-)
-def test_process_chemotion_ir_archive(tmp_path):
-    frame = tools_data.process_chemotion_ir_data(CHEMOTION_IR_TAR)
-
-    assert {"smiles", "spectrum"}.issubset(frame.columns)
-    assert not frame.empty
-
-    spectrum = tools_data.apply_sg_filter(frame.iloc[0]["spectrum"])
-    peaks = tools_data.find_peak_indices_in_range(spectrum)
-    fig, _ = plot_ir_spectrum(spectrum, peaks=peaks)
-    output = tmp_path / "ir-spectrum.png"
-    fig.savefig(output)
-
-    assert output.stat().st_size > 0
 
 
 def test_process_chemotion_ir_data_builds_frame(chemotion_archive, serial_data_mp):

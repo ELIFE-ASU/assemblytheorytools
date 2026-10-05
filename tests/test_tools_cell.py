@@ -8,6 +8,7 @@ import networkx as nx
 import numpy as np
 import pytest
 from ase import Atoms
+from ase.io import write
 from ase.spacegroup.spacegroup import SpacegroupNotFoundError
 
 import assemblytheorytools as att
@@ -199,13 +200,6 @@ def test_open_cluster_cutoff_controls_both_atoms_and_edges(
     )
 
 
-@pytest.mark.slow
-def test_crystal_assembly_index(crystal_graph):
-    assembly_index, _, _ = att.calculate_assembly_index(crystal_graph)
-
-    assert 0 < assembly_index < crystal_graph.number_of_edges()
-
-
 @pytest.fixture
 def water():
     return Atoms(
@@ -376,6 +370,19 @@ def _cube_cell():
     )
 
 
+def test_cif_graph_has_the_cube_assembly_index(tmp_path):
+    # Exercise the whole CIF-to-calculator path with a small periodic crystal
+    # whose exact assembly index is known.
+    path = tmp_path / "cube.cif"
+    write(path, _cube_cell())
+
+    with pytest.warns(UserWarning, match="cif_to_nx function is experimental"):
+        graph = cell.cif_to_nx(str(path))
+
+    assert nx.is_isomorphic(graph, nx.hypercube_graph(3))
+    assert att.calculate_assembly_index(graph, exact=True)[0] == 4
+
+
 def test_cell_to_nx_builds_the_cube_graph_with_automatic_repetitions():
     graph = cell.cell_to_nx(_cube_cell())
 
@@ -395,7 +402,6 @@ def test_cell_to_nx_builds_the_cube_graph_with_automatic_repetitions():
     ] * 4
     assert set(nx.get_node_attributes(graph, "color").values()) == {"C"}
     assert set(nx.get_edge_attributes(graph, "color").values()) == {1}
-    assert att.calculate_assembly_index(graph)[0] == 4
 
 
 # Split from the test above so that only the cross-check is lost where

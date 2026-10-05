@@ -7,6 +7,7 @@ import shutil
 import signal
 import subprocess
 import sys
+from functools import partial
 from pathlib import Path
 
 # Configure caches and the backend before importing pyplot or the package.
@@ -76,6 +77,14 @@ def headless_display(monkeypatch):
 def data_dir():
     """Bundled test data, independent of the working directory."""
     return Path(__file__).resolve().parent / "data"
+
+
+@pytest.fixture
+def two_assembly_workers(monkeypatch):
+    """Exercise real process pools without starting one worker per host CPU."""
+    from assemblytheorytools import assembly
+
+    monkeypatch.setattr(assembly, "mp_calc", partial(assembly.mp_calc, n=2))
 
 
 @pytest.fixture

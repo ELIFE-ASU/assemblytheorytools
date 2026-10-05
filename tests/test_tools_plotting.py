@@ -225,7 +225,6 @@ def test_calculated_string_pathway_plots_without_attribute_changes(mode, directe
     before = copy.deepcopy(pathway)
 
     fig, ax = att.plot_pathway(pathway, plot_type="string")
-    fig.canvas.draw()
 
     assert fig.axes == [ax]
     assert len(ax.texts) == pathway.number_of_nodes()

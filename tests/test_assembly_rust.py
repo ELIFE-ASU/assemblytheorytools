@@ -28,54 +28,43 @@ def test_rust_entry_points_report_a_missing_backend(monkeypatch):
             call(mol)
 
 
-def test_calculate_rust_ai():
-    smi = "C1=CC=CC=C1"  # Benzene
-    mol = att.smi_to_mol(smi)
-    ai_r = att.calculate_assembly_index_rust(mol)
-    ai_v5, _, _ = att.calculate_assembly_index(mol, strip_hydrogen=True)
-    assert ai_v5 == ai_r, f"Expected AI to be {ai_v5}, but got {ai_r}"
+@pytest.mark.parametrize(
+    "smiles",
+    [
+        "CCCCCCCCCC",
+        "CC(C)CC(C)C",
+        "C=CC=C",
+        "C#CC#C",
+        "C1=CC=CC=C1",
+        "c1ccc2cc3ccccc3cc2c1",
+        "c1ccncc1",
+        "C[C@@H](N)C(=O)O",
+        "OCCNCCO",
+        "C1CCCCC1",
+        "C1CC2CCC1C2",
+        "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
+    ],
+    ids=[
+        "chain", "branched", "double-bonds", "triple-bonds", "benzene",
+        "fused-rings", "heteroaromatic", "stereocenter", "heteroatom-chain",
+        "saturated-ring", "bridged-rings", "caffeine",
+    ],
+)
+def test_rust_matches_default_calculator_on_diverse_molecules(smiles):
+    """Compare real exact searches across a fixed set of small graph shapes.
 
-
-@pytest.mark.integration
-@pytest.mark.slow
-def test_rust_matches_default_calculator_on_random_molecules():
-    """Survey the two backends over a random sample, not just known molecules.
-
-    Both calculators implement the same definition, so a disagreement is a bug
-    in one of them. Random PubChem compounds cover shapes no hand-picked
-    fixture would, the bond limit keeps a hundred exact searches affordable,
-    and the seed makes any failure reproducible.
-
-    The sampler counts bonds on the molecule with hydrogens added, so a limit
-    of 50 bonds leaves a smaller heavy-atom graph to search: this draw spans
-    11 to 33 bonds once hydrogens are stripped, and indices 5 to 19.
+    Named cases keep failures reproducible without live PubChem sampling or
+    unbounded searches over previously unseen compounds.
     """
-    _, smiles = att.sample_random_pubchem(100, seed=0, max_bonds=50)
-    mols = [att.smi_to_mol(smi) for smi in smiles]
-
-    assert len(mols) == 100
-    assert max(mol.GetNumBonds() for mol in mols) <= 50
-
-    rust = [att.calculate_assembly_index_rust(mol) for mol in mols]
-    # The Rust backend always strips hydrogens, so the default calculator has
-    # to search the same hydrogen-free graph, and it has to prove its minimum:
-    # the bound it returns on a timeout is not a result worth comparing.
-    default, _, _ = att.calculate_assembly_index_parallel(
-        mols, dict(strip_hydrogen=True, exact=True)
+    mol = att.smi_to_mol(smiles)
+    rust = att.calculate_assembly_index_rust(mol)
+    # Rust strips hydrogens; compare the same graph and require a completed
+    # C++ search so a timeout bound cannot count as backend agreement.
+    default, _, _ = att.calculate_assembly_index(
+        mol, strip_hydrogen=True, exact=True
     )
-
-    unfinished = [smi for smi, ai in zip(smiles, default) if ai < 0]
-    assert unfinished == [], f"The default calculator did not finish: {unfinished}"
-
-    disagreements = {
-        smi: (expected, found)
-        for smi, expected, found in zip(smiles, default, rust)
-        if expected != found
-    }
-    assert disagreements == {}, (
-        f"Expected the Rust indices to match the default calculator, but "
-        f"{len(disagreements)} differ (smiles: default, rust): {disagreements}"
-    )
+    assert default >= 0, "The default calculator did not finish its exact search"
+    assert rust == default
 
 
 @pytest.mark.parametrize(

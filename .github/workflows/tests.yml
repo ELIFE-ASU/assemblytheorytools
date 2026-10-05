@@ -147,10 +147,10 @@ jobs:
           retention-days: 7
 
   opt-in-groups:
-    # The integration and slow groups, which the pull-request runs skip. Live
-    # PubChem lookups and the long assembly calculations belong here, not on
-    # the critical path of a review. Tests needing ORCA or the Chemotion
-    # archive skip themselves when those are absent, which they are here.
+    # The opt-in groups, which the pull-request runs skip. Live PubChem
+    # lookups and external tools belong here. Tests needing ORCA skip
+    # themselves when it is absent, which it is here. Keep the slow flag for
+    # future checks that cannot use small deterministic inputs.
     name: Integration and slow tests
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest

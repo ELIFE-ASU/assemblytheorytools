@@ -21,7 +21,8 @@ def builder(assemblycpp_cache, monkeypatch):
     monkeypatch.setattr(assembly.shutil, "which", lambda name: f"/usr/bin/{name}")
     monkeypatch.setattr(assembly, "_which_build_tool", lambda name: f"/usr/bin/{name}")
     state = SimpleNamespace(
-        refs=[], calls=[], fail=None, name=assembly._ASSEMBLYCPP_EXECUTABLE_NAMES[0]
+        refs=[], calls=[], fail=None, fetch_delay=0,
+        name=assembly._ASSEMBLYCPP_EXECUTABLE_NAMES[0],
     )
 
     def run(command, **kwargs):
@@ -32,8 +33,8 @@ def builder(assemblycpp_cache, monkeypatch):
             (Path(command[-1]) / ".git").mkdir(parents=True)
         if "fetch" in command:
             state.refs.append(command[-1])
-            # Allow simultaneous first calculations to contend for the lock.
-            time.sleep(0.05)
+            if state.fetch_delay:
+                time.sleep(state.fetch_delay)
         if "-B" in command:
             Path(command[command.index("-B") + 1]).mkdir(parents=True)
         if state.fail in command:
@@ -92,6 +93,8 @@ def test_failed_rebuild_preserves_previous_executable_and_diagnostics(builder, f
 
 
 def test_first_calculations_share_a_single_build(builder):
+    # Only the contention check needs to keep the fake build in progress.
+    builder.fetch_delay = 0.05
     ready = Barrier(2)
 
     def first_calculation():

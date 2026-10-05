@@ -123,7 +123,7 @@ def test_native_reversal_matching_returns_zero_cost_reversal():
     assert any(data.get("operation") == "reverse" for _, _, data in result[2].edges(data=True))
 
 
-def test_options_pass_through_parallel_batch_settings():
+def test_options_pass_through_parallel_batch_settings(two_assembly_workers):
     options = att.AssemblyCppOptions(pathway=False, enum_max=100)
     assert att.calculate_assembly_index_parallel(
         [graph(), graph()], {"cpp_options": options}) == [[2, 2], [None, None], [None, None]]

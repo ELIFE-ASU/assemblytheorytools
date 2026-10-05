@@ -1,13 +1,16 @@
 """Parallel mapping preserves result order across worker backends."""
 
+import os
+import threading
+
 import pytest
 
 import assemblytheorytools as att
 
 
-def _assembly_index(smiles):
+def _transform(value, *, scale, offset):
     # Process workers need an importable, module-level callable.
-    return att.calculate_assembly_index(att.smi_to_nx(smiles), strip_hydrogen=True)[0]
+    return value * scale + offset, os.getpid(), threading.get_ident()
 
 
 def _add(a, b):
@@ -15,21 +18,19 @@ def _add(a, b):
 
 
 @pytest.mark.parametrize("mapper", [att.mp_calc, att.tp_calc, att.mp_calc_chunked])
-def test_parallel_mapping_preserves_assembly_indices_and_input_order(mapper):
-    smiles = [
-        "C(C(=O)O)N",  # Glycine
-        "C[C@@H](C(=O)O)N",  # Alanine
-        "C([C@@H](C(=O)O)N)O",  # Serine
-        "C1C[C@H](NC1)C(=O)O",  # Proline
-        "CC(C)C(C(=O)O)N",  # Valine
-        "CC(C)CC(C(=O)O)N",  # Leucine
-        "CCC(C)CC(C(=O)O)N",  # Isoleucine
-        "C1CCCCC1C(=O)O",  # Cyclohexane carboxylic acid
-        "C1=CC=CC=C1C(=O)O",  # Benzoic acid
-        "CC(=O)OC1=CC=CC=C1C(=O)O",  # Aspirin
-    ]
+def test_parallel_mapping_preserves_order_and_forwards_keywords_in_workers(mapper):
+    # Exercise real pools without repeating the molecular calculator's tests.
+    # A nonmonotone sequence with duplicates also spans several uneven chunks.
+    values = [3, -2, 3, 0, 6, -1, 1]
+    options = {"chunksize": 2} if mapper is att.mp_calc_chunked else {}
+    results = mapper(_transform, values, n=2, scale=2, offset=1, **options)
 
-    assert mapper(_assembly_index, smiles, n=2) == [3, 4, 4, 6, 5, 6, 6, 6, 6, 8]
+    assert [value for value, _, _ in results] == [7, -3, 7, 1, 13, -1, 3]
+    if mapper is att.tp_calc:
+        assert all(pid == os.getpid() for _, pid, _ in results)
+        assert all(thread != threading.get_ident() for _, _, thread in results)
+    else:
+        assert all(pid != os.getpid() for _, pid, _ in results)
 
 
 def test_process_starmap_unpacks_arguments_in_order():
