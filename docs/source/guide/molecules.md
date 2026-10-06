@@ -184,6 +184,26 @@ addition-chain length for fewer than 1,000 bonds, falling back to `log2` from
 1,000 onward. Pass `strip_hydrogen=True` when the comparison should use only
 heavy-atom bonds.
 
+### Tighter lower bounds from vector addition chains
+
+```python
+att.calculate_assembly_index_vac_lower_bound(graph)
+```
+
+Counting the bonds of each type (element pair and bond order) maps a molecule
+to a vector, and joining fragments adds their vectors, so every assembly
+pathway is also a vector addition chain. The shortest chain reaching the
+molecule's vector is therefore a lower bound on its assembly index. For a
+connected molecule it is never below the scalar bound above. For ethanol with
+hydrogens it gives 6, the exact index, where the scalar bound gives 3. The same
+function accepts strings, counting characters, and lists of objects, whose
+shared chain bounds their joint assembly index.
+
+The calculation is done by
+[assemblycfg](https://github.com/ELIFE-ASU/assemblycfg), which solves chains
+with [vac](https://github.com/ELIFE-ASU/additionchains), installed on first
+use with `cargo`; see [configuration](../configuration.md).
+
 ## When a calculation times out
 
 The search is exponential in the worst case. `calculate_assembly_index` gives
