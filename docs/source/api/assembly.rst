@@ -30,6 +30,7 @@ ensemble quantities built on top of them.
    calculate_assembly_index_semi_metric
    calculate_assembly_index_upper_bound
    calculate_assembly_index_lower_bound
+   calculate_assembly_index_vac_lower_bound
    calculate_sum_assembly_index
    calculate_assembly_index_similarity
    calculate_assembly_index_jo

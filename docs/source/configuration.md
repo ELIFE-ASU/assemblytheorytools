@@ -34,6 +34,21 @@ avoids the on-demand build of the C++ calculator described below.
   and executables on `PATH` take precedence; unset `ASS_PATH` before changing
   this variable in an existing Python process.
 
+`VAC_PATH`
+: Full path to the `vac` executable that
+  {func}`~assemblytheorytools.assembly.calculate_assembly_index_vac_lower_bound`
+  runs, through [assemblycfg](https://github.com/ELIFE-ASU/assemblycfg). If
+  unset, assemblycfg searches `PATH` for `vac`, then its cache directory
+  (`~/.cache/assemblycfg/vac`), and finally installs it from
+  [additionchains](https://github.com/ELIFE-ASU/additionchains) with
+  `cargo install`, which needs a Rust toolchain (`cargo` on `PATH` or in
+  `~/.cargo/bin`). Without one, the bound falls back to closed-form bounds
+  computed in Python, with a warning.
+
+`VAC_REF`
+: Branch, tag or commit of additionchains that assemblycfg installs. Defaults
+  to the repository's default branch.
+
 `XDG_CACHE_HOME`
 : Standard cache location, honoured when choosing where to build and look for
   the calculator. Defaults to `~/.cache`, giving

@@ -120,6 +120,7 @@ quantity ATT computes, with its inputs, its outputs, and what it is used for.
 | Assembly `A` | `calculate_assembly` | Graphs and their copy numbers | Ensemble assembly value |
 | Assembly depth | `calculate_assembly_depth_rust` | NetworkX graph or RDKit `Mol` | Minimum depth under concurrent joins |
 | Bounds | `calculate_assembly_index_upper_bound`, `calculate_assembly_index_lower_bound` | NetworkX graph or RDKit `Mol` | Instant bounds for screening |
+| Vector addition chain lower bound | `calculate_assembly_index_vac_lower_bound` | String, graph, `Mol`, or a list of them | Lower bound from unit counts; tighter than the scalar bound |
 | Many indices at once | `calculate_assembly_index_parallel` | List of graphs plus a settings dictionary (required; pass `None` for the defaults) | Indices, virtual objects, pathways |
 | Assembly index *estimated* from tandem MS | `MAEstimator` | Fragmentation tree and molecular weight | Monte Carlo samples of MA |
 | Assembly index *estimated* from IR peaks | `estimate_ai_from_ir_peaks` | Peak counts, reference indices, a model function and a starting parameter guess | Fitted model and predicted indices |
