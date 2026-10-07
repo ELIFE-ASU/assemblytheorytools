@@ -1894,6 +1894,78 @@ def calculate_assembly_index_lower_bound(mol: Union[nx.Graph, Chem.Mol],
     return int(np.log2(n_bonds))
 
 
+def calculate_assembly_index_vac_lower_bound(
+        data: Union[str, nx.Graph, Chem.Mol, Sequence[Union[str, nx.Graph, Chem.Mol]]],
+        strip_hydrogen: bool = False,
+        timeout: float = 10.0,
+        use_vac: bool = True,
+        return_info: bool = False) -> Union[int, Tuple[int, Dict[str, Any]]]:
+    """
+    Bound the assembly index from below with a vector addition chain.
+
+    Counting the copies of each basic unit (bonds by element pair and bond
+    order, or characters) maps an object to a vector, and joining objects adds
+    their vectors, so every assembly pathway is a vector addition chain of the
+    same length. The shortest chain reaching the object's vector is therefore a
+    lower bound on its assembly index. A list of objects shares one chain,
+    bounding their joint assembly index.
+
+    Parameters
+    ----------
+    data : str, nx.Graph, Chem.Mol, or a list of them
+        One object, or several of the same kind to bound jointly. A molecule is
+        converted as :func:`calculate_assembly_index` converts it, with explicit
+        hydrogens, and each connected component of a graph is a separate
+        target.
+    strip_hydrogen : bool, optional
+        If True, remove hydrogens from molecules first. Default is False.
+    timeout : float, optional
+        Budget in seconds for the exact chain search; 0 means no limit. A search
+        that runs out still yields a valid, possibly weaker, bound. Default is 10.
+    use_vac : bool, optional
+        If False, skip the ``vac`` solver and return only the closed-form bound.
+        Default is True.
+    return_info : bool, optional
+        If True, also return a dict describing the calculation. Default is False.
+
+    Returns
+    -------
+    int or (int, dict)
+        The lower bound, and with ``return_info`` the dict documented in
+        :func:`assemblycfg.vac_lower_bound`.
+
+    Raises
+    ------
+    TypeError
+        If the input type is not supported.
+
+    Notes
+    -----
+    Delegates to :func:`assemblycfg.vac_lower_bound`, which installs the
+    `vac <https://github.com/ELIFE-ASU/additionchains>`_ solver with ``cargo``
+    on first use, or uses ``VAC_PATH``. Without it the closed-form bounds are
+    returned with a warning. For a connected molecule the bound is never below
+    :func:`calculate_assembly_index_lower_bound`.
+
+    Examples
+    --------
+    >>> import assemblytheorytools as att
+    >>> att.calculate_assembly_index_vac_lower_bound("abab", use_vac=False)
+    2
+    """
+    def as_graph(item):
+        # Score the graph calculate_assembly_index scores; mol_to_nx
+        # standardizes its input in place, so convert a copy.
+        return mol_to_nx(Chem.Mol(item)) if isinstance(item, Chem.Mol) else item
+
+    if isinstance(data, (list, tuple)):
+        data = [as_graph(item) for item in data]
+    else:
+        data = as_graph(data)
+    return assemblycfg.vac_lower_bound(data, strip_hydrogen=strip_hydrogen, timeout=timeout,
+                                       use_vac=use_vac, return_info=return_info)
+
+
 def calculate_sum_assembly_index(graphs: List[Union[nx.Graph, Chem.Mol]],
                                  settings: Optional[Dict[str, Any]] = None,
                                  parallel: bool = True) -> int:
