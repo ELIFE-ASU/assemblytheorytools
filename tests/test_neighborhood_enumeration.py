@@ -189,16 +189,17 @@ def test_debug_output_explains_valence_and_mapping_counts_without_changing_produ
     } <= lines
 
 
-def test_saturated_single_bonds_admit_no_joins_or_partitions():
+def test_saturated_single_bonds_admit_no_joins_or_partitions(capsys):
     graphs = [
         att.smi_to_nx(smiles, add_hydrogens=False, sanitize=False)
         for smiles in ["N#N", "C#O", "O=O", "[H][H]"]
     ]
 
-    result = neighborhood.enumerate_neighborhood(graphs, obey_valence=True)
+    result = neighborhood.enumerate_neighborhood(graphs, obey_valence=True, debug=True)
 
     assert result["up_jos"] == set()
     assert result["down_jos"] == set()
+    assert "No valence budget left" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize("allow_dots", [True, False])

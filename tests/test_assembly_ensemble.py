@@ -88,6 +88,8 @@ def test_count_copies_collapses_repeats_in_first_seen_order():
 
     assert unique == ["abab", "cdcd"]
     assert counts == [3, 1]
+    # The repeated object contributes; the single copy only enters the total.
+    assert att.calculate_assembly_from_indices([1, 1], counts) == pytest.approx(np.e / 2)
 
 
 def test_count_copies_of_an_empty_input():
@@ -105,15 +107,6 @@ def test_count_copies_with_a_key_function():
 
     assert counts == [2, 1]
     assert [Chem.MolToSmiles(mol) for mol in unique] == ["CCO", "CC"]
-
-
-def test_count_copies_feeds_the_assembly_equation():
-    strings, n_i = att.count_copies(["ab", "ab", "cd"])
-
-    assert strings == ["ab", "cd"]
-    assert att.calculate_assembly_from_indices([1, 1], n_i) == (
-        att.calculate_assembly_from_indices([1, 1], [2, 1])
-    )
 
 
 @pytest.fixture

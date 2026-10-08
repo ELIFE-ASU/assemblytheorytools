@@ -67,22 +67,6 @@ def test_joining_and_splitting_preserves_colored_molecular_components():
         )
 
 
-def test_composition_merges_overlapping_node_labels():
-    graphs = [tg.smi_to_nx(smiles) for smiles in ["[H][O][H]", "[O][O]"]]
-
-    composed = tg.compose_graphs(graphs)
-
-    assert (composed.number_of_nodes(), composed.number_of_edges()) == (3, 2)
-    assert nx.get_node_attributes(composed, "color") == {0: "O", 1: "O", 2: "H"}
-
-
-def test_graph_layers_follow_dependencies():
-    graph = nx.DiGraph([(0, 1), (1, 2), (0, 2)])
-
-    assert tg.set_graph_layer(graph) is graph
-    assert nx.get_node_attributes(graph, "layer") == {0: 0, 1: 1, 2: 2}
-
-
 def test_top_degree_pathway_retains_requested_molecules():
     graphs = [
         tg.smi_to_nx(smiles) for smiles in ["CC(OC)C=C", "CC(OC)C", "CC(OC)CCC", "CCC"]
@@ -255,7 +239,7 @@ def test_combination_empty_inputs_and_join_type_validation():
 
 
 def test_composition_later_attributes_override_without_mutating_inputs():
-    first = colored_path("C", "O")
+    first = colored_path("C", "O", "H")
     first.graph["source"] = "first"
     first.nodes[0]["retained"] = True
     second = colored_path("N", "H")
@@ -264,29 +248,36 @@ def test_composition_later_attributes_override_without_mutating_inputs():
 
     composed = tg.compose_graphs(iter([first, second]))
 
+    assert (composed.number_of_nodes(), composed.number_of_edges()) == (3, 2)
     assert composed.graph["source"] == "second"
     assert composed.nodes[0] == {"color": "N", "retained": True}
     assert composed.edges[0, 1]["color"] == 2
+    assert composed.nodes[2]["color"] == "H"
+    assert composed.edges[1, 2]["color"] == 1
     assert first.nodes[0]["color"] == "C"
     assert first.edges[0, 1]["color"] == 1
 
 
 @pytest.mark.parametrize(
     "labeler, attribute, expected",
-    [(tg.set_graph_layer, "layer", 0), (tg.relabel_digraph, "label", "Step 0")],
+    [
+        (tg.set_graph_layer, "layer", [0, 1, 2]),
+        (tg.relabel_digraph, "label", ["Step 0", "Step 1", "Step 2"]),
+    ],
 )
 def test_layer_labelers_mutate_in_place_even_before_a_cycle_error(
     labeler, attribute, expected
 ):
-    graph = nx.DiGraph([(0, 1)])
+    graph = nx.DiGraph([(0, 1), (1, 2), (0, 2)])
     assert labeler(graph) is graph
+    assert nx.get_node_attributes(graph, attribute) == dict(enumerate(expected))
     graph = nx.DiGraph([(1, 2), (2, 1)])
     graph.add_node(0)
 
     with pytest.raises(nx.NetworkXUnfeasible):
         labeler(graph)
 
-    assert graph.nodes[0][attribute] == expected
+    assert graph.nodes[0][attribute] == expected[0]
     assert attribute not in graph.nodes[1]
 
 
@@ -300,6 +291,34 @@ def test_stripping_a_layer_recomputes_generations_on_a_mutable_copy():
     assert list(result.nodes(data="layer")) == [(1, 1), (2, 2)]
     assert nx.get_node_attributes(graph, "layer") == {0: 99, 1: 99, 2: 99}
     assert not nx.is_frozen(result)
+
+
+def test_identifier_relabeling_merges_equal_labels_and_preserves_input():
+    graph = nx.DiGraph(name="pathway")
+    graph.add_nodes_from([(0, {"label": "A"}), (1, {"label": "B"}), (2, {"label": "A"})])
+    graph.add_edge(0, 1, weight=2)
+    graph.add_edge(1, 2, weight=3)
+    original = deepcopy(graph)
+
+    result = tg.relabel_identifiers(graph)
+
+    assert type(result) is nx.DiGraph
+    assert result.graph == {"name": "pathway"}
+    assert list(result.nodes(data="label")) == [("A", "A"), ("B", "B")]
+    assert list(result.edges(data="weight")) == [("A", "B", 2), ("B", "A", 3)]
+    result.nodes["A"]["label"] = "changed"
+    assert nx.utils.graphs_equal(graph, original)
+
+
+def test_identifier_relabeling_requires_labels_without_mutating_input():
+    graph = nx.path_graph(2)
+    graph.nodes[0]["label"] = "A"
+    original = deepcopy(graph)
+
+    with pytest.raises(KeyError, match="label"):
+        tg.relabel_identifiers(graph)
+
+    assert nx.utils.graphs_equal(graph, original)
 
 
 @pytest.mark.parametrize("graph_type", [nx.DiGraph, nx.MultiDiGraph])

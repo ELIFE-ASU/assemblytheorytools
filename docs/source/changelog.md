@@ -11,6 +11,19 @@ Every release is also pushed to
 pip install --upgrade assemblytheorytools
 ```
 
+## Unreleased
+
+* Update the C++ bridge for current parallelassemblycpp, including
+  `AssemblyCppOptions(algorithm="re-pair")` for graph and string heuristic
+  upper bounds and the graph-only `upper_bound="graph-repair"` compatibility
+  selector. Re-Pair certificates are returned as ATT construction pathways.
+* Support Unicode code points, native parallel search, explicit thread counts
+  and verbose logging in C++ string mode. Omit the graph-only hydrogen flag
+  when submitting strings.
+* Cover every current CLI flag in the configuration reference and validate
+  incompatible input modes, Re-Pair options and parallel search limits before
+  launching the calculator.
+
 ## Versioning
 
 The version is single-sourced from `pyproject.toml` and exposed at runtime:

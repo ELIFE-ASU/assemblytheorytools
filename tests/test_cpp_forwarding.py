@@ -32,12 +32,12 @@ def graph():
 
 @pytest.mark.parametrize("kind", ["graph", "string", "undirected-string"])
 def test_public_entrypoints_forward_cpp_options(recording_calculator, kind):
-    settings = dict(runtime_ticks=1234, pathway=False, memory_report=True)
+    settings = dict(algorithm="full", runtime_ticks=1234, pathway=False, memory_report=True,
+                    parallel="auto", threads=2, verbose=True)
     if kind == "string":
         settings["accept_palindromes"] = True
     else:
-        settings.update(enum_max=456, parallel="auto", threads=2, verbose=True,
-                        telemetry=True, write_intermediate_mas=True)
+        settings.update(enum_max=456, telemetry=True, write_intermediate_mas=True)
     options = att.AssemblyCppOptions(**settings)
     kwargs = dict(cpp_options=options, timeout=None, return_log_file=True,
                   dir_code=recording_calculator)
@@ -48,12 +48,12 @@ def test_public_entrypoints_forward_cpp_options(recording_calculator, kind):
             "abab", directed=kind == "string", **kwargs)
     assert result[:3] == (5, None, None)
     arguments = json.loads((Path(result[3]).parent / "arguments.json").read_text())
-    expected = {"-runTime=1234", "--pathway=0", "-memTest=1",
-                "-removeHydrogens=0", "-compensateDisjoint=0"}
+    expected = {"--algorithm=full", "-runTime=1234", "--pathway=0", "-memTest=1",
+                "-compensateDisjoint=0", "--parallel=auto", "--threads=2", "--verbose=1"}
     if kind == "string":
         expected |= {"-runStrings=1", "-acceptPalindromes=1"}
     else:
-        expected |= {"-enumMax=456", "--parallel=auto", "--threads=2", "--verbose=1",
+        expected |= {"-removeHydrogens=0", "-enumMax=456",
                      "--telemetry=1", "-writeIntermediateMAs=1"}
     assert set(arguments) == expected
     assert len(arguments) == len(expected)
@@ -61,9 +61,9 @@ def test_public_entrypoints_forward_cpp_options(recording_calculator, kind):
 
 @pytest.mark.parametrize("kind", ["graph", "string"])
 def test_wall_timeout_does_not_impose_cpu_budget(recording_calculator, kind):
-    kwargs = dict(dir_code=recording_calculator, timeout=5, return_log_file=True)
+    kwargs = dict(dir_code=recording_calculator, timeout=5, return_log_file=True,
+                  cpp_options=att.AssemblyCppOptions(parallel="on", threads=2))
     if kind == "graph":
-        kwargs["cpp_options"] = att.AssemblyCppOptions(parallel="on", threads=2)
         result = att.calculate_assembly_index(graph(), **kwargs)
     else:
         result = att.calculate_string_assembly_index("abab", **kwargs)
@@ -71,15 +71,54 @@ def test_wall_timeout_does_not_impose_cpu_budget(recording_calculator, kind):
     assert not any("runTime" in arg or "runtime=" in arg for arg in arguments)
 
 
+def _advertised_flags(help_text):
+    # Limit discovery to option headings so prose references cannot masquerade
+    # as controls. Accept literal values as well as <placeholders>, and include
+    # the no-value help and end-of-options controls.
+    options = help_text.split("Options:\n", 1)[1].split("\nNotes:", 1)[0]
+    return {
+        token.rstrip(",")
+        for line in re.findall(r"^  (-[^\n]*)$", options, re.MULTILINE)
+        for token in line.split("=", 1)[0].split()
+    }
+
+
+def test_help_inventory_includes_literal_and_no_value_flags():
+    assert _advertised_flags(
+        "Options:\n  -h, --help\n  --\n  --algorithm=<full|re-pair>\n"
+        "  --upper-bound=graph-repair\n      Use --algorithm=re-pair.\n"
+        "\nNotes:\n  --invented=example\n"
+    ) == {"-h", "--help", "--", "--algorithm", "--upper-bound"}
+
+
 def test_public_api_covers_the_native_help_options():
-    """Fail the weekly upstream check if a new CLI control needs exposing."""
-    # Only the generated option list spells a value placeholder, so `=<` keeps
-    # prose such as "Use --name=value." in the notes out of the comparison.
-    advertised = set(re.findall(r"^  --([\w-]+)=<", att.get_assembly_cpp_help(), re.MULTILINE))
-    exposed = {"runtime", "enum-max", "pathway", "accept-palindromes", "parallel", "threads",
-               "verbose", "memory-report", "telemetry", "write-intermediate-mas"}
-    wrapper_owned = {"run-strings", "remove-hydrogens", "compensate-disjoint"}
-    assert advertised == (exposed | wrapper_owned) - ({"telemetry"} - advertised)
+    """Fail the upstream check if any advertised CLI control needs exposing."""
+    advertised = _advertised_flags(att.get_assembly_cpp_help())
+    exposed = {"--algorithm", "--upper-bound", "--runtime", "--enum-max", "--pathway",
+               "--accept-palindromes", "--parallel", "--threads", "--verbose",
+               "--memory-report", "--telemetry", "--write-intermediate-mas"}
+    wrapper_owned = {"--run-strings", "--remove-hydrogens", "--compensate-disjoint"}
+    invocation = {"-h", "--help", "--"}
+    expected = exposed | wrapper_owned | invocation
+    assert advertised == expected - ({"--telemetry"} - advertised)
+
+
+@pytest.mark.parametrize("kind, selector, flag", [
+    ("graph", {"algorithm": "re-pair"}, "--algorithm=re-pair"),
+    ("string", {"algorithm": "re-pair"}, "--algorithm=re-pair"),
+    ("undirected-string", {"algorithm": "re-pair"}, "--algorithm=re-pair"),
+    ("graph", {"upper_bound": "graph-repair"}, "--upper-bound=graph-repair"),
+    ("undirected-string", {"upper_bound": "graph-repair"}, "--upper-bound=graph-repair"),
+])
+def test_re_pair_selectors_reach_native_backend(recording_calculator, kind, selector, flag):
+    kwargs = dict(cpp_options=att.AssemblyCppOptions(**selector, pathway=False),
+                  dir_code=recording_calculator, return_log_file=True)
+    result = (att.calculate_assembly_index(graph(), **kwargs) if kind == "graph"
+              else att.calculate_string_assembly_index("abab", directed=kind == "string", **kwargs))
+    arguments = json.loads((Path(result[3]).parent / "arguments.json").read_text())
+    assert flag in arguments
+    assert sum(arg.startswith(("--algorithm=", "--upper-bound=")) for arg in arguments) == 1
+    assert ("-removeHydrogens=0" in arguments) is (kind != "string")
 
 
 @pytest.mark.parametrize("kind", ["graph", "string"])
@@ -123,7 +162,7 @@ def test_native_reversal_matching_returns_zero_cost_reversal():
     assert any(data.get("operation") == "reverse" for _, _, data in result[2].edges(data=True))
 
 
-def test_options_pass_through_parallel_batch_settings():
+def test_options_pass_through_parallel_batch_settings(two_assembly_workers):
     options = att.AssemblyCppOptions(pathway=False, enum_max=100)
     assert att.calculate_assembly_index_parallel(
         [graph(), graph()], {"cpp_options": options}) == [[2, 2], [None, None], [None, None]]
@@ -137,6 +176,32 @@ def test_invalid_option_container_fails_before_resolving_calculator(monkeypatch,
             att.calculate_assembly_index(graph(), cpp_options={"threads": 2})
         else:
             att.calculate_string_assembly_index("abab", cpp_options={"threads": 2})
+
+
+@pytest.mark.parametrize("kind, settings, name", [
+    ("graph", {"accept_palindromes": True}, "accept_palindromes"),
+    ("string", {"enum_max": 1}, "enum_max"),
+    ("string", {"upper_bound": "graph-repair"}, "upper_bound"),
+    ("string", {"telemetry": True}, "telemetry"),
+    ("string", {"write_intermediate_mas": True}, "write_intermediate_mas"),
+    ("graph", {"parallel": "on", "runtime_ticks": 1}, "runtime_ticks"),
+    ("string", {"parallel": "on", "runtime_ticks": 1}, "runtime_ticks"),
+    ("graph", {"algorithm": "re-pair", "runtime_ticks": 0}, "runtime_ticks"),
+    ("string", {"algorithm": "re-pair", "runtime_ticks": (1 << 64) - 1}, "runtime_ticks"),
+    ("graph", {"upper_bound": "graph-repair", "enum_max": 1}, "enum_max"),
+    ("graph", {"algorithm": "re-pair", "parallel": "on"}, "parallel"),
+    ("string", {"algorithm": "re-pair", "parallel": "on"}, "parallel"),
+    ("undirected-string", {"algorithm": "re-pair", "telemetry": True}, "telemetry"),
+    ("undirected-string", {"upper_bound": "graph-repair", "runtime_ticks": 0}, "runtime_ticks"),
+])
+def test_invalid_combinations_fail_before_resolving_calculator(monkeypatch, kind, settings, name):
+    monkeypatch.setattr(assembly, "add_assembly_to_path", lambda **kwargs: pytest.fail("backend lookup"))
+    options = att.AssemblyCppOptions(**settings)
+    with pytest.raises(ValueError, match=name):
+        if kind == "graph":
+            att.calculate_assembly_index(graph(), cpp_options=options)
+        else:
+            att.calculate_string_assembly_index("abab", directed=kind == "string", cpp_options=options)
 
 
 def test_cfg_rejects_unused_cpp_options():

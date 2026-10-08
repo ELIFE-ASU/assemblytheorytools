@@ -80,6 +80,11 @@ def _skip_layer_pathway(plot_type):
     return graph
 
 
+def test_pathway_rejects_unknown_arrow_style():
+    with pytest.raises(ValueError, match="Invalid arrow style"):
+        att.plot_pathway(nx.DiGraph(), arrow_style="unknown")
+
+
 @pytest.mark.parametrize("plot", [att.plot_pathway, att.plot_pathway_mid_arrow])
 def test_taxol_canvas_keeps_native_icons_and_clear_routes_on_vector_export(
     plot, data_dir, monkeypatch
@@ -92,6 +97,10 @@ def test_taxol_canvas_keeps_native_icons_and_clear_routes_on_vector_export(
     icons = [artist for artist in ax.artists if isinstance(artist, AnnotationBbox)]
     assert len(icons) == len(graph)
     assert all(artist.offsetbox.get_zoom() == pytest.approx(0.4) for artist in icons)
+    # Plotting settles the initial Agg geometry before returning.
+    _assert_clear_pathway(
+        fig, ax, fig.canvas.get_renderer(), len(graph), graph.number_of_edges()
+    )
     original_draw = fig.draw
     draws = []
 
@@ -102,13 +111,12 @@ def test_taxol_canvas_keeps_native_icons_and_clear_routes_on_vector_export(
         draws.append(type(renderer).__name__)
 
     monkeypatch.setattr(fig, "draw", checked_draw)
-    fig.canvas.draw()
     for fmt in ("svg", "pdf"):
         with BytesIO() as output:
             fig.savefig(output, format=fmt, bbox_inches="tight")
             assert len(output.getvalue()) > 1000
         np.testing.assert_allclose(fig.get_size_inches(), size)
-    assert len(draws) >= 5
+    assert len(draws) >= 4
 
 
 @pytest.mark.parametrize("shape", ["deep", "wide"])
@@ -116,10 +124,12 @@ def test_taxol_canvas_keeps_native_icons_and_clear_routes_on_vector_export(
 def test_canvas_grows_only_in_crowded_dimension_and_respects_manual_resize(
     shape, show_icons
 ):
+    # Sixteen nodes already overflow the requested canvas in either direction;
+    # a larger star spends most of this test repeatedly routing equivalent edges.
     graph = (
-        nx.path_graph(40, create_using=nx.DiGraph)
+        nx.path_graph(16, create_using=nx.DiGraph)
         if shape == "deep"
-        else nx.DiGraph((0, node) for node in range(1, 40))
+        else nx.DiGraph((0, node) for node in range(1, 16))
     )
     nx.set_node_attributes(graph, "fragment", "vo")
     fig, ax = att.plot_pathway(graph, plot_type="string", show_icons=show_icons)
@@ -157,7 +167,6 @@ def test_pathway_arrows_avoid_cards_including_long_edges(plot_type, arrow_style)
         fig_size=(10, 6),
         auto_fig_size=False,
     )
-    fig.canvas.draw()
 
     _assert_clear_pathway(
         fig, ax, fig.canvas.get_renderer(), len(graph), graph.number_of_edges()
@@ -178,6 +187,13 @@ def test_real_molecular_pathway_stays_clear_when_resized_and_exported(
         vo_type="smiles",
     )
     fig, ax = plot(graph, fig_size=(10, 6), auto_fig_size=False)
+    assert fig.axes == [ax]
+    assert sum(isinstance(artist, AnnotationBbox) for artist in ax.artists) == len(graph)
+    arrows_per_edge = 2 if plot is att.plot_pathway_mid_arrow else 1
+    assert len(_arrow_paths(ax)) == arrows_per_edge * graph.number_of_edges()
+    _assert_clear_pathway(
+        fig, ax, fig.canvas.get_renderer(), len(graph), graph.number_of_edges()
+    )
     original_draw = fig.draw
     draws = []
 
@@ -187,7 +203,6 @@ def test_real_molecular_pathway_stays_clear_when_resized_and_exported(
         draws.append(type(renderer).__name__)
 
     monkeypatch.setattr(fig, "draw", checked_draw)
-    fig.canvas.draw()
     fig.set_size_inches(8, 4.5)
     fig.canvas.draw()
     for fmt, dpi in (("png", 72), ("png", 200), ("svg", 120)):
@@ -204,7 +219,6 @@ def test_parallel_edges_are_distinct_and_clear_of_their_endpoint_boxes():
     graph.add_node("target", vo="CCCC")
     graph.add_edges_from([("source", "target"), ("source", "target")])
     fig, ax = att.plot_pathway(graph, fig_size=(6, 3), auto_fig_size=False)
-    fig.canvas.draw()
 
     _assert_clear_pathway(fig, ax, fig.canvas.get_renderer(), 2, 2)
     paths = _arrow_paths(ax)
@@ -254,7 +268,6 @@ def test_filled_arrow_styles_support_routed_edges(style, position):
     fig, ax = att.plot_pathway(
         graph, plot_type="string", plt_arrow_style=style, arrow_pos=position
     )
-    fig.canvas.draw()
 
     _assert_clear_pathway(
         fig, ax, fig.canvas.get_renderer(), len(graph), graph.number_of_edges()
@@ -288,7 +301,6 @@ def test_arrowheads_near_source_do_not_extend_back_into_its_card(arrow_pos):
     fig, ax = att.plot_pathway(
         graph, arrow_pos=arrow_pos, arrow_size=40, fig_size=(6, 3), auto_fig_size=False
     )
-    fig.canvas.draw()
 
     _assert_clear_pathway(fig, ax, fig.canvas.get_renderer(), 2, 1)
 
@@ -315,7 +327,6 @@ def test_molecular_pathway_preserves_isotopes_charges_and_input(
 
     monkeypatch.setattr(plotting.Draw, "MolToImage", record_molecule)
     fig, ax = att.plot_pathway(graph)
-    fig.canvas.draw()
 
     assert rendered_atoms == [[(13, 0), (0, 1)]]
     assert graph.nodes[0] == {"vo": virtual_object}
@@ -374,7 +385,6 @@ def test_empty_and_single_node_pathways_have_no_arrows(node_count, plot_type):
     if node_count:
         graph.add_node(0, vo="C")
     fig, ax = att.plot_pathway(graph, plot_type=plot_type, fig_size=(4, 3))
-    fig.canvas.draw()
 
     _assert_clear_pathway(fig, ax, fig.canvas.get_renderer(), node_count, 0)
     assert not _arrow_paths(ax)

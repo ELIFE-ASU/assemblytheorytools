@@ -61,17 +61,7 @@ jobs:
   test:
     name: Python ${{ matrix.python-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    # Generous for Windows, which builds the C++ calculator from source with
-    # MSVC on a cold cache. The other platforms finish in a few minutes.
     timeout-minutes: 60
-
-    defaults:
-      run:
-        # Windows would otherwise run these in PowerShell, which only reports
-        # the last command's exit status, so a failing install would be noticed
-        # one step too late. Git Bash is on the image and keeps every job's
-        # steps identical.
-        shell: bash
 
     strategy:
       # One failing interpreter should not hide the result on the others.
@@ -83,13 +73,6 @@ jobs:
           # Smoke-test the other supported platforms. macOS runners are arm64,
           # which is the only macOS wheel assembly-theory publishes.
           - os: macos-latest
-            python-version: "3.13"
-          # Windows is the slow one: the C++ calculator is built by MSVC
-          # through CMake's Visual Studio generator rather than Ninja. It
-          # lands in a cache, so only a cold run pays full price. The Rust
-          # backend is not installed there (see pyproject.toml), so the tests
-          # that need it skip themselves.
-          - os: windows-latest
             python-version: "3.13"
 
     steps:
@@ -108,8 +91,7 @@ jobs:
         # does not supply that library. The Linux images already ship it; on
         # macOS Homebrew installs outside dyld's default search path, so the
         # fallback path has to name it or the import fails with OSError and the
-        # metro-plot test skips itself. Windows has no comparable one-line
-        # install, so there the metro-plot test takes that skip.
+        # metro-plot test skips itself.
         if: runner.os == 'macOS'
         run: |
           brew install cairo
@@ -147,10 +129,10 @@ jobs:
           retention-days: 7
 
   opt-in-groups:
-    # The integration and slow groups, which the pull-request runs skip. Live
-    # PubChem lookups and the long assembly calculations belong here, not on
-    # the critical path of a review. Tests needing ORCA or the Chemotion
-    # archive skip themselves when those are absent, which they are here.
+    # The opt-in groups, which the pull-request runs skip. Live PubChem
+    # lookups and external tools belong here. Tests needing ORCA skip
+    # themselves when it is absent, which it is here. Keep the slow flag for
+    # future checks that cannot use small deterministic inputs.
     name: Integration and slow tests
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest

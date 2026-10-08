@@ -6,11 +6,27 @@ import zlib
 import pytest
 
 from assemblytheorytools.tools_mzml import (
+    _InvalidInputFile,
     _MzmlParser,
     _Spectrum,
     _UnsupportedCompressionMethod,
     process_mzml_file,
 )
+
+
+@pytest.mark.parametrize("source_kind", ["missing", "wrong-extension", "directory"])
+def test_process_mzml_file_rejects_invalid_input_before_creating_output(tmp_path, source_kind):
+    source = tmp_path / ("sample.xml" if source_kind == "wrong-extension" else "sample.mzML")
+    if source_kind == "wrong-extension":
+        source.write_text("<mzML/>")
+    elif source_kind == "directory":
+        source.mkdir()
+    output = tmp_path / "results"
+
+    with pytest.raises(_InvalidInputFile, match="is not valid"):
+        process_mzml_file(str(source), str(output))
+
+    assert not output.exists()
 
 
 def _make_spectrum(
@@ -31,20 +47,6 @@ def _make_spectrum(
     spec.mz = base64.b64encode(zlib.compress(mz_bytes)).decode()
     spec.intensity = base64.b64encode(zlib.compress(intensity_bytes)).decode()
     return spec
-
-
-def test_build_output_processes_unserialized_spectra():
-    """The fallback must call process() before assembling the output."""
-    spec = _make_spectrum(mz=[100.1234, 200.5678], intensity=[50000.0, 200.0])
-    assert spec.serialized == {}
-
-    parser = _MzmlParser.__new__(_MzmlParser)
-    parser.ms = {"1": [spec]}
-
-    output = parser.build_output()
-
-    assert output == {"ms1": {"spectrum_1": spec.serialized}}
-    assert spec.serialized["mass_list"] == [100.1234, 200.5678]
 
 
 @pytest.mark.parametrize("precision", [32, 64])
@@ -133,7 +135,7 @@ def test_unsupported_compression_preserves_error_and_decoded_state():
     assert spec.serialized == {}
 
 
-def test_build_output_preserves_string_sorting_and_empty_spectrum_numbering():
+def test_build_output_processes_spectra_preserving_scan_order_and_empty_numbering():
     parser = _MzmlParser.__new__(_MzmlParser)
     parser.ms = {
         "1": [
@@ -143,10 +145,15 @@ def test_build_output_preserves_string_sorting_and_empty_spectrum_numbering():
         ]
     }
 
-    spectra = parser.build_output()["ms1"]
+    assert all(spec.serialized == {} for spec in parser.ms["1"])
+    output = parser.build_output()
+    assert set(output) == {"ms1"}
+    spectra = output["ms1"]
 
     assert list(spectra) == ["spectrum_2", "spectrum_3"]
     assert [spectrum["scan"] for spectrum in spectra.values()] == ["10", "2"]
+    assert [spectrum["mass_list"] for spectrum in spectra.values()] == [[100.0], [100.0]]
+    assert [spectrum["100.0000"] for spectrum in spectra.values()] == [500, 500]
     assert [spectrum.scan for spectrum in parser.ms["1"]] == ["1", "10", "2"]
 
 

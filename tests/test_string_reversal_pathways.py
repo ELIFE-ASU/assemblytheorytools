@@ -99,6 +99,7 @@ def test_default_pathway_format_is_unchanged(tmp_path):
     explicit_objects, explicit = parse_string_pathway_file(source, accept_palindromes=False)
 
     assert implicit_objects == explicit_objects == ["x", "a", "b", "ab", "xab", "xabab"]
+    assert nx.is_directed_acyclic_graph(implicit)
     assert list(implicit.edges(data=True)) == list(explicit.edges(data=True))
     assert set(implicit.edges()) == {
         ("a", "ab"), ("b", "ab"), ("x", "xab"), ("ab", "xab"),

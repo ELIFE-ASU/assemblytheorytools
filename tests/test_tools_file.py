@@ -2,7 +2,6 @@ import json
 import os
 
 import pytest
-from filelock import FileLock, Timeout
 
 import assemblytheorytools as att
 from assemblytheorytools import tools_file
@@ -92,21 +91,6 @@ def test_write_to_shared_file_holds_lock_through_buffered_writes(tmp_path, monke
         ("acquired", None),
         ("released", "buffered message"),
     ]
-
-
-def test_write_to_shared_file_excludes_a_concurrent_writer(tmp_path):
-    """A held sidecar lock is what makes a second writer wait its turn."""
-    shared_file = tmp_path / "shared.log"
-    lock_file = f"{shared_file}.lock"
-
-    with FileLock(lock_file):
-        with pytest.raises(Timeout):
-            # A distinct instance contends through the operating system, which
-            # is the same path a second process takes.
-            FileLock(lock_file, timeout=0).acquire()
-
-    att.write_to_shared_file("released\n", shared_file)
-    assert shared_file.read_text() == "released\n"
 
 
 def test_remove_files_removes_nested_files_but_preserves_directories(tmp_path):

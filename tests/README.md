@@ -27,7 +27,8 @@ such as ORCA are marked `integration` and require an explicit opt-in:
 pytest --run-integration
 ```
 
-Long-running local calculations are marked `slow`:
+The `slow` marker and its opt-in flag remain available for long-running local
+calculations, although the current suite has no tests in that group:
 
 ```bash
 pytest --run-slow
@@ -45,6 +46,15 @@ Generate branch coverage for the normal suite with:
 ```bash
 pytest --cov --cov-report=term-missing
 ```
+
+To audit runtime, use a cached calculator and ask pytest for per-test timings:
+
+```bash
+pytest --durations=20
+```
+
+Measure the default and opt-in groups separately; live-service latency and a
+first-time calculator build should not be confused with local test costs.
 
 Plotting entry points are stubbed by default so the suite remains headless. Set
 `ATT_TEST_SHOW_PLOTS=1` when manually inspecting figures and images.
@@ -67,15 +77,19 @@ compound marked `test_include=True` in the bundled
 index. Each compound has a named test case. References apply to the stored
 SMILES after the package's normalisation and kekulisation, with hydrogens
 stripped. The test requires a completed exact search, so a timeout bound cannot
-pass as an exact result. Taxol is excluded by the CSV flag and covered
-separately by the opt-in slow test.
+pass as an exact result. Taxol is excluded by the CSV flag. Its saved pathway
+still exercises large rendering and parsing cases; timeout bounds are checked
+with controlled calculator responses instead of a timed Taxol search.
 
-`test_assembly_rust.py::test_rust_matches_default_calculator_on_random_molecules`
-is the cross-backend survey: it samples 100 random PubChem compounds of at
-most 50 bonds, hydrogens included, and requires the Rust index to equal a completed, exact,
-hydrogen-stripped search by the C++ calculator. It is marked both `integration`
-(it queries PubChem) and `slow` (a hundred exact searches), and the sampling
-seed is fixed so a disagreement can be reproduced.
+`test_assembly_rust.py::test_rust_matches_default_calculator_on_diverse_molecules`
+compares real Rust and C++ searches on 12 named, fixed structures covering
+chains, branches, bond orders, ring systems, heteroatoms and stereochemistry.
+Each C++ search must finish exactly with hydrogens stripped. These comparisons
+run in the default suite without PubChem sampling.
+
+Crystal calculations use a small periodic CIF with a known exact index, and
+Chemotion processing uses a miniature archive containing a real bundled IR
+spectrum. Neither smoke test needs an expensive search or an external dataset.
 
 Avoid separate `*_refactor` or `*_regressions` files. A regression's name or a
 short comment should explain the behaviour it protects.
@@ -92,6 +106,9 @@ short comment should explain the behaviour it protects.
   use `monkeypatch` for environment changes, working directories and stubs.
 - Test timeout handling with controlled clocks or backend responses. Retain real
   backend smoke checks, but avoid assertions that depend on machine speed.
+- Use the smallest input that exercises the regression. Keep expensive search
+  and rendering checks in their dedicated suites instead of repeating them as
+  setup for conversion, aggregation or multiprocessing assertions.
 - Keep plotting assertions in plotting tests, using deterministic input and
   checking artists or saved artefacts. Avoid debug prints and unasserted plots.
 
@@ -100,10 +117,15 @@ and restores their previous states afterward. Set a different seed explicitly
 when it defines a regression case. Display stubs are also restored after each
 test, and figures are closed automatically in headless runs.
 
-`serial_data_mp` keeps data transformations in the test process; the dedicated
-multiprocessing suite verifies real process and thread pools. Integration tests
-that need ORCA use `orca_path`, resolved from `ORCA_PATH` or the executable search
-path, and skip when it is unavailable.
+`serial_data_mp` and the molecular suite's `serial_assembly_mp` keep semantic
+checks in the test process. The dedicated multiprocessing suite verifies real
+process and thread pools, including ordering and keyword forwarding. Real
+assembly batch and option-serialization checks use `two_assembly_workers` to
+avoid starting one worker per CPU for tiny inputs. The real uncooperative
+calculator test also retains its signal, kill and reap checks.
+
+Integration tests that need ORCA use `orca_path`, resolved from `ORCA_PATH` or the
+executable search path, and skip when it is unavailable.
 
 `orca_path` also runs the candidate once per session and requires it to print an
 ORCA version banner before handing it to a test. Finding a program called `orca`

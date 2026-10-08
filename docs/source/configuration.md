@@ -136,7 +136,8 @@ functions built on it.
   its budget ran out, it hit its enumeration cap, or it was interrupted — ATT
   returns the best upper bound the calculator reached, or `-1` if it reached
   none. ATT reads the saved result first and falls back to the log when no
-  result was written. A search the calculator completes returns an exact result.
+  result was written. A completed full search returns an exact result;
+  `cpp_options.algorithm="re-pair"` always returns a heuristic upper bound.
   Raise the limit for large structures, or use
   {func}`~assemblytheorytools.assembly.calculate_assembly_index_upper_bound`
   when the edge-count bound is sufficient.
@@ -147,9 +148,9 @@ functions built on it.
   [Joint assembly](concepts.md#joint-assembly).
 
 `exact` (default `False`)
-: Require a proven minimum. When the search stopped early, return `-1` instead
-  of the best upper bound found so far. The calculator reports an early stop
-  explicitly, so this does not rest on the elapsed time alone.
+: Require a proven minimum. When the search stopped early or Re-Pair produced
+  a heuristic bound, return `-1` instead of that bound. The calculator reports
+  these statuses explicitly, so this does not rest on the elapsed time alone.
 
 `canonicalize` (default `True`)
 : Relabel nodes, in their current iteration order, to contiguous integers
@@ -176,8 +177,10 @@ through `settings`. Its result remains `(jo, virtual_objects, pathway)`;
 `settings={"return_log_file": True}` retains the directory and prints the log
 location without adding a fourth result field.
 
-C++ string mode accepts one line of ASCII text: the calculator indexes bytes
-and reads each line as a separate input. Strings of one character or fewer, and
+C++ string mode accepts one line of UTF-8 text: each Unicode code point is one
+symbol, without normalization. Pathway positions count code points too. ATT
+rejects embedded line breaks because the calculator reads each line as a
+separate input. Strings of one character or fewer, and
 edgeless graphs, need no joining operations and return index zero without
 launching a calculator; with `return_log_file=True` the fourth field is then
 `None`. Single-character items are dropped from a list of strings before the
@@ -208,30 +211,44 @@ older aliases for renamed flags; the table uses the current `--help` names.
 
 | C++ option | Python control | Default and meaning |
 | --- | --- | --- |
+| `--algorithm` | `cpp_options.algorithm` | `None`: omit the selector and use full exact search. `"full"` selects that search explicitly; `"re-pair"` returns a graph or string heuristic upper bound and a construction pathway. |
+| `--upper-bound` | `cpp_options.upper_bound` | `None` by default. `"graph-repair"` is the graph-only compatibility selector for Re-Pair. Cannot be combined with an explicit `algorithm`, including `"full"`. |
 | `--runtime` | `cpp_options.runtime_ticks` | `None`: unlimited CPU time; otherwise integer `std::clock` ticks, from 0 through `2**64 - 1`. The maximum value also means unlimited. Divide by `CLOCKS_PER_SEC` (1,000,000 with glibc) to convert ticks to seconds. |
 | `--enum-max` | `cpp_options.enum_max` | `None`: C++ default, currently 50,000,000. Integers from 1 through `2**31 - 1`; graph mode only. |
 | `--pathway` | `cpp_options.pathway` | `True`; disable pathway computation/output with `False`. |
 | `--accept-palindromes` | `cpp_options.accept_palindromes` | `False`; allow a string fragment to be reused in reverse. Native string mode only. |
 | `--parallel` | `cpp_options.parallel` | `"off"`, `"auto"` or `"on"`; default `"off"`. `"auto"` can fall back to serial; `"on"` requires a compatible parallel executable. |
-| `--threads` | `cpp_options.threads` | `"auto"` (default) or an integer from 1 through `2**31 - 1`; threads per C++ process, applicable to parallel graph search. An explicit count is graph mode only. |
-| `--verbose` | `cpp_options.verbose` | `False`; print the parsed graph into the calculator log, independently of Python's `debug`. Graph mode only. |
+| `--threads` | `cpp_options.threads` | `"auto"` (default) or an integer from 1 through `2**31 - 1`; threads per C++ process for parallel graph or string search. Unused when `parallel="off"`. |
+| `--verbose` | `cpp_options.verbose` | `False`; print the parsed graph or input string into the calculator log, independently of Python's `debug`. |
 | `--memory-report` | `cpp_options.memory_report` | `False`; write Linux peak memory to `memUsage`. |
 | `--telemetry` | `cpp_options.telemetry` | `False`; write `INPUTTelemetry.json`. Requires a telemetry executable; graph mode only. |
 | `--write-intermediate-mas` | `cpp_options.write_intermediate_mas` | `False`; write index improvements to `INPUTIntermediateMAs`. Graph mode only; requires serial search. |
 | `--run-strings` | String calculation entry point and `mode` | ATT selects the appropriate input serializer, C++ mode and pathway parser together. |
-| `--remove-hydrogens` | `strip_hydrogen` | ATT performs stripping in Python and disables C++ stripping so the pathway matches the input graph. |
+| `--remove-hydrogens` | `strip_hydrogen` | ATT performs stripping in Python and disables C++ stripping for graph input so the pathway matches the input graph. The CLI flag is omitted in native string mode, where it is invalid even when disabled. |
 | `--compensate-disjoint` | `joint_corr` | ATT applies the correction in Python and disables C++ compensation to avoid applying it twice. |
-| `--help` | `att.get_assembly_cpp_help(dir_code=None)` | Return the selected executable's help text, including build-specific controls. |
+| `-h`, `--help` | `att.get_assembly_cpp_help(dir_code=None)` | Return the selected executable's help text, including build-specific controls. |
+| `--` | Managed input paths | CLI option terminator for an input filename beginning with a dash. ATT supplies absolute paths to its generated input files. |
 
 Booleans must be `True` or `False`; numeric bounds are checked before execution.
 Graph-only controls are rejected in native string mode instead of silently
 ignored. `cpp_options` is unavailable for the CFG backend.
 
-`parallel="on"` cannot be combined with native string mode, a finite C++ CPU
-budget, or intermediate index output. `parallel="auto"` permits the calculator's
-serial fallback for the latter two; string mode is always serial. The Python
-wall-clock `timeout` works with every mode and does not force serial execution.
+Full graph and string searches support native parallel execution.
+`parallel="on"` cannot be combined with a finite C++ CPU budget or intermediate
+index output. `parallel="auto"` permits the calculator's serial fallback for
+those cases. Telemetry and intermediate index output remain unavailable in
+native string mode. The Python wall-clock `timeout` works with every mode and
+does not force serial execution.
 See {doc}`guide/parallel` for selecting a parallel build.
+
+Re-Pair runs serially and does not prove a minimum. Select it with
+`AssemblyCppOptions(algorithm="re-pair")` for either graph or native string
+inputs. It rejects any explicit `runtime_ticks` (even the unlimited sentinel)
+or `enum_max`, `parallel="on"`, and enabled telemetry or intermediate index
+output. `parallel="auto"` reports a serial fallback. `pathway=False` can skip
+its construction certificate; otherwise ATT converts that certificate into
+the usual virtual objects and pathway. The separate `mode="cfg"` string
+backend still runs through `assemblycfg` and does not accept `cpp_options`.
 
 ATT's default build is serial and has no telemetry. Point `dir_code` or
 `ASS_PATH` at `ParallelAssemblyCppOMP` for OpenMP, `ParallelAssemblyCppTelemetry`
@@ -243,15 +260,27 @@ the calculator's error; disabled telemetry emits no flag.
 Requesting a memory report, telemetry or intermediate indices retains the
 calculation directory and prints its location. Use `return_log_file=True` to
 retrieve that location programmatically: output files sit next to the returned
-log, with `INPUT` equal to `graph_in` or `string_in`. Both graph and string
-entry points also accept `save_dir=True` to retain their working files.
+log, with `INPUT` equal to `graph_in` or `string_in`. Graph pathways are saved
+as `graph_inPathway`; the single native string calculation writes
+`string_in_0_Pathway`. `INPUTOut` records the index or heuristic bound and any
+limit status. Both graph and string entry points also accept `save_dir=True`
+to retain their working files.
+
+Re-Pair pathways carry `algorithm="re-pair"`, `minimum_proven=False` and the
+reported `upper_bound` in `pathway.graph`. Their nodes include `operation`
+and `cost`, so the construction can be inspected without treating the bound
+as a proven minimum. For graphs, `joint_corr=True` also makes component
+combinations free in the pathway and updates its bound metadata. Joint string
+pathways describe the full string including delimiters; their construction
+cost and metadata precede the delimiter correction applied to the returned index.
 
 With `accept_palindromes=True`, the returned string pathway distinguishes
 `operation="concatenate"` nodes with `cost=1` from `operation="reverse"` nodes
 and edges with `cost=0`. Summing **node** costs counts joining operations;
-counting all nonprimitive nodes would also count free reversals. Without it the
-pathway carries no `operation` or `cost` attribute at all, and every
-nonprimitive node is one join.
+counting all nonprimitive nodes would also count free reversals. Full-search
+string pathways without this option carry no `operation` or `cost` attributes,
+and every nonprimitive node is one join. Re-Pair string pathways always include
+these attributes and record reversal handling in the saved certificate.
 
 ## Rust backend options
 

@@ -81,6 +81,46 @@ def test_crossing_minimization_retains_good_intermediate_orders(layout):
     assert nx.utils.graphs_equal(graph, before)
 
 
+@pytest.mark.parametrize("layout", LAYOUTS[:2])
+def test_median_sweeps_reduce_crossings_without_changing_the_graph(layout):
+    graph = _branching_graph()
+    before = copy.deepcopy(graph)
+
+    _, orders = layout(graph, method="median", return_order=True)
+
+    assert _crossings(graph, orders) <= 5
+    assert nx.utils.graphs_equal(graph, before)
+
+
+@pytest.mark.parametrize("layout", LONG_LAYOUTS)
+def test_weighted_layout_keeps_heavy_edges_uncrossed_and_routes_same_layer_edges(layout):
+    graph = nx.DiGraph()
+    graph.add_nodes_from(
+        (node, {"subset": rank})
+        for rank, nodes in enumerate(["ab", "cd"])
+        for node in nodes
+    )
+    graph.add_weighted_edges_from(
+        [("a", "c", 10), ("a", "d", 1), ("b", "c", 1), ("b", "d", 10)],
+        weight="strength",
+    )
+    graph.add_edge("a", "b")  # An omitted weight must default to one.
+    before = copy.deepcopy(graph)
+    options = {"max_proposals": 32} if layout is plotting.multipartite_layout_sa else {}
+
+    positions, routes = layout(
+        graph, weight="strength", seed=7, return_routes=True, **options
+    )
+
+    # Crossing the two heavy edges costs 100; crossing the light pair costs 1.
+    assert (positions["a"][1] - positions["b"][1]) * (
+        positions["c"][1] - positions["d"][1]
+    ) > 0
+    assert [route["endpoints"] for route in routes] == list(graph.edges())
+    assert all(route["nodes"] == list(route["endpoints"]) for route in routes)
+    assert nx.utils.graphs_equal(graph, before)
+
+
 @pytest.mark.parametrize("layout", LAYOUTS)
 def test_crossing_minimization_accounts_for_both_edge_directions(layout):
     graph = nx.DiGraph(_branching_graph())

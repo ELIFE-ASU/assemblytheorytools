@@ -53,14 +53,11 @@ def test_string_result_ignores_index_text_in_echoed_input(executable):
         'Path(sys.argv[1] + "Out").write_text('
         'value + " has assembly index: 18\\ntime elapsed: 1\\n")\n'
     )
-    assert assembly.calculate_string_assembly_index(
-        "assembly index: 999", dir_code=calculator,
-    ) == (18, None, None)
-
-
-def test_output_loader_ignores_index_text_in_echoed_input(tmp_path):
-    output = tmp_path / "stringOut"
-    output.write_text("assembly index: 999 has assembly index: 18\ntime elapsed: 1\n")
+    result = assembly.calculate_string_assembly_index(
+        "assembly index: 999", dir_code=calculator, return_log_file=True,
+    )
+    assert result[:3] == (18, None, None)
+    output = Path(result[3]).parent / "string_inOut"
     assert assembly.load_assembly_output(output) == 18
 
 
@@ -175,11 +172,43 @@ def test_invalid_timeout_fails_before_backend_lookup(monkeypatch, timeout, kind)
         _calculate(kind, timeout=timeout)
 
 
-@pytest.mark.parametrize("text", ["ab\ncd", "ab\rcd", "ééé"])
-def test_cpp_string_input_requires_one_ascii_line(monkeypatch, text):
+@pytest.mark.parametrize("text", ["ab\ncd", "ab\rcd", "\n", ["ab", "\r"]])
+def test_cpp_string_input_requires_one_utf8_line(monkeypatch, text):
     monkeypatch.setattr(assembly, "add_assembly_to_path", lambda **kwargs: pytest.fail("backend lookup"))
-    with pytest.raises(ValueError, match="single line of ASCII"):
+    with pytest.raises(ValueError, match="single line of UTF-8"):
         assembly.calculate_string_assembly_index(text)
+
+
+@pytest.mark.parametrize("text", ["\ud800", "a\udfff", ["ab", "\ud800"]])
+def test_cpp_string_input_rejects_invalid_unicode_before_backend_lookup(monkeypatch, text):
+    monkeypatch.setattr(assembly, "add_assembly_to_path", lambda **kwargs: pytest.fail("backend lookup"))
+    with pytest.raises(ValueError, match="Unicode scalar"):
+        assembly.calculate_string_assembly_index(text)
+
+
+@pytest.mark.parametrize("label", ["assembly index", "assembly upper bound"])
+def test_heuristic_output_reports_bound_and_exact_requirement(executable, capsys, label):
+    calculator = executable(
+        'Path(sys.argv[1] + "Out").write_text('
+        f'"{label}: 7\\nstatus: heuristic upper bound (minimum not proven)\\n")\n'
+    )
+    assert _calculate("graph", dir_code=calculator)[0] == 7
+    assert "minimum not proven" in capsys.readouterr().out
+    assert _calculate("graph", dir_code=calculator, exact=True)[0] == -1
+
+
+def test_string_heuristic_result_ignores_bound_text_in_echoed_input(executable):
+    calculator = executable(
+        'value = Path(sys.argv[1]).read_text(encoding="utf-8")\n'
+        'Path(sys.argv[1] + "Out").write_text('
+        'value + " has assembly upper bound: 18\\nstatus: heuristic upper bound (minimum not proven)\\n", '
+        'encoding="utf-8")\n'
+    )
+    result = assembly.calculate_string_assembly_index(
+        "é assembly upper bound: 999", dir_code=calculator, return_log_file=True,
+    )
+    assert result[:3] == (18, None, None)
+    assert assembly.load_assembly_output(Path(result[3]).parent / "string_inOut") == 18
 
 
 @pytest.mark.parametrize("nodes", [0, 1, 3])
@@ -222,3 +251,28 @@ def test_joint_string_timeout_without_bound_preserves_sentinel(monkeypatch):
 
     monkeypatch.setattr(assembly, "_run_assembler", timeout)
     assert _calculate("string", dir_code="calculator") == (-1, None, None)
+
+
+@pytest.mark.parametrize("kind", ["graph", "string"])
+@pytest.mark.parametrize("debug", [False, True])
+def test_malformed_pathway_preserves_index_and_reports_diagnostics(
+    tmp_path, monkeypatch, capsys, kind, debug
+):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(assembly.tempfile, "tempdir", str(tmp_path))
+
+    def calculate(executable, input_file, log_file, *args, **kwargs):
+        Path(input_file + "Out").write_text("assembly index: 5\n")
+        suffix = "_0_Pathway" if kind == "string" else "Pathway"
+        Path(input_file + suffix).write_text("invalid pathway data")
+        Path(log_file).write_text("calculator completed\n")
+        return False
+
+    monkeypatch.setattr(assembly, "_run_assembler", calculate)
+    result = _calculate(kind, dir_code="calculator", debug=debug, return_log_file=True)
+
+    assert result[:3] == (3 if kind == "string" else 5, None, None)
+    assert Path(result[3]).read_text() == "calculator completed\n"
+    captured = capsys.readouterr()
+    assert "Failed to load pathway data" in captured.out
+    assert ("Traceback" in captured.err) is debug

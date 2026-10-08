@@ -8,6 +8,7 @@ import networkx as nx
 import numpy as np
 import pytest
 from ase import Atoms
+from ase.io import write
 from ase.spacegroup.spacegroup import SpacegroupNotFoundError
 
 import assemblytheorytools as att
@@ -30,17 +31,6 @@ CIF_ATOM_COUNTS = [
     ("Tistarite_0.cif", 10),
     ("Wodginite_3.cif", 24),
 ]
-
-
-@pytest.mark.filterwarnings(IGNORE_OCCUPANCY)
-@pytest.mark.parametrize("filename,atom_count", CIF_ATOM_COUNTS)
-def test_cif_loading_reads_primitive_cells(data_dir, filename, atom_count):
-    atoms = cell.read_cif_file(str(data_dir / "cif_files" / filename))
-
-    assert len(atoms) == atom_count
-    assert atoms.pbc.all()
-    assert atoms.get_volume() > 0
-    assert np.isfinite(atoms.positions).all()
 
 
 @pytest.mark.filterwarnings(IGNORE_OCCUPANCY)
@@ -199,13 +189,6 @@ def test_open_cluster_cutoff_controls_both_atoms_and_edges(
     )
 
 
-@pytest.mark.slow
-def test_crystal_assembly_index(crystal_graph):
-    assembly_index, _, _ = att.calculate_assembly_index(crystal_graph)
-
-    assert 0 < assembly_index < crystal_graph.number_of_edges()
-
-
 @pytest.fixture
 def water():
     return Atoms(
@@ -348,8 +331,15 @@ def test_central_region_keeps_one_image_of_a_boundary_atom(repetitions):
 
 @pytest.mark.filterwarnings(IGNORE_OCCUPANCY)
 @pytest.mark.parametrize("filename,atom_count", CIF_ATOM_COUNTS)
-def test_central_region_is_exactly_one_unit_cell(data_dir, filename, atom_count):
+def test_cif_loading_and_tiling_preserve_the_primitive_cell(
+    data_dir, filename, atom_count
+):
     atoms = cell.read_cif_file(str(data_dir / "cif_files" / filename))
+
+    assert len(atoms) == atom_count
+    assert atoms.pbc.all()
+    assert atoms.get_volume() > 0
+    assert np.isfinite(atoms.positions).all()
     for reps in ((2, 2, 2), (3, 3, 3)):
         central, _, _ = cell.tile_cell_shells(atoms, reps=reps)
         assert len(central) == atom_count, reps
@@ -376,6 +366,19 @@ def _cube_cell():
     )
 
 
+def test_cif_graph_has_the_cube_assembly_index(tmp_path):
+    # Exercise the whole CIF-to-calculator path with a small periodic crystal
+    # whose exact assembly index is known.
+    path = tmp_path / "cube.cif"
+    write(path, _cube_cell())
+
+    with pytest.warns(UserWarning, match="cif_to_nx function is experimental"):
+        graph = cell.cif_to_nx(str(path))
+
+    assert nx.is_isomorphic(graph, nx.hypercube_graph(3))
+    assert att.calculate_assembly_index(graph, exact=True)[0] == 4
+
+
 def test_cell_to_nx_builds_the_cube_graph_with_automatic_repetitions():
     graph = cell.cell_to_nx(_cube_cell())
 
@@ -395,7 +398,6 @@ def test_cell_to_nx_builds_the_cube_graph_with_automatic_repetitions():
     ] * 4
     assert set(nx.get_node_attributes(graph, "color").values()) == {"C"}
     assert set(nx.get_edge_attributes(graph, "color").values()) == {1}
-    assert att.calculate_assembly_index(graph)[0] == 4
 
 
 # Split from the test above so that only the cross-check is lost where

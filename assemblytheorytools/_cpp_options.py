@@ -29,17 +29,17 @@ class AssemblyCppOptions:
     parallel : {"off", "auto", "on"}, default "off"
         Select serial search, automatic parallel search with serial fallback,
         or require parallel search. Maps to ``--parallel``. ``"on"`` requires
-        a compatible parallel build and cannot be combined with string mode,
+        a compatible parallel build and cannot be combined with Re-Pair,
         a finite ``runtime_ticks`` budget, or ``write_intermediate_mas=True``.
         ``"auto"`` allows C++ to fall back to serial for these cases.
     threads : int or {"auto"}, default "auto"
         OpenMP threads per process, from 1 through ``2**31 - 1``. Maps to
-        ``--threads`` and applies when parallel search is enabled. Explicit
-        thread counts are unavailable for string mode; availability depends
-        on the executable and runtime environment.
+        ``--threads`` and applies when parallel search is enabled for graphs
+        or strings; availability depends on the executable and runtime
+        environment.
     verbose : bool, default False
-        Print the parsed graph into the calculation log (``--verbose=1``).
-        Unavailable for string mode.
+        Print the parsed graph or input string into the calculation log
+        (``--verbose=1``).
     memory_report : bool, default False
         Request the Linux peak-memory report (``-memTest=1``). C++ writes
         ``memUsage`` in the calculation directory.
@@ -52,6 +52,16 @@ class AssemblyCppOptions:
         Write index improvements to ``INPUTIntermediateMAs`` using
         ``-writeIntermediateMAs=1``. Unavailable for string mode and forced
         parallel search.
+    algorithm : {"full", "re-pair"} or None, default None
+        Select exact search or a constructive Re-Pair upper bound for graphs
+        or strings (``--algorithm``). ``None`` omits the flag and uses the
+        executable's default, ``"full"``. Re-Pair is serial and cannot use
+        explicit ``runtime_ticks`` or ``enum_max`` limits, telemetry, or
+        intermediate-index output. Its pathway is a construction certificate;
+        its bound is not a proven minimum.
+    upper_bound : {"graph-repair"} or None, default None
+        Graph-only compatibility selector (``--upper-bound=graph-repair``)
+        for Re-Pair. Cannot be combined with an explicit ``algorithm``.
 
     Notes
     -----
@@ -62,9 +72,10 @@ class AssemblyCppOptions:
     Older camelCase aliases are used for renamed C++ flags.
 
     Hydrogen removal and disconnected-component correction are managed by
-    Python, so the bridge always passes ``-removeHydrogens=0`` and
-    ``-compensateDisjoint=0``. The input API selects ``-runStrings=1`` for
-    string mode. Diagnostic file options retain the calculation directory;
+    Python, so the graph bridge passes ``-removeHydrogens=0`` and
+    ``-compensateDisjoint=0``. Native string mode omits hydrogen removal,
+    keeps component correction disabled, and selects ``-runStrings=1``.
+    Diagnostic file options retain the calculation directory;
     use the calculation's ``return_log_file=True`` to obtain its location.
     """
 
@@ -78,6 +89,8 @@ class AssemblyCppOptions:
     memory_report: bool = False
     telemetry: bool = False
     write_intermediate_mas: bool = False
+    algorithm: str | None = None
+    upper_bound: str | None = None
 
     def __post_init__(self) -> None:
         for name in (
@@ -112,6 +125,24 @@ class AssemblyCppOptions:
         elif not 1 <= self.threads <= _INT_MAX:
             raise ValueError(f"threads must be from 1 to {_INT_MAX}")
 
+        for name, choices in (
+            ("algorithm", {"full", "re-pair"}),
+            ("upper_bound", {"graph-repair"}),
+        ):
+            value = getattr(self, name)
+            if value is None:
+                continue
+            if type(value) is not str:
+                raise TypeError(f"{name} must be a str or None")
+            if value not in choices:
+                raise ValueError(f"{name} must be one of {sorted(choices)} or None")
+        if self.algorithm is not None and self.upper_bound is not None:
+            raise ValueError("algorithm and upper_bound cannot be combined")
+
+    @property
+    def _is_re_pair(self) -> bool:
+        return self.algorithm == "re-pair" or self.upper_bound == "graph-repair"
+
     @property
     def _retain_files(self) -> bool:
         return self.memory_report or self.telemetry or self.write_intermediate_mas
@@ -119,12 +150,9 @@ class AssemblyCppOptions:
     def _validate_mode(self, *, str_mode: bool) -> None:
         """Reject controls that the selected input mode cannot honor."""
         if str_mode:
-            if self.parallel == "on":
-                raise ValueError("parallel='on' is unavailable for C++ string mode")
             for name, configured in (
+                ("upper_bound", self.upper_bound is not None),
                 ("enum_max", self.enum_max is not None),
-                ("threads", self.threads != "auto"),
-                ("verbose", self.verbose),
                 ("telemetry", self.telemetry),
                 ("write_intermediate_mas", self.write_intermediate_mas),
             ):
@@ -133,22 +161,37 @@ class AssemblyCppOptions:
         else:
             if self.accept_palindromes:
                 raise ValueError("accept_palindromes is available only for C++ string mode")
-            if self.parallel == "on":
-                if self.runtime_ticks not in (None, _UINT64_MAX):
-                    raise ValueError("parallel='on' cannot use a finite runtime_ticks budget")
-                if self.write_intermediate_mas:
-                    raise ValueError("parallel='on' cannot use write_intermediate_mas")
+
+        if self._is_re_pair:
+            for name, configured in (
+                ("runtime_ticks", self.runtime_ticks is not None),
+                ("enum_max", self.enum_max is not None),
+                ("parallel='on'", self.parallel == "on"),
+                ("telemetry", self.telemetry),
+                ("write_intermediate_mas", self.write_intermediate_mas),
+            ):
+                if configured:
+                    raise ValueError(f"{name} is unavailable for Re-Pair")
+        if self.parallel == "on":
+            if self.runtime_ticks not in (None, _UINT64_MAX):
+                raise ValueError("parallel='on' cannot use a finite runtime_ticks budget")
+            if self.write_intermediate_mas:
+                raise ValueError("parallel='on' cannot use write_intermediate_mas")
 
     def _arguments(self, *, str_mode: bool) -> list[str]:
         """Validate the input mode and serialize each applicable option once."""
         self._validate_mode(str_mode=str_mode)
-        arguments = [
-            "-removeHydrogens=0",
+        arguments = [] if str_mode else ["-removeHydrogens=0"]
+        arguments.extend([
             "-compensateDisjoint=0",
             f"-memTest={int(self.memory_report)}",
-        ]
+        ])
         if str_mode:
             arguments.append("-runStrings=1")
+        if self.algorithm is not None:
+            arguments.append(f"--algorithm={self.algorithm}")
+        if self.upper_bound is not None:
+            arguments.append(f"--upper-bound={self.upper_bound}")
         if self.runtime_ticks is not None:
             arguments.append(f"-runTime={self.runtime_ticks}")
         if self.enum_max is not None:

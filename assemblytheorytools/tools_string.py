@@ -76,7 +76,9 @@ def prep_joint_string_ai(input_list: list[str]) -> tuple[str, list[str]]:
         raise ValueError("Empty string in input list")
 
     # Reserve every input character before choosing the first delimiter.
-    reserved_chars = "".join(input_list)
+    # Native string calculations use one input line. Delimiters must never
+    # introduce another line when the printable ASCII alphabet is exhausted.
+    reserved_chars = "".join(input_list) + "\r\n"
     delimiters: list[str] = []
     parts = [input_list[0]]
     for item in input_list[1:]:

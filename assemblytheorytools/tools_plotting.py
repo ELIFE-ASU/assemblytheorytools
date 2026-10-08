@@ -3218,7 +3218,8 @@ def plot_ms2_spectrum(
         fontsize=12,
         fontweight="bold",
     )
-    ax.set_xlim(0, max(plot_df["mz"]) + 20 if len(plot_df) > 0 else 300)
+    masses = plot_df["mz"] if plot_df is not None else fragments
+    ax.set_xlim(0, max(masses) + 20 if len(masses) else 300)
     ax.grid(alpha=0.3)
     ax_plot(fig, ax, "MS2 m/z", "Intensity")
     fig.tight_layout()

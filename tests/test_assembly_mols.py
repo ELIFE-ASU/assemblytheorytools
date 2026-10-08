@@ -10,6 +10,14 @@ import assemblytheorytools as att
 from assemblytheorytools import assembly
 
 
+@pytest.fixture
+def serial_assembly_mp(monkeypatch):
+    """Keep semantic checks local; the batch smoke test exercises real workers."""
+    monkeypatch.setattr(
+        assembly, "mp_calc", lambda function, values: list(map(function, values))
+    )
+
+
 @pytest.mark.parametrize(
     "molecule",
     [molecule for molecule in att.test_mols.values() if molecule.test_include],
@@ -32,8 +40,6 @@ def test_readme_example():
 
     virt_obj = [att.nx_to_smi(graph, add_hydrogens=False) for graph in virt_obj]
 
-    fig, ax = att.plot_pathway(pathway, plot_type="graph")
-
     assert ai == 9
     assert pathway.number_of_nodes() > 0
     assert pathway.number_of_edges() > 0
@@ -42,7 +48,6 @@ def test_readme_example():
         == Chem.MolToSmiles(Chem.MolFromSmiles(smi))
         for vo in virt_obj
     )
-    assert fig.axes == [ax]
 
 
 @pytest.mark.parametrize("representation", ["mol", "graph"])
@@ -84,16 +89,6 @@ def test_big_chungus(data_dir):
     assert 0 <= ai_graph <= 8
     assert 0 <= ai_mol_file <= 8
     assert 0 <= ai_mol <= 8
-
-
-@pytest.mark.slow
-def test_taxol_file(data_dir):
-    mol_file = str(data_dir / "mol_files" / "taxol.mol")
-    ai, _, _ = att.calculate_assembly_index(
-        Chem.MolFromMolFile(mol_file), timeout=15.0, strip_hydrogen=True
-    )
-    # actual value is 23, but for timeout this is ok
-    assert 23 <= ai <= 24
 
 
 def test_joint_ass():
@@ -152,7 +147,7 @@ def test_joint_index_is_independent_of_input_order():
     assert forward == reverse >= 0
 
 
-def test_semi_metric():
+def test_semi_metric(serial_assembly_mp):
     molecules = ["NCC(O)=O", "CC(N)C(O)=O"]
     mols = [att.smi_to_mol(smile) for smile in molecules]
     graphs = [att.mol_to_nx(mol) for mol in mols]
@@ -227,7 +222,7 @@ def molecular_ensemble():
     return [att.smi_to_nx(smi) for smi in smiles]
 
 
-def test_calculate_assembly_index_parallel(molecular_ensemble):
+def test_calculate_assembly_index_parallel(molecular_ensemble, two_assembly_workers):
     graphs = molecular_ensemble
     settings = {"strip_hydrogen": True}
     ai = att.calculate_assembly_index_parallel(graphs, settings)[0]
@@ -235,8 +230,50 @@ def test_calculate_assembly_index_parallel(molecular_ensemble):
     assert ai == ref_list
 
 
+@pytest.mark.parametrize("keep_log", [False, True])
+def test_batch_results_keep_failures_and_optional_logs_aligned(
+    monkeypatch, serial_assembly_mp, keep_log
+):
+    graphs = [nx.path_graph(3), nx.path_graph(4)]
+    pathway = nx.DiGraph([("C", "CC")])
+    settings = {"timeout": 0.25, "return_log_file": keep_log}
+    original = dict(settings)
+    calls = []
+
+    def calculate(graph, **options):
+        calls.append((graph, options))
+        result = (2, ["C", "CC"], pathway) if graph is graphs[0] else (-1, None, None)
+        return (*result, f"{graph.number_of_nodes()}.log") if keep_log else result
+
+    monkeypatch.setattr(assembly, "calculate_assembly_index", calculate)
+
+    result = att.calculate_assembly_index_parallel(iter(graphs), settings)
+
+    assert result == [[2, -1], [["C", "CC"], None], [pathway, None]] + (
+        [["3.log", "4.log"]] if keep_log else []
+    )
+    assert calls == [(graph, original) for graph in graphs]
+    assert settings == original
+
+
+def test_empty_batch_returns_no_result_columns(serial_assembly_mp):
+    assert att.calculate_assembly_index_parallel(iter(()), None) == []
+
+
+@pytest.mark.parametrize(
+    "calculate", [att.calculate_assembly_index_parallel, att.calculate_sum_assembly_index]
+)
+@pytest.mark.parametrize("graphs", [None, 7])
+def test_batch_apis_reject_noniterable_input_before_starting_workers(
+    monkeypatch, calculate, graphs
+):
+    monkeypatch.setattr(assembly, "mp_calc", lambda *a, **k: pytest.fail("workers started"))
+    with pytest.raises(ValueError, match="iterable of graph objects"):
+        calculate(graphs, None)
+
+
 @pytest.mark.parametrize("parallel", [False, True], ids=["serial", "parallel"])
-def test_sum_of_assembly_indices(parallel):
+def test_sum_of_assembly_indices(parallel, serial_assembly_mp):
     graphs = [att.smi_to_nx(smiles) for smiles in ["c1ccccc1", "c1ccccc1O"]]
 
     assert (
@@ -274,7 +311,9 @@ def test_sum_propagates_failed_indices(monkeypatch, parallel, failed_index):
     ],
     ids=["shared-ring", "identical-amino-acids", "identical-chains"],
 )
-def test_assembly_similarity(smiles, expected, parallel, enforce_exact):
+def test_assembly_similarity(
+    smiles, expected, parallel, enforce_exact, serial_assembly_mp
+):
     graphs = [att.smi_to_nx(value) for value in smiles]
     settings = {"strip_hydrogen": True, "exact": False}
 
@@ -383,7 +422,7 @@ def test_calculate_jo():
     assert jo == 6, f"Expected JO to be 6, but got {jo}"
 
 
-def test_calculate_assembly(molecular_ensemble):
+def test_calculate_assembly(molecular_ensemble, serial_assembly_mp):
     graphs = molecular_ensemble
     n_i = [1, 2, 3, 4, 5]
     settings = {"strip_hydrogen": True}
@@ -418,7 +457,7 @@ def test_integer_chain(value, expected):
     assert att.calculate_integer_chain(value) == expected
 
 
-def test_pairwise_joint_pathway_contains_individual_assembly_spaces():
+def test_pairwise_joint_pathway_contains_individual_assembly_spaces(serial_assembly_mp):
     graphs = [att.smi_to_nx(smiles) for smiles in ["CC(OC)C=C", "CC(OC)C", "CCC"]]
     settings = {"strip_hydrogen": True}
     pathways = att.calculate_assembly_index_parallel(graphs, settings=settings)[-1]

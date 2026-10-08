@@ -91,7 +91,10 @@ def test_missing_root_warns_and_preserves_prior(estimate_ma, mass):
     assert "600.0" in message
     assert "m/z" in message
     np.random.seed(0)
-    np.testing.assert_array_equal(samples, estimate_ma({}, mass))
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        prior = estimate_ma({}, mass)
+    np.testing.assert_array_equal(samples, prior)
 
 
 @pytest.mark.parametrize("mass", [499.75, 500.0, 500.25])
@@ -102,12 +105,6 @@ def test_matching_root_and_recursive_complements_do_not_warn(estimate_ma, mass, 
     with warnings.catch_warnings():
         warnings.simplefilter("error", UserWarning)
         estimate_ma(tree, mass, joint=joint)
-
-
-def test_empty_tree_does_not_warn(estimate_ma):
-    with warnings.catch_warnings():
-        warnings.simplefilter("error", UserWarning)
-        estimate_ma({}, 400.0)
 
 
 @pytest.mark.parametrize("mass", [55.934939, 62.929599], ids=["iron-56", "copper-63"])
