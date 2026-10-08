@@ -8,7 +8,7 @@ from assemblytheorytools import assembly
 
 # assembly-theory is not installed on Windows, so the whole module is skipped
 # there. That includes the missing-backend test below, whose behaviour is the
-# Windows behaviour: packaging.yml asserts it on Windows against the wheel.
+# Windows behaviour; CI has no Windows runner, so nothing asserts it there.
 pytestmark = pytest.mark.skipif(
     assembly.at_rust is None,
     reason="assembly-theory is not installed; it publishes no Windows wheel",
