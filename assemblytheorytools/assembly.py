@@ -1912,7 +1912,7 @@ def calculate_assembly_index_vac_lower_bound(
 
     Parameters
     ----------
-    data : str, nx.Graph, Chem.Mol, or a list of them
+    data : str, nx.Graph, Chem.Mol, or list
         One object, or several of the same kind to bound jointly. A molecule is
         converted as :func:`calculate_assembly_index` converts it, with explicit
         hydrogens, and each connected component of a graph is a separate
@@ -1932,7 +1932,7 @@ def calculate_assembly_index_vac_lower_bound(
     -------
     int or (int, dict)
         The lower bound, and with ``return_info`` the dict documented in
-        :func:`assemblycfg.vac_lower_bound`.
+        ``assemblycfg.vac_lower_bound``.
 
     Raises
     ------
@@ -1941,7 +1941,7 @@ def calculate_assembly_index_vac_lower_bound(
 
     Notes
     -----
-    Delegates to :func:`assemblycfg.vac_lower_bound`, which installs the
+    Delegates to ``assemblycfg.vac_lower_bound``, which installs the
     `vac <https://github.com/ELIFE-ASU/additionchains>`_ solver with ``cargo``
     on first use, or uses ``VAC_PATH``. Without it the closed-form bounds are
     returned with a warning. For a connected molecule the bound is never below
