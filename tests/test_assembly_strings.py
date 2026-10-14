@@ -277,3 +277,51 @@ def test_trivial_strings_return_without_resolving_backend(input_data, monkeypatc
     assert assembly.calculate_string_assembly_index(
         input_data, return_log_file=True
     ) == (0, None, None, None)
+
+
+def test_directed_virtual_objs_and_path():
+    ai, virtual_objects, pathway = assembly.calculate_string_assembly_index(
+        "0110100110010110", directed=True)
+    assert ai == 7
+    assert "0110100110010110" in virtual_objects
+    assert isinstance(pathway, nx.DiGraph)
+    assert "0110100110010110" in pathway
+
+
+_THUE_MORSE_PATHWAY = """{
+"file_graph": [{"Fragments": ["0110100110010110"], "Positions": [0]}],
+"remnant": [{"Fragments": ["0110"], "Positions": [6]}],
+"duplicates": [
+{"Left": [6, 4], "Right": [12, 4]},
+{"Left": [6, 4], "Right": [0, 4]},
+{"Left": [6, 2], "Right": [10, 2]},
+{"Left": [8, 2], "Right": [4, 2]}
+]
+}"""
+
+
+@pytest.mark.parametrize("write_pathway", [False, True])
+def test_string_pathway_with_input_path_prefix(tmp_path, monkeypatch, capsys, write_pathway):
+    """Older string builds prefix the pathway name with the mangled input path."""
+    monkeypatch.setattr(assembly.tempfile, "tempdir", str(tmp_path))
+
+    def calculate(executable, input_file, log_file, *args, **kwargs):
+        Path(input_file + "Out").write_text("assembly index: 7\n")
+        if write_pathway:
+            name = input_file.replace("/", "_") + "_0_Pathway"
+            (Path(input_file).parent / name).write_text(_THUE_MORSE_PATHWAY)
+        Path(log_file).write_text("calculator completed\n")
+        return False
+
+    monkeypatch.setattr(assembly, "_run_assembler", calculate)
+    ai, virtual_objects, pathway = assembly.calculate_string_assembly_index(
+        "0110100110010110", dir_code="calculator")
+
+    assert ai == 7
+    missing = "No pathway file found" in capsys.readouterr().out
+    assert missing is not write_pathway
+    if write_pathway:
+        assert "0110100110010110" in virtual_objects
+        assert "0110100110010110" in pathway
+    else:
+        assert virtual_objects is None and pathway is None
