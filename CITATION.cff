@@ -1,0 +1,93 @@
+# This CITATION.cff file follows the Citation File Format 1.2.0.
+# Validate after editing: pip install cffconvert && cffconvert --validate
+cff-version: 1.2.0
+message: "If you use AssemblyTheoryTools, please cite it using the metadata from this file."
+type: software
+title: "AssemblyTheoryTools"
+abstract: >-
+  AssemblyTheoryTools (ATT) is a Python toolkit for computing assembly
+  indices and analyzing assembly pathways and assembly spaces for molecules,
+  strings and graphs, for estimating molecular assembly index from infrared
+  and tandem mass spectrometry data, and for computing ensemble quantities
+  such as assembly and the exploration ratio from assembly indices and copy
+  numbers.
+authors:
+  - given-names: Louie
+    family-names: Slocombe
+    affiliation: "Beyond Center for Fundamental Concepts in Science, Arizona State University"
+  - given-names: Gage
+    family-names: Siebert
+    affiliation: "School of Earth and Space Exploration, Arizona State University"
+  - given-names: Estelle
+    family-names: Janin
+    affiliation: "School of Earth and Space Exploration, Arizona State University"
+  - given-names: Joseph
+    family-names: Fedrow
+    affiliation: "Beyond Center for Fundamental Concepts in Science, Arizona State University"
+  - given-names: Veronica
+    family-names: Mierzejewski
+    affiliation: "Beyond Center for Fundamental Concepts in Science, Arizona State University; School of Earth and Space Exploration, Arizona State University"
+  - given-names: M. Reza
+    family-names: Shahjahan
+    affiliation: "School of Earth and Space Exploration, Arizona State University"
+  - given-names: Marina
+    family-names: Fernandez-Ruz
+    affiliation: "Centro de Astrobiología (CAB), CSIC-INTA"
+  - given-names: Sebastian
+    family-names: Pagel
+    affiliation: "School of Chemistry, The University of Glasgow"
+  - given-names: Amit
+    family-names: Kahana
+    affiliation: "School of Chemistry, The University of Glasgow"
+  - given-names: Stuart
+    family-names: Marshall
+    affiliation: "School of Chemistry, The University of Glasgow"
+  - given-names: Ian
+    family-names: Seet
+    affiliation: "School of Chemistry, The University of Glasgow"
+  - given-names: Keith
+    family-names: Patarroyo
+    affiliation: "School of Chemistry, The University of Glasgow"
+  - given-names: Michael
+    family-names: Jirasek
+    affiliation: "School of Chemistry, The University of Glasgow"
+  - given-names: Abhishek
+    family-names: Sharma
+    affiliation: "School of Chemistry, The University of Glasgow"
+  - given-names: Leroy
+    family-names: Cronin
+    affiliation: "School of Chemistry, The University of Glasgow"
+  - given-names: Sara Imari
+    family-names: Walker
+    affiliation: "Beyond Center for Fundamental Concepts in Science, Arizona State University; School of Earth and Space Exploration, Arizona State University; Santa Fe Institute"
+    email: sara.i.walker@asu.edu
+version: "1.15.0"
+date-released: "2026-10-19"
+license: MIT
+repository-code: "https://github.com/ELIFE-ASU/assemblytheorytools"
+url: "https://assemblytheorytools.readthedocs.io"
+keywords:
+  - assembly theory
+  - assembly index
+  - molecular complexity
+  - cheminformatics
+  - biosignatures
+# Once Zenodo has minted the concept DOI (it always resolves to the latest
+# version), uncomment and fill this in:
+# identifiers:
+#   - type: doi
+#     value: "10.5281/zenodo.XXXXXXX"
+#     description: "Concept DOI for all versions of AssemblyTheoryTools"
+#
+# Once the protocol paper is published, uncomment and complete this block so
+# GitHub's "Cite this repository" button offers the paper as well:
+# preferred-citation:
+#   type: article
+#   title: "A Toolkit to Map, Calculate and Measure Assembly Indices"
+#   authors:
+#     - family-names: Slocombe
+#       given-names: Louie
+#     # ... remaining authors as above
+#   journal: "JOURNAL NAME"
+#   year: 2026
+#   doi: "10.XXXX/XXXXX"
