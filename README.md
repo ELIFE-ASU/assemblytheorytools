@@ -11,6 +11,7 @@
 [![PyPI](https://img.shields.io/pypi/v/assemblytheorytools.svg)](https://pypi.org/project/assemblytheorytools/)
 [![Python versions](https://img.shields.io/pypi/pyversions/assemblytheorytools.svg)](https://pypi.org/project/assemblytheorytools/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/ELIFE-ASU/assemblytheorytools/blob/main/LICENSE)
+[![DOI](https://zenodo.org/badge/869205293.svg)](https://doi.org/10.5281/zenodo.23487067)
 
 AssemblyTheoryTools (ATT) provides a unified Python interface for assembly-index calculations across molecules, strings,
 and arbitrary graphs.
