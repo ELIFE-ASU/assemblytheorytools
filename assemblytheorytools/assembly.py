@@ -1377,7 +1377,13 @@ def _calculate_string_assembly_cpp(
         virt_obj = path = None
         # The CLI writes one pathway per input line; this API supplies one line.
         file_path_pathway = directory / "string_in_0_Pathway"
-        if options.pathway and file_path_pathway.is_file():
+        if not file_path_pathway.is_file():
+            # Older string builds prefix the name with the mangled input path.
+            file_path_pathway = next(directory.glob("*string_in_0_Pathway"), file_path_pathway)
+        if options.pathway and not file_path_pathway.is_file():
+            print("No pathway file found; virtual objects and pathway are unavailable.",
+                  flush=True)
+        elif options.pathway:
             try:
                 virt_obj, path = parse_string_pathway_file(
                     str(file_path_pathway), accept_palindromes=options.accept_palindromes)
