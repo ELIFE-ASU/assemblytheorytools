@@ -177,3 +177,7 @@ examples/protocols/4/temp_mzml_output/
 
 # Build-time copies of the protocol notebooks made by docs/source/conf.py
 docs/source/examples/protocol_*.ipynb
+
+# Local coding-agent instructions, not part of the repository
+CLAUDE.md
+AGENTS.md
